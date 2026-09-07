@@ -43,7 +43,7 @@ func _process(delta: float) -> bool:
 		return false
 	if not code_seen and not arena.lobby_code.is_empty():
 		code_seen = true
-		print("LOBBY CODE=%s" % arena.lobby_code)
+		print("LOBBY CODE=%s port=%d" % [arena.lobby_code, arena.current_port])
 	if arena.phase in ["countdown", "match"] and not match_seen:
 		match_seen = true
 		print("LOBBY MATCH epoch=%d actors=%d" % [arena.epoch, arena.actors.size()])

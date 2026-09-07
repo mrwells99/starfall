@@ -1,4 +1,4 @@
-# Ringfall
+# Starfall
 
 A Godot 4.5 arena-combat prototype: **WoW-style controls** (WASD, mouse turn, strafe, Tab targeting, third-person camera) with **LoL-style structure** (pick a fixed-kit champion, enter an arena at equal power — no gear, no leveling). Original names and generated placeholder geometry; no WoW/LoL assets.
 

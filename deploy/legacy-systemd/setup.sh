@@ -1,28 +1,28 @@
 #!/usr/bin/env bash
-# Bootstrap a fresh droplet for hosting Ringfall.
+# Bootstrap a fresh droplet for hosting Starfall.
 # Supported distros: Ubuntu 22.04+/Debian 12+, Rocky/AlmaLinux/RHEL 9+, Fedora.
 # Run once as root (or with sudo) on the droplet. Idempotent — safe to re-run.
 #
 # Review this script before running it — it installs packages, creates a
-# system user, opens the Ringfall UDP ports in the firewall, and installs a
+# system user, opens the Starfall UDP ports in the firewall, and installs a
 # templated systemd unit plus one environment file per server instance.
 #
 # Usage:
-#   scp -r deploy/ root@<droplet>:/tmp/ringfall-deploy/
-#   ssh root@<droplet> 'bash /tmp/ringfall-deploy/setup.sh'
+#   scp -r deploy/ root@<droplet>:/tmp/starfall-deploy/
+#   ssh root@<droplet> 'bash /tmp/starfall-deploy/setup.sh'
 #
 # Override via env vars if needed:
 #   GODOT_VERSION=4.5.1-stable
 #   GODOT_URL=<full url to Godot linux zip>
-#   INSTALL_DIR=/opt/ringfall
-#   SERVICE_USER=ringfall
+#   INSTALL_DIR=/opt/starfall
+#   SERVICE_USER=starfall
 
 set -euo pipefail
 
 GODOT_VERSION="${GODOT_VERSION:-4.5.1-stable}"
 GODOT_URL="${GODOT_URL:-https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux.x86_64.zip}"
-INSTALL_DIR="${INSTALL_DIR:-/opt/ringfall}"
-SERVICE_USER="${SERVICE_USER:-ringfall}"
+INSTALL_DIR="${INSTALL_DIR:-/opt/starfall}"
+SERVICE_USER="${SERVICE_USER:-starfall}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -110,13 +110,13 @@ fi
 /usr/local/bin/godot --version
 
 echo "==> Installing systemd template and instance configs"
-install -m 0644 "${SCRIPT_DIR}/ringfall@.service" /etc/systemd/system/ringfall@.service
-mkdir -p /etc/ringfall
-install -m 0644 "${SCRIPT_DIR}/instances/"*.env /etc/ringfall/
+install -m 0644 "${SCRIPT_DIR}/starfall@.service" /etc/systemd/system/starfall@.service
+mkdir -p /etc/starfall
+install -m 0644 "${SCRIPT_DIR}/instances/"*.env /etc/starfall/
 systemctl daemon-reload
 for env_file in "${SCRIPT_DIR}/instances/"*.env; do
     instance="$(basename "${env_file}" .env)"
-    systemctl enable "ringfall@${instance}"
+    systemctl enable "starfall@${instance}"
 done
 
 echo
@@ -130,5 +130,5 @@ fi
 echo
 echo "Next steps (from your dev machine):"
 echo "  1. First deploy:   ./deploy/deploy.sh   (syncs source and starts every instance)"
-echo "  2. Check status:   ssh root@<droplet> systemctl status 'ringfall@*'"
-echo "  3. Watch logs:     ssh root@<droplet> journalctl -u 'ringfall@*' -f"
+echo "  2. Check status:   ssh root@<droplet> systemctl status 'starfall@*'"
+echo "  3. Watch logs:     ssh root@<droplet> journalctl -u 'starfall@*' -f"

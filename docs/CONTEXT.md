@@ -1,4 +1,4 @@
-# Context — where Ringfall is right now
+# Context — where Starfall is right now
 
 _Short-term memory. Keep concise. Historical decisions live in [`DECISIONS.md`](DECISIONS.md); long-range plan lives in [`ROADMAP.md`](ROADMAP.md)._
 

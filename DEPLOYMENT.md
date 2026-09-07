@@ -1,6 +1,6 @@
-# Deployment — Ringfall on Docker
+# Deployment — Starfall on Docker
 
-Production deployment for the Ringfall dedicated servers: GitHub Actions builds
+Production deployment for the Starfall dedicated servers: GitHub Actions builds
 and tests, pushes an image to GHCR, and restarts the stack on a Rocky Linux 9
 droplet over SSH.
 
@@ -17,9 +17,9 @@ private-lobby pool.
 
 | Container | UDP | Role |
 | --- | --- | --- |
-| `ringfall-duel` | 27840 | Duel queue (1v1) |
-| `ringfall-team` | 27841 | Team queue (3v3) |
-| `ringfall-lobby1..4` | 27850–27853 | Private lobbies, claimed by code |
+| `starfall-duel` | 27840 | Duel queue (1v1) |
+| `starfall-team` | 27841 | Team queue (3v3) |
+| `starfall-lobby1..4` | 27850–27853 | Private lobbies, claimed by code |
 
 These port numbers are **baked into the client** at build time
 (`scripts/config.gd`). Changing one means changing it in `config.gd`,
@@ -59,11 +59,11 @@ No registry secret is needed for **pushing** — the workflow uses the built-in
 Generate the deploy key and host-key pin:
 
 ```bash
-ssh-keygen -t ed25519 -N "" -C ci@ringfall -f ./ringfall_deploy
+ssh-keygen -t ed25519 -N "" -C ci@starfall -f ./starfall_deploy
 ssh-keyscan -t ed25519 play.leafmods.com
 ```
 
-The public half (`ringfall_deploy.pub`) goes to `create-deploy-user.sh`; the
+The public half (`starfall_deploy.pub`) goes to `create-deploy-user.sh`; the
 private half becomes `DEPLOY_SSH_KEY`; the `ssh-keyscan` output becomes
 `DEPLOY_SSH_KNOWN_HOSTS`. Delete the local private key afterwards.
 
@@ -82,11 +82,11 @@ one vCPU; see [Sizing](#sizing).
 
 ```bash
 # 1. Ship the deploy scripts
-scp -r deploy/ root@<droplet>:/tmp/ringfall-deploy/
+scp -r deploy/ root@<droplet>:/tmp/starfall-deploy/
 
 # 2. Read it, then run it. Takes the CI deploy key's PUBLIC half.
-ssh root@<droplet> 'less /tmp/ringfall-deploy/bootstrap.sh'
-ssh root@<droplet> 'bash /tmp/ringfall-deploy/bootstrap.sh "ssh-ed25519 AAAA... ci@ringfall"'
+ssh root@<droplet> 'less /tmp/starfall-deploy/bootstrap.sh'
+ssh root@<droplet> 'bash /tmp/starfall-deploy/bootstrap.sh "ssh-ed25519 AAAA... ci@starfall"'
 ```
 
 `bootstrap.sh` is idempotent and runs the other two scripts in order:
@@ -97,12 +97,12 @@ ssh root@<droplet> 'bash /tmp/ringfall-deploy/bootstrap.sh "ssh-ed25519 AAAA... 
    that caps log size, enables `live-restore`, and disables the userland proxy.
 3. [`create-deploy-user.sh`](deploy/create-deploy-user.sh) — the `deploy` user,
    its authorized key, and two root-owned wrapper scripts it may run via sudo.
-4. `/opt/ringfall` seeded with `.env` from `.env.example`.
+4. `/opt/starfall` seeded with `.env` from `.env.example`.
 
 Then, manually:
 
 - **DNS** — `A` record for `play.leafmods.com` → droplet IPv4.
-- **Review `/opt/ringfall/.env`** — at minimum confirm `RINGFALL_IMAGE` matches
+- **Review `/opt/starfall/.env`** — at minimum confirm `STARFALL_IMAGE` matches
   your GHCR path (`ghcr.io/<owner>/<repo>`).
 - **If the GHCR package is private**, log the host in once so `docker compose
   pull` can authenticate:
@@ -155,10 +155,10 @@ and restarts the stack.
 On the server, each deploy:
 
 1. Receives the current `docker-compose.yml` via `scp`.
-2. Rewrites **only** the `RINGFALL_TAG=` line in `/opt/ringfall/.env`, recording
-   the previous value in `/opt/ringfall/.last-tag`. Everything else in `.env`
+2. Rewrites **only** the `STARFALL_TAG=` line in `/opt/starfall/.env`, recording
+   the previous value in `/opt/starfall/.last-tag`. Everything else in `.env`
    belongs to the operator and is never overwritten.
-3. Runs `sudo /usr/local/bin/ringfall-deploy`, which performs
+3. Runs `sudo /usr/local/bin/starfall-deploy`, which performs
    `docker compose pull`, `docker compose up -d --remove-orphans`, waits for all
    six containers to report healthy, prunes images older than a week, and exits
    non-zero if the stack did not come up.
@@ -178,13 +178,13 @@ From the droplet:
 
 ```bash
 # Container state plus recent logs (read-only, allowed for the deploy user)
-sudo /usr/local/bin/ringfall-status 50
+sudo /usr/local/bin/starfall-status 50
 
 # Six UDP listeners expected
 ss -ulnp | grep 278
 
 # What is actually running, by digest
-sudo docker compose -f /opt/ringfall/docker-compose.yml images
+sudo docker compose -f /opt/starfall/docker-compose.yml images
 ```
 
 Healthy startup logs one line per container:
@@ -222,7 +222,7 @@ gh workflow run deploy.yml -f tag=sha-1a2b3c4
 Find candidate tags in the GHCR package page, or:
 
 ```bash
-gh api "/users/<owner>/packages/container/ringfall/versions" \
+gh api "/users/<owner>/packages/container/starfall/versions" \
   --jq '.[].metadata.container.tags[]' | head -20
 ```
 
@@ -230,10 +230,10 @@ gh api "/users/<owner>/packages/container/ringfall/versions" \
 
 ```bash
 ssh deploy@play.leafmods.com
-cd /opt/ringfall
+cd /opt/starfall
 cat .last-tag                      # the tag this deploy replaced
-sed -i 's|^RINGFALL_TAG=.*|RINGFALL_TAG=sha-1a2b3c4|' .env
-sudo /usr/local/bin/ringfall-deploy
+sed -i 's|^STARFALL_TAG=.*|STARFALL_TAG=sha-1a2b3c4|' .env
+sudo /usr/local/bin/starfall-deploy
 ```
 
 A rollback done this way is invisible to CI. The next push to `main` will
@@ -258,8 +258,8 @@ CI emits a warning when `scripts/` changes without a `VERSION` bump.
 Six Godot processes on one vCPU. Each is idle until players connect, and a
 round simulates six actors at 30 Hz — light, but not free.
 
-`.env` sets per-container ceilings (`RINGFALL_CPU_LIMIT=0.75`,
-`RINGFALL_MEM_LIMIT=512M`) so one busy match cannot starve the others. On a 1 GB
+`.env` sets per-container ceilings (`STARFALL_CPU_LIMIT=0.75`,
+`STARFALL_MEM_LIMIT=512M`) so one busy match cannot starve the others. On a 1 GB
 droplet the memory limits are a ceiling, not a reservation; six containers each
 actually using 512 MB would OOM. In practice an idle server sits far below that.
 Watch `docker stats` during the first real 3v3 before assuming headroom.

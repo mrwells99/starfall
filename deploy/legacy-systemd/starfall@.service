@@ -1,0 +1,26 @@
+[Unit]
+Description=Starfall dedicated arena server (%i)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=starfall
+Group=starfall
+WorkingDirectory=/opt/starfall
+Environment=HOME=/opt/starfall
+# Per-instance arguments (port, mode, queue vs private lobby).
+EnvironmentFile=/etc/starfall/%i.env
+# STARFALL_ARGS is intentionally unquoted: systemd splits it into argv.
+ExecStart=/usr/local/bin/godot --headless --path /opt/starfall -- $STARFALL_ARGS
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Basic hardening:
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

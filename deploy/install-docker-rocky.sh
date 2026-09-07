@@ -61,4 +61,4 @@ docker compose version
 echo
 echo "==> Docker installed."
 echo "SELinux: $(getenforce 2>/dev/null || echo 'not present')"
-echo "Ringfall mounts no host volumes, so no :z/:Z relabelling is required."
+echo "Starfall mounts no host volumes, so no :z/:Z relabelling is required."

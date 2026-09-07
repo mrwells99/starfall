@@ -1,6 +1,6 @@
-# Deploy — Ringfall dedicated server on DigitalOcean
+# Deploy — Starfall dedicated server on DigitalOcean
 
-> **Superseded for production.** Ringfall now deploys as Docker containers via
+> **Superseded for production.** Starfall now deploys as Docker containers via
 > GitHub Actions — see [`../DEPLOYMENT.md`](../DEPLOYMENT.md). This runbook
 > describes the older source-on-droplet + systemd model, whose scripts are
 > archived in [`../deploy/legacy-systemd/`](../deploy/legacy-systemd/).
@@ -17,8 +17,8 @@ _Runbook for provisioning and updating the shared dedicated server. Source-on-dr
 Repo files that make this work:
 
 - [`deploy/legacy-systemd/setup.sh`](../deploy/legacy-systemd/setup.sh) — one-shot droplet bootstrap.
-- [`deploy/ringfall@.service`](../deploy/legacy-systemd/ringfall@.service) — templated systemd unit installed by `setup.sh`. One instance per env file.
-- [`deploy/instances/`](../deploy/legacy-systemd/instances) — one `<name>.env` per server process, each setting `RINGFALL_ARGS`. Installed to `/etc/ringfall/`.
+- [`deploy/starfall@.service`](../deploy/legacy-systemd/starfall@.service) — templated systemd unit installed by `setup.sh`. One instance per env file.
+- [`deploy/instances/`](../deploy/legacy-systemd/instances) — one `<name>.env` per server process, each setting `STARFALL_ARGS`. Installed to `/etc/starfall/`.
 - [`deploy/deploy.sh`](../deploy/legacy-systemd/deploy.sh) — repeatable manual deploy from your dev machine.
 
 ## Prerequisites
@@ -55,20 +55,20 @@ From your dev machine:
 
 ```sh
 # Ship just the deploy folder to a temp path:
-scp -r deploy/legacy-systemd/ root@play.leafmods.com:/tmp/ringfall-deploy/
+scp -r deploy/legacy-systemd/ root@play.leafmods.com:/tmp/starfall-deploy/
 
 # Review then run:
-ssh root@play.leafmods.com 'less /tmp/ringfall-deploy/setup.sh'   # optional
-ssh root@play.leafmods.com 'bash /tmp/ringfall-deploy/setup.sh'
+ssh root@play.leafmods.com 'less /tmp/starfall-deploy/setup.sh'   # optional
+ssh root@play.leafmods.com 'bash /tmp/starfall-deploy/setup.sh'
 ```
 
 `setup.sh` does:
 
 - Installs `unzip`, `rsync`, `ufw`, `wget`, `ca-certificates`.
 - Opens `22/tcp` plus `27840/udp`, `27841/udp` and `27850-27853/udp` in `ufw`, enables the firewall.
-- Creates a `ringfall` system user (no login shell, home = `/opt/ringfall`).
+- Creates a `starfall` system user (no login shell, home = `/opt/starfall`).
 - Downloads Godot 4.5.1 stable from the official GitHub release, installs to `/usr/local/bin/godot`.
-- Installs `ringfall@.service` under `/etc/systemd/system/`, copies `deploy/legacy-systemd/instances/*.env` to `/etc/ringfall/`, and `systemctl enable`s one instance per env file.
+- Installs `starfall@.service` under `/etc/systemd/system/`, copies `deploy/legacy-systemd/instances/*.env` to `/etc/starfall/`, and `systemctl enable`s one instance per env file.
 
 Idempotent — safe to re-run when upgrading Godot or re-provisioning.
 
@@ -80,7 +80,7 @@ Still from your dev machine, in the project root:
 ./deploy/legacy-systemd/deploy.sh
 ```
 
-This `rsync`s the repo into `/opt/ringfall` (excluding `.git`, `.godot`, `artifacts`, and this script itself), reinstalls the unit template and every env file, then **stops all instances, rebuilds `.godot/`, and starts them again**, finally tailing recent logs.
+This `rsync`s the repo into `/opt/starfall` (excluding `.git`, `.godot`, `artifacts`, and this script itself), reinstalls the unit template and every env file, then **stops all instances, rebuilds `.godot/`, and starts them again**, finally tailing recent logs.
 
 The stop-warm-start dance is deliberate: six Godot processes racing to create the import cache on a cold checkout corrupt it. One warm-up run with `--quit` builds it while nothing else is running.
 
@@ -96,10 +96,10 @@ From your dev machine:
 
 ```sh
 # Watch live logs:
-ssh root@play.leafmods.com "journalctl -u 'ringfall@*' -f"
+ssh root@play.leafmods.com "journalctl -u 'starfall@*' -f"
 
 # Status:
-ssh root@play.leafmods.com "systemctl status 'ringfall@*'"
+ssh root@play.leafmods.com "systemctl status 'starfall@*'"
 
 # Manual client join test — from a checkout on your dev machine.
 # --join= targets the duel queue port and bypasses the menu:
@@ -137,16 +137,16 @@ Once GitHub Actions is set up (next roadmap item), this runs in CI on every push
 
 ```sh
 # Live tail:
-journalctl -u 'ringfall@*' -f
+journalctl -u 'starfall@*' -f
 
 # Last hour:
-journalctl -u 'ringfall@*' --since '1 hour ago'
+journalctl -u 'starfall@*' --since '1 hour ago'
 
 # Around a specific event, e.g. a crash:
-journalctl -u 'ringfall@*' --since '10 min ago' --no-pager
+journalctl -u 'starfall@*' --since '10 min ago' --no-pager
 
 # Filter for dedicated-mode lines:
-journalctl -u 'ringfall@*' | grep DEDICATED
+journalctl -u 'starfall@*' | grep DEDICATED
 ```
 
 `DEDICATED READY|ROUND START|ROUND END|REMATCH|WAITING` lines mark all state transitions — see [`TECHNICAL_ARCHITECTURE.md`](TECHNICAL_ARCHITECTURE.md).
@@ -164,15 +164,15 @@ Mismatched clients will get: `Version mismatch — server is vX, your client is 
 
 | Symptom | Check |
 | --- | --- |
-| `ExecStart failed` in `systemctl status` | `journalctl -u ringfall@<instance> -n 100`. Most often: a missing or corrupt `.godot/` import cache — re-run `deploy.sh`, which rebuilds it with every instance stopped. |
-| One instance dead, others fine | Its port is taken, or its env file is malformed. `systemctl cat ringfall@<instance>` shows the resolved `RINGFALL_ARGS`. |
+| `ExecStart failed` in `systemctl status` | `journalctl -u starfall@<instance> -n 100`. Most often: a missing or corrupt `.godot/` import cache — re-run `deploy.sh`, which rebuilds it with every instance stopped. |
+| One instance dead, others fine | Its port is taken, or its env file is malformed. `systemctl cat starfall@<instance>` shows the resolved `STARFALL_ARGS`. |
 | Clients get "Version mismatch" | `Config.VERSION` in the server's `scripts/config.gd` doesn't match the client's. Redeploy the server. |
 | Client "Could not connect" | DNS pointing at the right IP? Are **all six** UDP ports open in `ufw` on the droplet AND in any DO/cloud firewall you attached? Check with `ss -ulnp | grep 278` on the droplet — you should see six listeners. |
 | Queue works but lobby codes never resolve | The lobby pool ports (27850–27853) are open on the droplet but blocked in the cloud firewall, or `Config.LOBBY_PORTS` has drifted from `deploy/instances/`. Both lists must match. |
-| Server binds but no clients see it | Confirm the process is actually the Ringfall dedicated instance: `ps aux | grep godot`, then compare its command line to the systemd unit. |
+| Server binds but no clients see it | Confirm the process is actually the Starfall dedicated instance: `ps aux | grep godot`, then compare its command line to the systemd unit. |
 | Godot version wrong | Re-run `setup.sh` — it re-checks and re-installs. Or override `GODOT_VERSION` / `GODOT_URL` env vars. |
 | Deploy fails on `systemctl restart` | You're SSHing as a non-root user without passwordless sudo. Deploy script currently assumes `root@` — either SSH as root or add sudoers rule. |
-| "All lobbies are in use" with nobody playing | A crashed client still holds a slot until ENet times its peer out. `systemctl restart ringfall@lobby<N>` frees it immediately. |
+| "All lobbies are in use" with nobody playing | A crashed client still holds a slot until ENet times its peer out. `systemctl restart starfall@lobby<N>` frees it immediately. |
 
 ## What's not automated yet
 

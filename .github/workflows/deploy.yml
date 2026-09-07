@@ -19,7 +19,7 @@ permissions:
 # Never let two deploys race onto the droplet. Builds for older commits are
 # cancelled, but an in-flight deploy is allowed to finish.
 concurrency:
-  group: ringfall-${{ github.ref }}
+  group: starfall-${{ github.ref }}
   cancel-in-progress: false
 
 env:
@@ -147,7 +147,7 @@ jobs:
             type=sha,prefix=sha-,format=short
             type=raw,value=latest,enable={{is_default_branch}}
           labels: |
-            org.opencontainers.image.title=Ringfall dedicated server
+            org.opencontainers.image.title=Starfall dedicated server
             org.opencontainers.image.description=Godot 4.5 arena server (queues + private lobby pool)
 
       - name: Build and push
@@ -227,7 +227,7 @@ jobs:
         run: |
           set -euo pipefail
           scp -o StrictHostKeyChecking=yes docker-compose.yml \
-            "${USER_NAME}@${HOST}:/opt/ringfall/docker-compose.yml"
+            "${USER_NAME}@${HOST}:/opt/starfall/docker-compose.yml"
 
       - name: Pin tag, pull, and restart
         env:
@@ -239,22 +239,22 @@ jobs:
           ssh -o StrictHostKeyChecking=yes "${USER_NAME}@${HOST}" \
             "TAG='${TAG}' bash -s" <<'REMOTE'
           set -euo pipefail
-          cd /opt/ringfall
-          test -f .env || { echo "/opt/ringfall/.env is missing — run deploy/bootstrap.sh"; exit 1; }
+          cd /opt/starfall
+          test -f .env || { echo "/opt/starfall/.env is missing — run deploy/bootstrap.sh"; exit 1; }
 
           # Record what we are replacing so a rollback has something to name.
-          previous=$(grep -E '^RINGFALL_TAG=' .env | cut -d= -f2- || true)
+          previous=$(grep -E '^STARFALL_TAG=' .env | cut -d= -f2- || true)
           echo "previous tag: ${previous:-<unset>}"
           echo "$previous" > .last-tag
 
           # Rewrite only the tag line; the operator owns everything else in .env.
-          if grep -qE '^RINGFALL_TAG=' .env; then
-            sed -i "s|^RINGFALL_TAG=.*|RINGFALL_TAG=${TAG}|" .env
+          if grep -qE '^STARFALL_TAG=' .env; then
+            sed -i "s|^STARFALL_TAG=.*|STARFALL_TAG=${TAG}|" .env
           else
-            echo "RINGFALL_TAG=${TAG}" >> .env
+            echo "STARFALL_TAG=${TAG}" >> .env
           fi
 
-          sudo /usr/local/bin/ringfall-deploy
+          sudo /usr/local/bin/starfall-deploy
           REMOTE
 
       - name: Report deployed state
@@ -263,10 +263,10 @@ jobs:
           USER_NAME: ${{ secrets.DEPLOY_USER }}
         run: |
           set -euo pipefail
-          # ringfall-deploy already gated on health and failed the step above if
+          # starfall-deploy already gated on health and failed the step above if
           # the stack did not come up. This is the human-readable record.
           ssh -o StrictHostKeyChecking=yes "${USER_NAME}@${HOST}" \
-            'sudo /usr/local/bin/ringfall-status 20' | tee state.txt
+            'sudo /usr/local/bin/starfall-status 20' | tee state.txt
           {
             echo "### Deployed \`${{ steps.target.outputs.tag }}\`"
             echo ""

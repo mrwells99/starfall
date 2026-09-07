@@ -4,7 +4,7 @@ _Established design lives here. Open questions and rejected ideas are labeled ex
 
 ## Vision
 
-Ringfall combines **World of Warcraft's gameplay and controls** with **League of Legends' pick-a-champion, enter-a-match structure**.
+Starfall combines **World of Warcraft's gameplay and controls** with **League of Legends' pick-a-champion, enter-a-match structure**.
 
 The comparison to League concerns roster shape and lack of gearing — **not** its camera, movement, targeting, map, lanes, or economy. All of those follow the WoW side of the split.
 

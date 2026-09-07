@@ -33,7 +33,10 @@ def read_code(proc, label, timeout=30):
             break
         lines.append(line)
         if line.startswith("LOBBY CODE="):
-            return line.strip().split("=", 1)[1], lines
+            # "LOBBY CODE=WDEA port=27851"
+            fields = dict(f.split("=", 1) for f in line.strip().split() if "=" in f)
+            print("%s -> code=%s port=%s" % (label, fields.get("CODE"), fields.get("port")))
+            return fields.get("CODE"), lines
     print("--- %s (no code) ---\n%s" % (label, "".join(lines)))
     return None, lines
 

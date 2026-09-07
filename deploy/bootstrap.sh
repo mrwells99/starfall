@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# One-shot bootstrap for a fresh Rocky Linux 9 droplet running Ringfall on Docker.
+# One-shot bootstrap for a fresh Rocky Linux 9 droplet running Starfall on Docker.
 #
-#   scp -r deploy/ root@<droplet>:/tmp/ringfall-deploy/
-#   ssh root@<droplet> 'bash /tmp/ringfall-deploy/bootstrap.sh "ssh-ed25519 AAAA... ci@ringfall"'
+#   scp -r deploy/ root@<droplet>:/tmp/starfall-deploy/
+#   ssh root@<droplet> 'bash /tmp/starfall-deploy/bootstrap.sh "ssh-ed25519 AAAA... ci@starfall"'
 #
 # Idempotent — safe to re-run. Performs, in order:
-#   1. base packages + firewall (the six Ringfall UDP ports)
+#   1. base packages + firewall (the six Starfall UDP ports)
 #   2. Docker CE           (install-docker-rocky.sh)
 #   3. deploy user         (create-deploy-user.sh)
-#   4. /opt/ringfall skeleton so the first CI deploy has somewhere to land
+#   4. /opt/starfall skeleton so the first CI deploy has somewhere to land
 #
 # Read it before running: it installs packages, opens firewall ports, creates a
 # user, and grants that user restricted passwordless sudo.
@@ -16,7 +16,7 @@
 set -euo pipefail
 
 DEPLOY_USER="${DEPLOY_USER:-deploy}"
-APP_DIR="${APP_DIR:-/opt/ringfall}"
+APP_DIR="${APP_DIR:-/opt/starfall}"
 PUBKEY="${1:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -78,9 +78,9 @@ elif [[ -n "${SEED_SOURCE}" ]]; then
 else
     cat > "${APP_DIR}/.env" <<ENVFILE
 # Seeded by bootstrap.sh. See .env.example in the repository for the annotated
-# version. RINGFALL_TAG is rewritten by each deploy.
-RINGFALL_IMAGE=${RINGFALL_IMAGE:-ghcr.io/mrwells99/ringfall}
-RINGFALL_TAG=latest
+# version. STARFALL_TAG is rewritten by each deploy.
+STARFALL_IMAGE=${STARFALL_IMAGE:-ghcr.io/mrwells99/starfall}
+STARFALL_TAG=latest
 
 BIND_ADDRESS=0.0.0.0
 DUEL_PORT=27840
@@ -94,14 +94,14 @@ DUEL_MIN_PLAYERS=2
 TEAM_MIN_PLAYERS=2
 REMATCH_DELAY=8
 
-RINGFALL_CPU_LIMIT=0.75
-RINGFALL_MEM_LIMIT=512M
+STARFALL_CPU_LIMIT=0.75
+STARFALL_MEM_LIMIT=512M
 ENVFILE
     chown "${DEPLOY_USER}:${DEPLOY_USER}" "${APP_DIR}/.env"
     chmod 0640 "${APP_DIR}/.env"
     echo "    wrote default ${APP_DIR}/.env"
 fi
-echo "    >>> confirm RINGFALL_IMAGE in ${APP_DIR}/.env matches your GHCR path"
+echo "    >>> confirm STARFALL_IMAGE in ${APP_DIR}/.env matches your GHCR path"
 
 echo
 echo "==> Bootstrap complete."

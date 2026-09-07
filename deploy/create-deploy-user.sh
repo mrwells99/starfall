@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Create the unprivileged CI deploy user.
 #
-#   sudo bash deploy/create-deploy-user.sh "ssh-ed25519 AAAA... ci@ringfall"
+#   sudo bash deploy/create-deploy-user.sh "ssh-ed25519 AAAA... ci@starfall"
 #
 # The user is deliberately NOT in the `docker` group. Membership in that group
 # is equivalent to root — any member can start a container that mounts / and
@@ -12,9 +12,9 @@
 set -euo pipefail
 
 DEPLOY_USER="${DEPLOY_USER:-deploy}"
-APP_DIR="${APP_DIR:-/opt/ringfall}"
-WRAPPER="/usr/local/bin/ringfall-deploy"
-STATUS_WRAPPER="/usr/local/bin/ringfall-status"
+APP_DIR="${APP_DIR:-/opt/starfall}"
+WRAPPER="/usr/local/bin/starfall-deploy"
+STATUS_WRAPPER="/usr/local/bin/starfall-status"
 PUBKEY="${1:-}"
 
 if [[ $EUID -ne 0 ]]; then
@@ -23,7 +23,7 @@ if [[ $EUID -ne 0 ]]; then
 fi
 if [[ -z "${PUBKEY}" ]]; then
     echo "Usage: create-deploy-user.sh '<ssh public key>'" >&2
-    echo "Generate one with: ssh-keygen -t ed25519 -C ci@ringfall -f ringfall_deploy" >&2
+    echo "Generate one with: ssh-keygen -t ed25519 -C ci@starfall -f starfall_deploy" >&2
     exit 1
 fi
 if [[ "${PUBKEY}" != ssh-* && "${PUBKEY}" != ecdsa-* ]]; then
@@ -107,12 +107,12 @@ chown root:root "${STATUS_WRAPPER}"
 echo "==> Granting restricted sudo"
 # Two exact commands, no wildcards. A wildcard here would let the deploy user
 # pass arbitrary arguments to docker, which is close to handing over root.
-cat > /etc/sudoers.d/ringfall-deploy <<SUDO
+cat > /etc/sudoers.d/starfall-deploy <<SUDO
 ${DEPLOY_USER} ALL=(root) NOPASSWD: ${WRAPPER}
 ${DEPLOY_USER} ALL=(root) NOPASSWD: ${STATUS_WRAPPER}
 SUDO
-chmod 0440 /etc/sudoers.d/ringfall-deploy
-visudo -cf /etc/sudoers.d/ringfall-deploy
+chmod 0440 /etc/sudoers.d/starfall-deploy
+visudo -cf /etc/sudoers.d/starfall-deploy
 
 echo
 echo "==> Done. ${DEPLOY_USER} can run:"

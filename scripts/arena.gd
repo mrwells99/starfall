@@ -174,7 +174,7 @@ func build_ui() -> void:
 	layer.add_child(ui)
 	ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	scoreboard = add_label(ui, "RINGFALL", 22)
+	scoreboard = add_label(ui, "STARFALL", 22)
 	scoreboard.position = Vector2(24, 16)
 	player_frame = unit_frame(Vector2(24, 56), BLUE)
 	target_frame = unit_frame(Vector2(330, 56), RED)
@@ -339,7 +339,7 @@ func host_session(dedicated_mode: bool = false) -> void:
 	if dedicated:
 		roster = {}
 		phase = "lobby"
-		status = "Ringfall dedicated on UDP %d · %dv%d · v%s" % [current_port, mode, mode, Config.VERSION]
+		status = "Starfall dedicated on UDP %d · %dv%d · v%s" % [current_port, mode, mode, Config.VERSION]
 		print("DEDICATED READY %s port=%d mode=%d min_players=%d rematch_delay=%.1f private=%s" % [Config.VERSION, current_port, mode, min_players, rematch_delay, private_lobby])
 	else:
 		roster = {1: {"champion": Kits.NAMES[champion_choice.selected], "team": 0}}
@@ -1323,7 +1323,7 @@ func update_visuals(delta: float) -> void:
 	update_frame(target_frame, selected_id, "TARGET")
 	update_frame(focus_frame, focus_id, "FOCUS")
 	var connection := "LOCAL" if not network else ("HOST" if multiplayer.is_server() else "%dms RTT" % round_trip_ms)
-	scoreboard.text = "RINGFALL   /   %dv%d   /   %s                                      %02d:%02d" % [mode, mode, connection, int(elapsed) / 60, int(elapsed) % 60]
+	scoreboard.text = "STARFALL   /   %dv%d   /   %s                                      %02d:%02d" % [mode, mode, connection, int(elapsed) / 60, int(elapsed) % 60]
 	if elapsed > 60:
 		scoreboard.text += "  Healing −%d%%" % int(clampf((elapsed - 60) / 180.0, 0, 0.7) * 100)
 	var party := party_ids()

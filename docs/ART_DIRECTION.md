@@ -4,7 +4,7 @@ _Established visual direction. Ideas and exploration are labeled. Aesthetics hav
 
 ## Theme — Cosmic Gladiators (established 2026-09-07)
 
-**Fighters from different worlds and universes are summoned to compete in an ancient cosmic arena.** This is the established fiction and visual theme for Ringfall. It is set by the project owner — do not silently reverse or dilute it.
+**Fighters from different worlds and universes are summoned to compete in an ancient cosmic arena.** This is the established fiction and visual theme for Starfall. It is set by the project owner — do not silently reverse or dilute it.
 
 Space + fantasy. The arena is an ancient structure floating in space, not a building on a planet.
 

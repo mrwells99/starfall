@@ -8,7 +8,7 @@ Newest first.
 
 ## 2026-09-07 — Theme: Cosmic Gladiators
 
-**Decision:** Ringfall's setting and visual theme is **Cosmic Gladiators** — fighters summoned from different worlds and universes to compete in an ancient cosmic arena. Space + fantasy: celestial temples, floating islands, black holes and nebulae in the background, ancient gods watching from massive structures. Champions range from alien assassins to celestial knights to weird cosmic beasts. Visual identity is deep purples and blues with extremely bright magical accents, stars, glowing weapons, cosmic effects. Full detail in [`ART_DIRECTION.md`](ART_DIRECTION.md).
+**Decision:** Starfall's setting and visual theme is **Cosmic Gladiators** — fighters summoned from different worlds and universes to compete in an ancient cosmic arena. Space + fantasy: celestial temples, floating islands, black holes and nebulae in the background, ancient gods watching from massive structures. Champions range from alien assassins to celestial knights to weird cosmic beasts. Visual identity is deep purples and blues with extremely bright magical accents, stars, glowing weapons, cosmic effects. Full detail in [`ART_DIRECTION.md`](ART_DIRECTION.md).
 
 **Why:** Set directly by the project owner. It also fits the structural constraints already in place: an arena disconnected from any world explains why fighters arrive at equal power with no gear and no leveling, and why an unrelated roster of champions shares one map. The fiction and the LoL-style structure reinforce each other rather than fighting.
 

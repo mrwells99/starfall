@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 #
-# Ringfall dedicated server.
+# Starfall dedicated server.
 #
 # Strategy: this repo has no export_presets.cfg and no external assets — all
 # geometry is generated at runtime — so a Godot *export* would need ~1 GB of
@@ -35,12 +35,12 @@ RUN wget -q -O godot.zip \
     && rm -rf godot.zip "Godot_v${GODOT_VERSION}_linux.x86_64" \
     && godot --version
 
-COPY . /opt/ringfall
+COPY . /opt/starfall
 
 # Build the import cache now so the runtime filesystem can stay read-only.
-RUN cd /opt/ringfall \
-    && HOME=/tmp godot --headless --path /opt/ringfall --import \
-    && test -d /opt/ringfall/.godot
+RUN cd /opt/starfall \
+    && HOME=/tmp godot --headless --path /opt/starfall --import \
+    && test -d /opt/starfall/.godot
 
 # ---------------------------------------------------------------- runtime ---
 FROM rockylinux/rockylinux:${ROCKY_VERSION}-minimal AS runtime
@@ -51,15 +51,15 @@ RUN microdnf install -y --setopt=install_weak_deps=0 fontconfig iproute \
     && microdnf clean all && rm -rf /var/cache/yum /var/cache/dnf
 
 # Fixed high UID so bind-mounted files (if ever added) have a predictable owner.
-RUN groupadd --system --gid 10001 ringfall \
-    && useradd --system --uid 10001 --gid 10001 --home-dir /opt/ringfall \
-       --shell /sbin/nologin ringfall
+RUN groupadd --system --gid 10001 starfall \
+    && useradd --system --uid 10001 --gid 10001 --home-dir /opt/starfall \
+       --shell /sbin/nologin starfall
 
 COPY --from=builder /usr/local/bin/godot /usr/local/bin/godot
-COPY --from=builder --chown=root:root /opt/ringfall /opt/ringfall
+COPY --from=builder --chown=root:root /opt/starfall /opt/starfall
 
 # The project tree is read-only to the service account: the server only reads it.
-RUN chmod -R a-w /opt/ringfall
+RUN chmod -R a-w /opt/starfall
 
 # Godot writes its user:// data and shader cache under HOME. Point it at a
 # tmpfs mount so the rest of the filesystem can stay read-only.
@@ -69,17 +69,17 @@ ENV HOME=/tmp \
     XDG_CACHE_HOME=/tmp/.cache
 
 USER 10001:10001
-WORKDIR /opt/ringfall
+WORKDIR /opt/starfall
 
 # Which UDP port this instance binds. Compose sets it per service; the
 # healthcheck needs it, and it must agree with the --port= in the command.
-ENV RINGFALL_PORT=27840
+ENV STARFALL_PORT=27840
 
 # Liveness: the process is up AND the ENet socket is bound. A Godot server that
 # crashed after start would keep the container alive without this.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD ss -uln 2>/dev/null | grep -q ":${RINGFALL_PORT}\b" || exit 1
+    CMD ss -uln 2>/dev/null | grep -q ":${STARFALL_PORT}\b" || exit 1
 
 # Everything after `--` reaches OS.get_cmdline_user_args() in scripts/arena.gd.
-ENTRYPOINT ["/usr/local/bin/godot", "--headless", "--path", "/opt/ringfall", "--"]
+ENTRYPOINT ["/usr/local/bin/godot", "--headless", "--path", "/opt/starfall", "--"]
 CMD ["--dedicated", "--mode=duel", "--port=27840", "--min-players=2", "--rematch-delay=8"]

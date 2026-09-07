@@ -1,7 +1,7 @@
 # Superseded — source-on-droplet + systemd
 
 This directory is the **previous** deployment model: `rsync` the source to the
-droplet, run it under six templated `ringfall@<instance>` systemd units driven by
+droplet, run it under six templated `starfall@<instance>` systemd units driven by
 `instances/*.env`.
 
 It is superseded by the Docker pipeline in [`../../DEPLOYMENT.md`](../../DEPLOYMENT.md).
@@ -11,4 +11,4 @@ unreachable, and because the runbook it belongs to
 firewall, DNS, SELinux — that are still true.
 
 **Do not run both models on the same droplet.** They bind the same UDP ports.
-To move from this to Docker: `systemctl disable --now 'ringfall@*'` first.
+To move from this to Docker: `systemctl disable --now 'starfall@*'` first.

@@ -20,7 +20,7 @@ Pool sizing is a guess: four private lobby slots for a small crew. If they fill 
 
 - User provisions a $6/mo Ubuntu 24.04 droplet.
 - `A` record `play.leafmods.com` → droplet IP.
-- Run `deploy/bootstrap.sh` on the droplet (firewall, Docker CE, the `deploy` user and its restricted sudo wrappers, `/opt/ringfall`).
+- Run `deploy/bootstrap.sh` on the droplet (firewall, Docker CE, the `deploy` user and its restricted sudo wrappers, `/opt/starfall`).
 - Add the four GitHub secrets from [`../DEPLOYMENT.md`](../DEPLOYMENT.md), then push to `main` — Actions tests, builds, pushes to GHCR and deploys.
 - Buddies verify Online → Online queue drops them into a match, and that Host lobby / Join lobby work with a shared code. No address is typed at any point.
 
