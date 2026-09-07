@@ -35,6 +35,7 @@ func setup() -> void:
 	if is_host:
 		arena.host_session()
 	else:
+		arena.address.text = "127.0.0.1"
 		arena.join_session()
 
 func _process(delta: float) -> bool:

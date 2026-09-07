@@ -2,7 +2,7 @@ extends "res://scripts/arena_world.gd"
 
 const Fighter = preload("res://scripts/combatant.gd")
 const Kits = preload("res://scripts/kits.gd")
-const PORT = 27840
+const Config = preload("res://scripts/config.gd")
 var actors: Dictionary = {}
 var local_id := 1
 var selected_id := -1
@@ -58,13 +58,34 @@ var enemy_buttons: Array[Button] = []
 var ability_tooltip: PanelContainer
 var mouse_capture_origin := Vector2.ZERO
 var has_capture_origin := false
+var dedicated := false
+var min_players := Config.DEFAULT_MIN_PLAYERS
+var current_port := Config.SERVER_PORT
+var remote_min_players := Config.DEFAULT_MIN_PLAYERS
+var rematch_delay := 8.0
+var menu_state := "main"
+var main_row: HBoxContainer
+var offline_row: HBoxContainer
+var online_row: HBoxContainer
+var queue_row: HBoxContainer
+var host_row: HBoxContainer
+var join_row: HBoxContainer
+var code_field: LineEdit
+var lobby_code := ""
+var intent := ""
+var probe_index := 0
+var pending_code := ""
+var private_lobby := false
+var claimed := false
+var requeue_button: Button
+var searching := false
 
 func _ready() -> void:
 	build_arena()
 	build_camera()
 	build_ui()
 	multiplayer.connected_to_server.connect(on_connected)
-	multiplayer.connection_failed.connect(func(): leave_session("Connection failed. Check the host address and UDP port %d." % PORT))
+	multiplayer.connection_failed.connect(on_connection_failed)
 	multiplayer.server_disconnected.connect(func(): leave_session("Host disconnected."))
 	multiplayer.peer_disconnected.connect(on_peer_left)
 	parse_arguments()
@@ -225,25 +246,54 @@ func build_ui() -> void:
 	mode_choice.add_item("Duel · 1v1", 1)
 	mode_choice.add_item("Team arena · 3v3", 3)
 	stack.add_child(mode_choice)
-	var actions := HBoxContainer.new()
-	stack.add_child(actions)
-	add_button(actions, "Local sparring", local_match)
-	add_button(actions, "Host lobby", host_session)
+	main_row = HBoxContainer.new()
+	stack.add_child(main_row)
+	add_button(main_row, "Online", func(): menu_state = "online"; refresh_menu())
+	add_button(main_row, "Offline", func(): menu_state = "offline"; refresh_menu())
+	offline_row = HBoxContainer.new()
+	stack.add_child(offline_row)
+	add_button(offline_row, "Local sparring", local_match)
+	add_button(offline_row, "Back", func(): menu_state = "main"; refresh_menu())
+	online_row = HBoxContainer.new()
+	stack.add_child(online_row)
+	add_button(online_row, "Online queue", func(): menu_state = "queue"; refresh_menu())
+	add_button(online_row, "Host lobby", func(): menu_state = "host"; refresh_menu())
+	add_button(online_row, "Join lobby", func(): menu_state = "join"; refresh_menu())
+	add_button(online_row, "Back", func(): menu_state = "main"; refresh_menu())
+	queue_row = HBoxContainer.new()
+	stack.add_child(queue_row)
+	add_button(queue_row, "Find match", matchmake)
+	add_button(queue_row, "Back", func(): menu_state = "online"; refresh_menu())
+	host_row = HBoxContainer.new()
+	stack.add_child(host_row)
+	add_button(host_row, "Create lobby", host_lobby)
+	add_button(host_row, "Back", func(): menu_state = "online"; refresh_menu())
+	join_row = HBoxContainer.new()
+	stack.add_child(join_row)
+	code_field = LineEdit.new()
+	code_field.placeholder_text = "Lobby code"
+	code_field.max_length = Config.CODE_LENGTH
+	code_field.custom_minimum_size.x = 150
+	join_row.add_child(code_field)
+	add_button(join_row, "Join", func(): join_lobby(code_field.text))
+	add_button(join_row, "Back", func(): menu_state = "online"; refresh_menu())
+	# Players never see the server address; this stays as a value holder for tests
+	# and for the --join= command-line path. It is parented but hidden so the scene
+	# owns it — an orphaned Control leaks its font and canvas RIDs at exit.
 	address = LineEdit.new()
-	address.text = "127.0.0.1"
-	address.placeholder_text = "Host IP address"
-	address.custom_minimum_size.x = 160
-	actions.add_child(address)
-	add_button(actions, "Join", join_session)
-	lobby_text = add_label(stack, "Local play fills empty slots with bots.\nHost a lobby for friends; the host starts each round.", 16)
+	address.text = Config.SERVER_ADDRESS
+	address.hide()
+	stack.add_child(address)
+	lobby_text = add_label(stack, "Choose Online to matchmake into a duel or 3v3. Offline is local sparring vs bots.", 16)
 	lobby_text.custom_minimum_size.y = 115
 	start_button = add_button(stack, "Start round / Rematch", host_start)
 	start_button.hide()
 	resume_button = add_button(stack, "Resume / Close panel", func():
 		if phase in ["match", "countdown"]:
 			panel.hide())
-	exit_button = add_button(stack, "Leave session", func(): leave_session("Session closed."))
-	add_label(stack, "UDP %d · Direct connection · Empty team slots become bots" % PORT, 14)
+	requeue_button = add_button(stack, "Requeue", requeue)
+	requeue_button.hide()
+	exit_button = add_button(stack, "Return to menu", func(): leave_session("Returned to menu."))
 	ability_tooltip = preload("res://scripts/ability_tooltip.gd").new()
 	ui.add_child(ability_tooltip)
 
@@ -273,27 +323,35 @@ func local_match() -> void:
 	roster = {1: {"champion": Kits.NAMES[champion_choice.selected], "team": 0}}
 	begin_round()
 
-func host_session() -> void:
+func host_session(dedicated_mode: bool = false) -> void:
 	leave_session("")
+	dedicated = dedicated_mode
+	mode = mode_choice.get_selected_id()
 	var peer := ENetMultiplayerPeer.new()
-	var error := peer.create_server(PORT, 5)
+	var max_peers := 6 if private_lobby else (mode * 2 if dedicated else 5)
+	var error := peer.create_server(current_port, max_peers)
 	if error != OK:
-		say("Could not host on UDP %d: %s" % [PORT, error_string(error)])
+		say("Could not host on UDP %d: %s" % [current_port, error_string(error)])
 		return
 	multiplayer.server_relay = false
 	multiplayer.multiplayer_peer = peer
 	network = true
-	mode = mode_choice.get_selected_id()
-	roster = {1: {"champion": Kits.NAMES[champion_choice.selected], "team": 0}}
-	phase = "lobby"
-	status = "Hosting on UDP %d. Share your LAN IP with friends." % PORT
+	if dedicated:
+		roster = {}
+		phase = "lobby"
+		status = "Ringfall dedicated on UDP %d · %dv%d · v%s" % [current_port, mode, mode, Config.VERSION]
+		print("DEDICATED READY %s port=%d mode=%d min_players=%d rematch_delay=%.1f private=%s" % [Config.VERSION, current_port, mode, min_players, rematch_delay, private_lobby])
+	else:
+		roster = {1: {"champion": Kits.NAMES[champion_choice.selected], "team": 0}}
+		phase = "lobby"
+		status = "Hosting on UDP %d. Share your LAN IP with friends." % current_port
 	refresh_lobby()
 
 func join_session() -> void:
 	var host_address := address.text.strip_edges()
 	leave_session("")
 	var peer := ENetMultiplayerPeer.new()
-	var error := peer.create_client(host_address, PORT)
+	var error := peer.create_client(host_address, current_port)
 	if error != OK:
 		say("Could not connect: %s" % error_string(error))
 		return
@@ -305,11 +363,116 @@ func join_session() -> void:
 	status = "Connecting to %s…" % host_address
 	refresh_lobby()
 
+func connect_to(port: int) -> bool:
+	close_peer()
+	current_port = port
+	var peer := ENetMultiplayerPeer.new()
+	var error := peer.create_client(address.text.strip_edges(), port)
+	if error != OK:
+		return false
+	multiplayer.server_relay = false
+	multiplayer.multiplayer_peer = peer
+	network = true
+	phase = "connecting"
+	connected_seconds = 0
+	return true
+
+# Tear the peer down without resetting menu state — used between probe steps.
+func close_peer() -> void:
+	if network:
+		multiplayer.multiplayer_peer.close()
+	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
+	network = false
+
+func matchmake() -> void:
+	mode = mode_choice.get_selected_id()
+	intent = "queue"
+	searching = true
+	lobby_code = ""
+	status = "Searching for an opponent…" if mode == 1 else "Searching for players…"
+	if not connect_to(Config.DUEL_PORT if mode == 1 else Config.TEAM_PORT):
+		leave_session("Could not reach the server. Try again in a moment.")
+		return
+	refresh_lobby()
+
+func requeue() -> void:
+	close_peer()
+	clear_actors()
+	roster.clear()
+	epoch += 1
+	winner = -1
+	matchmake()
+
+func host_lobby() -> void:
+	mode = mode_choice.get_selected_id()
+	pending_code = ""
+	begin_probe("host", "Creating lobby…")
+
+func join_lobby(code: String) -> void:
+	var wanted := normalize_code(code)
+	if wanted.length() != Config.CODE_LENGTH:
+		say("Enter the %d-character lobby code." % Config.CODE_LENGTH)
+		return
+	pending_code = wanted
+	begin_probe("join", "Looking for lobby %s…" % wanted)
+
+# Private lobbies live on a fixed pool of server processes. The client walks the
+# pool one port at a time: "host" takes the first idle one, "join" takes the one
+# holding the code. No broker process is involved.
+func begin_probe(kind: String, message: String) -> void:
+	intent = kind
+	searching = false
+	lobby_code = ""
+	probe_index = -1
+	status = message
+	next_probe()
+
+func next_probe() -> void:
+	probe_index += 1
+	if probe_index >= Config.LOBBY_PORTS.size():
+		var reason := "All lobbies are in use right now." if intent == "host" else "No lobby found with code %s." % pending_code
+		intent = ""
+		close_peer()
+		phase = "menu"
+		status = reason
+		say(reason)
+		refresh_lobby()
+		return
+	if not connect_to(Config.LOBBY_PORTS[probe_index]):
+		call_deferred("next_probe")
+		return
+	refresh_lobby()
+
+func on_connection_failed() -> void:
+	if intent in ["host", "join"]:
+		next_probe()
+	else:
+		leave_session("Could not reach the server. Try again in a moment.")
+
+func normalize_code(code: String) -> String:
+	var out := ""
+	for c in code.strip_edges().to_upper():
+		if Config.CODE_ALPHABET.contains(c):
+			out += c
+	return out
+
+func make_code() -> String:
+	var out := ""
+	for _i in range(Config.CODE_LENGTH):
+		out += Config.CODE_ALPHABET[randi() % Config.CODE_ALPHABET.length()]
+	return out
+
 func leave_session(message: String) -> void:
 	if network:
 		multiplayer.multiplayer_peer.close()
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 	network = false
+	dedicated = false
+	menu_state = "main"
+	intent = ""
+	searching = false
+	lobby_code = ""
+	pending_code = ""
 	roster.clear()
 	clear_actors()
 	phase = "menu"
@@ -323,14 +486,74 @@ func leave_session(message: String) -> void:
 		say(message)
 
 func on_connected() -> void:
-	register_player.rpc_id(1, Kits.NAMES[champion_choice.selected])
+	match intent:
+		"host":
+			claim_lobby.rpc_id(1, mode, Config.VERSION)
+		"join":
+			resolve_lobby.rpc_id(1, pending_code, Config.VERSION)
+		_:
+			register_player.rpc_id(1, Kits.NAMES[champion_choice.selected], Config.VERSION)
+
+# --- private lobby claim / lookup, server side -------------------------
+@rpc("any_peer", "call_remote", "reliable")
+func claim_lobby(size_per_team: int, client_version: String) -> void:
+	if not network or not multiplayer.is_server():
+		return
+	var peer := multiplayer.get_remote_sender_id()
+	if client_version != Config.VERSION:
+		rejected.rpc_id(peer, version_message(client_version))
+		return
+	if not private_lobby or claimed or not roster.is_empty() or phase != "lobby":
+		lobby_busy.rpc_id(peer)
+		return
+	mode = clampi(size_per_team, 1, 3)
+	min_players = mode * 2
+	claimed = true
+	lobby_code = make_code()
+	print("LOBBY CLAIMED code=%s port=%d mode=%d" % [lobby_code, current_port, mode])
+	lobby_found.rpc_id(peer, lobby_code, mode)
 
 @rpc("any_peer", "call_remote", "reliable")
-func register_player(choice: String) -> void:
+func resolve_lobby(code: String, client_version: String) -> void:
+	if not network or not multiplayer.is_server():
+		return
+	var peer := multiplayer.get_remote_sender_id()
+	if client_version != Config.VERSION:
+		rejected.rpc_id(peer, version_message(client_version))
+		return
+	if not private_lobby or not claimed or code != lobby_code:
+		lobby_busy.rpc_id(peer)
+		return
+	if phase != "lobby" or roster.size() >= mode * 2:
+		rejected.rpc_id(peer, "That lobby is already full or in a round.")
+		return
+	lobby_found.rpc_id(peer, lobby_code, mode)
+
+# This pool member is not the one we want — hang up and try the next port.
+@rpc("authority", "call_remote", "reliable")
+func lobby_busy() -> void:
+	next_probe()
+
+@rpc("authority", "call_remote", "reliable")
+func lobby_found(code: String, size_per_team: int) -> void:
+	lobby_code = code
+	mode = size_per_team
+	mode_choice.select(1 if mode == 3 else 0)
+	intent = ""
+	register_player.rpc_id(1, Kits.NAMES[champion_choice.selected], Config.VERSION)
+
+func version_message(client_version: String) -> String:
+	return "Version mismatch — server is v%s, your client is v%s. Update to play." % [Config.VERSION, client_version]
+
+@rpc("any_peer", "call_remote", "reliable")
+func register_player(choice: String, client_version: String) -> void:
 	if not network or not multiplayer.is_server():
 		return
 	var peer := multiplayer.get_remote_sender_id()
 	if roster.has(peer):
+		return
+	if client_version != Config.VERSION:
+		rejected.rpc_id(peer, version_message(client_version))
 		return
 	if phase != "lobby" or roster.size() >= mode * 2 or choice not in Kits.NAMES:
 		rejected.rpc_id(peer, "Lobby unavailable or full. Ask the host to return to the lobby.")
@@ -341,6 +564,14 @@ func register_player(choice: String) -> void:
 	var side := 0 if counts[0] < counts[1] else 1
 	roster[peer] = {"champion": choice, "team": side}
 	broadcast_lobby()
+	maybe_auto_start()
+
+func maybe_auto_start() -> void:
+	if not dedicated or not authoritative() or phase != "lobby":
+		return
+	if roster.size() >= min_players:
+		print("DEDICATED ROUND START epoch=%d humans=%d/%d" % [epoch + 1, roster.size(), mode * 2])
+		begin_round()
 
 @rpc("authority", "call_remote", "reliable")
 func rejected(reason: String) -> void:
@@ -349,12 +580,13 @@ func rejected(reason: String) -> void:
 func broadcast_lobby() -> void:
 	refresh_lobby()
 	if network:
-		lobby_state.rpc(roster, mode, status)
+		lobby_state.rpc(roster, mode, "" if dedicated else status, min_players)
 
 @rpc("authority", "call_remote", "reliable")
-func lobby_state(players: Dictionary, size_per_team: int, message: String) -> void:
+func lobby_state(players: Dictionary, size_per_team: int, message: String, needed: int) -> void:
 	roster = players
 	mode = size_per_team
+	remote_min_players = maxi(1, needed)
 	mode_choice.select(1 if mode == 3 else 0)
 	phase = "lobby"
 	status = message
@@ -362,17 +594,51 @@ func lobby_state(players: Dictionary, size_per_team: int, message: String) -> vo
 	refresh_lobby()
 
 func refresh_lobby() -> void:
-	start_button.visible = network and multiplayer.is_server() and phase in ["lobby", "results"]
+	start_button.visible = network and multiplayer.is_server() and phase in ["lobby", "results"] and not dedicated
 	if phase == "lobby":
-		var lines := ["%dv%d lobby — %d human player(s)" % [mode, mode, roster.size()]]
+		var lines: Array[String] = []
+		if dedicated:
+			lines.append("Dedicated · %dv%d · %d/%d players" % [mode, mode, roster.size(), min_players])
+		elif searching:
+			lines.append("Searching for an opponent…" if mode == 1 else "Searching for players…")
+			lines.append("%d of %d players ready" % [roster.size(), remote_min_players])
+		elif not lobby_code.is_empty():
+			lines.append("Lobby code:  %s" % lobby_code)
+			lines.append("Share it — friends pick Online → Join lobby.")
+			lines.append("%d of %d players ready" % [roster.size(), remote_min_players])
+		else:
+			lines.append("%dv%d lobby — %d human player(s)" % [mode, mode, roster.size()])
 		for peer in roster:
 			lines.append("%s: %s%s" % ["Blue" if roster[peer].team == 0 else "Red", roster[peer].champion, " (you)" if peer == multiplayer.get_unique_id() else ""])
-		lines.append("Host starts when ready. Empty slots are filled by bots.")
+		if dedicated:
+			lines.append("Round auto-starts when %d players are connected." % min_players)
+		elif not searching and lobby_code.is_empty():
+			lines.append("Host starts when ready. Empty slots are filled by bots.")
 		lobby_text.text = "\n".join(lines)
 	else:
 		lobby_text.text = status
 	if phase not in ["results", "match", "countdown"]:
 		result_text.text = "Choose a champion. Your full kit is ready."
+	refresh_menu()
+
+func refresh_menu() -> void:
+	var in_menu: bool = phase == "menu"
+	if main_row:
+		main_row.visible = in_menu and menu_state == "main"
+	if offline_row:
+		offline_row.visible = in_menu and menu_state == "offline"
+	if online_row:
+		online_row.visible = in_menu and menu_state == "online"
+	if queue_row:
+		queue_row.visible = in_menu and menu_state == "queue"
+	if host_row:
+		host_row.visible = in_menu and menu_state == "host"
+	if join_row:
+		join_row.visible = in_menu and menu_state == "join"
+	if mode_choice:
+		mode_choice.visible = not in_menu or menu_state in ["queue", "host", "offline"]
+	if requeue_button:
+		requeue_button.visible = phase == "results" and network and not multiplayer.is_server()
 
 func host_start() -> void:
 	if authoritative() and phase in ["lobby", "results"]:
@@ -447,6 +713,10 @@ func on_peer_left(peer: int) -> void:
 	if not network or not multiplayer.is_server():
 		return
 	roster.erase(peer)
+	if private_lobby and roster.is_empty():
+		claimed = false
+		lobby_code = ""
+		print("LOBBY RELEASED port=%d" % current_port)
 	for actor in actors.values():
 		if actor.owner_peer == peer:
 			actor.owner_peer = 0
@@ -471,7 +741,10 @@ func _physics_process(delta: float) -> void:
 	if phase == "connecting":
 		connected_seconds += delta
 		if connected_seconds > 10:
-			leave_session("Connection timed out. Check address and UDP %d." % PORT)
+			if intent in ["host", "join"]:
+				next_probe()
+			else:
+				leave_session("Could not reach the server. Try again in a moment.")
 	if phase in ["countdown", "match"]:
 		gather_input(delta)
 		if authoritative():
@@ -836,6 +1109,21 @@ func finish_round(round_epoch: int, winning_team: int, states: Array) -> void:
 	result_text.text = "%s — %s team wins" % ["VICTORY" if victory else "DEFEAT", "Blue" if winner == 0 else "Red"]
 	status = "Host can start a rematch. Leave and host again to change the roster." if network else "Choose Local sparring for another round."
 	refresh_lobby()
+	if dedicated and authoritative():
+		print("DEDICATED ROUND END winner=team%d elapsed=%.1fs" % [winner, elapsed])
+		get_tree().create_timer(rematch_delay).timeout.connect(_dedicated_rematch)
+
+func _dedicated_rematch() -> void:
+	if not dedicated or not authoritative() or phase != "results":
+		return
+	if roster.size() >= min_players:
+		print("DEDICATED REMATCH epoch=%d humans=%d/%d" % [epoch + 1, roster.size(), mode * 2])
+		begin_round()
+	else:
+		phase = "lobby"
+		status = "Waiting for %d players (%d connected)…" % [min_players, roster.size()]
+		broadcast_lobby()
+		print("DEDICATED WAITING humans=%d/%d" % [roster.size(), min_players])
 
 func bot_think(actor, delta: float) -> void:
 	actor.move_input = Vector2.ZERO
@@ -1148,15 +1436,39 @@ func _notification(what: int) -> void:
 
 func parse_arguments() -> void:
 	var args := OS.get_cmdline_user_args()
+	var wants_dedicated := false
+	var explicit_port := 0
 	for arg in args:
 		if arg.begins_with("--latency-ms="):
 			latency_ms = clampi(int(arg.get_slice("=", 1)), 0, 500)
-		if arg == "--team":
+		elif arg == "--team":
 			mode_choice.select(1)
-		if arg.begins_with("--champion="):
+		elif arg.begins_with("--mode="):
+			mode_choice.select(1 if arg.get_slice("=", 1) == "team" else 0)
+		elif arg.begins_with("--champion="):
 			var choice := Kits.NAMES.find(arg.get_slice("=", 1))
 			if choice >= 0:
 				champion_choice.select(choice)
+		elif arg == "--dedicated":
+			wants_dedicated = true
+		elif arg == "--lobby":
+			private_lobby = true
+		elif arg.begins_with("--port="):
+			explicit_port = clampi(int(arg.get_slice("=", 1)), 1, 65535)
+		elif arg.begins_with("--min-players="):
+			min_players = maxi(1, int(arg.get_slice("=", 1)))
+		elif arg.begins_with("--rematch-delay="):
+			rematch_delay = maxf(0.5, float(arg.get_slice("=", 1)))
+	if wants_dedicated:
+		mode = mode_choice.get_selected_id()
+		if explicit_port > 0:
+			current_port = explicit_port
+		elif private_lobby:
+			current_port = Config.LOBBY_PORTS[0]
+		else:
+			current_port = Config.DUEL_PORT if mode == 1 else Config.TEAM_PORT
+		host_session(true)
+		return
 	for arg in args:
 		if arg == "--host":
 			host_session()
