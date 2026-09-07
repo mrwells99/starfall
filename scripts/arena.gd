@@ -74,6 +74,7 @@ var code_field: LineEdit
 var lobby_code := ""
 var intent := ""
 var probe_index := 0
+var probe_ports: Array = []
 var pending_code := ""
 var private_lobby := false
 var claimed := false
@@ -406,7 +407,7 @@ func requeue() -> void:
 func host_lobby() -> void:
 	mode = mode_choice.get_selected_id()
 	pending_code = ""
-	begin_probe("host", "Creating lobby…")
+	begin_probe("host", "Creating lobby…", Config.LOBBY_PORTS.duplicate())
 
 func join_lobby(code: String) -> void:
 	var wanted := normalize_code(code)
@@ -414,22 +415,30 @@ func join_lobby(code: String) -> void:
 		say("Enter the %d-character lobby code." % Config.CODE_LENGTH)
 		return
 	pending_code = wanted
-	begin_probe("join", "Looking for lobby %s…" % wanted)
+	# The first character names the slot, so a join goes straight to the right
+	# server instead of walking the pool. An unrecognised prefix falls back to
+	# the full walk — that keeps old codes working if the pool is ever resized.
+	var slot := slot_from_code(wanted)
+	if slot >= 0:
+		begin_probe("join", "Looking for lobby %s…" % wanted, [Config.LOBBY_PORTS[slot]])
+	else:
+		begin_probe("join", "Looking for lobby %s…" % wanted, Config.LOBBY_PORTS.duplicate())
 
 # Private lobbies live on a fixed pool of server processes. The client walks the
 # pool one port at a time: "host" takes the first idle one, "join" takes the one
 # holding the code. No broker process is involved.
-func begin_probe(kind: String, message: String) -> void:
+func begin_probe(kind: String, message: String, ports: Array) -> void:
 	intent = kind
 	searching = false
 	lobby_code = ""
+	probe_ports = ports
 	probe_index = -1
 	status = message
 	next_probe()
 
 func next_probe() -> void:
 	probe_index += 1
-	if probe_index >= Config.LOBBY_PORTS.size():
+	if probe_index >= probe_ports.size():
 		var reason := "All lobbies are in use right now." if intent == "host" else "No lobby found with code %s." % pending_code
 		intent = ""
 		close_peer()
@@ -438,7 +447,7 @@ func next_probe() -> void:
 		say(reason)
 		refresh_lobby()
 		return
-	if not connect_to(Config.LOBBY_PORTS[probe_index]):
+	if not connect_to(probe_ports[probe_index]):
 		call_deferred("next_probe")
 		return
 	refresh_lobby()
@@ -456,9 +465,25 @@ func normalize_code(code: String) -> String:
 			out += c
 	return out
 
+# Which pool slot this server is. -1 when running on a port outside the pool.
+func slot_index() -> int:
+	return Config.LOBBY_PORTS.find(current_port)
+
+# Decode the slot a code was issued by. -1 if it does not name a live slot.
+func slot_from_code(code: String) -> int:
+	if code.length() != Config.CODE_LENGTH:
+		return -1
+	var slot := Config.CODE_ALPHABET.find(code[0])
+	return slot if slot >= 0 and slot < Config.LOBBY_PORTS.size() else -1
+
+# The first character encodes the slot; the rest is random. Pool members mint
+# codes independently with no coordination, so without this two of them could
+# issue the same string — and a joiner, which stops at the first match, would
+# silently send players to the wrong lobby.
 func make_code() -> String:
-	var out := ""
-	for _i in range(Config.CODE_LENGTH):
+	var slot := slot_index()
+	var out := Config.CODE_ALPHABET[slot] if slot >= 0 else Config.CODE_ALPHABET[randi() % Config.CODE_ALPHABET.length()]
+	for _i in range(Config.CODE_LENGTH - 1):
 		out += Config.CODE_ALPHABET[randi() % Config.CODE_ALPHABET.length()]
 	return out
 

@@ -21,5 +21,11 @@ const DEFAULT_MIN_PLAYERS := 2
 const LOBBY_PORTS := [27850, 27851, 27852, 27853]
 # Codes are short and read aloud over voice chat, so the alphabet omits the
 # characters that get misheard or misread: 0/O, 1/I/L, 5/S, 2/Z, 8/B.
+#
+# The FIRST character is the index into LOBBY_PORTS of the slot that issued the
+# code; the rest is random. Pool members mint codes with no coordination, so
+# this is what makes a collision between two slots impossible rather than merely
+# unlikely — and it lets a joining client skip the probe and dial the right
+# server directly. LOBBY_PORTS must therefore never grow past the alphabet.
 const CODE_ALPHABET := "ACDEFGHJKMNPQRTUVWXY3467"
 const CODE_LENGTH := 4

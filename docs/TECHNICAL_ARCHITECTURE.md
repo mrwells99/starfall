@@ -129,7 +129,9 @@ ENet is created by `host_session()` (server) or `connect_to(port)` (client). `Sc
 | --- | --- | --- |
 | Online queue | `matchmake()` | Connects to `Config.DUEL_PORT` or `TEAM_PORT` from the selected mode. Sets `searching`, so the lobby panel reads "Searching for…" with an `n of m players ready` count. |
 | Host lobby | `host_lobby()` → `begin_probe("host", …)` | Walks `Config.LOBBY_PORTS` in order, sending `claim_lobby(mode, version)`. |
-| Join lobby | `join_lobby(code)` → `begin_probe("join", …)` | Walks the same pool sending `resolve_lobby(code, version)`. |
+| Join lobby | `join_lobby(code)` → `begin_probe("join", …)` | Decodes the slot from the code's first character and dials that one server. Falls back to walking the pool if the prefix names no live slot. |
+
+**Lobby codes encode their slot.** The first character is the index into `Config.LOBBY_PORTS` of the server that issued the code; the remaining characters are random. Pool members mint codes with no coordination, so without this two slots could issue the same string — and a joiner, which stops at the first match, would silently send players to the wrong lobby. Encoding the slot makes that collision impossible rather than merely unlikely, and lets a join skip the probe entirely. `Config.LOBBY_PORTS` must never grow past `CODE_ALPHABET`.
 
 `intent` (`""` / `"queue"` / `"host"` / `"join"`) selects what `on_connected()` sends. The probe advances on three signals: an explicit `lobby_busy` reply, `connection_failed`, or the 10-second connect timeout. Exhausting the pool reports "All lobbies are in use" or "No lobby found with code X" and drops back to the menu.
 
@@ -286,7 +288,7 @@ The `ERROR:` check is stricter than it looks: Godot prints RID-leak errors at ex
 - `--test-latency` — 75 ms each direction (~150 ms total). Verifies no protocol warnings under delay.
 - `run_six.py` — host + 5 clients, full 3v3 human roster. Balanced teams, all peers moving, shared team result.
 - `run_dedicated.py` — one `--dedicated` server + 2 clients driven through `matchmake()`. Verifies version handshake, the queue's port-per-mode choice, and auto-start via server output.
-- `run_lobby.py` — two `--lobby` servers + 3 clients. The first host claims 27850 and holds it; the second must probe past it to 27851; the joiner is handed the *second* code, so it has to walk past a claimed-but-wrong lobby before matching. Verifies distinct codes, `lobby_busy` probe advance, and that a code-joined duel starts.
+- `run_lobby.py` — two `--lobby` servers + 3 clients. The first host claims 27850 and holds it; the second must probe past it to 27851. Verifies `lobby_busy` probe advance, that each code decodes to the slot that issued it, and that a code-joined duel starts. Both clients print `LOBBY CODE=<code> port=<n>` so a failure says which server answered.
 
 ### UI test coverage
 

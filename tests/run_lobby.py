@@ -64,6 +64,19 @@ try:
         print("Both hosts got the same code %s — they landed on the same slot" % code_a)
         sys.exit(1)
 
+    # The first character encodes the issuing slot, so a collision between two
+    # pool members is structurally impossible. Assert the encoding directly
+    # rather than trusting that two random strings happened to differ.
+    ALPHABET = "ACDEFGHJKMNPQRTUVWXY3467"
+    for label, code, port in (("A", code_a, PORTS[0]), ("B", code_b, PORTS[1])):
+        slot = ALPHABET.find(code[0])
+        if slot < 0 or PORTS[slot] != port:
+            print("Host %s code %s decodes to slot %d, but it claimed port %s"
+                  % (label, code, slot, port))
+            sys.exit(1)
+    print("codes encode their slots correctly: %s->%d, %s->%d"
+          % (code_a, PORTS[0], code_b, PORTS[1]))
+
     joiner = client("--join-code=%s" % code_b)
     join_out, _ = joiner.communicate(timeout=60)
     print("--- JOINER (code %s) ---\n%s" % (code_b, join_out))

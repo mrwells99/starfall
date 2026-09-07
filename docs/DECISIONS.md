@@ -62,7 +62,7 @@ Newest first.
 **Consequences:**
 
 - Concurrent private lobbies are capped at `Config.LOBBY_PORTS.size()`. Adding a slot means adding a port there **and** a service in `docker-compose.yml` and a port in `.env`; the two lists must stay in step or clients will probe a dead port and time out.
-- Codes are per-claim random from an alphabet that omits look-alike characters (`0/O`, `1/I/L`, `5/S`, `2/Z`, `8/B`) because they get read aloud over voice chat.
+- Codes use an alphabet that omits look-alike characters (`0/O`, `1/I/L`, `5/S`, `2/Z`, `8/B`) because they get read aloud over voice chat. The **first character encodes the issuing slot**, the rest is random: pool members mint codes with no coordination, so this is what makes a cross-slot collision impossible rather than merely unlikely. A joiner therefore dials the right server directly instead of walking the pool. `Config.LOBBY_PORTS` must never grow past `CODE_ALPHABET`.
 - A slot releases automatically when its last player disconnects (`LOBBY RELEASED` in the log). A crashed client leaves the slot held until ENet times the peer out.
 - This reverses the "multiple concurrent lobbies per server process" line previously in [`ROADMAP.md`](ROADMAP.md)'s not-planned list — that item said no *rooms in one process*, which still holds. Concurrency now comes from more processes.
 
