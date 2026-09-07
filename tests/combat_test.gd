@@ -1,0 +1,171 @@
+extends SceneTree
+
+var failures := 0
+var checks := 0
+var arena
+
+func check(condition: bool, description: String) -> void:
+	checks += 1
+	if not condition:
+		push_error(description)
+		failures += 1
+
+func _initialize() -> void:
+	call_deferred("run")
+
+func settle() -> void:
+	for frame in range(12):
+		for actor in arena.actors.values():
+			actor.velocity = Vector3(0, -2, 0)
+			actor.move_and_slide()
+		await physics_frame
+
+func reset(choice: String = "Ember", team_size: int = 1) -> void:
+	arena.mode = team_size
+	arena.roster = {1: {"champion": choice, "team": 0}}
+	arena.begin_round()
+	arena.phase = "match"
+	await settle()
+
+func run() -> void:
+	arena = load("res://arena.tscn").instantiate()
+	root.add_child(arena)
+	arena.set_physics_process(false)
+	await reset()
+	var player = arena.actors[1]
+	var enemy = arena.actors[2]
+	check(arena.validate_spell(player, 0, 2).is_empty(), "Open enemy in range is valid")
+	check(not arena.try_spell(1, 0, -1), "Offensive spells require target")
+	player.rotation.y = PI
+	check(not arena.try_spell(1, 0, 2), "Facing is enforced")
+	player.rotation.y = 0
+	player.position = Vector3(-6, 0, 9)
+	enemy.position = Vector3(-6, 0, 0)
+	await physics_frame
+	check(not arena.has_los(player, enemy), "Pillars block spells")
+	check(not arena.try_spell(1, 0, 2), "Blocked spells cannot start")
+	await reset()
+	player = arena.actors[1]
+	enemy = arena.actors[2]
+	check(arena.try_spell(1, 0, 2) and player.casting == 0 and enemy.hp == 100, "Cast starts without early damage")
+	player.move_input = Vector2(1, 0)
+	arena.tick_actor(player, 0.1)
+	check(player.casting == -1 and enemy.hp == 100, "Movement cancels casting")
+	player.move_input = Vector2.ZERO
+	player.gcd = 0
+	await settle()
+	check(arena.try_spell(1, 0, 2), "Stationary cast restarts")
+	player.cast_left = 0.001
+	arena.tick_actor(player, 0.01)
+	check(enemy.hp == 84, "Completed cast deals damage")
+	check(not arena.try_spell(1, 1, 2), "Global cooldown enforced")
+	enemy.casting = 0
+	enemy.cast_left = 1
+	check(arena.try_spell(1, 2, 2), "Interrupt bypasses global cooldown")
+	check(enemy.casting == -1 and enemy.locked == 4, "Interrupt cancels and locks spells")
+	enemy.owner_peer = 9
+	check(not arena.try_spell(2, 0, 1), "Lockout prevents spellcasting")
+	check(not arena.try_spell(1, 2, 2), "Interrupt cooldown enforced")
+	for expected in [4.0, 2.0, 1.0, 0.0]:
+		enemy.stunned = 0
+		arena.resolve_spell(player, 3, enemy)
+		check(enemy.stunned == expected, "Control diminishing returns: %s" % expected)
+	enemy.dr_timer = 0.001
+	arena.tick_actor(enemy, 0.01)
+	check(enemy.dr_count == 0, "Diminishing returns reset")
+	enemy.hp = 100
+	enemy.shield = 5
+	arena.damage(player, enemy, 20)
+	check(is_equal_approx(enemy.hp, 92), "Ward reduces damage by 60 percent")
+	player.hp = 90
+	arena.resolve_spell(player, 5, player)
+	check(player.hp == 100, "Self heal caps at maximum")
+	player.position = Vector3(-6, 0, 9)
+	player.rotation.y = 0
+	await physics_frame
+	arena.resolve_spell(player, 6, player)
+	check(player.position.z > 7, "Blink capsule sweep stops at pillar")
+	await reset("Vanguard")
+	player = arena.actors[1]
+	enemy = arena.actors[2]
+	check(not arena.try_spell(1, 0, 2), "Melee rejects distant target")
+	check(arena.try_spell(1, 6, 2), "Charge available at range")
+	check(player.position.distance_to(enemy.position) < 3.5 and enemy.hp == 94, "Charge closes distance and deals damage")
+	await reset("Luminary", 3)
+	player = arena.actors[1]
+	var ally = arena.actors[2]
+	enemy = arena.actors[4]
+	check(arena.actors.size() == 6, "Team mode creates six fighters")
+	var healers := [0, 0]
+	for actor in arena.actors.values():
+		if actor.champion == "Luminary":
+			healers[actor.team] += 1
+	check(healers == [1, 1], "Bot fill supplies one healer on each team")
+	ally.hp = 40
+	check(arena.try_spell(1, 1, 2) and ally.hp == 58, "Friendly healing reaches selected ally")
+	ally.stunned = 3
+	check(arena.try_spell(1, 2, 2) and ally.stunned == 0, "Healer dispel clears friendly control")
+	check(not arena.try_spell(1, 0, 2), "Offensive spells cannot damage allies")
+	check(arena.spell_target(player, 5, enemy.actor_id) == 1, "Helpful spell falls back to self with enemy targeted")
+	ally.position = Vector3(-6, 0, 0)
+	player.position = Vector3(-6, 0, 9)
+	await physics_frame
+	check(not arena.validate_spell(player, 5, 2).is_empty(), "Friendly heals respect line of sight")
+	# A single death does not decide a team match; all opposing actors must die.
+	arena.damage(player, enemy, 1000)
+	arena.check_winner()
+	check(arena.phase == "match", "Team round continues after first death")
+	for actor in arena.actors.values():
+		if actor.team == 1:
+			arena.damage(player, actor, 1000)
+	arena.check_winner()
+	check(arena.phase == "results" and arena.winner == 0, "Team elimination ends round")
+	arena.update_visuals(0)
+	check(arena.result_text.text.begins_with("VICTORY"), "Persistent victory shown")
+	await reset()
+	player = arena.actors[1]
+	enemy = arena.actors[2]
+	arena.damage(enemy, player, 1000)
+	arena.check_winner()
+	check(arena.phase == "results" and arena.result_text.text.begins_with("DEFEAT"), "Player death ends duel with defeat")
+	await reset()
+	check(arena.actors[1].hp == 100 and arena.actors[2].hp == 100 and arena.actors[1].dr_count == 0, "Rematch resets all combat state")
+	# Navigate from one side of a pillar to the other using actual collision movement.
+	player = arena.actors[1]
+	enemy = arena.actors[2]
+	player.position = Vector3(-6, 0, 10)
+	enemy.position = Vector3(-6, 0, 0)
+	var route: PackedVector2Array = arena.nav.route(enemy.position, player.position)
+	var detours := false
+	for point in route:
+		if absf(point.x + 6) >= 3:
+			detours = true
+	check(detours, "Navigation route detours around pillar clearance")
+	for frame in range(300):
+		arena.tick_actor(enemy, 1.0 / 60.0)
+		await physics_frame
+	check(arena.has_los(enemy, player), "Bot walks around pillar to acquire sight")
+	# Inputs cannot inject non-finite positions or excessive movement speed.
+	arena.apply_input(1, Vector2(999, 999), 0, false, 2)
+	check(player.move_input.length() <= 1.001, "Server clamps movement intent")
+	var old_yaw: float = player.rotation.y
+	arena.apply_input(1, Vector2.ZERO, NAN, false, 2)
+	check(player.rotation.y == old_yaw, "Non-finite input rejected")
+	check(not arena.try_spell(1, 999, 2), "Invalid ability slot rejected")
+	arena.update_visuals(0)
+	check((arena.player_frame.get_child(1) as ProgressBar).value == player.hp, "Health UI reflects simulation")
+	# Snapshot round-trip and terminal-state protection use the real wire format.
+	var snapshot: Array = arena.make_snapshot()
+	var packed := var_to_bytes(snapshot).compress(FileAccess.COMPRESSION_DEFLATE)
+	check(packed.size() < 1200, "Compressed snapshots fit conservative packet budget")
+	arena.phase = "match"
+	arena.last_snapshot = -1
+	arena.receive_snapshot(arena.epoch, 10, packed, "match", 12.0, 0.0)
+	check(arena.last_snapshot == 10 and arena.elapsed == 12, "Snapshot decompresses and applies")
+	arena.receive_snapshot(arena.epoch, 9, packed, "match", 1.0, 0.0)
+	check(arena.elapsed == 12, "Old snapshots cannot roll time backward")
+	arena.phase = "results"
+	arena.receive_snapshot(arena.epoch, 11, packed, "match", 13.0, 0.0)
+	check(arena.phase == "results" and arena.elapsed == 12, "Delayed snapshots cannot undo match result")
+	print("Combat checks: %d passed / %d total" % [checks - failures, checks])
+	quit(1 if failures else 0)
