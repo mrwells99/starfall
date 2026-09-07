@@ -1,0 +1,276 @@
+name: Test, build, deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing image tag to deploy (e.g. sha-1a2b3c4). Leave blank to build from this ref."
+        required: false
+        type: string
+
+# Least privilege by default; jobs widen it only where they must.
+permissions:
+  contents: read
+
+# Never let two deploys race onto the droplet. Builds for older commits are
+# cancelled, but an in-flight deploy is allowed to finish.
+concurrency:
+  group: ringfall-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  GODOT_VERSION: 4.5.1-stable
+  GODOT_SHA512: 5bccbed65a94b82c7c319fdb15719ee8113a6e503976cc54e16f1c61fe95f3d74e5e40b8449b5bb89ff7f424574c20af01a4f5ef08b389e4dc338b245185b0b9
+  REGISTRY: ghcr.io
+
+jobs:
+  # ---------------------------------------------------------------- tests ---
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    if: github.event.inputs.tag == ''
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Godot binary
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/godot-bin
+          key: godot-${{ env.GODOT_VERSION }}
+
+      - name: Install Godot
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p ~/godot-bin
+          url="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux.x86_64.zip"
+          curl -sSL -o godot.zip "$url"
+          echo "${GODOT_SHA512}  godot.zip" | sha512sum -c -
+          unzip -q godot.zip
+          install -m 0755 "Godot_v${GODOT_VERSION}_linux.x86_64" ~/godot-bin/godot
+
+      - name: Add Godot to PATH
+        run: echo "$HOME/godot-bin" >> "$GITHUB_PATH"
+
+      - name: Godot version
+        run: godot --version
+
+      - name: Parse check
+        run: godot --headless --path . --check-only --script scripts/arena.gd
+
+      - name: Combat integration
+        run: godot --headless --path . --script tests/combat_test.gd 2>&1 | tee out.txt && grep -q "47 passed / 47 total" out.txt
+
+      # These bind fixed UDP ports and must not overlap — hence one step, in order.
+      - name: Networked suites (sequential)
+        run: |
+          set -euo pipefail
+          python3 tests/run_network.py
+          python3 tests/run_network.py --test-team
+          python3 tests/run_network.py --test-latency
+          python3 tests/run_six.py
+          python3 tests/run_dedicated.py
+          python3 tests/run_lobby.py
+
+      # ui_test drives real mouse capture and cursor positioning, so it refuses
+      # --headless. Xvfb gives it a real (virtual) window; Mesa provides the
+      # software GL that the gl_compatibility renderer needs.
+      - name: Install virtual display for the UI suite
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            xvfb libgl1 libglu1-mesa libxcursor1 libxinerama1 libxrandr2 libxi6 \
+            libxkbcommon0 fontconfig
+
+      - name: UI suite (Xvfb)
+        run: |
+          set -euo pipefail
+          xvfb-run -a --server-args="-screen 0 1280x800x24" \
+            godot --path . --script tests/ui_test.gd 2>&1 | tee ui.txt
+          grep -q "64 passed / 64 total" ui.txt
+
+      # The server hard-rejects clients whose Config.VERSION differs. Shipping a
+      # protocol change without bumping it lets stale clients connect and
+      # desync, which is far harder to diagnose than a refused connection.
+      - name: Warn if gameplay changed without a VERSION bump
+        if: github.event_name == 'push'
+        run: |
+          set -euo pipefail
+          before="${{ github.event.before }}"
+          if [ -z "$before" ] || [ "$before" = "0000000000000000000000000000000000000000" ]; then
+            echo "No previous commit to compare against; skipping."; exit 0
+          fi
+          changed=$(git diff --name-only "$before" HEAD -- scripts/ || true)
+          if [ -n "$changed" ] && git diff "$before" HEAD -- scripts/config.gd | grep -q '^[-+]const VERSION'; then
+            echo "Config.VERSION was bumped."
+          elif [ -n "$changed" ]; then
+            echo "::warning title=Config.VERSION unchanged::scripts/ changed but Config.VERSION did not. Old clients will still be accepted by the new server."
+          fi
+
+  # ---------------------------------------------------------------- build ---
+  build:
+    name: Build and push image
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name != 'pull_request' && github.event.inputs.tag == ''
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      tag: ${{ steps.meta.outputs.version }}
+      digest: ${{ steps.push.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+          labels: |
+            org.opencontainers.image.title=Ringfall dedicated server
+            org.opencontainers.image.description=Godot 4.5 arena server (queues + private lobby pool)
+
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: true
+          sbom: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Summary
+        run: |
+          {
+            echo "### Image pushed"
+            echo ""
+            echo "- Tag: \`${{ steps.meta.outputs.version }}\`"
+            echo "- Digest: \`${{ steps.push.outputs.digest }}\`"
+            echo ""
+            echo "Roll back to this build with:"
+            echo '```'
+            echo "gh workflow run deploy.yml -f tag=${{ steps.meta.outputs.version }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # --------------------------------------------------------------- deploy ---
+  deploy:
+    name: Deploy to droplet
+    runs-on: ubuntu-latest
+    needs: build
+    # Only ever from main, or an explicit manual rollback.
+    if: |
+      always() &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.ref == 'refs/heads/main' && needs.build.result == 'success'))
+    timeout-minutes: 15
+    # Attach required reviewers / branch restrictions to this environment in
+    # repo settings; that is what gates who can push to production.
+    environment:
+      name: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve tag to deploy
+        id: target
+        run: |
+          set -euo pipefail
+          tag="${{ github.event.inputs.tag }}"
+          if [ -z "$tag" ]; then tag="${{ needs.build.outputs.tag }}"; fi
+          if [ -z "$tag" ]; then echo "No tag to deploy." >&2; exit 1; fi
+          # Reject anything that is not a plain tag before it reaches the shell.
+          case "$tag" in
+            *[!A-Za-z0-9._-]*) echo "Refusing suspicious tag: $tag" >&2; exit 1 ;;
+          esac
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Deploying tag: $tag"
+
+      - name: Configure SSH
+        run: |
+          set -euo pipefail
+          install -d -m 0700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 0600 ~/.ssh/id_ed25519
+          # Pinned host key — never StrictHostKeyChecking=no, which would accept
+          # a man-in-the-middle on first contact and on any key change.
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 0644 ~/.ssh/known_hosts
+
+      - name: Ship compose file
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER_NAME: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          scp -o StrictHostKeyChecking=yes docker-compose.yml \
+            "${USER_NAME}@${HOST}:/opt/ringfall/docker-compose.yml"
+
+      - name: Pin tag, pull, and restart
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER_NAME: ${{ secrets.DEPLOY_USER }}
+          TAG: ${{ steps.target.outputs.tag }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=yes "${USER_NAME}@${HOST}" \
+            "TAG='${TAG}' bash -s" <<'REMOTE'
+          set -euo pipefail
+          cd /opt/ringfall
+          test -f .env || { echo "/opt/ringfall/.env is missing — run deploy/bootstrap.sh"; exit 1; }
+
+          # Record what we are replacing so a rollback has something to name.
+          previous=$(grep -E '^RINGFALL_TAG=' .env | cut -d= -f2- || true)
+          echo "previous tag: ${previous:-<unset>}"
+          echo "$previous" > .last-tag
+
+          # Rewrite only the tag line; the operator owns everything else in .env.
+          if grep -qE '^RINGFALL_TAG=' .env; then
+            sed -i "s|^RINGFALL_TAG=.*|RINGFALL_TAG=${TAG}|" .env
+          else
+            echo "RINGFALL_TAG=${TAG}" >> .env
+          fi
+
+          sudo /usr/local/bin/ringfall-deploy
+          REMOTE
+
+      - name: Report deployed state
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER_NAME: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          # ringfall-deploy already gated on health and failed the step above if
+          # the stack did not come up. This is the human-readable record.
+          ssh -o StrictHostKeyChecking=yes "${USER_NAME}@${HOST}" \
+            'sudo /usr/local/bin/ringfall-status 20' | tee state.txt
+          {
+            echo "### Deployed \`${{ steps.target.outputs.tag }}\`"
+            echo ""
+            echo '```'
+            head -40 state.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

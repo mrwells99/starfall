@@ -2,11 +2,14 @@
 
 A Godot 4.5 arena-combat prototype: **WoW-style controls** (WASD, mouse turn, strafe, Tab targeting, third-person camera) with **LoL-style structure** (pick a fixed-kit champion, enter an arena at equal power — no gear, no leveling). Original names and generated placeholder geometry; no WoW/LoL assets.
 
+**Theme: Cosmic Gladiators.** Fighters summoned from different worlds and universes fight in an ancient arena floating in space — celestial temples, nebulae, ancient gods watching. Deep purples/blues with extremely bright magical accents. Established canon; details in [`docs/ART_DIRECTION.md`](docs/ART_DIRECTION.md).
+
 - **Full vision, champions, combat mechanics:** [`docs/GAME_DESIGN.md`](docs/GAME_DESIGN.md)
 - **Where the project is right now:** [`docs/CONTEXT.md`](docs/CONTEXT.md)
 - **How the code is put together:** [`docs/TECHNICAL_ARCHITECTURE.md`](docs/TECHNICAL_ARCHITECTURE.md)
 - **What we're building next:** [`docs/ROADMAP.md`](docs/ROADMAP.md)
 - **Why decisions were made:** [`docs/DECISIONS.md`](docs/DECISIONS.md)
+- **How it gets deployed:** [`DEPLOYMENT.md`](DEPLOYMENT.md)
 - **Art direction:** [`docs/ART_DIRECTION.md`](docs/ART_DIRECTION.md)
 
 ## For players
@@ -35,7 +38,8 @@ Detailed, evolving project knowledge lives under `docs/`. Each file has a specif
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | **Long-term reasoning memory.** Meaningful decisions and *why* — the constraints you shouldn't silently reverse. |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | **Source of truth** for development priorities. |
 | [`docs/TECHNICAL_ARCHITECTURE.md`](docs/TECHNICAL_ARCHITECTURE.md) | Code map, runtime state, combat pipeline, networking, tests, troubleshooting. |
-| [`docs/DEPLOY.md`](docs/DEPLOY.md) | Dedicated server provisioning, DNS, systemd unit, deploy loop, log inspection. |
+| [`DEPLOYMENT.md`](DEPLOYMENT.md) | **Production deployment.** Docker image, GHCR, GitHub Actions, server bootstrap, secrets, rollback, verification, security review. |
+| [`docs/DEPLOY.md`](docs/DEPLOY.md) | Droplet facts — DNS, firewall, SELinux — plus the superseded systemd model kept as a fallback. |
 
 **You may create new `docs/*.md` files** when an area of the project becomes a substantial, recurring area of knowledge (e.g. `docs/CHAMPIONS.md`, `docs/VFX_GUIDELINES.md`, `docs/DEPLOY.md`). Do not create a file per topic. Use judgment: a new file exists because it represents durable, recurring knowledge — not because you have five paragraphs to say once.
 
@@ -114,6 +118,7 @@ If you find contradictory information across docs (or between docs and code):
 Constraints the user has explicitly set. Do not silently reverse. Reasoning is in [`docs/DECISIONS.md`](docs/DECISIONS.md).
 
 - **Gameplay direction is WoW-style controls + LoL-style structure.** No top-down camera. No click-to-move. No gear system. No leveling.
+- **The theme is Cosmic Gladiators** — space + fantasy, an ancient arena floating in space, summoned fighters from across universes, deep purples/blues with bright magical accents. Established by the user. Do not drift to a different setting or palette; see [`docs/ART_DIRECTION.md`](docs/ART_DIRECTION.md).
 - **Character models and overhead nameplates are never clickable target-select surfaces.** Target via Tab, F1–F3, or clickable UI frames only.
 - **Off-GCD does not bypass "already casting".** No ability can be used while another cast is in progress.
 - **Server is authoritative for combat.** Do not add client-authoritative combat state to hide lag — fix with prediction instead.

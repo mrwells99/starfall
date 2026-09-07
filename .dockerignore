@@ -1,0 +1,33 @@
+# Build context is only what the server needs to run. Everything here either
+# gets rebuilt inside the image, is client/dev-only, or is documentation.
+
+.git
+.gitignore
+.github
+
+# Rebuilt in the builder stage. Never ship a host-generated import cache: it can
+# reference absolute host paths and it is what six containers would otherwise
+# race to create at startup.
+.godot
+
+# Test harnesses run on the CI runner against the source tree, not in the image.
+tests/
+
+# Screenshots produced by tests/visual_check.gd.
+artifacts/
+
+# Docs, deploy tooling and Docker files are not needed by the running server.
+docs/
+deploy/
+*.md
+Dockerfile
+.dockerignore
+docker-compose.yml
+.env
+.env.example
+
+# Editor / OS noise
+.vscode/
+.idea/
+*.swp
+.DS_Store

@@ -1,0 +1,107 @@
+# Ringfall dedicated servers.
+#
+# Six processes, one image. Two public matchmaking queues (duel, team) and a
+# four-slot private-lobby pool. The pool size here MUST match
+# Config.LOBBY_PORTS in scripts/config.gd — a client probes those ports by
+# number, so a missing container shows up as a connection timeout, not an error.
+#
+# Usage:  cp .env.example .env  &&  docker compose up -d
+
+x-ringfall-common: &ringfall-common
+  image: ${RINGFALL_IMAGE:-ghcr.io/mrwells99/ringfall}:${RINGFALL_TAG:-latest}
+  restart: unless-stopped
+  # tini as PID 1: forwards SIGTERM to Godot and reaps zombies.
+  init: true
+  stop_grace_period: 15s
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  read_only: true
+  # Godot writes user:// data and its shader cache under HOME (/tmp in the image).
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,size=64m
+  ulimits:
+    nofile:
+      soft: 8192
+      hard: 8192
+  # Without a cap, a crash-looping server fills the droplet's disk with logs.
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+  deploy:
+    resources:
+      limits:
+        cpus: "${RINGFALL_CPU_LIMIT:-0.75}"
+        memory: ${RINGFALL_MEM_LIMIT:-512M}
+
+services:
+  # --- public matchmaking queues -------------------------------------------
+  duel:
+    <<: *ringfall-common
+    container_name: ringfall-duel
+    environment:
+      RINGFALL_PORT: ${DUEL_PORT:-27840}
+    command:
+      - --dedicated
+      - --mode=duel
+      - --port=${DUEL_PORT:-27840}
+      - --min-players=${DUEL_MIN_PLAYERS:-2}
+      - --rematch-delay=${REMATCH_DELAY:-8}
+    ports:
+      - "${BIND_ADDRESS:-0.0.0.0}:${DUEL_PORT:-27840}:${DUEL_PORT:-27840}/udp"
+
+  team:
+    <<: *ringfall-common
+    container_name: ringfall-team
+    environment:
+      RINGFALL_PORT: ${TEAM_PORT:-27841}
+    command:
+      - --dedicated
+      - --mode=team
+      - --port=${TEAM_PORT:-27841}
+      # Humans needed to start; remaining slots are filled with bots.
+      - --min-players=${TEAM_MIN_PLAYERS:-2}
+      - --rematch-delay=${REMATCH_DELAY:-8}
+    ports:
+      - "${BIND_ADDRESS:-0.0.0.0}:${TEAM_PORT:-27841}:${TEAM_PORT:-27841}/udp"
+
+  # --- private lobby pool ---------------------------------------------------
+  # Mode is chosen by whoever claims the slot, so these take no --mode.
+  lobby1:
+    <<: *ringfall-common
+    container_name: ringfall-lobby1
+    environment:
+      RINGFALL_PORT: ${LOBBY1_PORT:-27850}
+    command: ["--dedicated", "--lobby", "--port=${LOBBY1_PORT:-27850}", "--rematch-delay=${REMATCH_DELAY:-8}"]
+    ports:
+      - "${BIND_ADDRESS:-0.0.0.0}:${LOBBY1_PORT:-27850}:${LOBBY1_PORT:-27850}/udp"
+
+  lobby2:
+    <<: *ringfall-common
+    container_name: ringfall-lobby2
+    environment:
+      RINGFALL_PORT: ${LOBBY2_PORT:-27851}
+    command: ["--dedicated", "--lobby", "--port=${LOBBY2_PORT:-27851}", "--rematch-delay=${REMATCH_DELAY:-8}"]
+    ports:
+      - "${BIND_ADDRESS:-0.0.0.0}:${LOBBY2_PORT:-27851}:${LOBBY2_PORT:-27851}/udp"
+
+  lobby3:
+    <<: *ringfall-common
+    container_name: ringfall-lobby3
+    environment:
+      RINGFALL_PORT: ${LOBBY3_PORT:-27852}
+    command: ["--dedicated", "--lobby", "--port=${LOBBY3_PORT:-27852}", "--rematch-delay=${REMATCH_DELAY:-8}"]
+    ports:
+      - "${BIND_ADDRESS:-0.0.0.0}:${LOBBY3_PORT:-27852}:${LOBBY3_PORT:-27852}/udp"
+
+  lobby4:
+    <<: *ringfall-common
+    container_name: ringfall-lobby4
+    environment:
+      RINGFALL_PORT: ${LOBBY4_PORT:-27853}
+    command: ["--dedicated", "--lobby", "--port=${LOBBY4_PORT:-27853}", "--rematch-delay=${REMATCH_DELAY:-8}"]
+    ports:
+      - "${BIND_ADDRESS:-0.0.0.0}:${LOBBY4_PORT:-27853}:${LOBBY4_PORT:-27853}/udp"

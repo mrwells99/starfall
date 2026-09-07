@@ -10,27 +10,27 @@ _Practical, current, and small. This is not a speculative feature list — new i
 
 **Droplet provisioning.** Deploy scripts + runbook are in the repo (`deploy/`, [`DEPLOY.md`](DEPLOY.md)). Server target: `play.leafmods.com`. Waiting on the DO droplet + DNS setup before the first manual deploy.
 
-The server is now **six processes**, not one: a duel queue (27840), a 3v3 queue (27841), and a four-slot private lobby pool (27850–27853). `deploy/setup.sh` opens all six ports and enables one templated `ringfall@<instance>` unit per env file in `deploy/instances/`.
+The server is now **six containers**, not one process: a duel queue (27840), a 3v3 queue (27841), and a four-slot private lobby pool (27850–27853), all from one image. Build, push to GHCR and SSH deploy run from GitHub Actions — see [`../DEPLOYMENT.md`](../DEPLOYMENT.md). The previous source-on-droplet + systemd model is archived under `deploy/legacy-systemd/`.
 
 ## Next up — in order
 
 ### 1. DigitalOcean droplet + first manual deploy — **in progress**
 
-Pool sizing is a guess: four private lobby slots for a small crew. If they fill in practice, add ports to `Config.LOBBY_PORTS` **and** matching env files in `deploy/instances/` — the two lists must stay in step.
+Pool sizing is a guess: four private lobby slots for a small crew. If they fill in practice, add a port to `Config.LOBBY_PORTS`, a port to `.env`, a service to `docker-compose.yml`, and a firewall rule — all four, or clients probe a port nothing answers.
 
 - User provisions a $6/mo Ubuntu 24.04 droplet.
 - `A` record `play.leafmods.com` → droplet IP.
-- Run `deploy/setup.sh` on the droplet (installs Godot 4.5.1, creates the `ringfall` user, opens UDP 27840/27841 and 27850–27853, installs `ringfall@.service` plus one env file per instance).
-- Run `deploy/deploy.sh` from a dev machine to sync source, warm the import cache, and start all six instances.
+- Run `deploy/bootstrap.sh` on the droplet (firewall, Docker CE, the `deploy` user and its restricted sudo wrappers, `/opt/ringfall`).
+- Add the four GitHub secrets from [`../DEPLOYMENT.md`](../DEPLOYMENT.md), then push to `main` — Actions tests, builds, pushes to GHCR and deploys.
 - Buddies verify Online → Online queue drops them into a match, and that Host lobby / Join lobby work with a shared code. No address is typed at any point.
 
 Runbook: [`DEPLOY.md`](DEPLOY.md).
 
-### 2. GitHub Actions on push to `main`
+### 2. GitHub Actions on push to `main` — **done, unverified against a real droplet**
 
-- Run the equivalent of `deploy/deploy.sh` in CI using a stored SSH key + known-hosts entry.
-- Bump `Config.VERSION` per release (or auto-bump from commit SHA / date).
-- No client build required for this step — source-on-droplet stays the model for now.
+`.github/workflows/deploy.yml` runs the suites, builds the image, pushes to GHCR and deploys over SSH. Written and locally validated; it has never run against the droplet, because the droplet does not exist yet. Expect to shake out secrets and host-key setup on the first run.
+
+Still open: `Config.VERSION` is bumped by hand. CI only warns when `scripts/` changes without one.
 
 ### 3. Client-side launcher
 

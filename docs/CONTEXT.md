@@ -20,15 +20,16 @@ Until all three exist, buddies play by manually launching Godot from a checkout.
 
 ## Recently completed (this batch)
 
+- **Theme established — Cosmic Gladiators.** Space + fantasy: summoned fighters from different worlds, an ancient arena floating in space, celestial temples, nebulae, gods watching; deep purples/blues with extremely bright magical accents. Set by the user, now canon in [`ART_DIRECTION.md`](ART_DIRECTION.md) and [`DECISIONS.md`](DECISIONS.md). This is direction, **not** a green light to start an art pipeline — placeholder-first still holds.
 - **Documentation reorganized** into `docs/` as persistent shared memory for AI agents. Main README rewritten as a short operating manual.
 - **Dedicated server mode** — `--dedicated --mode=team --min-players=2 --rematch-delay=8`. No local player, auto-start when threshold met, auto-rematch after each round, holds in lobby when roster drops below threshold.
 - **Version handshake** in `register_player` — hard reject on mismatch.
 - **Online menu rewritten** — Online now offers **Online queue**, **Host lobby**, and **Join lobby**. No server address or port appears anywhere in the UI.
 - **Online queue** — picks the port from the selected mode (duel 27840 / team 27841), shows "Searching for an opponent…" with an `n of m players ready` count, and drops into the round when the server auto-starts.
 - **Private lobbies** — a fixed pool of `--dedicated --lobby` processes on 27850–27853. Host lobby claims the first idle slot and returns a 4-character code; Join lobby probes the pool for that code. No broker process. Reasoning and rejected alternatives in [`DECISIONS.md`](DECISIONS.md).
-- **Server is now six processes** — templated `ringfall@<instance>` systemd unit driven by one env file per instance in `deploy/instances/`.
+- **Server is now six containers** from one image — `docker-compose.yml`, deployed by GitHub Actions to GHCR and then over SSH. See [`../DEPLOYMENT.md`](../DEPLOYMENT.md).
 - New `scripts/config.gd` centralizes deploy-time constants. `SERVER_ADDRESS` points at `play.leafmods.com`.
-- **Deploy scripts and runbook** — `deploy/setup.sh`, `deploy/ringfall@.service`, `deploy/instances/*.env`, `deploy/deploy.sh`, and [`DEPLOY.md`](DEPLOY.md).
+- **Docker deployment** — `Dockerfile` (pinned Godot, pre-built import cache, non-root, read-only rootfs), `docker-compose.yml`, `.env.example`, `.github/workflows/deploy.yml`, `deploy/bootstrap.sh` + `install-docker-rocky.sh` + `create-deploy-user.sh`, and [`../DEPLOYMENT.md`](../DEPLOYMENT.md). The old systemd model is archived in `deploy/legacy-systemd/`.
 - New integration tests `tests/run_dedicated.py` (queue) and `tests/run_lobby.py` (private lobbies, including probing past a claimed slot).
 
 ## Known-good state
@@ -39,13 +40,13 @@ Watch for `ERROR:` in test output — `run_network.py`, `run_six.py`, `run_dedic
 
 ## Known blockers
 
-None coded. Waiting on droplet provisioning (user is spinning it up) before running the first manual deploy. Nothing in the lobby/queue work has been exercised against a real droplet yet — only against local processes.
+None coded. The Docker pipeline is verified locally (image builds, six containers healthy, real matches and lobby codes work through Docker's UDP NAT) but **has never run in GitHub Actions or touched a droplet**. Waiting on droplet provisioning (user is spinning it up) before running the first manual deploy. Nothing in the lobby/queue work has been exercised against a real droplet yet — only against local processes.
 
 ## Immediate next steps (in order)
 
-1. **Droplet provisioning** — user creates the DO droplet, adds `A` record for `play.leafmods.com`, runs `deploy/setup.sh` on the droplet, runs `deploy/deploy.sh` from dev machine. Runbook in [`DEPLOY.md`](DEPLOY.md).
+1. **Droplet provisioning** — user creates the Rocky 9 droplet, adds `A` record for `play.leafmods.com`, runs `deploy/bootstrap.sh`, adds the four GitHub secrets, pushes to `main`. Runbook in [`../DEPLOYMENT.md`](../DEPLOYMENT.md).
 2. **Verify buddies can connect** — Online queue into a match, and a shared code into a private lobby, from their own machines.
-3. **GitHub Actions workflow** — build + publish on push to `main`, run the equivalent of `deploy/deploy.sh` in CI.
+3. **First real CI run** — the workflow is written and locally validated but has never executed against a droplet. Secrets and host-key pinning are the likely first failures.
 4. **Client-side launcher** with forced-update-on-mismatch behavior.
 5. Once the loop closes, real playtesting. Feel-tuning follows.
 

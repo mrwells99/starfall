@@ -1,15 +1,25 @@
 # Deploy — Ringfall dedicated server on DigitalOcean
 
+> **Superseded for production.** Ringfall now deploys as Docker containers via
+> GitHub Actions — see [`../DEPLOYMENT.md`](../DEPLOYMENT.md). This runbook
+> describes the older source-on-droplet + systemd model, whose scripts are
+> archived in [`../deploy/legacy-systemd/`](../deploy/legacy-systemd/).
+> It is kept because it still works as a registry-free fallback, and because the
+> droplet facts below — DNS, firewall ports, SELinux, version bumps — remain
+> accurate under Docker.
+>
+> **Never run both models on one droplet:** they bind the same UDP ports.
+
 _Runbook for provisioning and updating the shared dedicated server. Source-on-droplet for MVP (no build step) — GitHub Actions automation lands next, per [`ROADMAP.md`](ROADMAP.md)._
 
 **Deploy target:** `play.leafmods.com` (see [`DECISIONS.md`](DECISIONS.md) for the domain choice).
 
 Repo files that make this work:
 
-- [`deploy/setup.sh`](../deploy/setup.sh) — one-shot droplet bootstrap.
-- [`deploy/ringfall@.service`](../deploy/ringfall@.service) — templated systemd unit installed by `setup.sh`. One instance per env file.
-- [`deploy/instances/`](../deploy/instances) — one `<name>.env` per server process, each setting `RINGFALL_ARGS`. Installed to `/etc/ringfall/`.
-- [`deploy/deploy.sh`](../deploy/deploy.sh) — repeatable manual deploy from your dev machine.
+- [`deploy/legacy-systemd/setup.sh`](../deploy/legacy-systemd/setup.sh) — one-shot droplet bootstrap.
+- [`deploy/ringfall@.service`](../deploy/legacy-systemd/ringfall@.service) — templated systemd unit installed by `setup.sh`. One instance per env file.
+- [`deploy/instances/`](../deploy/legacy-systemd/instances) — one `<name>.env` per server process, each setting `RINGFALL_ARGS`. Installed to `/etc/ringfall/`.
+- [`deploy/deploy.sh`](../deploy/legacy-systemd/deploy.sh) — repeatable manual deploy from your dev machine.
 
 ## Prerequisites
 
@@ -21,7 +31,7 @@ Repo files that make this work:
 
 Suggested spec — small is fine for 6 humans:
 
-- **Ubuntu 24.04 LTS** or **Rocky Linux 9** (both supported by `deploy/setup.sh`).
+- **Ubuntu 24.04 LTS** or **Rocky Linux 9** (both supported by `deploy/legacy-systemd/setup.sh`).
 - Basic / regular Intel, **1 GB RAM / 1 vCPU** ($6/mo). Bump to 2 GB if snapshots start dropping under load; unlikely at this scale.
 - Region: pick whichever is nearest most buddies.
 - Enable IPv6 (free, and lets you add an `AAAA` record later without reprovisioning).
@@ -45,7 +55,7 @@ From your dev machine:
 
 ```sh
 # Ship just the deploy folder to a temp path:
-scp -r deploy/ root@play.leafmods.com:/tmp/ringfall-deploy/
+scp -r deploy/legacy-systemd/ root@play.leafmods.com:/tmp/ringfall-deploy/
 
 # Review then run:
 ssh root@play.leafmods.com 'less /tmp/ringfall-deploy/setup.sh'   # optional
@@ -58,7 +68,7 @@ ssh root@play.leafmods.com 'bash /tmp/ringfall-deploy/setup.sh'
 - Opens `22/tcp` plus `27840/udp`, `27841/udp` and `27850-27853/udp` in `ufw`, enables the firewall.
 - Creates a `ringfall` system user (no login shell, home = `/opt/ringfall`).
 - Downloads Godot 4.5.1 stable from the official GitHub release, installs to `/usr/local/bin/godot`.
-- Installs `ringfall@.service` under `/etc/systemd/system/`, copies `deploy/instances/*.env` to `/etc/ringfall/`, and `systemctl enable`s one instance per env file.
+- Installs `ringfall@.service` under `/etc/systemd/system/`, copies `deploy/legacy-systemd/instances/*.env` to `/etc/ringfall/`, and `systemctl enable`s one instance per env file.
 
 Idempotent — safe to re-run when upgrading Godot or re-provisioning.
 
@@ -67,7 +77,7 @@ Idempotent — safe to re-run when upgrading Godot or re-provisioning.
 Still from your dev machine, in the project root:
 
 ```sh
-./deploy/deploy.sh
+./deploy/legacy-systemd/deploy.sh
 ```
 
 This `rsync`s the repo into `/opt/ringfall` (excluding `.git`, `.godot`, `artifacts`, and this script itself), reinstalls the unit template and every env file, then **stops all instances, rebuilds `.godot/`, and starts them again**, finally tailing recent logs.
@@ -118,7 +128,7 @@ No address or port should be visible anywhere in the UI during any of this.
 For every subsequent push to `main`:
 
 ```sh
-./deploy/deploy.sh
+./deploy/legacy-systemd/deploy.sh
 ```
 
 Once GitHub Actions is set up (next roadmap item), this runs in CI on every push. Until then, this is your one-liner.
@@ -145,7 +155,7 @@ journalctl -u 'ringfall@*' | grep DEDICATED
 
 The server hard-rejects clients whose `Config.VERSION` doesn't match. When you change `Config.VERSION`:
 
-1. Deploy the server (`./deploy/deploy.sh`) so it's on the new version.
+1. Deploy the server (`./deploy/legacy-systemd/deploy.sh`) so it's on the new version.
 2. Buddies pull latest and re-launch. (Once the client launcher exists, this becomes automatic.)
 
 Mismatched clients will get: `Version mismatch — server is vX, your client is vY. Update to play.`

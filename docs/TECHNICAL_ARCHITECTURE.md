@@ -305,7 +305,7 @@ The UI test **rejects `--headless`** — cursor APIs are not faithfully emulated
 | Symptom | First checks |
 | --- | --- |
 | "Server isn't up" / queue hangs | Is the instance for that mode running (`systemctl status 'ringfall@*'`)? Is its UDP port reachable? Locally, use `--join=127.0.0.1` or drive `matchmake()` as the tests do. |
-| "No lobby found with code X" | The code is right but every pool port was walked without a match. Either the holding instance is down, or `Config.LOBBY_PORTS` and `deploy/instances/` have drifted out of step. |
+| "No lobby found with code X" | The code is right but every pool port was walked without a match. Either the holding instance is down, or `Config.LOBBY_PORTS` and the services in `docker-compose.yml` have drifted out of step. |
 | "All lobbies are in use" | Every slot in `Config.LOBBY_PORTS` is claimed. Slots release when their last player disconnects; a crashed client holds one until ENet times out. |
 | Host starts but nothing fights | Non-dedicated host must click Start (3 s countdown follows). Plain headless `--host` has no way to click Start; use `--dedicated`. |
 | "Could not bind port" | Another instance owns that port. With six server processes, check which: `ss -ulnp | grep 278`. Identify before killing. |

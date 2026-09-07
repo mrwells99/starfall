@@ -8,6 +8,12 @@ Ringfall combines **World of Warcraft's gameplay and controls** with **League of
 
 The comparison to League concerns roster shape and lack of gearing — **not** its camera, movement, targeting, map, lanes, or economy. All of those follow the WoW side of the split.
 
+### Setting — Cosmic Gladiators
+
+Fighters from different worlds and universes are summoned to compete in an **ancient cosmic arena**: space + fantasy, an arena floating in space rather than standing on a planet, ancient gods watching from massive structures. Champions may be alien assassins, celestial knights, or weird cosmic beasts.
+
+This is established canon. The fiction is the in-world reason combatants meet at equal power with no gear and no leveling. Full theme and visual identity — deep purples/blues, bright magical accents, nebulae, glowing weapons — live in [`ART_DIRECTION.md`](ART_DIRECTION.md); reasoning is in [`DECISIONS.md`](DECISIONS.md).
+
 Intended experience:
 
 1. Pick an original champion with a complete, fixed specialization-like kit.

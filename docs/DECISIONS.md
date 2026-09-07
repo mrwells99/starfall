@@ -6,6 +6,47 @@ Newest first.
 
 ---
 
+## 2026-09-07 — Theme: Cosmic Gladiators
+
+**Decision:** Ringfall's setting and visual theme is **Cosmic Gladiators** — fighters summoned from different worlds and universes to compete in an ancient cosmic arena. Space + fantasy: celestial temples, floating islands, black holes and nebulae in the background, ancient gods watching from massive structures. Champions range from alien assassins to celestial knights to weird cosmic beasts. Visual identity is deep purples and blues with extremely bright magical accents, stars, glowing weapons, cosmic effects. Full detail in [`ART_DIRECTION.md`](ART_DIRECTION.md).
+
+**Why:** Set directly by the project owner. It also fits the structural constraints already in place: an arena disconnected from any world explains why fighters arrive at equal power with no gear and no leveling, and why an unrelated roster of champions shares one map. The fiction and the LoL-style structure reinforce each other rather than fighting.
+
+**Alternatives considered:** None — this was a directive, not a trade-off analysis.
+
+**Consequences:**
+
+- [`ART_DIRECTION.md`](ART_DIRECTION.md) is the source of truth for how this is executed. Champion concepts, arena design, VFX, and background work should be checked against it.
+- This does **not** reverse "Placeholder art, defer aesthetics" below. No external assets, no animation system yet. It gives placeholder work a direction to lean toward, not permission to start an art pipeline.
+- Cross-universe variety is intentional: champions are *not* required to share a silhouette language or material palette.
+- Existing functional colors (absolute team blue/red, the feedback cue palette) were chosen for contrast against a near-black background. Re-tuning them against a deep-purple cosmic palette is an open question, not a settled one — see the open list in [`ART_DIRECTION.md`](ART_DIRECTION.md).
+
+---
+
+## 2026-09-07 — Deploy as Docker containers from GHCR, not source on the droplet
+
+**Decision:** Production deployment is six containers from one image, built and pushed to GHCR by GitHub Actions on every push to `main`, then rolled out over SSH. The image bundles a checksum-pinned Godot binary, the project source, and a **pre-built import cache**; it does not use Godot's export pipeline. The previous source-on-droplet + systemd model is archived in `deploy/legacy-systemd/`, not deleted.
+
+**Why:** The systemd model needed the droplet to hold source, a matching Godot version, and a warm `.godot/` cache built at deploy time with every service stopped — a race we had to hand-sequence in `deploy.sh`. A prebuilt image makes the artifact immutable, moves the import step to build time, makes "what is running?" answerable by tag, and makes rollback a redeploy of an older tag instead of a git checkout.
+
+**Why bundle rather than export:** the repo has no `export_presets.cfg` and no external assets — all geometry is generated at runtime — so an export needs ~1 GB of export templates to produce a `.pck` that is essentially the source we already ship. Bundling gets the properties that matter (immutable artifact, no runtime writes to the project, no import race, fast start) without that. Revisit when the project gains real assets.
+
+**Alternatives considered:**
+
+- **Keep systemd, add Actions.** Least change, and it works. Rejected: the artifact stays mutable, rollback means redeploying an old commit and rebuilding the cache, and the droplet needs a toolchain.
+- **Godot export to `.pck` + server binary.** The conventional production answer and where this should end up eventually. Rejected for now on cost/benefit — see above.
+- **One container running all six servers under a supervisor.** Fewer moving parts in compose. Rejected: one crash takes down every queue and lobby, and per-instance resource limits and health become impossible.
+- **`network_mode: host`** instead of published UDP ports. Avoids Docker's UDP NAT entirely, which is the usual advice for game servers. Not needed — a real 3v3 and the full lobby-code probe were verified end to end through published ports. Kept as the documented switch if UDP NAT ever misbehaves.
+
+**Consequences:**
+
+- The compose service list, `Config.LOBBY_PORTS`, `.env`, and the firewall are four places encoding the same port set. They must change together.
+- Rolling back across a `Config.VERSION` change disconnects every connected client with a version error — correct handshake behavior, but it looks like an outage. Noted in [`../DEPLOYMENT.md`](../DEPLOYMENT.md).
+- The deploy account is deliberately **not** in the `docker` group (root-equivalent); it has passwordless sudo for two root-owned wrapper scripts with no meaningful arguments.
+- Health is judged by the ENet socket being bound, not by the process existing.
+
+---
+
 ## 2026-09-07 — Private lobbies: a fixed pool of server processes, no broker
 
 **Decision:** Private lobbies are dedicated server processes from a fixed pool, one per port in `Config.LOBBY_PORTS` (currently 27850–27853), each launched with `--dedicated --lobby --port=N`. A slot sits idle until a client claims it. The client finds a slot by **probing the pool in port order**: "Host lobby" takes the first unclaimed slot, "Join lobby" walks the pool asking each server whether it holds the entered code. The server answers `lobby_found` or `lobby_busy`; on `lobby_busy` the client hangs up and tries the next port. There is no matchmaker or broker service.
@@ -20,7 +61,7 @@ Newest first.
 
 **Consequences:**
 
-- Concurrent private lobbies are capped at `Config.LOBBY_PORTS.size()`. Adding a slot means adding a port there **and** an env file in `deploy/instances/`; the two lists must stay in step or clients will probe a dead port and time out.
+- Concurrent private lobbies are capped at `Config.LOBBY_PORTS.size()`. Adding a slot means adding a port there **and** a service in `docker-compose.yml` and a port in `.env`; the two lists must stay in step or clients will probe a dead port and time out.
 - Codes are per-claim random from an alphabet that omits look-alike characters (`0/O`, `1/I/L`, `5/S`, `2/Z`, `8/B`) because they get read aloud over voice chat.
 - A slot releases automatically when its last player disconnects (`LOBBY RELEASED` in the log). A crashed client leaves the slot held until ENet times the peer out.
 - This reverses the "multiple concurrent lobbies per server process" line previously in [`ROADMAP.md`](ROADMAP.md)'s not-planned list — that item said no *rooms in one process*, which still holds. Concurrency now comes from more processes.
