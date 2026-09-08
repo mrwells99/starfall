@@ -8,6 +8,8 @@ Pixel-centre compensation makes opposite border texels evaluate identically.
 import bpy
 import math
 import json
+import struct
+import zlib
 import numpy as np
 from pathlib import Path
 
@@ -93,6 +95,16 @@ for kind, colors, scales, rough_range, depth in [
         field[:,0]=field[:,-1]=(field[:,0]+field[:,-1])*.5
         image.pixels.foreach_set(field.ravel())
         image.filepath_raw=str(OUT/(kind+'_'+role+'.png'));image.file_format='PNG';image.save()
+        if role == 'roughness':
+            # Roughness is one scalar, not three RGB channels. Store that
+            # exact red-channel field losslessly without redundant channels.
+            gray=np.rint(np.clip(field[:,:,0],0,1)*255).astype(np.uint8)
+            def chunk(tag,data):
+                return struct.pack('>I',len(data))+tag+data+struct.pack('>I',zlib.crc32(tag+data)&0xffffffff)
+            raw=b''.join(b'\x00'+row.tobytes() for row in gray)
+            png=b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',SIZE,SIZE,8,0,0,0,0))
+            png+=chunk(b'IDAT',zlib.compress(raw,9))+chunk(b'IEND',b'')
+            Path(image.filepath_raw).write_bytes(png)
         pixels=field[:,:,:3]
         edge=max(float(np.max(np.abs(pixels[0]-pixels[-1]))),float(np.max(np.abs(pixels[:,0]-pixels[:,-1]))))
         reports[kind+'_'+role]={'size':SIZE,'tiles':True,'coverage_metres':4,'max_opposite_edge_error':edge,

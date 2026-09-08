@@ -1,5 +1,5 @@
 extends Node3D
-## First authored quality target. Visuals only; arena_layout owns all collision.
+## Authored arena architecture. Visuals only; arena_layout owns all collision.
 ## Its editor-ready scene carries authored meshes, shared PBR and baked light.
 
 const COVER_POSITION := Vector3(-6, 0, 5)
@@ -11,6 +11,9 @@ func build() -> bool:
 		var scene := load(SCENE_PATH) as PackedScene
 		if scene != null:
 			var visuals := scene.instantiate()
+			if not visuals.get_meta("full_arena", false):
+				visuals.free()
+				return false
 			var lights := visuals.get_node_or_null("BakeLights")
 			if lights != null:
 				lights.free()

@@ -34,6 +34,16 @@ func run() -> void:
 	var gi: LightmapGI = slice.get_node("BakedSanctumLight")
 	var bodies := count_bodies(arena)
 	var art_bodies := count_bodies(art)
+	var architecture := {"Cover":0,"Floor":0,"Perimeter":0,"Terrace":0}
+	for child in slice.get_children():
+		for kind in architecture:
+			if str(child.name).begins_with(kind + "_"):
+				architecture[kind] += 1
+	print("Authored arena sections: ",architecture)
+	if architecture != {"Cover":4,"Floor":9,"Perimeter":12,"Terrace":2}:
+		push_error("The full arena is missing an authored section.")
+		quit(1)
+		return
 	print("Slice verification: world physics bodies=", bodies, " art bodies=",art_bodies)
 	if bodies != 19 or art_bodies != 0 or slice.has_node("BakeLights"):
 		push_error("Slice changed physics or retained duplicate baking lights.")

@@ -1,8 +1,8 @@
 {
-  "bake_seconds": 7.75,
+  "bake_seconds": 219.092,
   "data": "res://assets/environment/slice/lighting/sanctum.lmbake",
   "mean_max_channel": 0.0538844891270855,
-  "mesh_assignments": 13,
+  "mesh_assignments": 115,
   "ok": true,
   "peak": 1.0,
   "renderer": "gl_compatibility",

@@ -120,9 +120,10 @@ func build_arena() -> void:
 	var has_authored_cover: bool = slice.build()
 	_quality_surround = slice.has_surround
 	_build_floor()
-	_build_terraces()
+	if not _quality_surround:
+		_build_terraces()
 	for pos in Layout.cover_centers():
-		if has_authored_cover and pos == slice.COVER_POSITION:
+		if has_authored_cover:
 			continue
 		_build_cover(pos)
 	_build_perimeter()
@@ -150,7 +151,7 @@ func _build_floor() -> void:
 			var shade: float = _geo.rng.randf_range(0.82, 1.13)
 			var chamfer: float = _geo.rng.randf_range(0.06, 0.24)
 			var ext := Vector2(_geo.rng.randf_range(0.945, 0.987), _geo.rng.randf_range(0.945, 0.985))
-			if _quality_surround and x >= -11.0 and x <= -1.0 and z >= 1.0 and z <= 13.0:
+			if _quality_surround:
 				# Consume the same crack randomness so the rest of the arena is stable.
 				_geo.rng.randf()
 				continue
@@ -242,7 +243,7 @@ func _build_perimeter() -> void:
 	for side in [-1.0, 1.0]:
 		for along in range(-16, 18, 3):
 			for direction in [0, 1]:
-				if _quality_surround and side < 0 and direction == 1 and along >= 2 and along <= 11:
+				if _quality_surround:
 					continue
 				var pos := Vector3(float(along), 0, side * 18.3) if direction == 0 else Vector3(side * 18.3, 0, float(along))
 				var size := Vector3(3.08, 3.1, 1.25) if direction == 0 else Vector3(1.25, 3.1, 3.08)

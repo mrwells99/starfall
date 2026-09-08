@@ -26,7 +26,7 @@
     "tiles": true,
     "coverage_metres": 4,
     "max_opposite_edge_error": 0.0,
-    "bytes": 226211,
+    "bytes": 119968,
     "range": [
       0.7764706611633301,
       0.8823530077934265
@@ -59,7 +59,7 @@
     "tiles": true,
     "coverage_metres": 4,
     "max_opposite_edge_error": 0.0,
-    "bytes": 226413,
+    "bytes": 120135,
     "range": [
       0.7058823704719543,
       0.8431373238563538
@@ -92,7 +92,7 @@
     "tiles": true,
     "coverage_metres": 4,
     "max_opposite_edge_error": 0.0,
-    "bytes": 274552,
+    "bytes": 156260,
     "range": [
       0.4705882668495178,
       0.7019608020782471

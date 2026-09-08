@@ -20,7 +20,7 @@ Until all three exist, buddies play by manually launching Godot from a checkout.
 
 ## Recently completed (this batch)
 
-- **Authored Sanctum quality section:** one carved cover, surrounding fitted stone floor and arched west wall now use Blender-authored meshes, separate UV-based PBR materials and native baked lighting in Compatibility. No new collision. Runtime environment budget approximately 7.8 MiB including meshes and lightmap; map57/57, combat81/81. Rebuild and continuation notes: `ART_SLICE_HANDOFF.md`. Actual render: `artifacts/sanctum-slice.png`. Remaining arena still uses the procedural art.
+- **Authored Sanctum arena:** expanded the approved section to all four covers, the full floor, all boundary walls and both terraces/ramps, using shared Blender-authored meshes, UV-based PBR materials and native baked lighting in Compatibility. No new collision. Runtime environment budget approximately7.94MiB including meshes and lightmap; map57/57, combat81/81. Rebuild and continuation notes: `ART_SLICE_HANDOFF.md`. Actual render: `artifacts/sanctum-slice.png`. Cosmic backdrop, portals and atmospheric decor retain the previous procedural pass.
 
 - **Cosmic Sanctum richness pass:** distinct basalt, worn floor, blue terrace tile and bronze materials; triplanar derivative relief; true emissive glyphs; animated banners, embers and floating debris; two distant watcher shrines; depth fog and a cached sky with a cheap motion layer. Visible cover now matches its existing collision width. No new textures or colliders. Map 57/57 and combat 65/65; visual review in `artifacts/sanctum-*.png`. Details in `ART_DIRECTION.md`.
 

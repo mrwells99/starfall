@@ -21,7 +21,8 @@ MATS = {}
 for name, color, rough, metal in [
     ('Floor', (.20,.19,.175),.84,0), ('Basalt',(.13,.15,.18),.87,0),
     ('EdgeStone',(.29,.275,.24),.76,0), ('Bronze',(.30,.18,.07),.4,.72),
-    ('Recess',(.045,.055,.07),.97,0), ('Inlay',(.18,.45,.65),.3,0)]:
+    ('Recess',(.045,.055,.07),.97,0), ('Inlay',(.18,.45,.65),.3,0),
+    ('Terrace',(.12,.20,.26),.78,0)]:
     mat=bpy.data.materials.new('Slice_'+name)
     mat.diffuse_color=(*color,1)
     mat.use_nodes=True
@@ -185,9 +186,30 @@ for y in (-5.95,-3,0,3,5.95):
     for k in range(2):
         wall.append(box('Broken crest',(-.35+k*.45,y,3.8+(h-3.8)/2),(.43,.43,h-3.8),'Basalt',.035))
 wall_batches=uv_and_export('sanctum_perimeter',wall)
+for obj in wall_batches:obj.hide_set(True);obj.hide_render=True
+
+# Reusable side terrace: exact 5.35m width, level top at1.2m and twelve
+# shallow steps over each 4m ramp. Collision remains the arena's smooth ramp.
+terrace=[]
+terrace.append(box('Terrace foundation',(0,0,.55),(5.35,12,1.1),'Basalt',.025))
+for row in range(6):
+    for column in range(3):
+        terrace.append(box('Raised stone paver',(-1.78+column*1.78,-5+row*2,1.15),
+                           (1.756,1.977,.10),'Terrace',.012))
+for end in (-1,1):
+    for step in range(12):
+        height=(step+1)*.1
+        terrace.append(box('Ramp tread',(0,end*(10-(step+.5)/3),height*.5-.018),
+                           (5.35,.331,height-.036),'Terrace',.009))
+        terrace.append(box('Bronze tread nosing',(0,end*(10-(step+.5)/3+.14),height-.017),
+                           (5.32,.032,.025),'Bronze',.003))
+for side in (-1,1):
+    terrace.append(box('Terrace edge fillet',(side*2.56,0,1.18),(.12,12,.038),'EdgeStone',.007))
+terrace_batches=uv_and_export('sanctum_terrace',terrace)
 # Save authoring scene with floor visible and perimeter offset only in viewport;
 # exported GLBs retain their local origins for deterministic placement.
 for obj in floor_batches:obj.hide_set(False);obj.hide_render=False
+for obj in wall_batches:obj.hide_set(False);obj.hide_render=False
 source=ROOT/'assets-source/sanctum_slice/sanctum_surround.blend'
 source.parent.mkdir(parents=True,exist_ok=True)
 bpy.ops.wm.save_as_mainfile(filepath=str(source),compress=True)

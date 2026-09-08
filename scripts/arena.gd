@@ -139,6 +139,13 @@ var binds: Array[int] = []
 # slot 1 without the server needing to know anything about it.
 var assignment: Array[int] = []
 var bar_roots: Array[HBoxContainer] = []
+var bar_handles: Array[PanelContainer] = []
+# Offline only: forces every bot onto one champion so a matchup can be tested
+# deliberately instead of whatever the role filler happens to pick.
+var opponent_choice: OptionButton
+# Must not collide with a champion index. add_item() treats a negative id as
+# "use the item's index", so the sentinel has to be a real positive number.
+const RANDOM_OPPONENT := 100
 # --- world mode ---------------------------------------------------------------
 # A persistent hangout on the arena map: no rounds, no timer, no victory. It runs
 # as a variant of "match" rather than a new phase, so movement, casting, input
@@ -183,13 +190,15 @@ func _ready() -> void:
 	# Rows are shown and hidden by refresh_menu(). Without a first call, the
 	# launch screen displayed every submenu at once — Online, Offline, the lobby
 	# rows and the code field all stacked on top of each other.
+	default_bindings()
+	refresh_binds()
 	refresh_menu()
-	# Layout has to settle before frames can be re-anchored to their real rects.
+	# Only the parts that need a settled layout are deferred; the bind and
+	# assignment tables are needed by the very first frame.
 	call_deferred("initialise_player_config")
 	parse_arguments()
 
 func initialise_player_config() -> void:
-	default_bindings()
 	load_settings()
 	register_movable_frames()
 	load_layout()
@@ -302,7 +311,55 @@ func styled_bar(color: Color, height: float) -> ProgressBar:
 	amount.add_theme_constant_override("shadow_offset_x", 1)
 	amount.add_theme_constant_override("shadow_offset_y", 1)
 	amount.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var edge := Panel.new()
+	edge.name = "Edge"
+	edge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	edge.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bar.add_child(edge)
 	return bar
+
+# The always-on-top border ring of a bar. Transparent fill so the health colour
+# still reads through it.
+func bar_edge(bar: ProgressBar) -> Panel:
+	return bar.get_node_or_null("Edge") as Panel
+
+# A hotter, more saturated red than the damage colour: this is a persistent
+# "that is an enemy" marker, not a one-frame hit flash, so it has to hold its own
+# against a bright class-coloured fill underneath it.
+const ENEMY_EDGE := Color("ff2d4e")
+
+func paint_bar_edge(bar: ProgressBar, color: Color, width: int) -> void:
+	var edge := bar_edge(bar)
+	if edge == null:
+		return
+	var box := StyleBoxFlat.new()
+	box.bg_color = Color.TRANSPARENT
+	box.border_color = color
+	box.set_border_width_all(width)
+	box.set_corner_radius_all(4)
+	edge.add_theme_stylebox_override("panel", box)
+
+# A party or enemy row: still a Button so clicking it targets, but the health is
+# a real bar rather than a number. The bar is a child so the button keeps its
+# rect for click-to-target; the button's own text is left empty and the label
+# inside the bar carries the words, or the button would draw underneath it.
+func roster_row(parent: Node, callback: Callable) -> Button:
+	var button := add_button(parent, "", callback)
+	button.custom_minimum_size = Vector2(220, 34)
+	var bar := styled_bar(UI_EDGE, 26)
+	bar.custom_minimum_size = Vector2(0, 26)
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bar.offset_left = 4
+	bar.offset_right = -4
+	bar.offset_top = 4
+	bar.offset_bottom = -4
+	button.add_child(bar)
+	return button
+
+# The bar inside a roster row, or null.
+func roster_bar(button: Button) -> ProgressBar:
+	return button.get_child(0) as ProgressBar if button.get_child_count() > 0 else null
 
 func unit_frame(pos: Vector2, color: Color) -> VBoxContainer:
 	var frame := VBoxContainer.new()
@@ -400,7 +457,7 @@ func build_ui() -> void:
 	ui.add_child(party_box)
 	add_label(party_box, "PARTY · F1–F3 to select")
 	for i in range(3):
-		party_buttons.append(add_button(party_box, "", select_party.bind(i)))
+		party_buttons.append(roster_row(party_box, select_party.bind(i)))
 	enemy_box = VBoxContainer.new()
 	ui.add_child(enemy_box)
 	enemy_box.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
@@ -410,7 +467,7 @@ func build_ui() -> void:
 	enemy_box.offset_bottom = 360
 	add_label(enemy_box, "ENEMIES · Tab / click frame")
 	for i in range(3):
-		enemy_buttons.append(add_button(enemy_box, "", select_enemy.bind(i)))
+		enemy_buttons.append(roster_row(enemy_box, select_enemy.bind(i)))
 	var help := add_label(ui, "W/S move · A/D strafe · Q/E turn · Space jump\nRMB steer · LMB orbit · Both run · Wheel zoom\nTab / frames target · F1–F3 allies · F / G focus\n1–7 abilities · Hover for details · Esc menu", 14)
 	help.add_theme_color_override("font_color", UI_TEXT_DIM)
 	help.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
@@ -433,6 +490,21 @@ func build_ui() -> void:
 		row.offset_bottom = -25 - bar * 74
 		ui.add_child(row)
 		bar_roots.append(row)
+		var handle := PanelContainer.new()
+		handle.name = "Handle"
+		handle.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		handle.custom_minimum_size = Vector2(26, 0)
+		handle.add_theme_stylebox_override("panel", ui_box(UI_SURFACE_HI, UI_ACCENT, 4))
+		handle.hide()
+		var grip := Label.new()
+		grip.text = "⠿"
+		grip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		grip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		grip.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		grip.add_theme_color_override("font_color", UI_ACCENT)
+		handle.add_child(grip)
+		row.add_child(handle)
+		bar_handles.append(handle)
 		if bar == 0:
 			hotbar_root = row
 		for slot in range(BAR_SLOTS):
@@ -510,6 +582,12 @@ func build_ui() -> void:
 	offline_row.add_theme_constant_override("separation", 10)
 	stack.add_child(offline_row)
 	style_button(add_button(offline_row, "Local sparring", local_match), true)
+	opponent_choice = OptionButton.new()
+	opponent_choice.add_item("Opponent: random roles", RANDOM_OPPONENT)
+	for i in range(Kits.NAMES.size()):
+		opponent_choice.add_item("Opponent: %s" % Kits.NAMES[i], i)
+	style_picker(opponent_choice)
+	offline_row.add_child(opponent_choice)
 	add_button(offline_row, "Back", func(): menu_state = "main"; refresh_menu())
 	online_row = HBoxContainer.new()
 	online_row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -999,6 +1077,8 @@ func refresh_menu() -> void:
 		online_row.visible = in_menu and menu_state == "online"
 	if settings_row:
 		settings_row.visible = in_menu and menu_state == "settings"
+	if opponent_choice:
+		opponent_choice.visible = in_menu and menu_state == "offline"
 	if window_mode_choice:
 		window_mode_choice.visible = in_menu and menu_state == "settings"
 	if resolution_choice:
@@ -1040,6 +1120,33 @@ func refresh_menu() -> void:
 # WoW's Edit Mode in miniature: drag frames where you want them, click a hotbar
 # slot to rebind its key, drag one slot onto another to swap abilities. All of
 # it is client-side presentation — the server is never told and never cares.
+
+# Shift + drag rearranges the bars at any time, in a match or in the world,
+# without going through Edit HUD. The event is consumed so the slot underneath
+# never fires the ability.
+func handle_shift_drag(event: InputEvent) -> bool:
+	if not (event is InputEventMouseButton) or event.button_index != MOUSE_BUTTON_LEFT:
+		return false
+	var point: Vector2 = ui.get_global_mouse_position()
+	if event.pressed:
+		if not event.shift_pressed:
+			return false
+		var slot := hotbar_slot_at(point)
+		if slot < 0:
+			return false
+		drag_slot = slot
+		update_visuals(0)
+		get_viewport().set_input_as_handled()
+		return true
+	if drag_slot >= 0:
+		var target := hotbar_slot_at(point)
+		if target >= 0 and target != drag_slot:
+			swap_slots(drag_slot, target)
+		drag_slot = -1
+		update_visuals(0)
+		get_viewport().set_input_as_handled()
+		return true
+	return false
 
 # Returns true when the event belonged to edit mode and must not travel further.
 func handle_edit_input(event: InputEvent) -> bool:
@@ -1104,8 +1211,10 @@ func build_cc_tracker() -> void:
 	cc_tracker.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	cc_tracker.offset_left = -90
 	cc_tracker.offset_right = 90
-	cc_tracker.offset_top = -196
-	cc_tracker.offset_bottom = -60
+	# Below the character's feet: above centre it sat over their head and hid the
+	# thing you are watching while you wait out the stun.
+	cc_tracker.offset_top = 96
+	cc_tracker.offset_bottom = 232
 	cc_tracker.hide()
 	ui.add_child(cc_tracker)
 	var holder := PanelContainer.new()
@@ -1262,6 +1371,8 @@ func toggle_edit_mode(on: bool) -> void:
 		edit_overlay.visible = on
 	for button in ability_buttons:
 		button.mouse_filter = Control.MOUSE_FILTER_IGNORE if on else Control.MOUSE_FILTER_STOP
+	for handle in bar_handles:
+		handle.visible = on
 	if on:
 		panel.hide()
 		release_mouse()
@@ -1421,6 +1532,14 @@ func begin_round() -> void:
 		return
 	for side in range(2):
 		while counts[side] < mode:
+			var forced := -1
+			if opponent_choice != null and not network:
+				forced = opponent_choice.get_selected_id()
+			if forced != RANDOM_OPPONENT and forced >= 0 and forced < Kits.NAMES.size() and side == 1:
+				spawn_actor(id, 0, side, Kits.NAMES[forced], spawn_position(side, counts[side]))
+				counts[side] += 1
+				id += 1
+				continue
 			var choices := ["Luminary", "Vanguard", "Ember"] if mode == 3 else ["Ember"]
 			var choice := "Ember"
 			for candidate in choices:
@@ -2252,9 +2371,10 @@ func update_frame(frame: VBoxContainer, id: int, prefix: String) -> void:
 	var friendly: bool = actors.has(local_id) and actor.team == actors[local_id].team
 	var fill := health.get_theme_stylebox("fill") as StyleBoxFlat
 	fill.bg_color = Kits.color(actor.champion)
-	var back := health.get_theme_stylebox("background") as StyleBoxFlat
-	back.border_color = BLUE if friendly else RED
-	back.set_border_width_all(2)
+	# Class colour fills the bar, so the border is the only thing left saying
+	# which side someone is on. It has to be bold and it has to be there at full
+	# health, which means drawing it over the fill rather than behind it.
+	paint_bar_edge(health, BLUE if friendly else ENEMY_EDGE, 1 if friendly else 4)
 	(health.get_child(0) as Label).text = "%d / 100 HP" % ceili(actor.hp)
 	var cast := frame.get_child(2) as ProgressBar
 	cast.visible = actor.casting >= 0
@@ -2309,16 +2429,14 @@ func update_visuals(delta: float) -> void:
 		party_buttons[i].visible = i < party.size()
 		if i < party.size():
 			var member = actors[party[i]]
-			party_buttons[i].text = "F%d  %s   %d HP%s" % [i + 1, member.champion, ceili(member.hp), "  STUN" if member.stunned > 0 else ""]
-			party_buttons[i].add_theme_color_override("font_color", Kits.color(member.champion))
+			paint_roster_row(party_buttons[i], member, "F%d  %s" % [i + 1, member.champion], true)
 	var enemies := enemy_ids()
 	enemy_box.visible = not enemies.is_empty()
 	for i in range(3):
 		enemy_buttons[i].visible = i < enemies.size()
 		if i < enemies.size():
 			var foe = actors[enemies[i]]
-			enemy_buttons[i].text = "%s  %d HP%s" % [foe.champion, ceili(foe.hp), "  STUN" if foe.stunned > 0 else ""]
-			enemy_buttons[i].add_theme_color_override("font_color", Kits.color(foe.champion))
+			paint_roster_row(enemy_buttons[i], foe, foe.champion, false)
 	# Before the bar: it maintains cc_total, which the slots use as the sweep
 	# denominator.
 	update_cc_tracker()
@@ -2327,7 +2445,7 @@ func update_visuals(delta: float) -> void:
 		var ability := kit_slot(slot)
 		# Empty slots stay hidden in play and visible while editing, so there is
 		# somewhere to drop an ability.
-		button.visible = actors.has(local_id) and (ability >= 0 or edit_mode)
+		button.visible = actors.has(local_id) and (ability >= 0 or edit_mode or drag_slot >= 0)
 		if not button.visible:
 			continue
 		if ability < 0:
@@ -2378,6 +2496,16 @@ func aura_chip_at(frame: Node, pointer: Vector2) -> PanelContainer:
 			return panel
 	return null
 
+func paint_roster_row(button: Button, actor, title: String, friendly: bool) -> void:
+	var bar := roster_bar(button)
+	if bar == null:
+		return
+	bar.value = actor.hp
+	var fill := bar.get_theme_stylebox("fill") as StyleBoxFlat
+	fill.bg_color = Kits.color(actor.champion)
+	paint_bar_edge(bar, BLUE if friendly else ENEMY_EDGE, 1 if friendly else 4)
+	(bar.get_child(0) as Label).text = "%s   %d HP%s" % [title, ceili(actor.hp), "  STUN" if actor.stunned > 0 else ""]
+
 func party_ids() -> Array[int]:
 	var ids: Array[int] = []
 	if not actors.has(local_id):
@@ -2405,6 +2533,8 @@ func cycle_target() -> void:
 
 func _input(event: InputEvent) -> void:
 	if edit_mode and handle_edit_input(event):
+		return
+	if handle_shift_drag(event):
 		return
 	if event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT] and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		get_viewport().set_input_as_handled()

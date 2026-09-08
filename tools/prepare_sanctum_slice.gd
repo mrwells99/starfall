@@ -22,6 +22,9 @@ func surface(name: String) -> StandardMaterial3D:
 		"Slice_EdgeStone":
 			profile = "floor"
 			mat.albedo_color = Color(0.82, 0.84, 0.88)
+		"Slice_Terrace":
+			profile = "floor"
+			mat.albedo_color = Color(0.32, 0.45, 0.57)
 		"Slice_Bronze":
 			profile = "bronze"
 			mat.metallic = 0.68
@@ -53,9 +56,9 @@ func copy_meshes(source: Node, parent: Node3D, owner_node: Node3D, hint: int) ->
 			instance.mesh = child.mesh.duplicate()
 			var size := hint
 			if "Recess" in str(child.name) or "Inlay" in str(child.name):
-				size = 64
+				size = 32
 			elif "Bronze" in str(child.name):
-				size = 128
+				size = 48
 			instance.mesh.lightmap_size_hint = Vector2i(size, size)
 			var mesh_dir := ASSETS + "meshes/" + str(parent.name)
 			DirAccess.make_dir_recursive_absolute(mesh_dir)
@@ -81,15 +84,16 @@ func copy_meshes(source: Node, parent: Node3D, owner_node: Node3D, hint: int) ->
 func build() -> void:
 	var scene := Node3D.new()
 	scene.name = "SanctumQualitySlice"
+	scene.set_meta("full_arena", true)
 	root.add_child(scene)
-	for item in [["Cover", "sanctum_cover", Vector3(-6,0,5), 256],
-		["Floor", "sanctum_floor", Vector3(-6,0,7), 512],
-		["Perimeter", "sanctum_perimeter", Vector3(-18.3,0,6.5), 256]]:
+	var templates: Dictionary = {}
+	for item in [["Cover", "sanctum_cover", 128],
+		["Floor", "sanctum_floor", 128],
+		["Perimeter", "sanctum_perimeter", 64],
+		["Terrace", "sanctum_terrace", 128]]:
 		var branch := Node3D.new()
 		branch.name = item[0]
-		branch.position = item[2]
-		scene.add_child(branch)
-		branch.owner = scene
+		templates[item[0]] = branch
 		# Read ignored authoring GLBs explicitly. Only the compressed runtime
 		# meshes ship, avoiding duplicate GLB + imported + .res geometry.
 		var document := GLTFDocument.new()
@@ -100,8 +104,21 @@ func build() -> void:
 			quit(read_error)
 			return
 		var imported := document.generate_scene(state)
-		copy_meshes(imported, branch, scene, item[3])
+		copy_meshes(imported, branch, branch, item[2])
 		imported.free()
+	for x in [-6.0,6.0]:
+		for z in [-5.0,5.0]:
+			place(templates.Cover, scene, Vector3(x,0,z))
+	for x in [-12.0,0.0,12.0]:
+		for z in [-12.0,0.0,12.0]:
+			place(templates.Floor, scene, Vector3(x,0,z), 0.0, Vector3(1,1,12.0/14.0))
+	for side in [-1.0,1.0]:
+		for along in [-12.0,0.0,12.0]:
+			place(templates.Perimeter, scene, Vector3(side*18.3,0,along), 0.0 if side<0 else PI)
+			place(templates.Perimeter, scene, Vector3(along,0,side*18.3), -PI/2 if side<0 else PI/2)
+		place(templates.Terrace, scene, Vector3(side*14.975,0,0))
+	for template in templates.values():
+		template.free()
 	# Bake bounced light only. Matching real-time lights remain in arena_sky.gd;
 	# removing these after loading prevents duplicate direct illumination.
 	var bake_lights := Node3D.new()
@@ -138,3 +155,17 @@ func build() -> void:
 		error = ResourceSaver.save(packed,"res://scenes/sanctum_quality_slice.tscn")
 	print("Prepared quality slice, result: ",error)
 	quit(error)
+
+func own_descendants(node: Node, owner_node: Node) -> void:
+	node.owner = owner_node
+	for child in node.get_children():
+		own_descendants(child, owner_node)
+
+func place(template: Node3D, scene: Node3D, position: Vector3, yaw := 0.0, scale_value := Vector3.ONE) -> void:
+	var instance := template.duplicate() as Node3D
+	instance.name = str(template.name) + "_" + str(scene.get_child_count())
+	instance.position = position
+	instance.rotation.y = yaw
+	instance.scale = scale_value
+	scene.add_child(instance)
+	own_descendants(instance, scene)

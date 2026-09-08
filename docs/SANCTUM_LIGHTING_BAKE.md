@@ -62,9 +62,9 @@ binary. The helper expects an English editor, matching this host.
 
 ## Production slice status
 
-**The production slice is now baked and integrated.** `scenes/sanctum_quality_slice.tscn` contains 13 static UV2 mesh instances, shared PBR materials and LightmapGI. The bake assigns all 13 meshes. Runtime removes its temporary BakeLights so direct illumination is not doubled. `tools/prepare_sanctum_slice.gd` rebuilds the scene and clears the previous bake assignment; rebake after running it. The review tool confirms 19 world bodies and zero artwork bodies.
+**The production slice is now baked and integrated.** `scenes/sanctum_quality_slice.tscn` contains 115 static UV2 mesh instances, shared PBR materials and LightmapGI. The bake assigns all115meshes. Runtime removes its temporary BakeLights so direct illumination is not doubled. `tools/prepare_sanctum_slice.gd` rebuilds the scene and clears the previous bake assignment; rebake after running it. The review tool confirms 19 world bodies and zero artwork bodies.
 
-Final placement: cover (-6,0,5), floor (-6,0,7), perimeter (-18.3,0,6.5). Runtime assets and complete authoring workflow are documented in ART_SLICE_HANDOFF.md.
+Expanded placement: all four original covers, nine modules covering the full36x36floor, twelve boundary modules and two terraces. Runtime assets and complete authoring workflow are documented in ART_SLICE_HANDOFF.md.
 
 Prefer a **Dynamic** bake mode for the gameplay directional light so its
 direct shadows still respond to champions, while only bounced light is baked.

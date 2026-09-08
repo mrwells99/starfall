@@ -206,6 +206,8 @@ Settings → **Edit HUD**, WoW's Edit Mode in miniature:
 - Drag one hotbar slot onto another to swap which abilities sit where.
 - **Reset layout** restores the defaults, frame positions included.
 
+**Shift + drag rearranges the bars at any time**, in a match or in the world, without opening Edit HUD. Empty slots on the other bars appear the moment a drag starts, so there is somewhere to drop, and disappear again when it ends. Each bar has a grip handle on its left, shown in Edit HUD, because the only draggable pixels were otherwise the few between buttons.
+
 **Three action bars.** The first carries the champion's kit on keys 1–7. The other two start empty and unbound, and are filled by dragging an ability onto them in Edit HUD. With only seven abilities they exist to give a spell a **second, more comfortable key** — a side mouse button, a modifier — not to hold more spells, so the same ability appearing on two bars is expected rather than an error. Empty slots are hidden in play and visible while editing, so there is somewhere to drop things.
 
 ## Class colours
@@ -219,7 +221,11 @@ Each champion has a colour, defined once in `Kits.COLORS`:
 | Luminary | Green `#7ee08a` |
 | Fulcrum | Violet `#b98cff` |
 
-Health bars are **filled** with the class colour and **bordered** with the team colour, so reading which champion you are looking at never costs you friend-or-foe. Party and enemy rows tint their text the same way.
+Health bars are **filled** with the class colour and **bordered** with the team colour, so reading which champion you are looking at never costs you friend-or-foe. Enemies get a heavier, hotter red border than the blue on allies.
+
+The border is drawn as an overlay **on top of** the fill, not behind it. Behind, it only appeared on the empty part of the bar and vanished entirely at full health — which is exactly when you most need to know what you are looking at.
+
+Party and enemy rows are real bars too, filled to current health, with the same colour rules.
 
 Edit HUD works from the main menu with no match running: it shows placeholder frames and a full hotbar, the way WoW's Edit Mode does, because otherwise there is nothing on screen to arrange.
 

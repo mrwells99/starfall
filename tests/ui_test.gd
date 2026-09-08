@@ -28,6 +28,17 @@ func mouse_button(point: Vector2, button: MouseButton, pressed: bool) -> void:
 	event.pressed = pressed
 	Input.parse_input_event(event)
 
+func shift_drag(from: Vector2, to: Vector2) -> void:
+	for step in [[from, true], [to, false]]:
+		var e := InputEventMouseButton.new()
+		e.position = step[0]
+		e.global_position = step[0]
+		e.button_index = MOUSE_BUTTON_LEFT
+		e.pressed = step[1]
+		e.shift_pressed = true
+		point_mouse(step[0])
+		arena.handle_shift_drag(e)
+
 func click(point: Vector2) -> void:
 	point_mouse(point)
 	mouse_button(point, MOUSE_BUTTON_LEFT, true)
@@ -261,8 +272,10 @@ func run() -> void:
 	var bar_fill := (arena.player_frame.get_child(1) as ProgressBar).get_theme_stylebox("fill") as StyleBoxFlat
 	check(bar_fill.bg_color == Kits.color(arena.actors[arena.local_id].champion),
 		"The health bar is filled with the champion's class colour")
-	var bar_back := (arena.player_frame.get_child(1) as ProgressBar).get_theme_stylebox("background") as StyleBoxFlat
-	check(bar_back.border_color == arena.BLUE, "The border still says which side they are on")
+	# The team border is an overlay drawn over the fill, so it is visible at any
+	# health rather than only where the bar is empty.
+	var own_edge: StyleBoxFlat = arena.bar_edge(arena.player_frame.get_child(1)).get_theme_stylebox("panel")
+	check(own_edge.border_color == arena.BLUE, "The border still says which side they are on")
 	arena.toggle_edit_mode(false)
 	check(not arena.edit_mode and not arena.edit_overlay.visible, "Done leaves edit mode")
 	check(arena.ability_buttons[0].mouse_filter == Control.MOUSE_FILTER_STOP, "Hotbar is clickable again")
@@ -277,6 +290,68 @@ func run() -> void:
 			default_order = false
 	check(default_order, "A duplicated assignment is rejected")
 	arena.config.set_value("hud", "assignment", [])
+
+	# --- roster rows are real bars -------------------------------------------
+	arena.update_visuals(0)
+	var ally = arena.actors[arena.party_ids()[1]]
+	ally.hp = 40.0
+	arena.update_visuals(0)
+	var ally_bar: ProgressBar = arena.roster_bar(arena.party_buttons[1])
+	check(ally_bar != null and ally_bar.value == 40.0, "Party rows show health as a bar, not a number")
+	check((ally_bar.get_child(0) as Label).text.contains("40 HP"), "The bar still carries the readable numbers")
+	var ally_fill := ally_bar.get_theme_stylebox("fill") as StyleBoxFlat
+	check(ally_fill.bg_color == Kits.color(ally.champion), "Roster bars use the class colour")
+	var foe_id: int = arena.enemy_ids()[0]
+	arena.actors[foe_id].hp = 85.0
+	arena.update_visuals(0)
+	var foe_bar: ProgressBar = arena.roster_bar(arena.enemy_buttons[0])
+	check(foe_bar.value == 85.0, "Enemy rows track health too")
+	var foe_edge: StyleBoxFlat = arena.bar_edge(foe_bar).get_theme_stylebox("panel")
+	var ally_edge: StyleBoxFlat = arena.bar_edge(ally_bar).get_theme_stylebox("panel")
+	check(foe_edge.border_color == arena.ENEMY_EDGE and foe_edge.border_width_left > ally_edge.border_width_left,
+		"Enemies carry a heavier red border than allies")
+	# The border is drawn over the fill, so it survives at full health.
+	arena.actors[foe_id].hp = 100.0
+	arena.update_visuals(0)
+	check(arena.bar_edge(foe_bar).visible and (arena.bar_edge(foe_bar).get_theme_stylebox("panel") as StyleBoxFlat).border_width_left == 4,
+		"The enemy border is still there at full health")
+
+	# --- shift-drag rearranges bars outside edit mode --------------------------
+	arena.reset_layout()
+	check(not arena.edit_mode, "Shift-drag does not require edit mode")
+	var far: int = arena.BAR_SLOTS
+	var from_rect: Vector2 = arena.ability_buttons[0].get_global_rect().get_center()
+	var to_rect: Vector2 = arena.ability_buttons[far].get_global_rect().get_center()
+	shift_drag(from_rect, to_rect)
+	check(arena.kit_slot(far) == 0 and arena.kit_slot(0) == -1,
+		"Shift-dragging moves an ability onto another bar mid-match")
+	# Without shift the same drag must cast, not rearrange.
+	arena.reset_layout()
+	arena.drag_slot = -1
+	var plain := InputEventMouseButton.new()
+	plain.position = from_rect
+	plain.global_position = from_rect
+	plain.button_index = MOUSE_BUTTON_LEFT
+	plain.pressed = true
+	check(not arena.handle_shift_drag(plain), "A plain click is left alone for the ability to handle")
+
+	# --- offline opponent picker ----------------------------------------------
+	check(arena.opponent_choice != null, "Offline offers an opponent choice")
+	check(arena.opponent_choice.get_item_id(0) == arena.RANDOM_OPPONENT,
+		"The random option uses a sentinel that cannot collide with a champion index")
+	arena.opponent_choice.select(2)
+	arena.mode = 1
+	arena.roster = {1: {"champion": "Ember", "team": 0}}
+	arena.begin_round()
+	var picked := ""
+	for a in arena.actors.values():
+		if a.team == 1:
+			picked = a.champion
+	check(picked == Kits.NAMES[arena.opponent_choice.get_selected_id()],
+		"The chosen champion is what you spar against")
+	arena.opponent_choice.select(0)
+	arena.begin_round()
+	check(arena.actors.size() == 2, "Random still fills the opposing side")
 
 	print("UI checks: %d passed / %d total" % [checks - failures, checks])
 	quit(1 if failures else 0)
