@@ -108,6 +108,10 @@ Balance is provisional. Real playtesting has not happened.
 
 **Global cooldown (GCD)** — 1.5 seconds. Abilities with `off: true` bypass it. **No ability can be used while another cast is in progress**, even off-GCD ones.
 
+**Cancelling your own cast refunds the GCD.** It is charged when a cast begins, so without the refund you paid a full 1.5 s for a spell that never went off — stepping out of a Firebolt left you unable to act for longer than the cast you abandoned. Cancelling is meant to be a real option, not a punishment. The ability still does not start its own cooldown.
+
+**Being interrupted by an enemy does not refund it.** The lockout is the punishment there, and refunding would reward being interrupted — Vanguard ignores spell lockout, so it would come out of an interrupt able to act immediately. This diverges from WoW, where cancelling never refunds the GCD.
+
 **Movement, turn, jump:**
 
 - Forward and strafe: 6.5 u/s.
@@ -174,6 +178,14 @@ Each chip shows **the icon of the ability that caused the effect** — an Ember 
 **Auras are derived, never stored.** `scripts/auras.gd` reads the timers the simulation already keeps (`stunned`, `locked`, `shield`, `sprint`, `dr_timer`) rather than maintaining a second list. A displayed aura therefore cannot disagree with the simulation, and nothing extra has to be replicated. The shield field is one mechanic with four names — Ward, Iron Skin, Umbra, Sanctuary — chosen by the champion carrying it.
 
 Diminishing returns is surfaced as an aura even though it is not an effect on the fighter, because it decides whether your next stun is worth casting.
+
+## Crowd control tracker
+
+When **you** are controlled, the centre of the screen shows the icon of the ability holding you, a radial timer over it, and what kind of control it is — `STUNNED`, `LOCKED OUT`. It sits above centre so it does not cover your own champion, and reuses the hotbar's radial sweep rather than a second renderer.
+
+A stun outranks a lockout when both are running: a stun stops everything, a lockout only stops most of it, so the stun is the one you are actually waiting out.
+
+The original duration is not replicated, so the tracker uses the highest value it has seen for the current effect as the sweep total. A refreshed or re-applied effect raises that peak, which is exactly when the sweep should restart.
 
 ## Edit HUD
 

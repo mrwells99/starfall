@@ -37,14 +37,14 @@ static func active(actor) -> Array:
 		out.append({
 			"key": "stun", "name": "Stunned", "kind": DEBUFF,
 			"remaining": actor.stunned, "color": Color("ff7d92"),
-			"source": actor.stun_from,
+			"source": actor.stun_from, "cc": "STUNNED",
 			"description": "Cannot move, act or cast. Damage does not break it. Dispel removes it.",
 		})
 	if actor.locked > 0:
 		out.append({
 			"key": "lockout", "name": "Spell Lockout", "kind": DEBUFF,
 			"remaining": actor.locked, "color": Color("e8845f"),
-			"source": actor.lock_from,
+			"source": actor.lock_from, "cc": "LOCKED OUT",
 			"description": "Interrupted. Most abilities are unusable; defensive and movement abilities still work.",
 		})
 	if actor.shield > 0:
@@ -79,6 +79,18 @@ static func active(actor) -> Array:
 			"description": "Recently stunned — %s. Resets 18s after the last stun ends." % next_text,
 		})
 	return out
+
+# The crowd control currently on a fighter, or an empty dictionary. Stuns
+# outrank lockouts because a stun stops everything and a lockout only stops most
+# of it — if both are running, the stun is the one you are waiting out.
+static func crowd_control(actor) -> Dictionary:
+	var best := {}
+	for aura in active(actor):
+		if not aura.has("cc"):
+			continue
+		if best.is_empty() or aura.key == "stun":
+			best = aura
+	return best
 
 # Compact form for overhead nameplates, where there is no room for a panel.
 static func nameplate_text(actor) -> String:

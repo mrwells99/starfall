@@ -6,7 +6,7 @@ extends RefCounted
 #
 # Duel and Team run as SEPARATE dedicated server processes on the same droplet,
 # each bound to its own port. Clients pick a port based on the matchmaking mode.
-const VERSION := "0.4.0"
+const VERSION := "0.5.0"
 const SERVER_ADDRESS := "play.leafmods.com"
 const DUEL_PORT := 27840
 const TEAM_PORT := 27841

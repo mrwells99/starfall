@@ -138,6 +138,12 @@ var drag_slot := -1
 var movable_frames: Array[Control] = []
 var hotbar_root: HBoxContainer
 var default_positions := {}
+var cc_tracker: VBoxContainer
+var cc_icon: TextureRect
+var cc_sweep: Control
+var cc_label: Label
+var cc_total := 0.0
+var cc_key := ""
 var lobby_code := ""
 var intent := ""
 var probe_index := 0
@@ -563,6 +569,7 @@ func build_ui() -> void:
 	exit_button = add_button(stack, "Return to menu", func(): leave_session("Returned to menu."))
 	ability_tooltip = preload("res://scripts/ability_tooltip.gd").new()
 	ui.add_child(ability_tooltip)
+	build_cc_tracker()
 	build_edit_overlay()
 
 func spawn_actor(id: int, peer: int, side: int, choice: String, pos: Vector3) -> void:
@@ -1033,6 +1040,70 @@ func handle_edit_input(event: InputEvent) -> bool:
 		dragging.position = Vector2(clampf(wanted.x, 0, maxf(0, limit.x)), clampf(wanted.y, 0, maxf(0, limit.y)))
 		return true
 	return false
+
+# Centre-screen crowd control readout: the icon of whatever is holding you, what
+# kind of control it is, and a radial timer. Placed above the middle so it does
+# not sit on top of your own champion, and it reuses CooldownOverlay rather than
+# growing a second radial renderer.
+func build_cc_tracker() -> void:
+	cc_tracker = VBoxContainer.new()
+	cc_tracker.name = "CrowdControl"
+	cc_tracker.alignment = BoxContainer.ALIGNMENT_CENTER
+	cc_tracker.add_theme_constant_override("separation", 6)
+	cc_tracker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cc_tracker.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	cc_tracker.offset_left = -90
+	cc_tracker.offset_right = 90
+	cc_tracker.offset_top = -196
+	cc_tracker.offset_bottom = -60
+	cc_tracker.hide()
+	ui.add_child(cc_tracker)
+	var holder := PanelContainer.new()
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	cc_tracker.add_child(holder)
+	cc_icon = TextureRect.new()
+	cc_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cc_icon.custom_minimum_size = Vector2(84, 84)
+	cc_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	cc_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	cc_icon.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	holder.add_child(cc_icon)
+	cc_sweep = CooldownOverlay.new()
+	cc_icon.add_child(cc_sweep)
+	cc_sweep.set_key("")
+	cc_label = add_label(cc_tracker, "", 20)
+	cc_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+
+func update_cc_tracker() -> void:
+	if cc_tracker == null:
+		return
+	var holder = actors.get(local_id)
+	var cc: Dictionary = Auras.crowd_control(holder) if holder != null else {}
+	if cc.is_empty():
+		cc_tracker.hide()
+		cc_total = 0.0
+		cc_key = ""
+		return
+	# The original duration is not replicated, so the peak observed value stands
+	# in for it. A refreshed or re-applied effect raises the peak, which is
+	# exactly when the sweep should restart.
+	if cc.key != cc_key or cc.remaining > cc_total:
+		cc_key = cc.key
+		cc_total = cc.remaining
+	cc_tracker.show()
+	var art: Texture2D = AbilityArt.texture_for(cc.get("source", ""))
+	cc_icon.texture = art
+	cc_icon.visible = art != null
+	var box := ui_box(Color(0, 0, 0, 0.55), cc.color, 8, 2)
+	box.content_margin_left = 3
+	box.content_margin_right = 3
+	box.content_margin_top = 3
+	box.content_margin_bottom = 3
+	(cc_tracker.get_child(0) as PanelContainer).add_theme_stylebox_override("panel", box)
+	cc_label.text = cc.cc
+	cc_label.add_theme_color_override("font_color", cc.color)
+	cc_sweep.sync(cc.remaining, maxf(cc_total, 0.01), false)
 
 func build_edit_overlay() -> void:
 	edit_overlay = Control.new()
@@ -1516,8 +1587,7 @@ func tick_actor(actor, delta: float) -> void:
 	actor.move_and_slide()
 	if actor.casting >= 0:
 		if direction.length() > 0.01 or not actor.is_on_floor():
-			actor.casting = -1
-			feedback(actor, "Cast cancelled by movement")
+			cancel_own_cast(actor, "Cast cancelled by movement")
 		else:
 			actor.cast_left -= delta
 			if actor.cast_left <= 0:
@@ -1606,9 +1676,30 @@ func submit_action(round_epoch: int, seq: int, slot: int, selected: int) -> void
 		return
 	actor.action_budget = 0.05
 	if slot == -1:
-		actor.casting = -1
+		cancel_own_cast(actor, "")
 		return
 	try_spell(id, slot, selected)
+
+# Cancelling your own cast refunds the global cooldown.
+#
+# The GCD is charged when a cast BEGINS, so without this you paid the full 1.5s
+# for a spell that never went off — stepping out of a Firebolt left you unable to
+# act for longer than the cast you abandoned. Refunding makes cancelling a real
+# option instead of a punishment.
+#
+# Deliberately NOT applied when an enemy interrupts you: the lockout is the
+# punishment there, and refunding would actively reward being interrupted —
+# Vanguard ignores spell lockout, so it would come out of an interrupt able to
+# act immediately.
+func cancel_own_cast(actor, message: String) -> void:
+	if actor.casting < 0:
+		return
+	var spell: Dictionary = actor.kit[actor.casting]
+	actor.casting = -1
+	if not spell.off:
+		actor.gcd = 0.0
+	if not message.is_empty():
+		feedback(actor, message)
 
 func try_spell(id: int, slot: int, requested: int) -> bool:
 	if not authoritative() or phase != "match" or not actors.has(id) or slot < 0 or slot >= 7:
@@ -2043,6 +2134,7 @@ func update_visuals(delta: float) -> void:
 		else:
 			cooldown_overlays[slot].sync(0.0, 0.0, false)
 		button.modulate = Color("83919e") if actor.hp <= 0 else Color.WHITE
+	update_cc_tracker()
 	update_ability_tooltip()
 
 # Aura strips live at child index 4 of a unit frame. Party and enemy rows are

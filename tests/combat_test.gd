@@ -263,5 +263,60 @@ func run() -> void:
 	arena.resolve_spell(caster, 5, mark)
 	check(mark.stun_from == "Stasis", "An unrelated ability does not overwrite provenance")
 
+	# --- cancelling your own cast refunds the global cooldown ------------------
+	await reset("Ember", 1)
+	var mover = arena.actors[1]
+	var mark2 = arena.actors[2]
+	mover.position = Vector3(0, 0, 6)
+	mark2.position = Vector3(0, 0, -2)
+	mover.rotation.y = 0
+	await settle()
+	check(arena.try_spell(1, 0, 2), "Firebolt begins casting")
+	check(mover.casting == 0 and mover.gcd > 0, "Starting a cast charges the global cooldown")
+	arena.cancel_own_cast(mover, "")
+	check(mover.casting < 0 and mover.gcd == 0.0, "Cancelling your own cast refunds the global cooldown")
+
+	# Walking out of a cast is the same cancellation and must refund too.
+	mover.gcd = 0
+	mover.cooldowns[0] = 0
+	check(arena.try_spell(1, 0, 2), "Firebolt begins again")
+	# The tick's other cancel condition: leaving the ground. move_input cannot be
+	# used here because gather_input() runs first in the same tick and rewrites
+	# it from the real (idle) keyboard.
+	mover.position.y = 4.0
+	arena._physics_process(0.05)
+	check(mover.casting < 0 and mover.gcd == 0.0, "Leaving the ground mid-cast refunds it too")
+	mover.position.y = 0.0
+
+	# An enemy interrupt must NOT refund: the lockout is the punishment, and
+	# refunding would reward being interrupted.
+	mover.gcd = 0
+	mover.cooldowns[0] = 0
+	await settle()
+	check(arena.try_spell(1, 0, 2), "Firebolt begins for the interrupt case")
+	var charged: float = mover.gcd
+	check(charged > 0, "Cast charged the global cooldown before the interrupt")
+	arena.resolve_spell(mark2, 2, mover)
+	check(mover.casting < 0 and mover.locked > 0, "The interrupt landed")
+	check(mover.gcd > 0, "Being interrupted does not refund the global cooldown")
+
+	# --- crowd control classification -----------------------------------------
+	var victim2 = arena.actors[2]
+	victim2.stunned = 0
+	victim2.locked = 0
+	check(Auras.crowd_control(victim2).is_empty(), "No control means no tracker")
+	victim2.locked = 3.0
+	victim2.lock_from = "Disrupt"
+	check(Auras.crowd_control(victim2).get("cc", "") == "LOCKED OUT", "Lockout is crowd control")
+	victim2.stunned = 2.0
+	victim2.stun_from = "Stasis"
+	var worst: Dictionary = Auras.crowd_control(victim2)
+	check(worst.get("cc", "") == "STUNNED" and worst.get("source", "") == "Stasis",
+		"A stun outranks a lockout, and carries the icon to show")
+	victim2.shield = 5.0
+	victim2.stunned = 0
+	victim2.locked = 0
+	check(Auras.crowd_control(victim2).is_empty(), "A buff is not crowd control")
+
 	print("Combat checks: %d passed / %d total" % [checks - failures, checks])
 	quit(1 if failures else 0)
