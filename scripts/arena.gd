@@ -181,6 +181,7 @@ var camera_save_timer := 1.0
 var slot_size := DEFAULT_SLOT_SIZE
 var slot_size_field: LineEdit
 var drag_ghost: TextureRect
+var self_auras: HBoxContainer
 var size_label: Label
 var settings_extra: Array[Control] = []
 var lobby_code := ""
@@ -725,6 +726,19 @@ func build_ui() -> void:
 	drag_ghost.z_index = 90
 	drag_ghost.hide()
 	ui.add_child(drag_ghost)
+	self_auras = HBoxContainer.new()
+	self_auras.name = "SelfAuras"
+	self_auras.alignment = BoxContainer.ALIGNMENT_END
+	self_auras.add_theme_constant_override("separation", 4)
+	self_auras.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	self_auras.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	self_auras.offset_left = -420
+	self_auras.offset_right = -24
+	self_auras.offset_top = 150
+	self_auras.offset_bottom = 182
+	ui.add_child(self_auras)
+	for i in range(AURA_SLOTS):
+		self_auras.add_child(aura_widget())
 	build_cc_tracker()
 	build_edit_overlay()
 
@@ -1179,6 +1193,10 @@ func refresh_menu() -> void:
 # without going through Edit HUD. The event is consumed so the slot underneath
 # never fires the ability.
 func handle_shift_drag(event: InputEvent) -> bool:
+	if event is InputEventMouseMotion:
+		if drag_slot >= 0:
+			move_drag_ghost()
+		return false
 	if not (event is InputEventMouseButton) or event.button_index != MOUSE_BUTTON_LEFT:
 		return false
 	var point: Vector2 = ui.get_global_mouse_position()
@@ -1202,8 +1220,6 @@ func handle_shift_drag(event: InputEvent) -> bool:
 		update_visuals(0)
 		get_viewport().set_input_as_handled()
 		return true
-	if event is InputEventMouseMotion and drag_slot >= 0:
-		move_drag_ghost()
 	return false
 
 # Returns true when the event belonged to edit mode and must not travel further.
@@ -1402,6 +1418,8 @@ func register_movable_frames() -> void:
 	]
 	for bar in range(bar_roots.size()):
 		named.append([bar_roots[bar], "ActionBar%d" % (bar + 1)])
+	named.append([self_auras, "SelfAuras"])
+	named.append([cc_tracker, "CrowdControl"])
 	for entry in named:
 		var frame: Control = entry[0]
 		if frame == null:
@@ -2455,7 +2473,11 @@ func show_event(round_epoch: int, source: int, victim: int, text: String, color:
 	tween.tween_property(label, "modulate:a", 0.0, 1.1)
 	tween.chain().tween_callback(label.queue_free)
 	if source != victim and actors.has(source):
-		beam(actors[source].position, actor.position, color)
+		if actors[source].champion == "Vanguard" and text.begins_with("−"):
+			actors[source].champion_model.present_strike()
+			preload("res://scripts/vanguard_strike.gd").spawn(self, actors[source].position, actor.position, actors[source].base_color)
+		else:
+			beam(actors[source].position, actor.position, color)
 
 func beam(from: Vector3, to: Vector3, color: Color) -> void:
 	if from.distance_to(to) < 0.01:
@@ -2597,7 +2619,11 @@ func update_visuals(delta: float) -> void:
 	for actor in actors.values():
 		var hostile: bool = actors.has(local_id) and actor.team != actors[local_id].team
 		actor.mark_hostile(hostile)
-		actor.paint_nameplate_auras(Auras.active(actor), AbilityArt)
+		# Your own effects are already on the personal strip and the centre-screen
+		# readout; repeating them over your own head is noise.
+		var overhead: Array = [] if actor.actor_id == local_id else Auras.active(actor)
+		actor.paint_nameplate_auras(overhead, AbilityArt)
+	paint_self_auras()
 	# Before the bar: it maintains cc_total, which the slots use as the sweep
 	# denominator.
 	update_cc_tracker()
@@ -2633,6 +2659,9 @@ func update_visuals(delta: float) -> void:
 		# answer to "when can I press this" — a 16s cooldown outlives a 2s stun,
 		# and a 4s lockout outlives a spell that is already off cooldown.
 		var held: float = cc_block_remaining(actor, spell)
+		# A slot you cannot press because you are held reads as unusable, not just
+		# as counting down.
+		button.modulate = Color(0.55, 0.58, 0.72) if held > 0.0 else Color.WHITE
 		if held > own and held > 0.0:
 			cooldown_overlays[slot].sync(held, maxf(cc_total, held), false)
 		elif own > 0.0:
@@ -2641,11 +2670,21 @@ func update_visuals(delta: float) -> void:
 			cooldown_overlays[slot].sync(global_cd, GCD_DURATION, true)
 		else:
 			cooldown_overlays[slot].sync(0.0, 0.0, false)
-		button.modulate = Color("83919e") if actor.hp <= 0 else Color.WHITE
+		if actor.hp <= 0:
+			button.modulate = Color("83919e")
 	update_ability_tooltip()
 
 # Aura strips live at child index 4 of a unit frame. Party and enemy rows are
 # plain buttons with no strip, so they are skipped rather than special-cased.
+func chip_in_strip(strip: HBoxContainer, pointer: Vector2) -> PanelContainer:
+	if strip == null or not strip.is_visible_in_tree():
+		return null
+	for child in strip.get_children():
+		var panel := child as PanelContainer
+		if panel.visible and panel.has_meta("aura") and panel.get_global_rect().has_point(pointer):
+			return panel
+	return null
+
 func aura_chip_at(frame: Node, pointer: Vector2) -> PanelContainer:
 	if frame == null or not (frame is VBoxContainer) or frame.get_child_count() < 5:
 		return null
@@ -2656,6 +2695,21 @@ func aura_chip_at(frame: Node, pointer: Vector2) -> PanelContainer:
 		if panel.visible and panel.has_meta("aura") and panel.get_global_rect().has_point(pointer):
 			return panel
 	return null
+
+# Your own buffs and debuffs, top right, the way an MMO puts them.
+func paint_self_auras() -> void:
+	if self_auras == null:
+		return
+	var mine: Array = Auras.active(actors[local_id]) if actors.has(local_id) else []
+	self_auras.visible = not mine.is_empty() or edit_mode
+	for i in range(AURA_SLOTS):
+		var chip := self_auras.get_child(i) as PanelContainer
+		if i < mine.size():
+			paint_aura(chip, mine[i])
+		else:
+			chip.hide()
+			if chip.has_meta("aura"):
+				chip.remove_meta("aura")
 
 func paint_roster_row(button: Button, actor, title: String, friendly: bool) -> void:
 	var bar := roster_bar(button)
@@ -2872,6 +2926,12 @@ func update_ability_tooltip() -> void:
 		ability_tooltip.hide()
 		return
 	var pointer := ui.get_global_mouse_position()
+	var strip_chip := chip_in_strip(self_auras, pointer)
+	if strip_chip != null:
+		var mine: Dictionary = strip_chip.get_meta("aura")
+		ability_tooltip.present_text("%s\n\n%s\n\n%s remaining" % [
+			mine.name, mine.description, format_aura_time(mine.remaining)], pointer, ui.size)
+		return
 	for frame in [player_frame, target_frame, focus_frame] + party_buttons + enemy_buttons:
 		var chip := aura_chip_at(frame, pointer)
 		if chip != null:

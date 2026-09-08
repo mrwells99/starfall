@@ -7,6 +7,7 @@ var champion := "Ember"
 var hp := 100.0
 var kit: Array = []
 const Auras = preload("res://scripts/auras.gd")
+const Kits = preload("res://scripts/kits.gd")
 var cooldowns: Array = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 var gcd := 0.0
 var casting := -1
@@ -92,7 +93,7 @@ func setup(id: int, peer: int, side: int, choice: String) -> void:
 	health_mesh.mesh = fill
 	health_mesh.position.z = 0.01
 	var fill_mat := StandardMaterial3D.new()
-	fill_mat.albedo_color = base_color
+	fill_mat.albedo_color = Kits.color(champion)
 	fill_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	health_mesh.material_override = fill_mat
 	health_pivot.add_child(health_mesh)

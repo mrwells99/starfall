@@ -360,6 +360,69 @@ func run() -> void:
 	arena.drag_slot = -1
 	arena.reset_layout()
 
+	# --- personal aura strip, moveable readouts, CC greying -------------------
+	arena.panel.hide()
+	var self_me = arena.actors[arena.local_id]
+	self_me.stunned = 4.0
+	self_me.stun_from = "Stasis"
+	self_me.shield = 6.0
+	self_me.shield_from = "Ward"
+	arena.update_visuals(0)
+	check(arena.self_auras.visible, "Your own buffs and debuffs get their own strip")
+	var strip_shown := 0
+	for chip in arena.self_auras.get_children():
+		if (chip as PanelContainer).visible:
+			strip_shown += 1
+	check(strip_shown == 2, "The strip lists every effect on you")
+	# Your own nameplate must not repeat what the strip and the readout say.
+	var mine_overhead := 0
+	for holder in self_me.aura_icons:
+		if (holder as Node3D).visible:
+			mine_overhead += 1
+	check(mine_overhead == 0, "Your own nameplate does not repeat your effects")
+	# Everyone else still shows theirs overhead.
+	var other = arena.actors[arena.enemy_ids()[0]]
+	other.stunned = 3.0
+	other.stun_from = "Stasis"
+	arena.update_visuals(0)
+	var other_overhead := 0
+	for holder in other.aura_icons:
+		if (holder as Node3D).visible:
+			other_overhead += 1
+	check(other_overhead > 0, "Other fighters still show their effects overhead")
+
+	# Held slots read as unusable, not merely counting down.
+	check(arena.ability_buttons[0].modulate.r < 0.9, "Slots grey out while you are held")
+	self_me.stunned = 0.0
+	self_me.shield = 0.0
+	self_me.stun_from = ""
+	self_me.shield_from = ""
+	arena.update_visuals(0)
+	check(arena.ability_buttons[0].modulate.r >= 0.99, "Slots return to normal once the hold ends")
+	check(not arena.self_auras.visible, "The strip hides when nothing is on you")
+
+	# Both readouts are arrangeable.
+	arena.register_movable_frames()
+	var arrangeable := {}
+	for frame in arena.movable_frames:
+		arrangeable[frame.name] = true
+	check(arrangeable.has("SelfAuras") and arrangeable.has("CrowdControl"),
+		"The aura strip and crowd control readout can be moved in Edit HUD")
+
+	# The ghost follows the cursor: motion must be handled before the button guard.
+	arena.drag_slot = 0
+	arena.show_drag_ghost(0)
+	var start: Vector2 = arena.drag_ghost.position
+	point_mouse(Vector2(500, 260))
+	await process_frame
+	var motion := InputEventMouseMotion.new()
+	motion.position = Vector2(500, 260)
+	motion.global_position = motion.position
+	arena.handle_shift_drag(motion)
+	check(arena.drag_ghost.position != start, "The dragged icon follows the cursor")
+	arena.drag_slot = -1
+	arena.show_drag_ghost(-1)
+
 	# --- modifier keys, slot size, persistence, drag ghost --------------------
 	arena.reset_layout()
 	# Shift+1, Alt+1 and 1 are three different bindings, not one key.

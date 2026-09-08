@@ -177,6 +177,10 @@ A / D **strafe** rather than turn — a deliberate divergence from the WoW defau
 
 Every effect is shown as a chip on the unit frame and again on the overhead nameplate, with its own countdown, and hovering a chip explains what it does. Stun, spell lockout, the damage-reduction shield, Grace, and diminishing-return stacks are all covered.
 
+**Your own effects appear in one place, not three.** A personal buff and debuff strip sits top right, MMO-style, and the centre-screen readout covers crowd control. Your own nameplate deliberately shows neither — it would be repeating what you are already looking at. Allies and enemies still carry theirs overhead, because that is the only place you can read them.
+
+Both the personal strip and the crowd control readout can be repositioned in Edit HUD.
+
 Overhead nameplates show the same icons and timers as the unit frames, rather than a second, different way of saying it. The nameplate health bar is backed in red for enemies, matching the frame borders.
 
 Each chip shows **the icon of the ability that caused the effect** — an Ember stun and a Vanguard stun are told apart at a glance — with the countdown beside it. Effects with no illustrated source, such as diminishing returns, fall back to their name so a chip is never blank.
@@ -186,6 +190,8 @@ Each chip shows **the icon of the ability that caused the effect** — an Ember 
 Diminishing returns is surfaced as an aura even though it is not an effect on the fighter, because it decides whether your next stun is worth casting.
 
 ## Crowd control on the action bars
+
+Held slots also **grey out**, so a bar you cannot use looks unusable rather than merely busy.
 
 A stun or a lockout sweeps the slots it prevents, exactly like a cooldown, so the bar always answers "when can I press this". Whichever wait is **longer** owns the slot — a 16 s cooldown outlives a 2 s stun, and a 4 s lockout outlives a spell that is already ready.
 
@@ -231,7 +237,7 @@ Each champion has a colour, defined once in `Kits.COLORS`:
 | Luminary | Green `#7ee08a` |
 | Fulcrum | Violet `#b98cff` |
 
-Health bars are **filled** with the class colour and **bordered** with the team colour, so reading which champion you are looking at never costs you friend-or-foe. Enemies get a heavier, hotter red border than the blue on allies.
+Health bars everywhere — your own frame, allies, enemies, and the overhead nameplate bars — are **filled** with the class colour and **bordered** with the team colour, so reading which champion you are looking at never costs you friend-or-foe. Enemies get a heavier, hotter red border than the blue on allies.
 
 The border is drawn as an overlay **on top of** the fill, not behind it. Behind, it only appeared on the empty part of the bar and vanished entirely at full health — which is exactly when you most need to know what you are looking at.
 
