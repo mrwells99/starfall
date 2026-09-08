@@ -18,6 +18,11 @@ const AURA_SLOTS := 5
 const BAR_COUNT := 3
 const BAR_SLOTS := 7
 const TOTAL_SLOTS := BAR_COUNT * BAR_SLOTS
+# 40% smaller than the original 92px, and every bar now matches rather than the
+# extra bars being arbitrarily smaller than the first.
+const DEFAULT_SLOT_SIZE := 55
+const MIN_SLOT_SIZE := 28
+const MAX_SLOT_SIZE := 140
 
 # --- UI palette ---------------------------------------------------------------
 # One place for every colour the interface uses, so the menu, the HUD and the
@@ -163,12 +168,21 @@ var drag_slot := -1
 var movable_frames: Array[Control] = []
 var hotbar_root: HBoxContainer
 var default_positions := {}
+# Frames the player has dragged. Their position is theirs and is not recomputed.
+var moved_frames := {}
 var cc_tracker: VBoxContainer
 var cc_icon: TextureRect
 var cc_sweep: Control
 var cc_label: Label
 var cc_total := 0.0
 var cc_key := ""
+var camera_dirty := false
+var camera_save_timer := 1.0
+var slot_size := DEFAULT_SLOT_SIZE
+var slot_size_field: LineEdit
+var drag_ghost: TextureRect
+var size_label: Label
+var settings_extra: Array[Control] = []
 var lobby_code := ""
 var intent := ""
 var probe_index := 0
@@ -201,7 +215,17 @@ func _ready() -> void:
 func initialise_player_config() -> void:
 	load_settings()
 	register_movable_frames()
+	# A test run must not inherit the machine's saved HUD. Layout, keybinds and
+	# ability assignment all live in user://, so whoever ran the game last would
+	# otherwise decide what the suites see — an emptied slot 0 silently breaks
+	# every hotbar and combat assertion, with nothing pointing at the cause.
+	if running_under_script():
+		return
 	load_layout()
+
+# True when launched with --script, which is how every suite runs.
+static func running_under_script() -> bool:
+	return OS.get_cmdline_args().has("--script")
 
 func authoritative() -> bool:
 	return not network or multiplayer.is_server()
@@ -510,7 +534,7 @@ func build_ui() -> void:
 		for slot in range(BAR_SLOTS):
 			var index := bar * BAR_SLOTS + slot
 			var button := add_button(row, "", send_action.bind(index))
-			button.custom_minimum_size = Vector2(92, 92) if bar == 0 else Vector2(64, 64)
+			button.custom_minimum_size = Vector2(DEFAULT_SLOT_SIZE, DEFAULT_SLOT_SIZE)
 			button.clip_contents = true
 			ability_buttons.append(button)
 			ability_images.append(AbilityArt.attach(button))
@@ -602,6 +626,20 @@ func build_ui() -> void:
 	settings_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	settings_row.add_theme_constant_override("separation", 10)
 	stack.add_child(settings_row)
+	var size_row := HBoxContainer.new()
+	size_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	size_row.add_theme_constant_override("separation", 8)
+	stack.add_child(size_row)
+	size_label = add_label(size_row, "Action bar slot size (default %d):" % DEFAULT_SLOT_SIZE, 14)
+	slot_size_field = LineEdit.new()
+	slot_size_field.text = str(DEFAULT_SLOT_SIZE)
+	slot_size_field.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	slot_size_field.custom_minimum_size = Vector2(90, 36)
+	slot_size_field.add_theme_stylebox_override("normal", ui_box(UI_VOID, UI_EDGE))
+	slot_size_field.add_theme_stylebox_override("focus", ui_box(UI_VOID, UI_ACCENT))
+	slot_size_field.add_theme_color_override("font_color", UI_ACCENT)
+	size_row.add_child(slot_size_field)
+	settings_extra.append(size_row)
 	style_button(add_button(settings_row, "Apply", apply_settings), true)
 	add_button(settings_row, "Edit HUD", func(): toggle_edit_mode(true))
 	add_button(settings_row, "Back", func(): menu_state = "main"; refresh_menu())
@@ -675,6 +713,18 @@ func build_ui() -> void:
 	exit_button = add_button(stack, "Return to menu", func(): leave_session("Returned to menu."))
 	ability_tooltip = preload("res://scripts/ability_tooltip.gd").new()
 	ui.add_child(ability_tooltip)
+	# Follows the cursor while an ability is being dragged, so the gesture has
+	# something to look at instead of happening invisibly.
+	drag_ghost = TextureRect.new()
+	drag_ghost.name = "DragGhost"
+	drag_ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	drag_ghost.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	drag_ghost.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	drag_ghost.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	drag_ghost.modulate = Color(1, 1, 1, 0.8)
+	drag_ghost.z_index = 90
+	drag_ghost.hide()
+	ui.add_child(drag_ghost)
 	build_cc_tracker()
 	build_edit_overlay()
 
@@ -698,6 +748,7 @@ func clear_actors() -> void:
 	focus_id = -1
 
 func local_match() -> void:
+	world_mode = false
 	if network:
 		leave_session("")
 	mode = mode_choice.get_selected_id()
@@ -886,6 +937,7 @@ func leave_session(message: String) -> void:
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 	network = false
 	dedicated = false
+	world_mode = false
 	menu_state = "main"
 	intent = ""
 	searching = false
@@ -1077,6 +1129,8 @@ func refresh_menu() -> void:
 		online_row.visible = in_menu and menu_state == "online"
 	if settings_row:
 		settings_row.visible = in_menu and menu_state == "settings"
+	for extra in settings_extra:
+		extra.visible = in_menu and menu_state == "settings"
 	if opponent_choice:
 		opponent_choice.visible = in_menu and menu_state == "offline"
 	if window_mode_choice:
@@ -1136,6 +1190,7 @@ func handle_shift_drag(event: InputEvent) -> bool:
 			return false
 		drag_slot = slot
 		update_visuals(0)
+		show_drag_ghost(slot)
 		get_viewport().set_input_as_handled()
 		return true
 	if drag_slot >= 0:
@@ -1143,9 +1198,12 @@ func handle_shift_drag(event: InputEvent) -> bool:
 		if target >= 0 and target != drag_slot:
 			swap_slots(drag_slot, target)
 		drag_slot = -1
+		show_drag_ghost(-1)
 		update_visuals(0)
 		get_viewport().set_input_as_handled()
 		return true
+	if event is InputEventMouseMotion and drag_slot >= 0:
+		move_drag_ghost()
 	return false
 
 # Returns true when the event belonged to edit mode and must not travel further.
@@ -1156,7 +1214,10 @@ func handle_edit_input(event: InputEvent) -> bool:
 				rebinding = -1
 				refresh_edit_hint()
 			else:
-				finish_rebind(event.keycode)
+				var binding := event_binding(event)
+				# Ignore a bare modifier: the player is still reaching for the key.
+				if binding != 0:
+					finish_rebind(binding)
 			return true
 		if event.keycode == KEY_ESCAPE:
 			toggle_edit_mode(false)
@@ -1168,6 +1229,7 @@ func handle_edit_input(event: InputEvent) -> bool:
 			var slot := hotbar_slot_at(point)
 			if slot >= 0:
 				drag_slot = slot
+				show_drag_ghost(slot)
 				return true
 			var frame := movable_at(point)
 			if frame != null:
@@ -1184,12 +1246,17 @@ func handle_edit_input(event: InputEvent) -> bool:
 			elif target == drag_slot:
 				begin_rebind(drag_slot)
 			drag_slot = -1
+			show_drag_ghost(-1)
 			return true
 		if dragging != null:
+			moved_frames[dragging.name] = true
 			dragging = null
 			save_layout()
 			return true
 		return false
+	if event is InputEventMouseMotion and drag_slot >= 0:
+		move_drag_ghost()
+		return true
 	if event is InputEventMouseMotion and dragging != null:
 		# Clamped so a frame cannot be dragged entirely off-screen and lost.
 		var wanted: Vector2 = ui.get_global_mouse_position() + drag_offset
@@ -1408,10 +1475,63 @@ func finish_rebind(code: int) -> void:
 	refresh_binds()
 	refresh_edit_hint()
 
+# A binding is a keycode with Godot's modifier mask folded in, so 1, Shift+1,
+# Alt+1 and Ctrl+1 are four distinct values in the same table.
+# OS.get_keycode_string() already renders the mask as "Shift+1", so the label
+# needs no special handling.
+static func event_binding(event: InputEventKey) -> int:
+	var code: int = event.keycode
+	# A modifier pressed on its own is not a binding.
+	if code in [KEY_SHIFT, KEY_ALT, KEY_CTRL, KEY_META]:
+		return 0
+	if event.shift_pressed:
+		code |= KEY_MASK_SHIFT
+	if event.alt_pressed:
+		code |= KEY_MASK_ALT
+	if event.ctrl_pressed:
+		code |= KEY_MASK_CTRL
+	return code
+
+# Slot size is a single number: the bars are square grids, so a width and a
+# height would only ever be set to the same value.
+func apply_slot_size(size: int) -> void:
+	slot_size = clampi(size, MIN_SLOT_SIZE, MAX_SLOT_SIZE)
+	for button in ability_buttons:
+		button.custom_minimum_size = Vector2(slot_size, slot_size)
+		button.size = Vector2(slot_size, slot_size)
+	for bar in range(bar_roots.size()):
+		var row := bar_roots[bar]
+		var step := slot_size + 8
+		# Only reposition rows the player has not moved themselves; a saved
+		# position is theirs and resizing should not throw it away.
+		if not moved_frames.has(row.name):
+			row.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+			row.offset_left = -(slot_size * BAR_SLOTS + 48) / 2
+			row.offset_right = (slot_size * BAR_SLOTS + 48) / 2
+			row.offset_top = -(25 + slot_size + bar * step)
+			row.offset_bottom = -(25 + bar * step)
+
 func refresh_binds() -> void:
 	for slot in range(cooldown_overlays.size()):
 		# An unbound slot shows nothing rather than a stray "0".
 		cooldown_overlays[slot].set_key(OS.get_keycode_string(binds[slot]) if binds[slot] != 0 else "")
+
+# Picks the dragged icon up under the cursor, or puts it away.
+func show_drag_ghost(slot: int) -> void:
+	if drag_ghost == null:
+		return
+	if slot < 0:
+		drag_ghost.hide()
+		return
+	var texture: Texture2D = ability_images[slot].texture if slot < ability_images.size() else null
+	drag_ghost.texture = texture
+	drag_ghost.size = Vector2(slot_size, slot_size)
+	drag_ghost.visible = texture != null
+	move_drag_ghost()
+
+func move_drag_ghost() -> void:
+	if drag_ghost != null and drag_ghost.visible:
+		drag_ghost.position = ui.get_global_mouse_position() - drag_ghost.size * 0.5
 
 func swap_slots(a: int, b: int) -> void:
 	if a == b or a < 0 or b < 0 or a >= assignment.size() or b >= assignment.size():
@@ -1421,7 +1541,22 @@ func swap_slots(a: int, b: int) -> void:
 	assignment[b] = carried
 	save_layout()
 
+# Zooming fires many events in a row; writing the file on each one would mean
+# dozens of disk writes for one scroll. Flushed on a short delay instead, and
+# again on quit.
+func tick_camera_save(delta: float) -> void:
+	if not camera_dirty:
+		return
+	camera_save_timer -= delta
+	if camera_save_timer <= 0.0:
+		camera_dirty = false
+		camera_save_timer = 1.0
+		config.set_value("hud", "camera_distance", arm.spring_length)
+		config.save_config()
+
 func save_layout() -> void:
+	if arm != null:
+		config.set_value("hud", "camera_distance", arm.spring_length)
 	config.set_value("hud", "binds", binds)
 	config.set_value("hud", "assignment", assignment)
 	var places := {}
@@ -1429,6 +1564,8 @@ func save_layout() -> void:
 		if frame != null:
 			places[frame.name] = frame.position
 	config.set_value("hud", "frames", places)
+	config.set_value("hud", "slot_size", slot_size)
+	config.set_value("hud", "moved", moved_frames.keys())
 	config.save_config()
 
 func load_layout() -> void:
@@ -1451,6 +1588,16 @@ func load_layout() -> void:
 		if ok:
 			for i in range(assignment.size()):
 				assignment[i] = int(stored_assign[i])
+	var moved = config.get_value("hud", "moved", [])
+	if moved is Array:
+		for name in moved:
+			moved_frames[str(name)] = true
+	apply_slot_size(int(config.get_value("hud", "slot_size", DEFAULT_SLOT_SIZE)))
+	if slot_size_field != null:
+		slot_size_field.text = str(slot_size)
+	var distance = config.get_value("hud", "camera_distance", 0.0)
+	if arm != null and distance is float and distance > 0.0:
+		arm.spring_length = clampf(distance, 3.0, 18.0)
 	var places = config.get_value("hud", "frames", {})
 	if places is Dictionary:
 		for frame in movable_frames:
@@ -1472,6 +1619,10 @@ func reset_layout() -> void:
 	# Put the frames back before saving. Clearing the stored dictionary alone did
 	# nothing, because save_layout() immediately rewrote it from wherever the
 	# frames happened to be sitting.
+	moved_frames.clear()
+	apply_slot_size(DEFAULT_SLOT_SIZE)
+	if slot_size_field != null:
+		slot_size_field.text = str(DEFAULT_SLOT_SIZE)
 	for frame in movable_frames:
 		if frame != null and default_positions.has(frame.name):
 			frame.position = default_positions[frame.name]
@@ -1479,12 +1630,17 @@ func reset_layout() -> void:
 	refresh_binds()
 
 func apply_settings() -> void:
+	if slot_size_field != null and slot_size_field.text.strip_edges().is_valid_int():
+		apply_slot_size(int(slot_size_field.text))
+		slot_size_field.text = str(slot_size)
+	config.set_value("hud", "slot_size", slot_size)
 	config.set_value("display", "window_mode", window_mode_choice.get_selected_id())
 	var options := UserConfig.available_resolutions()
 	var index: int = clampi(resolution_choice.selected, 0, options.size() - 1)
 	if index >= 0 and index < options.size():
 		config.set_value("display", "resolution", options[index])
 	config.save_config()
+	save_layout()
 	config.apply_display()
 	refresh_menu()
 
@@ -1632,6 +1788,7 @@ func _physics_process(delta: float) -> void:
 				next_probe()
 			else:
 				leave_session("Could not reach the server. Try again in a moment.")
+	tick_camera_save(delta)
 	if phase in ["countdown", "match"]:
 		gather_input(delta)
 		if authoritative() and world_mode:
@@ -2374,7 +2531,7 @@ func update_frame(frame: VBoxContainer, id: int, prefix: String) -> void:
 	# Class colour fills the bar, so the border is the only thing left saying
 	# which side someone is on. It has to be bold and it has to be there at full
 	# health, which means drawing it over the fill rather than behind it.
-	paint_bar_edge(health, BLUE if friendly else ENEMY_EDGE, 1 if friendly else 4)
+	paint_bar_edge(health, BLUE if friendly else ENEMY_EDGE, 1 if friendly else 3)
 	(health.get_child(0) as Label).text = "%d / 100 HP" % ceili(actor.hp)
 	var cast := frame.get_child(2) as ProgressBar
 	cast.visible = actor.casting >= 0
@@ -2437,6 +2594,10 @@ func update_visuals(delta: float) -> void:
 		if i < enemies.size():
 			var foe = actors[enemies[i]]
 			paint_roster_row(enemy_buttons[i], foe, foe.champion, false)
+	for actor in actors.values():
+		var hostile: bool = actors.has(local_id) and actor.team != actors[local_id].team
+		actor.mark_hostile(hostile)
+		actor.paint_nameplate_auras(Auras.active(actor), AbilityArt)
 	# Before the bar: it maintains cc_total, which the slots use as the sweep
 	# denominator.
 	update_cc_tracker()
@@ -2503,7 +2664,7 @@ func paint_roster_row(button: Button, actor, title: String, friendly: bool) -> v
 	bar.value = actor.hp
 	var fill := bar.get_theme_stylebox("fill") as StyleBoxFlat
 	fill.bg_color = Kits.color(actor.champion)
-	paint_bar_edge(bar, BLUE if friendly else ENEMY_EDGE, 1 if friendly else 4)
+	paint_bar_edge(bar, BLUE if friendly else ENEMY_EDGE, 1 if friendly else 3)
 	(bar.get_child(0) as Label).text = "%s   %d HP%s" % [title, ceili(actor.hp), "  STUN" if actor.stunned > 0 else ""]
 
 func party_ids() -> Array[int]:
@@ -2578,13 +2739,16 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			arm.spring_length = maxf(3, arm.spring_length - 0.8)
+			camera_dirty = true
 		if event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			arm.spring_length = minf(18, arm.spring_length + 0.8)
+			camera_dirty = true
 		if event.button_index in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT]:
 			capture_mouse()
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_TAB:
 			cycle_target()
+		var pressed_binding := event_binding(event)
 		# C challenges whoever you have targeted; Y accepts an offer. Both route
 		# through the server, which owns the pairing.
 		if world_mode and event.keycode == KEY_C and selected_id != -1:
@@ -2600,8 +2764,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				accept_duel.rpc_id(1)
 			pending_offer = -1
 			return
-		var bound := binds.find(event.keycode)
-		if bound >= 0 and binds[bound] != 0:
+		var bound := binds.find(pressed_binding)
+		if bound >= 0 and pressed_binding != 0:
 			send_action(bound)
 		if event.keycode >= KEY_F1 and event.keycode <= KEY_F3:
 			select_party(event.keycode - KEY_F1)
@@ -2616,6 +2780,10 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
 		release_mouse(false)
 		queued_jump = false
+	# Flush on quit: anything changed since the last explicit save — a camera
+	# zoom in particular — was otherwise lost when the window closed.
+	if what == NOTIFICATION_WM_CLOSE_REQUEST and config != null and arm != null and not binds.is_empty():
+		save_layout()
 
 func parse_arguments() -> void:
 	var args := OS.get_cmdline_user_args()

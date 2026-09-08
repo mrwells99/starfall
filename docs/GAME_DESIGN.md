@@ -177,6 +177,8 @@ A / D **strafe** rather than turn — a deliberate divergence from the WoW defau
 
 Every effect is shown as a chip on the unit frame and again on the overhead nameplate, with its own countdown, and hovering a chip explains what it does. Stun, spell lockout, the damage-reduction shield, Grace, and diminishing-return stacks are all covered.
 
+Overhead nameplates show the same icons and timers as the unit frames, rather than a second, different way of saying it. The nameplate health bar is backed in red for enemies, matching the frame borders.
+
 Each chip shows **the icon of the ability that caused the effect** — an Ember stun and a Vanguard stun are told apart at a glance — with the countdown beside it. Effects with no illustrated source, such as diminishing returns, fall back to their name so a chip is never blank.
 
 **Auras are derived, never stored.** `scripts/auras.gd` reads the timers the simulation already keeps (`stunned`, `locked`, `shield`, `sprint`, `dr_timer`) rather than maintaining a second list. A displayed aura therefore cannot disagree with the simulation, and nothing extra has to be replicated. The shield field is one mechanic with four names — Ward, Iron Skin, Umbra, Sanctuary — chosen by the champion carrying it.
@@ -205,6 +207,14 @@ Settings → **Edit HUD**, WoW's Edit Mode in miniature:
 - Click a hotbar slot to rebind its key. A key already in use is **swapped**, not duplicated, so no key ever fires two abilities.
 - Drag one hotbar slot onto another to swap which abilities sit where.
 - **Reset layout** restores the defaults, frame positions included.
+
+**Bindings carry modifiers.** `1`, `Shift+1`, `Alt+1` and `Ctrl+1` are four separate bindings on four separate slots. A modifier pressed alone is ignored, so holding Shift while reaching for a key does not bind Shift itself.
+
+**Slot size is typed in Settings**, applies to every bar at once, and is clamped rather than trusted. Slots default to 55 px — 40% smaller than the original 92 — and the extra bars now match the first rather than being arbitrarily smaller.
+
+**Everything a player changes is remembered**: HUD positions, keybinds, ability assignment, slot size and camera distance, all in `user://starfall.cfg`. Camera zoom is written on a short delay rather than on every wheel tick, and everything is flushed again when the window closes.
+
+**Tests never load that file.** Launching with `--script` skips it, because otherwise whoever ran the game last decides what the suites see — an emptied slot 0 silently breaks every hotbar and combat assertion with nothing pointing at the cause.
 
 **Shift + drag rearranges the bars at any time**, in a match or in the world, without opening Edit HUD. Empty slots on the other bars appear the moment a drag starts, so there is somewhere to drop, and disappear again when it ends. Each bar has a grip handle on its left, shown in Edit HUD, because the only draggable pixels were otherwise the few between buttons.
 

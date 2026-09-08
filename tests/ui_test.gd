@@ -313,7 +313,7 @@ func run() -> void:
 	# The border is drawn over the fill, so it survives at full health.
 	arena.actors[foe_id].hp = 100.0
 	arena.update_visuals(0)
-	check(arena.bar_edge(foe_bar).visible and (arena.bar_edge(foe_bar).get_theme_stylebox("panel") as StyleBoxFlat).border_width_left == 4,
+	check(arena.bar_edge(foe_bar).visible and (arena.bar_edge(foe_bar).get_theme_stylebox("panel") as StyleBoxFlat).border_width_left == 3,
 		"The enemy border is still there at full health")
 
 	# --- shift-drag rearranges bars outside edit mode --------------------------
@@ -359,6 +359,55 @@ func run() -> void:
 		"A slot on another bar describes the ability actually assigned to it")
 	arena.drag_slot = -1
 	arena.reset_layout()
+
+	# --- modifier keys, slot size, persistence, drag ghost --------------------
+	arena.reset_layout()
+	# Shift+1, Alt+1 and 1 are three different bindings, not one key.
+	var plain_one := InputEventKey.new()
+	plain_one.keycode = KEY_1
+	var shift_one := InputEventKey.new()
+	shift_one.keycode = KEY_1
+	shift_one.shift_pressed = true
+	var alt_one := InputEventKey.new()
+	alt_one.keycode = KEY_1
+	alt_one.alt_pressed = true
+	var bare_shift := InputEventKey.new()
+	bare_shift.keycode = KEY_SHIFT
+	var b_plain: int = arena.event_binding(plain_one)
+	var b_shift: int = arena.event_binding(shift_one)
+	var b_alt: int = arena.event_binding(alt_one)
+	check(b_plain != b_shift and b_shift != b_alt and b_plain != b_alt,
+		"Modifiers make distinct bindings from the same key")
+	check(arena.event_binding(bare_shift) == 0, "A bare modifier is not a binding")
+	arena.begin_rebind(3)
+	arena.finish_rebind(b_shift)
+	check(arena.binds[3] == b_shift, "Shift+1 can be bound to a slot")
+	check(OS.get_keycode_string(arena.binds[3]).contains("Shift"), "The bound key reads as Shift+1")
+	check(arena.binds[0] == b_plain, "Plain 1 still belongs to its own slot")
+
+	# Slot size, with the default exposed in the settings field.
+	check(arena.DEFAULT_SLOT_SIZE == 55, "Slots default to 40% smaller than the original 92px")
+	check(arena.slot_size_field != null and arena.slot_size_field.text == str(arena.DEFAULT_SLOT_SIZE),
+		"The size field shows the default")
+	arena.apply_slot_size(70)
+	check(arena.ability_buttons[0].custom_minimum_size.x == 70, "Bars resize to a typed value")
+	check(arena.ability_buttons[arena.BAR_SLOTS].custom_minimum_size.x == 70, "Every bar resizes together")
+	arena.apply_slot_size(9999)
+	check(arena.slot_size == arena.MAX_SLOT_SIZE, "An absurd size is clamped rather than accepted")
+	arena.apply_slot_size(arena.DEFAULT_SLOT_SIZE)
+
+	# The drag ghost gives the gesture something visible.
+	arena.drag_slot = -1
+	arena.show_drag_ghost(0)
+	check(arena.drag_ghost.visible and arena.drag_ghost.texture != null, "Dragging shows the icon under the cursor")
+	arena.show_drag_ghost(-1)
+	check(not arena.drag_ghost.visible, "The ghost is put away when the drag ends")
+
+	# Local play must not inherit world rules.
+	arena.world_mode = true
+	arena.local_match()
+	check(not arena.world_mode, "Local sparring clears world mode")
+	check(arena.actors.size() > 1, "Local sparring still fills the other side with bots")
 
 	# --- offline opponent picker ----------------------------------------------
 	check(arena.opponent_choice != null, "Offline offers an opponent choice")

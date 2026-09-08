@@ -37,6 +37,9 @@ var health_pivot: Node3D
 var cast_mesh: MeshInstance3D
 var cast_pivot: Node3D
 var cast_label: Label3D
+var aura_icons: Array = []
+var health_back_mat: StandardMaterial3D
+const NAMEPLATE_AURAS := 3
 var base_color := Color.WHITE
 var flash := 0.0
 var net_position := Vector3.ZERO
@@ -78,10 +81,10 @@ func setup(id: int, peer: int, side: int, choice: String) -> void:
 	var plane := QuadMesh.new()
 	plane.size = Vector2(1.6, 0.16)
 	back.mesh = plane
-	var back_mat := StandardMaterial3D.new()
-	back_mat.albedo_color = Color("17202b")
-	back_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	back.material_override = back_mat
+	health_back_mat = StandardMaterial3D.new()
+	health_back_mat.albedo_color = Color("17202b")
+	health_back_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	back.material_override = health_back_mat
 	health_pivot.add_child(back)
 	health_mesh = MeshInstance3D.new()
 	var fill := QuadMesh.new()
@@ -122,6 +125,45 @@ func setup(id: int, peer: int, side: int, choice: String) -> void:
 	cast_label.position.y = 0.14
 	cast_label.modulate = Color("ffe6a8")
 	cast_pivot.add_child(cast_label)
+	for i in range(NAMEPLATE_AURAS):
+		var holder := Node3D.new()
+		holder.position = Vector3(-0.62 + i * 0.62, 2.94, 0)
+		holder.visible = false
+		add_child(holder)
+		var icon := Sprite3D.new()
+		icon.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		icon.pixel_size = 0.0022
+		icon.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		holder.add_child(icon)
+		var timer := Label3D.new()
+		timer.font_size = 26
+		timer.outline_size = 8
+		timer.position.y = -0.34
+		timer.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		holder.add_child(timer)
+		aura_icons.append(holder)
+
+# Painted from the arena, which is the only thing that knows who the local
+# player is and therefore who counts as hostile.
+func mark_hostile(hostile: bool) -> void:
+	if health_back_mat != null:
+		health_back_mat.albedo_color = Color("ff2d4e") if hostile else Color("17202b")
+
+func paint_nameplate_auras(auras: Array, art) -> void:
+	for i in range(NAMEPLATE_AURAS):
+		var holder: Node3D = aura_icons[i]
+		if i >= auras.size() or hp <= 0:
+			holder.visible = false
+			continue
+		var aura: Dictionary = auras[i]
+		var texture = art.texture_for(aura.get("source", ""))
+		holder.visible = texture != null
+		if texture == null:
+			continue
+		(holder.get_child(0) as Sprite3D).texture = texture
+		var timer := holder.get_child(1) as Label3D
+		timer.text = "%.0f" % ceil(aura.remaining) if aura.remaining >= 10.0 else "%.1f" % aura.remaining
+		timer.modulate = aura.color
 
 func visual_tick(delta: float, camera: Camera3D) -> void:
 	flash = maxf(0, flash - delta)
@@ -148,12 +190,9 @@ func visual_tick(delta: float, camera: Camera3D) -> void:
 	var state := ""
 	if hp <= 0:
 		state = "DEFEATED"
-	var effects := "" if hp <= 0 else Auras.nameplate_text(self)
 	var lines := "%s %s" % [champion, "[BOT]" if owner_peer == 0 else ""]
 	if not state.is_empty():
 		lines += "\n" + state
-	if not effects.is_empty():
-		lines += "\n" + effects
 	nameplate.text = lines
 
 func snapshot() -> Dictionary:
