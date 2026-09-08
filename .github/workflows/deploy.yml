@@ -68,6 +68,14 @@ jobs:
       - name: Import project assets
         run: godot --headless --path . --import
 
+      # Two agents in one repository will eventually commit a file that
+      # preloads a script the other has not committed. Godot only finds out at
+      # load time, and only on a clean clone — so it surfaces here as the whole
+      # game failing to parse, naming a file that exists fine on the author's
+      # machine.
+      - name: Every referenced resource is committed
+        run: python3 tests/check_references.py
+
       - name: Parse check
         run: godot --headless --path . --check-only --script scripts/arena.gd
 
@@ -84,6 +92,7 @@ jobs:
           python3 tests/run_six.py
           python3 tests/run_dedicated.py
           python3 tests/run_lobby.py
+          python3 tests/run_world.py
           ./tests/check_suite.sh "World checks" godot --headless --path . --script tests/world_test.gd
 
       # ui_test drives real mouse capture and cursor positioning, so it refuses
