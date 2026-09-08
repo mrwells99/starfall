@@ -1,6 +1,12 @@
 shader_type spatial;
 uniform vec4 base_color : source_color = vec4(0.12,0.14,0.18,1.0);
 uniform float metalness = 0.8;
+// Frequency of the fine pit/scratch noise. Default 115 matches the previous
+// character study look; lower values (~40) produce a smoother forged surface
+// suitable for hero props inspected up close.
+uniform float pit_frequency : hint_range(20.0, 200.0) = 115.0;
+uniform float mottle_frequency : hint_range(5.0, 80.0) = 24.0;
+uniform float wear_strength : hint_range(0.0, 1.0) = 1.0;
 varying vec3 object_position;
 float hash(vec3 p) { return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453); }
 float noise(vec3 p) {
@@ -9,11 +15,11 @@ float noise(vec3 p) {
 }
 void vertex(){ object_position=VERTEX; }
 void fragment(){
- float pits=noise(object_position*115.0);
- float mottling=noise(object_position*24.0);
- float wear=smoothstep(0.73,0.89,pits);
- ALBEDO=base_color.rgb*mix(0.75,1.12,mottling)+wear*vec3(0.12,0.105,0.08);
- METALLIC=metalness; ROUGHNESS=mix(0.32,0.62,pits);
+ float pits=noise(object_position*pit_frequency);
+ float mottling=noise(object_position*mottle_frequency);
+ float wear=smoothstep(0.73,0.89,pits)*wear_strength;
+ ALBEDO=base_color.rgb*mix(0.80,1.10,mottling)+wear*vec3(0.10,0.09,0.075);
+ METALLIC=metalness; ROUGHNESS=mix(0.36,0.58,pits);
  float height=pits*0.0007;
  vec3 dx=dFdx(VERTEX),dy=dFdy(VERTEX);
  vec3 a=cross(dy,NORMAL),b=cross(NORMAL,dx);
