@@ -1680,17 +1680,11 @@ func submit_action(round_epoch: int, seq: int, slot: int, selected: int) -> void
 		return
 	try_spell(id, slot, selected)
 
-# Cancelling your own cast refunds the global cooldown.
+# Cancelling a cast before it goes off clears the global cooldown.
 #
-# The GCD is charged when a cast BEGINS, so without this you paid the full 1.5s
-# for a spell that never went off — stepping out of a Firebolt left you unable to
-# act for longer than the cast you abandoned. Refunding makes cancelling a real
-# option instead of a punishment.
-#
-# Deliberately NOT applied when an enemy interrupts you: the lockout is the
-# punishment there, and refunding would actively reward being interrupted —
-# Vanguard ignores spell lockout, so it would come out of an interrupt able to
-# act immediately.
+# The GCD is charged when the cast BEGINS, so without this you paid for a spell
+# that never happened. Used by both cancel paths — Escape, and moving or leaving
+# the ground — so they cannot drift apart.
 func cancel_own_cast(actor, message: String) -> void:
 	if actor.casting < 0:
 		return

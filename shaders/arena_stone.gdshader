@@ -66,10 +66,10 @@ void fragment() {
 		float worn_edge = 1.0 - smoothstep(0.018, 0.12, min(edge.x, edge.y));
 		float age = hash21(floor((world_pos.xz + 18.0) * 0.5));
 		albedo = mix(vec3(0.48, 0.458, 0.434), vec3(0.62, 0.591, 0.54), mineral);
-		albedo *= 0.76 + grain * 0.32 + age * 0.10;
+		albedo *= 0.60 + grain * 0.56 + age * 0.10;
 		albedo = mix(albedo, vec3(0.35, 0.325, 0.30), worn_edge * 0.30);
-		height = grain * 0.014 + grit * 0.0015 - worn_edge * 0.018;
-		roughness = mix(0.61, 0.94, worn_edge * 0.75 + (1.0-grain) * 0.25);
+		height = grain * 0.023 + grit * 0.002 - worn_edge * 0.018;
+		roughness = mix(0.74, 0.96, worn_edge * 0.75 + (1.0-grain) * 0.25);
 	} else if (surface_kind == 2) {
 		// Blue cut-stone tesserae, set into narrow mortar with scored surfaces.
 		vec2 tile_uv = world_pos.xz * vec2(1.15, 1.5);
@@ -109,7 +109,7 @@ void fragment() {
 	}
 	ALBEDO = albedo * COLOR.rgb;
 	NORMAL = height_normal(normalize(NORMAL), view_pos, height);
-	ROUGHNESS = roughness;
+	ROUGHNESS = clamp(roughness + (weathering - 0.5) * 0.2, 0.05, 1.0);
 	METALLIC = metal;
 	SPECULAR = spec;
 	// Sparse fissure fragments, restricted to explicitly opted-in materials.

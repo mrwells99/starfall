@@ -288,8 +288,9 @@ func run() -> void:
 	check(mover.casting < 0 and mover.gcd == 0.0, "Leaving the ground mid-cast refunds it too")
 	mover.position.y = 0.0
 
-	# An enemy interrupt must NOT refund: the lockout is the punishment, and
-	# refunding would reward being interrupted.
+	# Enemy interrupts are a separate path and were not changed; this pins the
+	# existing behaviour so a future edit to cancellation cannot alter it by
+	# accident.
 	mover.gcd = 0
 	mover.cooldowns[0] = 0
 	await settle()

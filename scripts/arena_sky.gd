@@ -26,7 +26,7 @@ func build_sky() -> void:
 	environment.sky = sky
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	environment.ambient_light_color = Color("9699c5")
-	environment.ambient_light_energy = 0.57
+	environment.ambient_light_energy = 0.43
 	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	environment.tonemap_exposure = 1.15
 	environment.fog_enabled = true
@@ -75,7 +75,7 @@ func build_sky() -> void:
 	fill.name = "VioletNebulaFill"
 	fill.rotation_degrees = Vector3(-20, 140, 0)
 	fill.light_color = Color("9f83ee")
-	fill.light_energy = 0.46
+	fill.light_energy = 0.28
 	fill.shadow_enabled = false
 	add_child(fill)
 	# Rim light from behind and above. The arena is dark and the champions are

@@ -108,9 +108,7 @@ Balance is provisional. Real playtesting has not happened.
 
 **Global cooldown (GCD)** — 1.5 seconds. Abilities with `off: true` bypass it. **No ability can be used while another cast is in progress**, even off-GCD ones.
 
-**Cancelling your own cast refunds the GCD.** It is charged when a cast begins, so without the refund you paid a full 1.5 s for a spell that never went off — stepping out of a Firebolt left you unable to act for longer than the cast you abandoned. Cancelling is meant to be a real option, not a punishment. The ability still does not start its own cooldown.
-
-**Being interrupted by an enemy does not refund it.** The lockout is the punishment there, and refunding would reward being interrupted — Vanguard ignores spell lockout, so it would come out of an interrupt able to act immediately. This diverges from WoW, where cancelling never refunds the GCD.
+**Cancelling a cast before it goes off clears the GCD.** The GCD is charged when the cast begins, so without this you paid for a spell that never happened. Cancelling is a real option, not a punishment. The ability still does not start its own cooldown.
 
 **Movement, turn, jump:**
 
