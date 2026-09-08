@@ -21,6 +21,7 @@ var _rune: ShaderMaterial
 var _violet: ShaderMaterial
 var _white_energy: ShaderMaterial
 var _amber: ShaderMaterial
+var _quality_surround := false
 
 func material(color: Color, glow: bool = false) -> StandardMaterial3D:
 	var mat := StandardMaterial3D.new()
@@ -113,9 +114,16 @@ func build_arena() -> void:
 	_violet = _energy("8736ec", 1.1)
 	_white_energy = _energy("d6b8ff", 1.4)
 	_amber = _energy("ffd79a", 1.2)
+	var slice = load("res://scripts/sanctum_slice.gd").new()
+	slice.name = "QualitySlice"
+	_art.add_child(slice)
+	var has_authored_cover: bool = slice.build()
+	_quality_surround = slice.has_surround
 	_build_floor()
 	_build_terraces()
 	for pos in Layout.cover_centers():
+		if has_authored_cover and pos == slice.COVER_POSITION:
+			continue
 		_build_cover(pos)
 	_build_perimeter()
 	_build_foundation()
@@ -142,6 +150,10 @@ func _build_floor() -> void:
 			var shade: float = _geo.rng.randf_range(0.82, 1.13)
 			var chamfer: float = _geo.rng.randf_range(0.06, 0.24)
 			var ext := Vector2(_geo.rng.randf_range(0.945, 0.987), _geo.rng.randf_range(0.945, 0.985))
+			if _quality_surround and x >= -11.0 and x <= -1.0 and z >= 1.0 and z <= 13.0:
+				# Consume the same crack randomness so the rest of the arena is stable.
+				_geo.rng.randf()
+				continue
 			var outline: Array[Vector3] = [Vector3(-ext.x + chamfer, 0, -ext.y), Vector3(ext.x - chamfer, 0, -ext.y),
 				Vector3(ext.x, 0, -ext.y + chamfer), Vector3(ext.x, 0, ext.y - chamfer),
 				Vector3(ext.x - chamfer, 0, ext.y), Vector3(-ext.x + chamfer, 0, ext.y),
@@ -230,6 +242,8 @@ func _build_perimeter() -> void:
 	for side in [-1.0, 1.0]:
 		for along in range(-16, 18, 3):
 			for direction in [0, 1]:
+				if _quality_surround and side < 0 and direction == 1 and along >= 2 and along <= 11:
+					continue
 				var pos := Vector3(float(along), 0, side * 18.3) if direction == 0 else Vector3(side * 18.3, 0, float(along))
 				var size := Vector3(3.08, 3.1, 1.25) if direction == 0 else Vector3(1.25, 3.1, 3.08)
 				_geo.block(_stone, pos + Vector3.UP * 1.45, size)

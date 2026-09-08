@@ -13,6 +13,11 @@ const UserConfig = preload("res://scripts/user_config.gd")
 # Most fighters carry one or two effects; five is beyond anything the current
 # kits can stack, and pooling avoids rebuilding nodes every frame.
 const AURA_SLOTS := 5
+# Action bars. BAR_SLOTS matches the seven abilities a champion has; the extra
+# bars hold alternate bindings for those same abilities.
+const BAR_COUNT := 3
+const BAR_SLOTS := 7
+const TOTAL_SLOTS := BAR_COUNT * BAR_SLOTS
 
 # --- UI palette ---------------------------------------------------------------
 # One place for every colour the interface uses, so the menu, the HUD and the
@@ -128,11 +133,12 @@ var edit_hint: Label
 var dragging: Control = null
 var drag_offset := Vector2.ZERO
 # binds[slot] is the physical keycode that fires that hotbar slot.
-var binds: Array[int] = [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7]
+var binds: Array[int] = []
 # assignment[slot] is which ability of the champion's kit that slot casts. The
 # identity mapping is the default; editing it is how a player moves Blink onto
 # slot 1 without the server needing to know anything about it.
-var assignment: Array[int] = [0, 1, 2, 3, 4, 5, 6]
+var assignment: Array[int] = []
+var bar_roots: Array[HBoxContainer] = []
 var rebinding := -1
 var drag_slot := -1
 var movable_frames: Array[Control] = []
@@ -171,6 +177,7 @@ func _ready() -> void:
 	parse_arguments()
 
 func initialise_player_config() -> void:
+	default_bindings()
 	load_settings()
 	register_movable_frames()
 	load_layout()
@@ -399,25 +406,33 @@ func build_ui() -> void:
 	help.offset_top = -185
 	help.offset_right = 400
 	help.offset_bottom = -100
-	hotbar_root = HBoxContainer.new()
-	var hotbar := hotbar_root
-	ui.add_child(hotbar)
-	hotbar.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
-	hotbar.offset_left = -340
-	hotbar.offset_top = -117
-	hotbar.offset_right = 340
-	hotbar.offset_bottom = -25
-	hotbar.add_theme_constant_override("separation", 6)
-	for slot in range(7):
-		var button := add_button(hotbar, "", send_action.bind(slot))
-		button.custom_minimum_size = Vector2(92, 92)
-		button.clip_contents = true
-		ability_buttons.append(button)
-		ability_images.append(AbilityArt.attach(button))
-		var overlay = CooldownOverlay.new()
-		button.add_child(overlay)
-		overlay.set_key(str(slot + 1))
-		cooldown_overlays.append(overlay)
+	# Three bars. The first carries the champion's kit; the others start empty
+	# and are filled by dragging abilities onto them in Edit HUD. With only seven
+	# abilities the extra bars exist to give a second, more comfortable key for
+	# the same spell — a side mouse button, a modifier — not to hold more spells.
+	for bar in range(BAR_COUNT):
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 6)
+		row.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+		row.offset_left = -340
+		row.offset_right = 340
+		# Stacked upward from the primary bar.
+		row.offset_top = -117 - bar * 74
+		row.offset_bottom = -25 - bar * 74
+		ui.add_child(row)
+		bar_roots.append(row)
+		if bar == 0:
+			hotbar_root = row
+		for slot in range(BAR_SLOTS):
+			var index := bar * BAR_SLOTS + slot
+			var button := add_button(row, "", send_action.bind(index))
+			button.custom_minimum_size = Vector2(92, 92) if bar == 0 else Vector2(64, 64)
+			button.clip_contents = true
+			ability_buttons.append(button)
+			ability_images.append(AbilityArt.attach(button))
+			var overlay = CooldownOverlay.new()
+			button.add_child(overlay)
+			cooldown_overlays.append(overlay)
 	notice = add_label(ui, "", 21)
 	notice.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
 	notice.offset_left = -350
@@ -1161,8 +1176,10 @@ func register_movable_frames() -> void:
 	var named := [
 		[player_frame, "PlayerFrame"], [target_frame, "TargetFrame"],
 		[focus_frame, "FocusFrame"], [party_box, "PartyFrame"],
-		[enemy_box, "EnemyFrame"], [hotbar_root, "Hotbar"],
+		[enemy_box, "EnemyFrame"],
 	]
+	for bar in range(bar_roots.size()):
+		named.append([bar_roots[bar], "ActionBar%d" % (bar + 1)])
 	for entry in named:
 		var frame: Control = entry[0]
 		if frame == null:
@@ -1214,7 +1231,7 @@ func refresh_edit_hint() -> void:
 	if rebinding >= 0:
 		edit_hint.text = "Press a key for slot %d…    Esc cancels" % (rebinding + 1)
 	else:
-		edit_hint.text = "EDIT MODE — drag frames to move them · click a hotbar slot to rebind · drag one slot onto another to swap abilities · Esc or Done to finish"
+		edit_hint.text = "EDIT MODE\nCLICK a slot to rebind its key  ·  DRAG a slot onto another to move the ability  ·  DRAG a frame to reposition it\nBars 2 and 3 start empty — drag abilities onto them for a second keybind  ·  Esc or Done to finish"
 
 func begin_rebind(slot: int) -> void:
 	rebinding = slot
@@ -1226,7 +1243,7 @@ func finish_rebind(code: int) -> void:
 	# A key already used elsewhere is swapped rather than duplicated, so two
 	# slots can never answer the same key.
 	var existing := binds.find(code)
-	if existing >= 0 and existing != rebinding:
+	if existing >= 0 and existing != rebinding and code != 0:
 		binds[existing] = binds[rebinding]
 	binds[rebinding] = code
 	rebinding = -1
@@ -1236,7 +1253,8 @@ func finish_rebind(code: int) -> void:
 
 func refresh_binds() -> void:
 	for slot in range(cooldown_overlays.size()):
-		cooldown_overlays[slot].set_key(OS.get_keycode_string(binds[slot]))
+		# An unbound slot shows nothing rather than a stray "0".
+		cooldown_overlays[slot].set_key(OS.get_keycode_string(binds[slot]) if binds[slot] != 0 else "")
 
 func swap_slots(a: int, b: int) -> void:
 	if a == b or a < 0 or b < 0 or a >= assignment.size() or b >= assignment.size():
@@ -1258,21 +1276,21 @@ func save_layout() -> void:
 
 func load_layout() -> void:
 	var stored_binds = config.get_value("hud", "binds", [])
-	if stored_binds is Array and stored_binds.size() == binds.size():
+	if stored_binds is Array and stored_binds.size() == TOTAL_SLOTS:
 		for i in range(binds.size()):
 			binds[i] = int(stored_binds[i])
 	var stored_assign = config.get_value("hud", "assignment", [])
-	if stored_assign is Array and stored_assign.size() == assignment.size():
+	if stored_assign is Array and stored_assign.size() == TOTAL_SLOTS:
 		# Refuse a malformed table rather than half-applying it: a duplicated or
 		# out-of-range entry would make an ability unreachable.
-		var seen := {}
 		var ok := true
 		for value in stored_assign:
 			var index := int(value)
-			if index < 0 or index >= assignment.size() or seen.has(index):
+			# -1 is an empty slot, and the same ability may legitimately appear
+			# on more than one bar — that is what the extra bars are for.
+			if index < -1 or index >= BAR_SLOTS:
 				ok = false
 				break
-			seen[index] = true
 		if ok:
 			for i in range(assignment.size()):
 				assignment[i] = int(stored_assign[i])
@@ -1283,10 +1301,17 @@ func load_layout() -> void:
 				frame.position = places[frame.name]
 	refresh_binds()
 
+# Bar one holds the kit on keys 1-7; the rest start empty and unbound.
+func default_bindings() -> void:
+	binds.resize(TOTAL_SLOTS)
+	assignment.resize(TOTAL_SLOTS)
+	for i in range(TOTAL_SLOTS):
+		var first_bar: bool = i < BAR_SLOTS
+		binds[i] = (KEY_1 + i) if first_bar else 0
+		assignment[i] = i if first_bar else -1
+
 func reset_layout() -> void:
-	for i in range(binds.size()):
-		binds[i] = KEY_1 + i
-		assignment[i] = i
+	default_bindings()
 	# Put the frames back before saving. Clearing the stored dictionary alone did
 	# nothing, because save_layout() immediately rewrote it from wherever the
 	# frames happened to be sitting.
@@ -1641,7 +1666,9 @@ func validate_spell(actor, slot: int, victim_id: int) -> String:
 # Translates a hotbar position into the ability sitting in it. Everything below
 # this point — cooldowns, validation, the server — still speaks in kit indices.
 func kit_slot(bar_slot: int) -> int:
-	return assignment[bar_slot] if bar_slot >= 0 and bar_slot < assignment.size() else bar_slot
+	if bar_slot < 0 or bar_slot >= assignment.size():
+		return -1
+	return assignment[bar_slot]
 
 func send_action(slot: int) -> void:
 	# In edit mode a hotbar click means "rebind me", not "cast me".
@@ -1651,6 +1678,8 @@ func send_action(slot: int) -> void:
 	if phase != "match" or not actors.has(local_id):
 		return
 	var ability := kit_slot(slot)
+	if ability < 0:
+		return
 	if authoritative():
 		try_spell(local_id, ability, selected_id)
 	else:
@@ -2021,13 +2050,19 @@ func show_edit_previews() -> void:
 	for slot in range(ability_buttons.size()):
 		var button := ability_buttons[slot]
 		button.visible = true
+		cooldown_overlays[slot].sync(0.0, 0.0, false)
+		var ability := kit_slot(slot)
+		if ability < 0:
+			button.modulate = Color(1, 1, 1, 0.45)
+			button.text = ""
+			ability_images[slot].visible = false
+			continue
 		button.modulate = Color.WHITE
-		var spell: Dictionary = kit[kit_slot(slot)]
+		var spell: Dictionary = kit[ability]
 		var art := AbilityArt.texture_for(spell.name)
 		ability_images[slot].texture = art
 		ability_images[slot].visible = art != null
 		button.text = "" if art != null else spell.name
-		cooldown_overlays[slot].sync(0.0, 0.0, false)
 
 func update_frame(frame: VBoxContainer, id: int, prefix: String) -> void:
 	frame.set_meta("actor_id", id)
@@ -2038,8 +2073,12 @@ func update_frame(frame: VBoxContainer, id: int, prefix: String) -> void:
 	(frame.get_child(0) as Label).text = "%s · %s" % [prefix, actor.champion]
 	var health := frame.get_child(1) as ProgressBar
 	health.value = actor.hp
+	var friendly: bool = actors.has(local_id) and actor.team == actors[local_id].team
 	var fill := health.get_theme_stylebox("fill") as StyleBoxFlat
-	fill.bg_color = BLUE if actors.has(local_id) and actor.team == actors[local_id].team else RED
+	fill.bg_color = Kits.color(actor.champion)
+	var back := health.get_theme_stylebox("background") as StyleBoxFlat
+	back.border_color = BLUE if friendly else RED
+	back.set_border_width_all(2)
 	(health.get_child(0) as Label).text = "%d / 100 HP" % ceili(actor.hp)
 	var cast := frame.get_child(2) as ProgressBar
 	cast.visible = actor.casting >= 0
@@ -2095,6 +2134,7 @@ func update_visuals(delta: float) -> void:
 		if i < party.size():
 			var member = actors[party[i]]
 			party_buttons[i].text = "F%d  %s   %d HP%s" % [i + 1, member.champion, ceili(member.hp), "  STUN" if member.stunned > 0 else ""]
+			party_buttons[i].add_theme_color_override("font_color", Kits.color(member.champion))
 	var enemies := enemy_ids()
 	enemy_box.visible = not enemies.is_empty()
 	for i in range(3):
@@ -2102,13 +2142,22 @@ func update_visuals(delta: float) -> void:
 		if i < enemies.size():
 			var foe = actors[enemies[i]]
 			enemy_buttons[i].text = "%s  %d HP%s" % [foe.champion, ceili(foe.hp), "  STUN" if foe.stunned > 0 else ""]
-	for slot in range(7):
+			enemy_buttons[i].add_theme_color_override("font_color", Kits.color(foe.champion))
+	for slot in range(TOTAL_SLOTS):
 		var button := ability_buttons[slot]
-		button.visible = actors.has(local_id)
+		var ability := kit_slot(slot)
+		# Empty slots stay hidden in play and visible while editing, so there is
+		# somewhere to drop an ability.
+		button.visible = actors.has(local_id) and (ability >= 0 or edit_mode)
 		if not button.visible:
 			continue
+		if ability < 0:
+			button.text = ""
+			ability_images[slot].visible = false
+			cooldown_overlays[slot].sync(0.0, 0.0, false)
+			button.modulate = Color(1, 1, 1, 0.45)
+			continue
 		var actor = actors[local_id]
-		var ability := kit_slot(slot)
 		var spell: Dictionary = actor.kit[ability]
 		var art := AbilityArt.texture_for(spell.name)
 		ability_images[slot].texture = art
@@ -2222,7 +2271,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.keycode == KEY_TAB:
 			cycle_target()
 		var bound := binds.find(event.keycode)
-		if bound >= 0:
+		if bound >= 0 and binds[bound] != 0:
 			send_action(bound)
 		if event.keycode >= KEY_F1 and event.keycode <= KEY_F3:
 			select_party(event.keycode - KEY_F1)

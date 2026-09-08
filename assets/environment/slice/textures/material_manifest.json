@@ -1,0 +1,101 @@
+{
+  "basalt_albedo": {
+    "size": 512,
+    "tiles": true,
+    "coverage_metres": 4,
+    "max_opposite_edge_error": 0.0,
+    "bytes": 278514,
+    "range": [
+      0.27843138575553894,
+      0.43137258291244507
+    ]
+  },
+  "basalt_normal": {
+    "size": 512,
+    "tiles": true,
+    "coverage_metres": 4,
+    "max_opposite_edge_error": 0.0,
+    "bytes": 626412,
+    "range": [
+      0.2352941334247589,
+      1.0
+    ]
+  },
+  "basalt_roughness": {
+    "size": 512,
+    "tiles": true,
+    "coverage_metres": 4,
+    "max_opposite_edge_error": 0.0,
+    "bytes": 226211,
+    "range": [
+      0.7764706611633301,
+      0.8823530077934265
+    ]
+  },
+  "floor_albedo": {
+    "size": 512,
+    "tiles": true,
+    "coverage_metres": 4,
+    "max_opposite_edge_error": 0.0,
+    "bytes": 280852,
+    "range": [
+      0.3803921937942505,
+      0.5490196347236633
+    ]
+  },
+  "floor_normal": {
+    "size": 512,
+    "tiles": true,
+    "coverage_metres": 4,
+    "max_opposite_edge_error": 0.0,
+    "bytes": 548895,
+    "range": [
+      0.30980393290519714,
+      1.0
+    ]
+  },
+  "floor_roughness": {
+    "size": 512,
+    "tiles": true,
+    "coverage_metres": 4,
+    "max_opposite_edge_error": 0.0,
+    "bytes": 226413,
+    "range": [
+      0.7058823704719543,
+      0.8431373238563538
+    ]
+  },
+  "bronze_albedo": {
+    "size": 512,
+    "tiles": true,
+    "coverage_metres": 4,
+    "max_opposite_edge_error": 0.0,
+    "bytes": 296418,
+    "range": [
+      0.2980392277240753,
+      0.5686274766921997
+    ]
+  },
+  "bronze_normal": {
+    "size": 512,
+    "tiles": true,
+    "coverage_metres": 4,
+    "max_opposite_edge_error": 0.0,
+    "bytes": 515349,
+    "range": [
+      0.35686275362968445,
+      1.0
+    ]
+  },
+  "bronze_roughness": {
+    "size": 512,
+    "tiles": true,
+    "coverage_metres": 4,
+    "max_opposite_edge_error": 0.0,
+    "bytes": 274552,
+    "range": [
+      0.4705882668495178,
+      0.7019608020782471
+    ]
+  }
+}

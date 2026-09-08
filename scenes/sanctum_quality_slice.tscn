@@ -1,0 +1,181 @@
+[gd_scene load_steps=30 format=3 uid="uid://cta5kasf3mbi7"]
+
+[ext_resource type="ArrayMesh" path="res://assets/environment/slice/meshes/Cover/Basalt_geometry.res" id="1_2d1ck"]
+[ext_resource type="Texture2D" uid="uid://dydo6yjgfdnd" path="res://assets/environment/slice/textures/basalt_albedo.png" id="2_mkphw"]
+[ext_resource type="Texture2D" uid="uid://bsw41cd30ii7c" path="res://assets/environment/slice/textures/basalt_normal.png" id="3_4ajpy"]
+[ext_resource type="Texture2D" uid="uid://ijqv53q7evbo" path="res://assets/environment/slice/textures/basalt_roughness.png" id="4_6q6cu"]
+[ext_resource type="ArrayMesh" path="res://assets/environment/slice/meshes/Cover/Bronze_geometry.res" id="5_lna22"]
+[ext_resource type="Texture2D" uid="uid://dqegcauhn3hl2" path="res://assets/environment/slice/textures/bronze_albedo.png" id="6_0t22p"]
+[ext_resource type="Texture2D" uid="uid://l5ux55nnxu2e" path="res://assets/environment/slice/textures/bronze_normal.png" id="7_3cusk"]
+[ext_resource type="Texture2D" uid="uid://bn177wo7u0n5h" path="res://assets/environment/slice/textures/bronze_roughness.png" id="8_d2fos"]
+[ext_resource type="ArrayMesh" path="res://assets/environment/slice/meshes/Cover/EdgeStone_geometry.res" id="9_1sqpt"]
+[ext_resource type="Texture2D" uid="uid://1j0wrtuu2du6" path="res://assets/environment/slice/textures/floor_albedo.png" id="10_4yvrx"]
+[ext_resource type="Texture2D" uid="uid://slvtx4rc31yp" path="res://assets/environment/slice/textures/floor_normal.png" id="11_4e1ou"]
+[ext_resource type="Texture2D" uid="uid://5tfyrlpmm4k6" path="res://assets/environment/slice/textures/floor_roughness.png" id="12_1le5e"]
+[ext_resource type="ArrayMesh" path="res://assets/environment/slice/meshes/Cover/Inlay_geometry.res" id="13_5v6vy"]
+[ext_resource type="ArrayMesh" path="res://assets/environment/slice/meshes/Cover/Recess_geometry.res" id="14_ku1qq"]
+[ext_resource type="ArrayMesh" path="res://assets/environment/slice/meshes/Floor/Bronze_geometry.res" id="15_1h2mx"]
+[ext_resource type="ArrayMesh" path="res://assets/environment/slice/meshes/Floor/Floor_geometry.res" id="16_v88b4"]
+[ext_resource type="ArrayMesh" path="res://assets/environment/slice/meshes/Floor/Recess_geometry.res" id="17_av46y"]
+[ext_resource type="ArrayMesh" path="res://assets/environment/slice/meshes/Perimeter/Basalt_geometry.res" id="18_4qqyd"]
+[ext_resource type="ArrayMesh" path="res://assets/environment/slice/meshes/Perimeter/Bronze_geometry_001.res" id="19_jerge"]
+[ext_resource type="ArrayMesh" path="res://assets/environment/slice/meshes/Perimeter/EdgeStone_geometry.res" id="20_qwtyo"]
+[ext_resource type="ArrayMesh" path="res://assets/environment/slice/meshes/Perimeter/Inlay_geometry.res" id="21_gqk8o"]
+[ext_resource type="ArrayMesh" path="res://assets/environment/slice/meshes/Perimeter/Recess_geometry_001.res" id="22_t7770"]
+[ext_resource type="LightmapGIData" uid="uid://di6ak1wqj1jyj" path="res://assets/environment/slice/lighting/sanctum.lmbake" id="23_mkphw"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_38wgs"]
+resource_name = "Slice_Basalt"
+vertex_color_use_as_albedo = true
+albedo_texture = ExtResource("2_mkphw")
+roughness_texture = ExtResource("4_6q6cu")
+normal_enabled = true
+normal_scale = 0.65
+normal_texture = ExtResource("3_4ajpy")
+texture_filter = 5
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_2gue1"]
+resource_name = "Slice_Bronze"
+vertex_color_use_as_albedo = true
+albedo_texture = ExtResource("6_0t22p")
+metallic = 0.68
+roughness_texture = ExtResource("8_d2fos")
+normal_enabled = true
+normal_scale = 0.65
+normal_texture = ExtResource("7_3cusk")
+texture_filter = 5
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_3ygxj"]
+resource_name = "Slice_EdgeStone"
+vertex_color_use_as_albedo = true
+albedo_color = Color(0.82, 0.84, 0.88, 1)
+albedo_texture = ExtResource("10_4yvrx")
+roughness_texture = ExtResource("12_1le5e")
+normal_enabled = true
+normal_scale = 0.65
+normal_texture = ExtResource("11_4e1ou")
+texture_filter = 5
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_b4a2n"]
+resource_name = "Slice_Inlay"
+vertex_color_use_as_albedo = true
+albedo_color = Color(0.21176471, 0.4117647, 0.47058824, 1)
+roughness = 0.42
+emission_enabled = true
+emission = Color(0.3254902, 0.7254902, 0.9019608, 1)
+emission_energy_multiplier = 3.2
+texture_filter = 5
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wb024"]
+resource_name = "Slice_Recess"
+vertex_color_use_as_albedo = true
+albedo_color = Color(0.36, 0.4, 0.49, 1)
+albedo_texture = ExtResource("2_mkphw")
+roughness_texture = ExtResource("4_6q6cu")
+normal_enabled = true
+normal_scale = 0.65
+normal_texture = ExtResource("3_4ajpy")
+texture_filter = 5
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_cocrt"]
+resource_name = "Slice_Floor"
+vertex_color_use_as_albedo = true
+albedo_color = Color(0.4, 0.41, 0.45, 1)
+albedo_texture = ExtResource("10_4yvrx")
+roughness_texture = ExtResource("12_1le5e")
+normal_enabled = true
+normal_scale = 0.65
+normal_texture = ExtResource("11_4e1ou")
+texture_filter = 5
+
+[node name="SanctumQualitySlice" type="Node3D"]
+
+[node name="Cover" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0, 5)
+
+[node name="Basalt_geometry" type="MeshInstance3D" parent="Cover"]
+mesh = ExtResource("1_2d1ck")
+surface_material_override/0 = SubResource("StandardMaterial3D_38wgs")
+
+[node name="Bronze_geometry" type="MeshInstance3D" parent="Cover"]
+mesh = ExtResource("5_lna22")
+surface_material_override/0 = SubResource("StandardMaterial3D_2gue1")
+
+[node name="EdgeStone_geometry" type="MeshInstance3D" parent="Cover"]
+mesh = ExtResource("9_1sqpt")
+surface_material_override/0 = SubResource("StandardMaterial3D_3ygxj")
+
+[node name="Inlay_geometry" type="MeshInstance3D" parent="Cover"]
+mesh = ExtResource("13_5v6vy")
+surface_material_override/0 = SubResource("StandardMaterial3D_b4a2n")
+
+[node name="Recess_geometry" type="MeshInstance3D" parent="Cover"]
+mesh = ExtResource("14_ku1qq")
+surface_material_override/0 = SubResource("StandardMaterial3D_wb024")
+
+[node name="Floor" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0, 7)
+
+[node name="Bronze_geometry" type="MeshInstance3D" parent="Floor"]
+mesh = ExtResource("15_1h2mx")
+surface_material_override/0 = SubResource("StandardMaterial3D_2gue1")
+
+[node name="Floor_geometry" type="MeshInstance3D" parent="Floor"]
+mesh = ExtResource("16_v88b4")
+surface_material_override/0 = SubResource("StandardMaterial3D_cocrt")
+
+[node name="Recess_geometry" type="MeshInstance3D" parent="Floor"]
+mesh = ExtResource("17_av46y")
+surface_material_override/0 = SubResource("StandardMaterial3D_wb024")
+
+[node name="Perimeter" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18.3, 0, 6.5)
+
+[node name="Basalt_geometry" type="MeshInstance3D" parent="Perimeter"]
+mesh = ExtResource("18_4qqyd")
+surface_material_override/0 = SubResource("StandardMaterial3D_38wgs")
+
+[node name="Bronze_geometry_001" type="MeshInstance3D" parent="Perimeter"]
+mesh = ExtResource("19_jerge")
+surface_material_override/0 = SubResource("StandardMaterial3D_2gue1")
+
+[node name="EdgeStone_geometry" type="MeshInstance3D" parent="Perimeter"]
+mesh = ExtResource("20_qwtyo")
+surface_material_override/0 = SubResource("StandardMaterial3D_3ygxj")
+
+[node name="Inlay_geometry" type="MeshInstance3D" parent="Perimeter"]
+mesh = ExtResource("21_gqk8o")
+surface_material_override/0 = SubResource("StandardMaterial3D_b4a2n")
+
+[node name="Recess_geometry_001" type="MeshInstance3D" parent="Perimeter"]
+mesh = ExtResource("22_t7770")
+surface_material_override/0 = SubResource("StandardMaterial3D_wb024")
+
+[node name="BakeLights" type="Node3D" parent="."]
+
+[node name="@DirectionalLight3D@2" type="DirectionalLight3D" parent="BakeLights"]
+transform = Transform3D(0.8660254, 0.37157243, -0.33456528, 0, 0.66913056, 0.74314487, 0.5, -0.64358234, 0.57948405, 0, 0, 0)
+light_color = Color(0.9019608, 0.84313726, 0.80784315, 1)
+light_energy = 1.4
+shadow_enabled = true
+
+[node name="@DirectionalLight3D@3" type="DirectionalLight3D" parent="BakeLights"]
+transform = Transform3D(-0.76604444, -0.21984631, 0.6040228, 0, 0.9396926, 0.34202012, -0.64278764, 0.26200262, -0.7198463, 0, 0, 0)
+light_color = Color(0.62352943, 0.5137255, 0.93333334, 1)
+light_energy = 0.28
+shadow_enabled = true
+
+[node name="@DirectionalLight3D@4" type="DirectionalLight3D" parent="BakeLights"]
+transform = Transform3D(-0.9781476, -0.043227255, 0.20336825, 0, 0.9781476, 0.2079117, -0.20791161, 0.20336834, -0.9567728, 0, 0, 0)
+light_color = Color(0.49803922, 0.83137256, 1, 1)
+light_energy = 0.2
+shadow_enabled = true
+
+[node name="BakedSanctumLight" type="LightmapGI" parent="."]
+use_denoiser = false
+max_texture_size = 2048
+environment_mode = 3
+environment_custom_color = Color(0.5882353, 0.6, 0.77254903, 1)
+environment_custom_energy = 0.43
+generate_probes_subdiv = 0
+light_data = ExtResource("23_mkphw")

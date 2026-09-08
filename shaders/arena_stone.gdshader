@@ -50,7 +50,7 @@ void fragment() {
 	vec3 tex = texture(slate_texture, p.zy).rgb * weights.x
 		+ texture(slate_texture, p.xz).rgb * weights.y
 		+ texture(slate_texture, p.xy).rgb * weights.z;
-	float grain = clamp(dot(tex, vec3(0.299, 0.587, 0.114)) * 4.0, 0.0, 1.0);
+	float grain = clamp(dot(tex, vec3(0.299, 0.587, 0.114)) * 1.7, 0.0, 1.0);
 	vec2 mineral_uv = world_pos.xz + world_pos.yy * vec2(0.31, 0.73);
 	float mineral = noise2(mineral_uv * 0.72);
 	float grit = noise2(mineral_uv * 13.0);

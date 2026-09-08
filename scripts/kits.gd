@@ -2,6 +2,19 @@ extends RefCounted
 
 const NAMES = ["Ember", "Vanguard", "Luminary", "Fulcrum"]
 
+# Class colours. Chosen to be distinguishable at a glance against the dark UI
+# and from each other, and to match how each champion already reads: Ember is
+# fire, Vanguard is armour, Luminary is restoration, Fulcrum is gravity.
+const COLORS := {
+	"Ember": Color("ff8a4c"),
+	"Vanguard": Color("ffd166"),
+	"Luminary": Color("7ee08a"),
+	"Fulcrum": Color("b98cff"),
+}
+
+static func color(champion: String) -> Color:
+	return COLORS.get(champion, Color("9fb0c2"))
+
 static func spell(title: String, kind: String, power: float, reach: float, cast: float, cd: float, off: bool = false) -> Dictionary:
 	return {"name": title, "kind": kind, "power": power, "range": reach, "cast": cast, "cd": cd, "off": off}
 

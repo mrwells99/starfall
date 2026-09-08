@@ -194,6 +194,21 @@ Settings → **Edit HUD**, WoW's Edit Mode in miniature:
 - Drag one hotbar slot onto another to swap which abilities sit where.
 - **Reset layout** restores the defaults, frame positions included.
 
+**Three action bars.** The first carries the champion's kit on keys 1–7. The other two start empty and unbound, and are filled by dragging an ability onto them in Edit HUD. With only seven abilities they exist to give a spell a **second, more comfortable key** — a side mouse button, a modifier — not to hold more spells, so the same ability appearing on two bars is expected rather than an error. Empty slots are hidden in play and visible while editing, so there is somewhere to drop things.
+
+## Class colours
+
+Each champion has a colour, defined once in `Kits.COLORS`:
+
+| Champion | Colour |
+| --- | --- |
+| Ember | Orange `#ff8a4c` |
+| Vanguard | Gold `#ffd166` |
+| Luminary | Green `#7ee08a` |
+| Fulcrum | Violet `#b98cff` |
+
+Health bars are **filled** with the class colour and **bordered** with the team colour, so reading which champion you are looking at never costs you friend-or-foe. Party and enemy rows tint their text the same way.
+
 Edit HUD works from the main menu with no match running: it shows placeholder frames and a full hotbar, the way WoW's Edit Mode does, because otherwise there is nothing on screen to arrange.
 
 Saved frame positions are keyed by **stable names** (`PlayerFrame`, `Hotbar`, …). Godot's generated names shift when node creation order changes, which would silently apply a saved position to the wrong frame after an unrelated UI edit.

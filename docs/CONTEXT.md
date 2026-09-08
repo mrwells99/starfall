@@ -2,7 +2,7 @@
 
 _Short-term memory. Keep concise. Historical decisions live in [`DECISIONS.md`](DECISIONS.md); long-range plan lives in [`ROADMAP.md`](ROADMAP.md)._
 
-Last updated: **2026-09-07**.
+Last updated: **2026-09-08**.
 
 ## Current milestone
 
@@ -19,6 +19,8 @@ Close the "push to `main` → buddies play the new build" loop:
 Until all three exist, buddies play by manually launching Godot from a checkout.
 
 ## Recently completed (this batch)
+
+- **Cosmic Sanctum richness pass:** distinct basalt, worn floor, blue terrace tile and bronze materials; triplanar derivative relief; true emissive glyphs; animated banners, embers and floating debris; two distant watcher shrines; depth fog and a cached sky with a cheap motion layer. Visible cover now matches its existing collision width. No new textures or colliders. Map 57/57 and combat 65/65; visual review in `artifacts/sanctum-*.png`. Details in `ART_DIRECTION.md`.
 
 - **Roster art pass:** 20 painted ability icons cover all three seven-slot kits; original in-engine Ember, Vanguard and Luminary models replace capsules, with procedural movement/cast/hit/defeat poses. Owner explicitly authorized this art work. See `ART_DIRECTION.md`; review boards regenerate with `tools/art_review.gd`.
 
@@ -81,5 +83,5 @@ Three traps hit during the first live deploys, all fixed, all worth knowing:
 
 - Client movement prediction / reconciliation (still real past ~80 ms RTT, deferred until buddies can actually play regularly).
 - Extracting subsystems from `scripts/arena.gd` (1524 lines).
-- Environment art, audio and a full skeletal animation pipeline.
+- Audio and a full skeletal animation pipeline.
 - Authentication, host migration, anti-cheat, ranked/skill-based matchmaking.

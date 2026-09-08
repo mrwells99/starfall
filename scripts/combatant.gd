@@ -36,6 +36,7 @@ var health_mesh: MeshInstance3D
 var health_pivot: Node3D
 var cast_mesh: MeshInstance3D
 var cast_pivot: Node3D
+var cast_label: Label3D
 var base_color := Color.WHITE
 var flash := 0.0
 var net_position := Vector3.ZERO
@@ -115,6 +116,12 @@ func setup(id: int, peer: int, side: int, choice: String) -> void:
 	cast_fill_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	cast_mesh.material_override = cast_fill_mat
 	cast_pivot.add_child(cast_mesh)
+	cast_label = Label3D.new()
+	cast_label.font_size = 18
+	cast_label.outline_size = 6
+	cast_label.position.y = 0.14
+	cast_label.modulate = Color("ffe6a8")
+	cast_pivot.add_child(cast_label)
 
 func visual_tick(delta: float, camera: Camera3D) -> void:
 	flash = maxf(0, flash - delta)
@@ -129,6 +136,7 @@ func visual_tick(delta: float, camera: Camera3D) -> void:
 	if cast_pivot.visible:
 		var total: float = maxf(0.01, kit[casting].cast)
 		var done: float = clampf(1.0 - cast_left / total, 0.0, 1.0)
+		cast_label.text = "%s  %.1fs" % [kit[casting].name, cast_left]
 		cast_mesh.scale.x = maxf(0.001, done)
 		cast_mesh.position.x = -0.77 * (1.0 - done)
 		if camera and (camera.global_position - cast_pivot.global_position).cross(Vector3.UP).length() > 0.01:
@@ -140,8 +148,6 @@ func visual_tick(delta: float, camera: Camera3D) -> void:
 	var state := ""
 	if hp <= 0:
 		state = "DEFEATED"
-	elif casting >= 0:
-		state = "%s %.1fs" % [kit[casting].name, cast_left]
 	var effects := "" if hp <= 0 else Auras.nameplate_text(self)
 	var lines := "%s %s" % [champion, "[BOT]" if owner_peer == 0 else ""]
 	if not state.is_empty():

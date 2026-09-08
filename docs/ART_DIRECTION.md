@@ -23,7 +23,7 @@ Space + fantasy. The arena is an ancient structure floating in space, not a buil
 - Extremely bright magical accent colors on top of that base.
 - Lots of stars, glowing weapons, cosmic effects.
 
-**Current authorization:** The owner requested ability art and player models on 2026-09-07, superseding the earlier blanket art deferral for these areas. Arena/environment art, audio and a full skeletal animation pipeline remain separate work.
+**Current authorization:** The owner requested ability art and player models on 2026-09-07, superseding the earlier blanket art deferral for these areas. The owner subsequently requested the Cosmic Sanctum environment and its material/atmosphere upgrade. Audio and a full skeletal animation pipeline remain separate work.
 
 ## Current implementation — first roster art pass
 
@@ -45,6 +45,44 @@ Run `godot --path . --script tools/art_review.gd` in a rendering window to regen
 For UI tests under Xvfb, supply a screen larger than the game window: `xvfb-run -a -s '-screen 0 1600x1000x24' godot --path . --script tests/ui_test.gd`. A 640×480 virtual screen clamps the cursor before it can reach the hotbar, even though the viewport screenshot is 1280×800.
 
 Keep icons readable by silhouette at 64–92 pixels: one primary motif, dark indigo backgrounds, limited cosmic texture, strong light/dark contrast. Ember attacks use orange/magenta; Vanguard uses steel/gold; Luminary uses mint/ivory/gold. Functional abilities may cross those palettes (e.g. green Mend and blue Ward). Add future icon paths to `scripts/ability_art.gd`; art is presentation data and must not enter network snapshots or balance dictionaries.
+
+## Cosmic Sanctum — environment implementation (2026-09-08)
+
+The arena is an original procedural floating ruin. The material/atmosphere pass is implemented in `arena_world.gd`, `arena_atmosphere.gd`, `arena_sky.gd` and their shaders. `arena_geometry.gd` batches static meshes by material. It adds no imported meshes.
+
+### Surfaces and relief
+
+`arena_stone.gdshader` uses the existing 512 × 512 `assets/environment/sanctum_slate.png` with five surface constructions selected by `surface_kind`:
+
+| Kind | Surface | Treatment |
+| --- | --- | --- |
+| 0 | Structural basalt / cover | Large slate fractures, mineral discoloration, coarse relief, rough fracture faces |
+| 1 | Main floor | Worn limestone slabs, dusty edges, per-slab aging, smoother centers, shallow relief |
+| 2 | Terrace and stair treads | Blue cut-stone mosaic, offset tesserae, narrow mortar, contrasting roughness |
+| 3 | Trim and celestial inlay | Hammered bronze, pitted oxidized patina, metallic response |
+| 4 | Foundation and dark recesses | Volcanic glass with rough cracks and sparse emissive fissure fragments |
+
+This is shader-built material variety, not five differently tinted copies of the texture. Height is converted into a view-space surface gradient with screen derivatives of position and height. It works across triplanar projections without tangent-space normal maps, vertex displacement, or physics changes. `relief` controls strength; steep gradients are capped and subpixel detail fades with distance. `weathering` adjusts roughness. A rendered relief-on/off comparison verifies that the height field changes actual lighting.
+
+`arena_energy.gdshader` now writes **EMISSION**, with a slow pulse and traveling current. Its default `emission_gain` is 3.4. It uses a lit spatial shader: custom `unshaded` spatial shaders did not render emission correctly in the actual 4.5.1 OpenGL probe. Small original glyphs mark both faces of all four cover blocks; broken floor arcs and terrace inscriptions stay thin and subdued. Metallic engraving remains distinct from emissive strokes. The existing 1.35 bloom threshold is retained.
+
+### Atmosphere and visibility
+
+`arena_atmosphere.gd` builds eight render instances: five static material batches, one cloth banner batch, a 96-instance ember MultiMesh, and an 18-instance floating-rock MultiMesh. Eight embroidered banners move at their free ends; bronze chain links hang beyond the island. Two distant seated watcher shrines occupy roughly (±47, -6, -59). Moving art uses shader time instead of per-frame GDScript. Decoration has no bodies, areas or navigation and casts no additional shadows.
+
+The expensive sky panorama is still baked once into memory. A single distant additive shell carries faint moving currents, keeping `TIME` out of the sky shader and avoiding a per-frame radiance bake. This shell is scattered sky color below bloom, not an emissive combat effect. Conventional **depth fog** and three layers of distant crags provide atmospheric perspective. The warm key remains dominant; reduced ambient/fill light preserves relief and silhouettes. No SSAO, SSIL, SDFGI, volumetric fog or screen-space reflections are used.
+
+### Gameplay invariants and validation
+
+The world still has **19 collision bodies**. The entire decorative subtree has **zero collision bodies**. The 36 × 36 footprint, four 4.4 × 3.8 × 2.8 cover bodies, cover bases, terrace/ramp dimensions, boundary collision and navigation remain unchanged. The visible cover cores now match the full collision width; the earlier narrow visuals left the outer collision ends invisible.
+
+Validation: map **57/57**, combat **65/65**, plus actual Compatibility rendering and a collider inventory. `tools/arena_review.gd` captures `artifacts/sanctum-overview.png`, `sanctum-detail.png`, and `sanctum-gameplay.png` in a fixed window. Review the player camera as well as overview art. The available renderer is Mesa llvmpipe software; rendering successfully here does **not** certify 60 FPS on a physical GPU. Environment art is batched; the full-game draw count also includes the existing champion models and HUD.
+
+### Texture requirements and budget
+
+**No additional generated textures are required.** The environment texture remains the existing 512 × 512 PNG, 520,746 bytes (about 0.50 MiB), well below the 8 MiB environment budget. No texture was resized or replaced in this upgrade. The cached sky panorama is runtime memory, not a shipped image asset.
+
+If a future replacement is requested, require PNG at no more than 1024 × 1024, seamless on all four edges, even neutral lighting without baked highlights, shadows or AO, orthographic coverage of approximately four metres. Check border continuity programmatically and record the intended physical tiling scale before accepting it.
 
 ## Established visual language
 

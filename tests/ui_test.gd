@@ -233,6 +233,36 @@ func run() -> void:
 	arena.reset_layout()
 	check(arena.binds[0] == KEY_1 and arena.binds[2] == KEY_3 and arena.assignment[3] == 3,
 		"Reset restores default binds and assignment")
+	# --- extra action bars ----------------------------------------------------
+	check(arena.ability_buttons.size() == arena.TOTAL_SLOTS and arena.bar_roots.size() == arena.BAR_COUNT,
+		"Every bar is built")
+	var second: int = arena.BAR_SLOTS
+	check(arena.assignment[second] == -1 and arena.binds[second] == 0,
+		"Bars beyond the first start empty and unbound")
+	check(arena.kit_slot(second) == -1, "An empty slot resolves to no ability")
+	# Dragging an ability from bar one onto bar two moves it there.
+	arena.swap_slots(0, second)
+	check(arena.kit_slot(second) == 0 and arena.kit_slot(0) == -1,
+		"An ability can be dragged onto a second bar")
+	# The moved slot can then take its own key, independent of bar one.
+	arena.begin_rebind(second)
+	arena.finish_rebind(KEY_Z)
+	check(arena.binds[second] == KEY_Z, "A second-bar slot takes its own keybind")
+	arena.reset_layout()
+	check(arena.kit_slot(0) == 0 and arena.kit_slot(second) == -1, "Reset clears the extra bars")
+
+	# --- class colours --------------------------------------------------------
+	var Kits = load("res://scripts/kits.gd")
+	var shades := {}
+	for champ in Kits.NAMES:
+		shades[Kits.color(champ).to_html()] = champ
+	check(shades.size() == Kits.NAMES.size(), "Every champion has a distinct class colour")
+	arena.update_visuals(0)
+	var bar_fill := (arena.player_frame.get_child(1) as ProgressBar).get_theme_stylebox("fill") as StyleBoxFlat
+	check(bar_fill.bg_color == Kits.color(arena.actors[arena.local_id].champion),
+		"The health bar is filled with the champion's class colour")
+	var bar_back := (arena.player_frame.get_child(1) as ProgressBar).get_theme_stylebox("background") as StyleBoxFlat
+	check(bar_back.border_color == arena.BLUE, "The border still says which side they are on")
 	arena.toggle_edit_mode(false)
 	check(not arena.edit_mode and not arena.edit_overlay.visible, "Done leaves edit mode")
 	check(arena.ability_buttons[0].mouse_filter == Control.MOUSE_FILTER_STOP, "Hotbar is clickable again")
