@@ -18,7 +18,16 @@ config/features=PackedStringArray("4.5")
 
 window/size/viewport_width=1280
 window/size/viewport_height=800
+; 3 = Fullscreen. On every desktop platform Godot 4 implements this as a
+; borderless window matching the monitor, not an exclusive mode change — so
+; alt-tabbing stays instant and the desktop resolution is never touched.
+; The monitor size is adopted automatically; nothing needs to detect it.
+window/size/mode=3
 window/stretch/mode="canvas_items"
+; The 1280x800 base is 16:10. "keep" would letterbox it on a 16:9 monitor and
+; "ignore" would stretch it out of shape; "expand" keeps the scale honest and
+; gives back the extra width as more visible arena.
+window/stretch/aspect="expand"
 
 [rendering]
 

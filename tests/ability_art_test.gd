@@ -17,6 +17,11 @@ func run() -> void:
 		push_error("Art checks require a rendering window.")
 		quit(1)
 		return
+	# The project now launches fullscreen, which would make the window size — and
+	# therefore mouse coordinates and screenshot framing — depend on whoever's
+	# monitor is running the suite. Pin it.
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	DisplayServer.window_set_size(Vector2i(1280, 800))
 	var arena = load("res://arena.tscn").instantiate()
 	root.add_child(arena)
 	arena.mode_choice.select(1)

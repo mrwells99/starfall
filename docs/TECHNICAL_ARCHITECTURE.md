@@ -16,7 +16,8 @@ Design values (GCD, DR factors, healing formula, controls speeds) live in [`GAME
 | Main scene | `arena.tscn` |
 | Root node | `Arena` (`Node3D`) with `scripts/arena.gd` attached |
 | Renderer | OpenGL compatibility (`gl_compatibility`) |
-| Reference viewport | 1280 × 800; canvas-items stretch |
+| Reference viewport | 1280 × 800 base; canvas-items stretch, **expand** aspect |
+| Window | Launches borderless fullscreen (`window/size/mode=3`) at the monitor's resolution |
 | Networking | ENet. Queues on UDP 27840 (duel) / 27841 (3v3); private lobby pool on 27850–27853. Ports live in `scripts/config.gd`. |
 | Screenshots | `artifacts/` (with `.gdignore` so Godot skips them) |
 
@@ -261,6 +262,14 @@ Rows are `HBoxContainer`s toggled by `refresh_menu()`. Mode picker is visible in
 `GCD_DURATION` in `arena.gd` is shared by the simulation and the sweep — the first of the duplicated balance constants noted in [`ROADMAP.md`](ROADMAP.md) to be pulled out of an inline literal.
 
 Slot text is the ability name; the keybind is drawn in the overlay's corner so the countdown owns the centre. Once real icons exist the overlay needs no change — only what sits under it.
+
+## Display
+
+The game launches borderless fullscreen and adopts whatever resolution the monitor reports — nothing detects it explicitly, the mode does that. **F11 and Alt+Enter** toggle back to a window, because a game that starts fullscreen has to offer a way out.
+
+The 1280 × 800 base is 16:10 and the stretch aspect is `expand`: on a 16:9 monitor the viewport becomes wider (1422 × 800 at 1080p) so the extra width shows more arena, rather than letterboxing (`keep`) or distorting (`ignore`).
+
+**The windowed suites pin their own window** to 1280 × 800 in `run()`. Without that, mouse coordinates and screenshot framing would depend on the monitor running the tests. Verified by running them against 1280 × 800, 1440 × 900 and 1600 × 1000 screens with identical results.
 
 ## Testing
 

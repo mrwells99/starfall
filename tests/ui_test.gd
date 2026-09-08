@@ -47,6 +47,11 @@ func run() -> void:
 		push_error("UI tests require a game window; run without --headless.")
 		quit(1)
 		return
+	# The project now launches fullscreen, which would make the window size — and
+	# therefore mouse coordinates and screenshot framing — depend on whoever's
+	# monitor is running the suite. Pin it.
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	DisplayServer.window_set_size(Vector2i(1280, 800))
 	DirAccess.make_dir_recursive_absolute("res://artifacts")
 	Input.use_accumulated_input = false
 	arena = load("res://arena.tscn").instantiate()

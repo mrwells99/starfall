@@ -162,6 +162,7 @@ A / D **strafe** rather than turn — a deliberate divergence from the WoW defau
 | Hold RMB | Steer character and camera |
 | Hold LMB | Orbit camera independently |
 | Hold both mouse buttons | Run forward |
+| F11 or Alt+Enter | Toggle fullscreen / windowed |
 | Wheel | Zoom (3–18 m); camera retracts against geometry |
 | Tab | Cycle living enemies |
 | Click a character / world | Camera control only; **never** changes target |

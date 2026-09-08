@@ -130,6 +130,11 @@ func test_bot_terrace(side: int, start: Vector3) -> void:
 	check(bot.is_on_floor(), "Bot remains grounded on terrace %d" % side)
 
 func run() -> void:
+	# Fullscreen is the project default now; pin the window so screenshot framing
+	# does not depend on the monitor running the suite.
+	if DisplayServer.get_name() != "headless":
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 800))
 	test_navigation()
 	arena = load("res://arena.tscn").instantiate()
 	root.add_child(arena)

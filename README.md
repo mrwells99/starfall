@@ -14,7 +14,7 @@ A Godot 4.5 arena-combat prototype: **WoW-style controls** (WASD, mouse turn, st
 
 ## For players
 
-Open `project.godot` in Godot 4.5 and press **F5**, or run `godot --path .`. Pick a champion → **Online** or **Offline**. Controls and champion abilities are in [`docs/GAME_DESIGN.md`](docs/GAME_DESIGN.md).
+Open `project.godot` in Godot 4.5 and press **F5**, or run `godot --path .`. It opens borderless fullscreen at your monitor's resolution; **F11** or **Alt+Enter** toggles back to a window. Pick a champion → **Online** or **Offline**. Controls and champion abilities are in [`docs/GAME_DESIGN.md`](docs/GAME_DESIGN.md).
 
 ---
 

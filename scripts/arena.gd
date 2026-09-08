@@ -1620,6 +1620,15 @@ func _input(event: InputEvent) -> void:
 			arm.rotation.x = clampf(arm.rotation.x - event.relative.y * 0.004, -1.15, 0.12)
 			if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
 				local_yaw = pivot.rotation.y
+	# The game launches fullscreen, so it has to offer a way back out. F11 and
+	# Alt+Enter are both what people already try.
+	if event is InputEventKey and event.pressed and not event.echo:
+		var alt_enter: bool = event.keycode == KEY_ENTER and event.alt_pressed
+		if event.keycode == KEY_F11 or alt_enter:
+			var full: bool = DisplayServer.window_get_mode() in [DisplayServer.WINDOW_MODE_FULLSCREEN, DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN]
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if full else DisplayServer.WINDOW_MODE_FULLSCREEN)
+			get_viewport().set_input_as_handled()
+			return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
 		if panel.visible and phase in ["match", "countdown"]:
 			panel.hide()
