@@ -298,6 +298,8 @@ python3 tests/run_lobby.py
 godot --path . --script tests/visual_check.gd
 ```
 
+`tests/check_suite.sh "<label>" <godot args...>` wraps a Godot suite for CI: it enforces the suite's exit code, requires the `N passed / M total` line to appear at all, and compares N against M. It deliberately does **not** compare against a literal count — a hardcoded number turns every new assertion into a CI failure, which is exactly what happened when the UI suite grew from 64 checks to 73 and the workflow was still grepping for 64.
+
 Python launchers enforce timeouts and clean up child processes. They return failure on nonzero exits or Godot `ERROR:` output. Some success-marker text can appear even when assertions fail — inspect exit code and full output.
 
 The `ERROR:` check is stricter than it looks: Godot prints RID-leak errors at exit for any `Control` that was constructed but never added to the scene tree, so an orphaned node fails the suite even when every assertion passed. If a network suite starts failing with `RID allocations ... were leaked at exit` and no assertion message, look for a `.new()` UI node missing its `add_child`.

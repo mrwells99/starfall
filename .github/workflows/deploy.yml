@@ -72,7 +72,7 @@ jobs:
         run: godot --headless --path . --check-only --script scripts/arena.gd
 
       - name: Combat integration
-        run: godot --headless --path . --script tests/combat_test.gd 2>&1 | tee out.txt && grep -q "47 passed / 47 total" out.txt
+        run: ./tests/check_suite.sh "Combat checks" godot --headless --path . --script tests/combat_test.gd
 
       # These bind fixed UDP ports and must not overlap — hence one step, in order.
       - name: Networked suites (sequential)
@@ -97,10 +97,16 @@ jobs:
 
       - name: UI suite (Xvfb)
         run: |
-          set -euo pipefail
-          xvfb-run -a --server-args="-screen 0 1280x800x24" \
-            godot --path . --script tests/ui_test.gd 2>&1 | tee ui.txt
-          grep -q "64 passed / 64 total" ui.txt
+          ./tests/check_suite.sh "UI checks" \
+            xvfb-run -a --server-args="-screen 0 1280x800x24" \
+            godot --path . --script tests/ui_test.gd
+
+      # Icons and champion models also need a real window.
+      - name: Ability art suite (Xvfb)
+        run: |
+          ./tests/check_suite.sh "Ability art checks" \
+            xvfb-run -a --server-args="-screen 0 1280x800x24" \
+            godot --path . --script tests/ability_art_test.gd
 
       # The server hard-rejects clients whose Config.VERSION differs. Shipping a
       # protocol change without bumping it lets stale clients connect and
