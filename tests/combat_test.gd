@@ -167,5 +167,49 @@ func run() -> void:
 	arena.phase = "results"
 	arena.receive_snapshot(arena.epoch, 11, packed, "match", 13.0, 0.0)
 	check(arena.phase == "results" and arena.elapsed == 12, "Delayed snapshots cannot undo match result")
+	# --- Fulcrum: Tether is the only ability that targets either side ---------
+	await reset("Fulcrum", 3)
+	var grip = arena.actors[1]
+	var foe_target = null
+	var ally_target = null
+	for a in arena.actors.values():
+		if a.actor_id == 1:
+			continue
+		if a.team != grip.team and foe_target == null:
+			foe_target = a
+		elif a.team == grip.team and ally_target == null:
+			ally_target = a
+	check(grip.kit[6].name == "Tether" and grip.kit[6].off, "Tether is off the global cooldown")
+	grip.position = Vector3(0, grip.position.y, 0)
+
+	# Enemy: dragged toward the caster, stopping short rather than overlapping.
+	foe_target.position = grip.position + Vector3(0, 0, -14)
+	grip.look_at(Vector3(foe_target.position.x, grip.position.y, foe_target.position.z), Vector3.UP)
+	await settle()
+	var caster_before: Vector3 = grip.position
+	check(arena.try_spell(1, 6, foe_target.actor_id), "Tether accepts an enemy target")
+	await settle()
+	var after_enemy: float = grip.position.distance_to(foe_target.position)
+	check(after_enemy < 9.0, "Tether drags an enemy toward the caster")
+	check(after_enemy > 1.0, "Tether stops short instead of overlapping the caster")
+	check(grip.position.distance_to(caster_before) < 0.5, "Tether moves the target, not the caster")
+	check(foe_target.hp == 100, "Tether deals no damage")
+
+	# Ally: the same ability, used as a save.
+	grip.cooldowns[6] = 0
+	ally_target.position = grip.position + Vector3(0, 0, -13)
+	grip.look_at(Vector3(ally_target.position.x, grip.position.y, ally_target.position.z), Vector3.UP)
+	await settle()
+	check(arena.try_spell(1, 6, ally_target.actor_id), "Tether accepts an ally target")
+	await settle()
+	check(grip.position.distance_to(ally_target.position) < 9.0, "Tether pulls an ally out of danger")
+
+	grip.cooldowns[6] = 0
+	check(not arena.try_spell(1, 6, 1), "Tether cannot target the caster")
+	grip.cooldowns[6] = 0
+	foe_target.position = grip.position + Vector3(0, 0, -60)
+	await settle()
+	check(not arena.try_spell(1, 6, foe_target.actor_id), "Tether respects its range")
+
 	print("Combat checks: %d passed / %d total" % [checks - failures, checks])
 	quit(1 if failures else 0)

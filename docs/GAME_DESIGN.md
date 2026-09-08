@@ -31,17 +31,21 @@ A three-second countdown starts each round. A round ends when every member of on
 
 ## Champions
 
-Three fixed-kit champions. Each has seven abilities on keys 1–7.
+Four fixed-kit champions. Each has seven abilities on keys 1–7.
 
-| Key | Ember — ranged | Vanguard — melee | Luminary — healer |
-| --- | --- | --- | --- |
-| 1 | Firebolt — casted damage | Cleave — melee damage | Smite — casted damage |
-| 2 | Flare — instant burst | Crush — melee burst | Renewal — instant ally heal |
-| 3 | Disrupt — interrupt | Pummel — melee interrupt | Dispel — remove an ally's stun |
-| 4 | Stasis — casted stun | Bash — melee stun | Rebuke — casted stun |
-| 5 | Ward — damage reduction | Iron Skin — damage reduction | Sanctuary — ally damage reduction |
-| 6 | Mend — self heal | Mend — self heal | Greater Heal — repeatable ally heal |
-| 7 | Blink — forward escape | Charge — close on target | Grace — movement speed boost |
+| Key | Ember — ranged | Vanguard — melee | Luminary — healer | Fulcrum — control |
+| --- | --- | --- | --- | --- |
+| 1 | Firebolt — casted damage | Cleave — melee damage | Smite — casted damage | Collapse — casted damage |
+| 2 | Flare — instant burst | Crush — melee burst | Renewal — instant ally heal | Tidal Force — instant burst |
+| 3 | Disrupt — interrupt | Pummel — melee interrupt | Dispel — remove an ally's stun | Horizon — interrupt |
+| 4 | Stasis — casted stun | Bash — melee stun | Rebuke — casted stun | Anchor — casted stun |
+| 5 | Ward — damage reduction | Iron Skin — damage reduction | Sanctuary — ally damage reduction | Umbra — damage reduction |
+| 6 | Mend — self heal | Mend — self heal | Greater Heal — repeatable ally heal | Mend — self heal |
+| 7 | Blink — forward escape | Charge — close on target | Grace — movement speed boost | Tether — pull a fighter to you |
+
+**Fulcrum** is the roster's control champion: mid-range, lowest damage of the three non-healers, and the only champion with no way to reposition *itself*. It decides where the fight happens instead. Every slot but 7 reuses an existing ability kind, so its identity rests almost entirely on Tether.
+
+**Tether** is the only ability in the game that does not care which team its target is on. On an enemy it is a peel and a kill setup — drag a healer out of line of sight, pull a kiting caster into melee. On an ally it is a save. It still requires range, line of sight and facing, because it is an aimed ability either way, and it deals no damage.
 
 ### Ability tooltips
 
@@ -88,6 +92,13 @@ Kit dictionaries: `name`, `kind`, `power`, `range`, `cast`, `cd`, `off`. `Kits.g
 | Luminary | 5 | Sanctuary / ally_shield | 5 s duration | 28 | Instant | 22 s | Yes |
 | Luminary | 6 | Greater Heal / heal | 27 healing | 28 | 1.8 s | 0 | No |
 | Luminary | 7 | Grace / sprint | 4 s duration | Self | Instant | 16 s | Yes |
+| Fulcrum | 1 | Collapse / damage | 14 dmg | 24 | 1.3 s | 0 | No |
+| Fulcrum | 2 | Tidal Force / damage | 20 dmg | 20 | Instant | 7 s | No |
+| Fulcrum | 3 | Horizon / interrupt | 4 s lock | 22 | Instant | 12 s | Yes |
+| Fulcrum | 4 | Anchor / control | 3.5 s stun | 18 | 0.6 s | 16 s | No |
+| Fulcrum | 5 | Umbra / shield | 5 s duration | Self | Instant | 22 s | Yes |
+| Fulcrum | 6 | Mend / self_heal | 28 healing | Self | 2 s | 16 s | No |
+| Fulcrum | 7 | Tether / pull | 8 m travel | 22 | Instant | 14 s | Yes |
 
 Balance is provisional. Real playtesting has not happened.
 

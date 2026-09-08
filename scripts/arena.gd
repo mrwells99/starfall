@@ -254,7 +254,7 @@ func build_ui() -> void:
 	add_label(stack, "R I N G F A L L  /  ARENA", 28)
 	result_text = add_label(stack, "Choose a champion. Your full kit is ready.", 18)
 	champion_choice = OptionButton.new()
-	for title in ["Ember — ranged damage", "Vanguard — melee damage", "Luminary — healer"]:
+	for title in ["Ember — ranged damage", "Vanguard — melee damage", "Luminary — healer", "Fulcrum — control"]:
 		champion_choice.add_item(title)
 	stack.add_child(champion_choice)
 	mode_choice = OptionButton.new()
@@ -999,7 +999,13 @@ func validate_spell(actor, slot: int, victim_id: int) -> String:
 	var victim = actors[victim_id]
 	var spell: Dictionary = actor.kit[slot]
 	var friendly: bool = spell.kind in ["heal", "ally_shield", "dispel", "shield", "self_heal", "blink", "sprint"]
-	if (victim.team == actor.team) != friendly:
+	# A pull is aimed at whoever is selected, ally or enemy — the only ability
+	# that does not care which side the target is on. It still needs range,
+	# line of sight and facing, because it is an aimed ability either way.
+	if spell.kind == "pull":
+		if victim == actor:
+			return "Select another fighter"
+	elif (victim.team == actor.team) != friendly:
 		return "Select an ally" if friendly else "Select an enemy"
 	if victim == actor:
 		return ""
@@ -1125,6 +1131,15 @@ func resolve_spell(actor, slot: int, victim) -> void:
 		"sprint":
 			actor.sprint = spell.power
 			combat_event(actor.actor_id, actor.actor_id, "GRACE", Color("97edb1"))
+		"pull":
+			# Charge's arithmetic, applied to the target instead of the caster.
+			# Stops 2m short so nobody ends up standing inside anyone.
+			var pull_offset: Vector3 = actor.position - victim.position
+			pull_offset.y = 0
+			var travel := minf(float(spell.power), maxf(0.0, pull_offset.length() - 2.0))
+			if travel > 0.0:
+				move_ability(victim, pull_offset.normalized() * travel)
+			combat_event(actor.actor_id, victim.actor_id, "TETHER", Color("c9a0ff"))
 
 func move_ability(actor, motion: Vector3) -> void:
 	# Sweep the character capsule: mobility cannot cross pillars or walls.

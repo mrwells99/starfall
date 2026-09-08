@@ -58,7 +58,16 @@ func run() -> void:
 		arena.update_visuals(0)
 		for slot in range(7):
 			var tex: Texture2D = arena.ability_images[slot].texture
-			check(tex != null and tex.get_width() <= 256, champion + " has optimized art: " + actor.kit[slot].name)
+			# A champion may legitimately be awaiting art. Assert the two states
+			# precisely instead of demanding every ability be illustrated:
+			# illustrated abilities show an optimized texture, and unillustrated
+			# ones must fall back to the ability name rather than an empty slot.
+			if arena.AbilityArt.PATHS.has(actor.kit[slot].name):
+				check(tex != null and tex.get_width() <= 256,
+					champion + " has optimized art: " + actor.kit[slot].name)
+			else:
+				check(tex == null and arena.ability_buttons[slot].text == actor.kit[slot].name,
+					champion + " falls back to text: " + actor.kit[slot].name)
 		await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_png("res://artifacts/" + champion.to_lower() + "-hotbar.png")
 	check(arena.AbilityArt.texture_for("Future ability") == null, "Unknown ability safely falls back")

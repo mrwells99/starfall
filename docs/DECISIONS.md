@@ -32,6 +32,30 @@ Newest first.
 
 ---
 
+## 2026-09-07 — Fulcrum, and `pull` as the first two-sided ability
+
+**Decision:** A fourth champion, **Fulcrum**, joins the roster as a mid-range control specialist. Its signature is **Tether** (`kind: "pull"`), which drags the selected fighter 8 m toward the caster and works on **either team**.
+
+**Why a controller:** the first three champions all solve problems by pointing at a target — ranged damage, melee damage, healing. Fulcrum's answer is to move the target instead, which is the first identity that leans on the positioning, line-of-sight and coordination the game says it is about. It is also the roster's first champion whose strongest play is often dealing zero damage.
+
+**Why it was cheap:** six of seven slots reuse existing `kind` values with new numbers and names, so the kit inherits the balance skeleton every champion shares (spammable, burst, interrupt, stun, defensive, heal, mobility). Only `pull` is new, and it is `charge` run backwards — the server already sweeps an actor toward a point with collision and a stopping radius, so the same helper moves the victim rather than the caster.
+
+**Two-sided targeting:** `validate_spell` splits abilities into friendly and hostile and rejects the wrong side. `pull` is exempt from that check alone; it still requires range, line of sight, facing, and a target other than yourself. It is deliberately not a soft interrupt — being moved does not cancel a cast, because that is Horizon's job and stacking both onto one ability would make Tether the only button worth pressing.
+
+**Alternatives considered:**
+
+- **A stealth assassin.** The most familiar WoW-arena archetype and the most requested shape. Rejected for now: stealth is a server-authoritative visibility system, not an ability.
+- **A time manipulator** rewinding position or health. Rejected: rewinding health is a balance and networking problem well beyond a new kit.
+- **Tether as enemy-only.** Simpler, and it matches Charge. Rejected because the ally save is what makes Fulcrum a 3v3 champion rather than a duelist.
+
+**Consequences:**
+
+- `Kits.NAMES` grew, and the server validates champion choice against it, so `Config.VERSION` went to **0.3.0** and older clients are refused.
+- Fulcrum has **no icons and no dedicated model yet**. `AbilityArt.texture_for()` returns null for unknown names and the hotbar falls back to the ability name; `champion_model.build()` has no Fulcrum branch and produces a generic silhouette. Both degrade rather than break, and the art suite now asserts that fallback explicitly instead of demanding every ability be illustrated.
+- Local sparring's auto-fill still builds healer / melee / ranged, so bots never pick Fulcrum. A human can, and bots fill around them.
+
+---
+
 ## 2026-09-07 — A queue holds you for the next round; it never turns you away
 
 **Decision:** On a dedicated server, `register_player` accepts a client that connects during `countdown`, `match` or `results`. The player waits in the roster and is spawned by the next `begin_round()`. Player-hosted lobbies keep the stricter rule — they have a host whose lobby you are genuinely waiting on.

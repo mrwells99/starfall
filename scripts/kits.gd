@@ -1,6 +1,6 @@
 extends RefCounted
 
-const NAMES = ["Ember", "Vanguard", "Luminary"]
+const NAMES = ["Ember", "Vanguard", "Luminary", "Fulcrum"]
 
 static func spell(title: String, kind: String, power: float, reach: float, cast: float, cd: float, off: bool = false) -> Dictionary:
 	return {"name": title, "kind": kind, "power": power, "range": reach, "cast": cast, "cd": cd, "off": off}
@@ -22,6 +22,13 @@ static func get_kit(champion: String) -> Array:
 		kit[3] = spell("Bash", "control", 3, 3.5, 0, 16)
 		kit[4] = spell("Iron Skin", "shield", 5, 0, 0, 22, true)
 		kit[6] = spell("Charge", "charge", 6, 22, 0, 12, true)
+	elif champion == "Fulcrum":
+		kit[0] = spell("Collapse", "damage", 14, 24, 1.3, 0)
+		kit[1] = spell("Tidal Force", "damage", 20, 20, 0, 7)
+		kit[2] = spell("Horizon", "interrupt", 4, 22, 0, 12, true)
+		kit[3] = spell("Anchor", "control", 3.5, 18, 0.6, 16)
+		kit[4] = spell("Umbra", "shield", 5, 0, 0, 22, true)
+		kit[6] = spell("Tether", "pull", 8, 22, 0, 14, true)
 	elif champion == "Luminary":
 		kit[0] = spell("Smite", "damage", 10, 28, 1.5, 0)
 		kit[1] = spell("Renewal", "heal", 18, 28, 0, 7)
@@ -52,6 +59,8 @@ static func summary(ability: Dictionary) -> String:
 			return "An ally or you takes 60%% less damage for %s seconds." % ability.power
 		"dispel":
 			return "Remove a stun from an ally or yourself."
+		"pull":
+			return "Drag your target up to %s meters toward you. Works on an enemy or an ally." % ability.power
 		"blink":
 			return "Move up to %s meters in the direction you face." % ability.power
 		"charge":

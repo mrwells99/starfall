@@ -114,3 +114,11 @@ Ability icons ship at **256 x 256**. They display at 92 px in the hotbar, so 256
 The generated originals were 1254 x 1254 — around 2.2 MB each, 44 MB for twenty icons. That is roughly 186x the pixels the hotbar draws, and git keeps every blob forever, so it was downscaled before the first push. Regenerate from `assets/icons/abilities/PROMPTS.md` if a higher-resolution master is ever needed, but do not commit one.
 
 **Check the size of any generated art before committing it.** A texture that looks fine in isolation can carry a cost that is permanent once pushed.
+
+## Fulcrum — awaiting art
+
+The control champion ships without icons or a dedicated model; it borrows a generic silhouette and its hotbar shows ability names as text. Direction when someone gets to it:
+
+Slate and void-purple, cracked like something compressed and never fully recovered. Its abilities read as **rings, orbits and lines of force**, not projectiles — Tether should be a visible strand of bent light strung between two fighters, not a bolt that travels. Six icons needed: Collapse, Tidal Force, Horizon, Anchor, Umbra, Tether. Slot 6 is Mend, which already shares Ember and Vanguard's icon.
+
+Keep to the 256 x 256 budget above.
