@@ -23,7 +23,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Must match DUEL_PORT / TEAM_PORT / LOBBY_PORTS in scripts/config.gd and the
 # port list in .env. Clients dial these by number.
-QUEUE_PORTS=(27840 27841)
+QUEUE_PORTS=(27840 27841 27842)
 LOBBY_PORTS=(27850 27851 27852 27853)
 ALL_PORTS=("${QUEUE_PORTS[@]}" "${LOBBY_PORTS[@]}")
 

@@ -90,7 +90,16 @@ func build() -> void:
 		branch.position = item[2]
 		scene.add_child(branch)
 		branch.owner = scene
-		var imported: Node3D = load(ASSETS + item[1] + ".glb").instantiate()
+		# Read ignored authoring GLBs explicitly. Only the compressed runtime
+		# meshes ship, avoiding duplicate GLB + imported + .res geometry.
+		var document := GLTFDocument.new()
+		var state := GLTFState.new()
+		var read_error := document.append_from_file("res://assets-source/sanctum_slice/" + item[1] + ".glb", state)
+		if read_error != OK:
+			push_error("Cannot read source GLB: " + str(item[1]))
+			quit(read_error)
+			return
+		var imported := document.generate_scene(state)
 		copy_meshes(imported, branch, scene, item[3])
 		imported.free()
 	# Bake bounced light only. Matching real-time lights remain in arena_sky.gd;

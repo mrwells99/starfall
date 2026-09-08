@@ -46,7 +46,7 @@ Example once the production bake scene exists:
 ```sh
 python3 tools/bake_sanctum_slice.py \
   --scene scenes/sanctum_quality_slice.tscn \
-  --data assets/environment/sanctum_slice/lighting/sanctum.lmbake
+  --data assets/environment/slice/lighting/sanctum.lmbake
 ```
 
 The launcher already invokes:
@@ -60,17 +60,11 @@ xvfb-run -a -s '-screen 0 1280x720x24' godot \
 Use `--no-xvfb` on a normal desktop and `--godot /path/to/godot` to choose a
 binary. The helper expects an English editor, matching this host.
 
-## Production work still required
+## Production slice status
 
-**The production Sanctum slice has not been baked.** Prepare a stable named
-PackedScene for the imported cover, floor and perimeter, with their final
-materials and UV2, and put LightmapGI beside the intended mesh hierarchy.
-Mark each participating mesh `GI_MODE_STATIC`; ensure owner paths are saved
-in the PackedScene. Keep gameplay colliders out of this visual-only scene.
+**The production slice is now baked and integrated.** `scenes/sanctum_quality_slice.tscn` contains 13 static UV2 mesh instances, shared PBR materials and LightmapGI. The bake assigns all 13 meshes. Runtime removes its temporary BakeLights so direct illumination is not doubled. `tools/prepare_sanctum_slice.gd` rebuilds the scene and clears the previous bake assignment; rebake after running it. The review tool confirms 19 world bodies and zero artwork bodies.
 
-Current planned placement: cover at (-6,0,5), floor at (-6,0,7), perimeter at
-(-18,0,6). Root agent owns the final asset integration. Do not bake until those
-meshes, UV2, textures, materials and lighting are final enough to review.
+Final placement: cover (-6,0,5), floor (-6,0,7), perimeter (-18.3,0,6.5). Runtime assets and complete authoring workflow are documented in ART_SLICE_HANDOFF.md.
 
 Prefer a **Dynamic** bake mode for the gameplay directional light so its
 direct shadows still respond to champions, while only bounced light is baked.

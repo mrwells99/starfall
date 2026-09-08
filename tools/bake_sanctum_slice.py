@@ -49,7 +49,7 @@ def main() -> None:
         if child.name.startswith(".") or child.name in {"artifacts", "docs", "tools", "assets-source"}:
             continue
         if child.is_dir():
-            shutil.copytree(child, stage / child.name, ignore=shutil.ignore_patterns("*.import", "__pycache__"))
+            shutil.copytree(child, stage / child.name, ignore=shutil.ignore_patterns("__pycache__"))
         elif child.suffix in {".tscn", ".tres", ".gd", ".gdshader", ".gdshaderinc"}:
             shutil.copy2(child, stage / child.name)
     plugin = stage / "addons" / "sanctum_bake"

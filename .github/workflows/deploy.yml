@@ -84,6 +84,7 @@ jobs:
           python3 tests/run_six.py
           python3 tests/run_dedicated.py
           python3 tests/run_lobby.py
+          ./tests/check_suite.sh "World checks" godot --headless --path . --script tests/world_test.gd
 
       # ui_test drives real mouse capture and cursor positioning, so it refuses
       # --headless. Xvfb gives it a real (virtual) window; Mesa provides the

@@ -149,6 +149,9 @@ python3 tests/run_lobby.py
 godot --path . --script tests/ability_art_test.gd
 godot --path . --script tests/map_test.gd
 
+# World mode (headless):
+godot --headless --path . --script tests/world_test.gd
+
 # Real-window UI test (rejects --headless):
 godot --path . --script tests/ui_test.gd
 ```

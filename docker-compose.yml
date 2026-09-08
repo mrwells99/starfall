@@ -68,6 +68,17 @@ services:
     ports:
       - "${BIND_ADDRESS:-0.0.0.0}:${TEAM_PORT:-27841}:${TEAM_PORT:-27841}/udp"
 
+  # --- persistent world -----------------------------------------------------
+  # Always running, no queue, no minimum. People walk in and out.
+  world:
+    <<: *starfall-common
+    container_name: starfall-world
+    environment:
+      STARFALL_PORT: ${WORLD_PORT:-27842}
+    command: ["--dedicated", "--world", "--port=${WORLD_PORT:-27842}"]
+    ports:
+      - "${BIND_ADDRESS:-0.0.0.0}:${WORLD_PORT:-27842}:${WORLD_PORT:-27842}/udp"
+
   # --- private lobby pool ---------------------------------------------------
   # Mode is chosen by whoever claims the slot, so these take no --mode.
   lobby1:

@@ -139,6 +139,18 @@ var binds: Array[int] = []
 # slot 1 without the server needing to know anything about it.
 var assignment: Array[int] = []
 var bar_roots: Array[HBoxContainer] = []
+# --- world mode ---------------------------------------------------------------
+# A persistent hangout on the arena map: no rounds, no timer, no victory. It runs
+# as a variant of "match" rather than a new phase, so movement, casting, input
+# and snapshots all work unchanged and only the round lifecycle differs.
+#
+# Damage is refused unless both fighters agreed to a duel, so standing around is
+# safe and a fight is always something both people chose.
+var world_mode := false
+var duels := {}          # actor_id -> actor_id, server-authoritative pairing
+var duel_offers := {}    # target_id -> challenger_id, pending invitations
+var pending_offer := -1  # client: who has challenged me
+var respawn_timers := {}
 var rebinding := -1
 var drag_slot := -1
 var movable_frames: Array[Control] = []
@@ -506,6 +518,7 @@ func build_ui() -> void:
 	add_button(online_row, "Online queue", func(): menu_state = "queue"; refresh_menu())
 	add_button(online_row, "Host lobby", func(): menu_state = "host"; refresh_menu())
 	add_button(online_row, "Join lobby", func(): menu_state = "join"; refresh_menu())
+	add_button(online_row, "World", enter_world)
 	add_button(online_row, "Back", func(): menu_state = "main"; refresh_menu())
 	settings_row = HBoxContainer.new()
 	settings_row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -673,6 +686,19 @@ func close_peer() -> void:
 		multiplayer.multiplayer_peer.close()
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 	network = false
+
+# The world is one shared, always-running server, so it needs no mode choice and
+# no queue — you simply connect to it.
+func enter_world() -> void:
+	intent = "queue"
+	searching = false
+	world_mode = true
+	lobby_code = ""
+	status = "Entering the world…"
+	if not connect_to(Config.WORLD_PORT):
+		leave_session("Could not reach the world. Try again in a moment.")
+		return
+	refresh_lobby()
 
 func matchmake() -> void:
 	mode = mode_choice.get_selected_id()
@@ -896,6 +922,15 @@ func register_player(choice: String, client_version: String) -> void:
 	maybe_auto_start()
 
 func maybe_auto_start() -> void:
+	if world_mode and authoritative():
+		# The world is always running: the first arrival starts it, and everyone
+		# after that walks into it rather than restarting it for the people
+		# already there.
+		if phase == "lobby":
+			begin_round()
+		else:
+			admit_to_world()
+		return
 	if not dedicated or not authoritative() or phase != "lobby":
 		return
 	if roster.size() >= min_players:
@@ -1089,6 +1124,17 @@ func build_cc_tracker() -> void:
 	cc_sweep.set_key("")
 	cc_label = add_label(cc_tracker, "", 20)
 	cc_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+
+# How long this particular ability is locked out by crowd control. A stun stops
+# everything; a lockout stops most things, and mirrors the exemptions try_spell
+# already applies — Vanguard ignores it, and defensive or movement abilities
+# still work through it.
+func cc_block_remaining(actor, spell: Dictionary) -> float:
+	if actor.stunned > 0.0:
+		return actor.stunned
+	if actor.locked > 0.0 and actor.champion != "Vanguard" and spell.kind not in ["shield", "blink", "sprint"]:
+		return actor.locked
+	return 0.0
 
 func update_cc_tracker() -> void:
 	if cc_tracker == null:
@@ -1353,9 +1399,13 @@ func begin_round() -> void:
 	clear_actors()
 	epoch += 1
 	elapsed = 0
-	countdown = 3
+	countdown = 0.0 if world_mode else 3.0
 	winner = -1
-	phase = "countdown"
+	# The world has no countdown to wait through; you arrive and you are there.
+	phase = "match" if world_mode else "countdown"
+	duels.clear()
+	duel_offers.clear()
+	respawn_timers.clear()
 	var counts := [0, 0]
 	var id := 1
 	for peer in roster:
@@ -1363,6 +1413,12 @@ func begin_round() -> void:
 		spawn_actor(id, peer, entry.team, entry.champion, spawn_position(entry.team, counts[entry.team]))
 		counts[entry.team] += 1
 		id += 1
+	if world_mode:
+		# No bots, and no teams that mean anything — everyone stands alone until
+		# they agree to a duel.
+		assign_local()
+		broadcast_round()
+		return
 	for side in range(2):
 		while counts[side] < mode:
 			var choices := ["Luminary", "Vanguard", "Ember"] if mode == 3 else ["Ember"]
@@ -1381,10 +1437,17 @@ func begin_round() -> void:
 	assign_local()
 	result_text.text = "Round in progress — combat continues with this panel open."
 	panel.hide()
+	broadcast_round()
+
+func broadcast_round() -> void:
 	if network:
 		round_started.rpc(epoch, mode, make_snapshot())
 
 func spawn_position(side: int, index: int) -> Vector3:
+	if world_mode:
+		# Scattered around the middle rather than lined up on two team sides.
+		var angle := float(index) * 1.9
+		return Vector3(cos(angle) * 7.0, 0.05, sin(angle) * 7.0)
 	return Vector3((index - 1) * 3.5 if mode == 3 else 0.0, 0.05, 10 if side == 0 else -10)
 
 func assign_local() -> void:
@@ -1452,6 +1515,8 @@ func _physics_process(delta: float) -> void:
 				leave_session("Could not reach the server. Try again in a moment.")
 	if phase in ["countdown", "match"]:
 		gather_input(delta)
+		if authoritative() and world_mode:
+			tick_world(delta)
 		if authoritative():
 			if phase == "countdown":
 				countdown = maxf(0, countdown - delta)
@@ -1825,7 +1890,16 @@ func move_ability(actor, motion: Vector3) -> void:
 	# Sweep the character capsule: mobility cannot cross pillars or walls.
 	actor.move_and_collide(motion)
 
+# In the world, damage only lands between two people who agreed to fight.
+func may_harm(source, victim) -> bool:
+	if not world_mode:
+		return true
+	return duels.get(source.actor_id, -1) == victim.actor_id
+
 func damage(source, victim, amount: float) -> void:
+	if not may_harm(source, victim):
+		feedback(source, "Challenge them to a duel first")
+		return
 	var actual := minf(victim.hp, amount * (0.4 if victim.shield > 0 else 1.0))
 	victim.hp = maxf(0, victim.hp - actual)
 	combat_event(source.actor_id, victim.actor_id, "−%d" % ceili(actual), RED)
@@ -1833,8 +1907,110 @@ func damage(source, victim, amount: float) -> void:
 		victim.casting = -1
 		victim.move_input = Vector2.ZERO
 		combat_event(source.actor_id, victim.actor_id, "DEFEATED", GOLD)
+		if world_mode:
+			end_duel(victim.actor_id, source.actor_id)
+
+# --- duels --------------------------------------------------------------------
+
+@rpc("any_peer", "call_remote", "reliable")
+func challenge_duel(target_id: int) -> void:
+	if not (network and multiplayer.is_server()):
+		return
+	offer_duel(actor_for_peer(multiplayer.get_remote_sender_id()), target_id)
+
+func offer_duel(from_id: int, target_id: int) -> void:
+	if not world_mode or from_id < 0 or not actors.has(target_id) or from_id == target_id:
+		return
+	if duels.has(from_id) or duels.has(target_id):
+		return
+	duel_offers[target_id] = from_id
+	combat_event(from_id, target_id, "DUEL OFFERED", GOLD)
+	var peer: int = actors[target_id].owner_peer
+	if peer > 1 and network:
+		duel_invited.rpc_id(peer, from_id, actors[from_id].champion)
+	elif target_id == local_id:
+		duel_invited(from_id, actors[from_id].champion)
+
+@rpc("any_peer", "call_remote", "reliable")
+func accept_duel() -> void:
+	if not (network and multiplayer.is_server()):
+		return
+	confirm_duel(actor_for_peer(multiplayer.get_remote_sender_id()))
+
+func confirm_duel(target_id: int) -> void:
+	if not world_mode or not duel_offers.has(target_id):
+		return
+	var from_id: int = duel_offers[target_id]
+	duel_offers.erase(target_id)
+	if not actors.has(from_id) or duels.has(from_id) or duels.has(target_id):
+		return
+	duels[from_id] = target_id
+	duels[target_id] = from_id
+	# Both start clean, so a duel is never decided by who was already hurt.
+	for id in [from_id, target_id]:
+		actors[id].hp = 100
+		actors[id].stunned = 0
+		actors[id].locked = 0
+		actors[id].dr_count = 0
+		actors[id].dr_timer = 0
+	combat_event(from_id, target_id, "DUEL", GOLD)
+
+func end_duel(loser_id: int, winner_id: int) -> void:
+	duels.erase(loser_id)
+	duels.erase(winner_id)
+	combat_event(winner_id, loser_id, "DUEL WON", GOLD)
+	# Losing a duel is not death: back up shortly, at full health.
+	respawn_timers[loser_id] = 3.0
+
+@rpc("authority", "call_remote", "reliable")
+func duel_invited(from_id: int, champion: String) -> void:
+	pending_offer = from_id
+	say("%s challenges you to a duel — press Y to accept" % champion)
+
+# Spawns any roster member who does not yet have a body, without disturbing
+# anyone already in the world.
+func admit_to_world() -> void:
+	var next_id := 1
+	for actor in actors.values():
+		next_id = maxi(next_id, actor.actor_id + 1)
+	for peer in roster:
+		var present := false
+		for actor in actors.values():
+			if actor.owner_peer == peer:
+				present = true
+		if present:
+			continue
+		var entry: Dictionary = roster[peer]
+		spawn_actor(next_id, peer, entry.team, entry.champion, spawn_position(entry.team, next_id % 3))
+		next_id += 1
+	broadcast_round()
+
+# Which actor a peer controls, or -1.
+func actor_for_peer(peer: int) -> int:
+	for actor in actors.values():
+		if actor.owner_peer == peer:
+			return actor.actor_id
+	return -1
+
+# Brings the defeated back rather than leaving a body in a persistent world.
+func tick_world(delta: float) -> void:
+	for id in respawn_timers.keys():
+		respawn_timers[id] -= delta
+		if respawn_timers[id] <= 0.0:
+			respawn_timers.erase(id)
+			if actors.has(id):
+				var actor = actors[id]
+				actor.hp = 100
+				actor.stunned = 0
+				actor.locked = 0
+				actor.shield = 0
+				actor.position = spawn_position(actor.team, id % 3)
+				combat_event(id, id, "RECOVERED", Color("97edb1"))
 
 func check_winner() -> void:
+	# A persistent world has no victory condition.
+	if world_mode:
+		return
 	var alive := [0, 0]
 	for actor in actors.values():
 		if actor.hp > 0:
@@ -2143,6 +2319,9 @@ func update_visuals(delta: float) -> void:
 			var foe = actors[enemies[i]]
 			enemy_buttons[i].text = "%s  %d HP%s" % [foe.champion, ceili(foe.hp), "  STUN" if foe.stunned > 0 else ""]
 			enemy_buttons[i].add_theme_color_override("font_color", Kits.color(foe.champion))
+	# Before the bar: it maintains cc_total, which the slots use as the sweep
+	# denominator.
+	update_cc_tracker()
 	for slot in range(TOTAL_SLOTS):
 		var button := ability_buttons[slot]
 		var ability := kit_slot(slot)
@@ -2170,14 +2349,20 @@ func update_visuals(delta: float) -> void:
 		# running, and never on an off-GCD ability.
 		var own: float = actor.cooldowns[ability]
 		var global_cd: float = 0.0 if spell.off else actor.gcd
-		if own > 0.0:
+		# Crowd control is a real reason the slot is unusable, so it sweeps too.
+		# Whichever wait is LONGER wins the slot, because that is the honest
+		# answer to "when can I press this" — a 16s cooldown outlives a 2s stun,
+		# and a 4s lockout outlives a spell that is already off cooldown.
+		var held: float = cc_block_remaining(actor, spell)
+		if held > own and held > 0.0:
+			cooldown_overlays[slot].sync(held, maxf(cc_total, held), false)
+		elif own > 0.0:
 			cooldown_overlays[slot].sync(own, maxf(spell.cd, own), false)
 		elif global_cd > 0.0:
 			cooldown_overlays[slot].sync(global_cd, GCD_DURATION, true)
 		else:
 			cooldown_overlays[slot].sync(0.0, 0.0, false)
 		button.modulate = Color("83919e") if actor.hp <= 0 else Color.WHITE
-	update_cc_tracker()
 	update_ability_tooltip()
 
 # Aura strips live at child index 4 of a unit frame. Party and enemy rows are
@@ -2270,6 +2455,21 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_TAB:
 			cycle_target()
+		# C challenges whoever you have targeted; Y accepts an offer. Both route
+		# through the server, which owns the pairing.
+		if world_mode and event.keycode == KEY_C and selected_id != -1:
+			if authoritative():
+				offer_duel(local_id, selected_id)
+			else:
+				challenge_duel.rpc_id(1, selected_id)
+			return
+		if world_mode and event.keycode == KEY_Y and pending_offer != -1:
+			if authoritative():
+				confirm_duel(local_id)
+			else:
+				accept_duel.rpc_id(1)
+			pending_offer = -1
+			return
 		var bound := binds.find(event.keycode)
 		if bound >= 0 and binds[bound] != 0:
 			send_action(bound)
@@ -2306,6 +2506,8 @@ func parse_arguments() -> void:
 			wants_dedicated = true
 		elif arg == "--lobby":
 			private_lobby = true
+		elif arg == "--world":
+			world_mode = true
 		elif arg.begins_with("--port="):
 			explicit_port = clampi(int(arg.get_slice("=", 1)), 1, 65535)
 		elif arg.begins_with("--min-players="):
@@ -2316,6 +2518,10 @@ func parse_arguments() -> void:
 		mode = mode_choice.get_selected_id()
 		if explicit_port > 0:
 			current_port = explicit_port
+		elif world_mode:
+			current_port = Config.WORLD_PORT
+			# The world opens for the first person through the door.
+			min_players = 1
 		elif private_lobby:
 			current_port = Config.LOBBY_PORTS[0]
 		else:

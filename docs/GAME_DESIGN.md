@@ -25,6 +25,12 @@ Intended experience:
 
 **Duel · 1v1** — two players, one champion each.
 
+**World** — a persistent hangout on the arena map. One always-running server, no queue, no lobby, no rounds, no timer and no victory. You walk in, you are there, and other people are walking around with you.
+
+**Damage is refused between people who have not agreed to a duel**, so standing around is safe and every fight is one both people chose. Target someone and press **C** to challenge; they press **Y** to accept. Both are restored to full health and cleared of stuns when a duel begins, so it is never decided by who was already hurt. Losing ends the duel and brings you back at full health a few seconds later — there is no death in the world, only a defeat.
+
+A bystander cannot damage either duellist. Latecomers are spawned into the running world without restarting it for anyone already there.
+
 **Team arena · 3v3** — six players per match, three per team. Local sparring auto-fills a team with a healer, melee fighter, and ranged caster if role slots are empty. Human champion choices in networked matches are unrestricted.
 
 A three-second countdown starts each round. A round ends when every member of one team is dead. Teammates keep fighting when one falls. No resurrection, no respawn during a round.
@@ -176,6 +182,12 @@ Each chip shows **the icon of the ability that caused the effect** — an Ember 
 **Auras are derived, never stored.** `scripts/auras.gd` reads the timers the simulation already keeps (`stunned`, `locked`, `shield`, `sprint`, `dr_timer`) rather than maintaining a second list. A displayed aura therefore cannot disagree with the simulation, and nothing extra has to be replicated. The shield field is one mechanic with four names — Ward, Iron Skin, Umbra, Sanctuary — chosen by the champion carrying it.
 
 Diminishing returns is surfaced as an aura even though it is not an effect on the fighter, because it decides whether your next stun is worth casting.
+
+## Crowd control on the action bars
+
+A stun or a lockout sweeps the slots it prevents, exactly like a cooldown, so the bar always answers "when can I press this". Whichever wait is **longer** owns the slot — a 16 s cooldown outlives a 2 s stun, and a 4 s lockout outlives a spell that is already ready.
+
+The lockout sweep mirrors the exemptions the simulation already applies: Vanguard ignores spell lockout, and defensive or movement abilities still work through it, so those slots stay clear.
 
 ## Crowd control tracker
 

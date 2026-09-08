@@ -20,6 +20,8 @@ Until all three exist, buddies play by manually launching Godot from a checkout.
 
 ## Recently completed (this batch)
 
+- **Authored Sanctum quality section:** one carved cover, surrounding fitted stone floor and arched west wall now use Blender-authored meshes, separate UV-based PBR materials and native baked lighting in Compatibility. No new collision. Runtime environment budget approximately 7.8 MiB including meshes and lightmap; map57/57, combat81/81. Rebuild and continuation notes: `ART_SLICE_HANDOFF.md`. Actual render: `artifacts/sanctum-slice.png`. Remaining arena still uses the procedural art.
+
 - **Cosmic Sanctum richness pass:** distinct basalt, worn floor, blue terrace tile and bronze materials; triplanar derivative relief; true emissive glyphs; animated banners, embers and floating debris; two distant watcher shrines; depth fog and a cached sky with a cheap motion layer. Visible cover now matches its existing collision width. No new textures or colliders. Map 57/57 and combat 65/65; visual review in `artifacts/sanctum-*.png`. Details in `ART_DIRECTION.md`.
 
 - **Roster art pass:** 20 painted ability icons cover all three seven-slot kits; original in-engine Ember, Vanguard and Luminary models replace capsules, with procedural movement/cast/hit/defeat poses. Owner explicitly authorized this art work. See `ART_DIRECTION.md`; review boards regenerate with `tools/art_review.gd`.

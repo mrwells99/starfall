@@ -12,7 +12,7 @@ from pathlib import Path
 from mathutils import Vector
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / 'assets/environment/slice'
+OUT = ROOT / 'assets-source/sanctum_slice'
 random.seed(731)
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete(use_global=False)

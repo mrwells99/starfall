@@ -10,6 +10,8 @@ const VERSION := "0.5.0"
 const SERVER_ADDRESS := "play.leafmods.com"
 const DUEL_PORT := 27840
 const TEAM_PORT := 27841
+# The persistent world: one always-running server, no queue and no lobby.
+const WORLD_PORT := 27842
 # Kept as an alias for legacy references / offline defaults.
 const SERVER_PORT := DUEL_PORT
 const DEFAULT_MIN_PLAYERS := 2
