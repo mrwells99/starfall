@@ -1,0 +1,80 @@
+extends RefCounted
+
+# Buffs and debuffs, derived rather than stored.
+#
+# Every effect in the game is already a timer on the combatant — `stunned`,
+# `locked`, `shield`, `sprint`, `dr_timer`. Storing a second parallel list of
+# "active auras" would mean two sources of truth that can disagree, and would
+# have to be replicated separately. Instead this reads the fields that are
+# already authoritative and already in every snapshot, so an aura cannot be
+# shown that the simulation does not believe in.
+#
+# Display names depend on champion: the same shield field is Ward on Ember,
+# Iron Skin on Vanguard, Umbra on Fulcrum, and Sanctuary when a Luminary put it
+# there. Only the name changes — the mechanic is one field.
+
+const DEBUFF := "debuff"
+const BUFF := "buff"
+
+static func shield_name(champion: String) -> String:
+	match champion:
+		"Vanguard":
+			return "Iron Skin"
+		"Fulcrum":
+			return "Umbra"
+		"Luminary":
+			return "Sanctuary"
+		_:
+			return "Ward"
+
+# Returns active auras, most urgent first, as
+# {key, name, kind, remaining, description, color}.
+static func active(actor) -> Array:
+	var out: Array = []
+	if actor == null or actor.hp <= 0:
+		return out
+	if actor.stunned > 0:
+		out.append({
+			"key": "stun", "name": "Stunned", "kind": DEBUFF,
+			"remaining": actor.stunned, "color": Color("ff7d92"),
+			"description": "Cannot move, act or cast. Damage does not break it. Dispel removes it.",
+		})
+	if actor.locked > 0:
+		out.append({
+			"key": "lockout", "name": "Spell Lockout", "kind": DEBUFF,
+			"remaining": actor.locked, "color": Color("e8845f"),
+			"description": "Interrupted. Most abilities are unusable; defensive and movement abilities still work.",
+		})
+	if actor.shield > 0:
+		out.append({
+			"key": "shield", "name": shield_name(actor.champion), "kind": BUFF,
+			"remaining": actor.shield, "color": Color("6fe3ff"),
+			"description": "Takes 60% less damage from every hit. Does not prevent control or interrupts.",
+		})
+	if actor.sprint > 0:
+		out.append({
+			"key": "sprint", "name": "Grace", "kind": BUFF,
+			"remaining": actor.sprint, "color": Color("97edb1"),
+			"description": "Moves 65% faster. Does not increase jump height or clear stuns.",
+		})
+	# Diminishing returns is not an effect on the fighter, but it decides whether
+	# your next stun is worth casting, so it belongs on the frame.
+	if actor.dr_timer > 0 and actor.dr_count > 0:
+		var next_text := "immune to further stuns"
+		if actor.dr_count == 1:
+			next_text = "next stun lasts 50%"
+		elif actor.dr_count == 2:
+			next_text = "next stun lasts 25%"
+		out.append({
+			"key": "dr", "name": "Diminished %d" % actor.dr_count, "kind": DEBUFF,
+			"remaining": actor.dr_timer, "color": Color("c9a0ff"),
+			"description": "Recently stunned — %s. Resets 18s after the last stun ends." % next_text,
+		})
+	return out
+
+# Compact form for overhead nameplates, where there is no room for a panel.
+static func nameplate_text(actor) -> String:
+	var parts: Array[String] = []
+	for aura in active(actor):
+		parts.append("%s %.0fs" % [aura.name, ceil(aura.remaining)])
+	return "  ".join(parts)

@@ -165,5 +165,71 @@ func run() -> void:
 	check(arena.cooldown_overlays[1].remaining == 0.0, "Sweep clears when the cooldown ends")
 	check(arena.CooldownOverlay.format_time(72.0) == "2m" and arena.CooldownOverlay.format_time(12.4) == "13"
 		and arena.CooldownOverlay.format_time(3.4) == "3.4", "Countdown formats like OmniCC")
+	# --- aura chips on the unit frame -----------------------------------------
+	var me2 = arena.actors[arena.local_id]
+	me2.stunned = 3.0
+	me2.shield = 5.0
+	arena.update_visuals(0)
+	var strip := arena.player_frame.get_child(4) as HBoxContainer
+	var shown := 0
+	for chip in strip.get_children():
+		if (chip as PanelContainer).visible:
+			shown += 1
+	check(shown == 2, "Active auras appear as chips on the unit frame")
+	var first := strip.get_child(0) as PanelContainer
+	check(first.has_meta("aura") and (first.get_child(0) as Label).text.contains("Stunned"),
+		"Aura chip is labelled and carries its data")
+	# Hovering a chip explains the effect.
+	point_mouse(first.get_global_rect().get_center())
+	arena.update_ability_tooltip()
+	check(arena.ability_tooltip.visible and arena.ability_tooltip.label.text.contains("Cannot move"),
+		"Hovering an aura describes it")
+	me2.stunned = 0
+	me2.shield = 0
+	arena.update_visuals(0)
+	var still := 0
+	for chip in strip.get_children():
+		if (chip as PanelContainer).visible:
+			still += 1
+	check(still == 0, "Chips clear when the effects expire")
+
+	# --- edit mode: layout, keybinds, ability assignment ----------------------
+	arena.toggle_edit_mode(true)
+	check(arena.edit_mode and arena.edit_overlay.visible, "Edit mode shows its overlay")
+	check(arena.ability_buttons[0].mouse_filter == Control.MOUSE_FILTER_IGNORE,
+		"Hotbar stops swallowing clicks while editing")
+	# Swapping two slots moves the abilities, not the cooldowns underneath.
+	var before_first: int = arena.assignment[0]
+	var before_last: int = arena.assignment[6]
+	arena.swap_slots(0, 6)
+	check(arena.assignment[0] == before_last and arena.assignment[6] == before_first,
+		"Dragging one slot onto another swaps the abilities")
+	check(arena.kit_slot(0) == before_last, "Bar position resolves to the assigned ability")
+	arena.swap_slots(0, 6)
+	# Rebinding is de-duplicated: taking a key from another slot gives that slot
+	# the key it replaced, so no key ever fires two abilities.
+	arena.begin_rebind(2)
+	check(arena.rebinding == 2, "Clicking a slot starts a rebind")
+	arena.finish_rebind(KEY_1)
+	check(arena.binds[2] == KEY_1 and arena.binds[0] != KEY_1, "Rebinding steals the key from its old slot")
+	check(arena.binds[0] == KEY_3, "The displaced slot inherits the freed key")
+	arena.reset_layout()
+	check(arena.binds[0] == KEY_1 and arena.binds[2] == KEY_3 and arena.assignment[3] == 3,
+		"Reset restores default binds and assignment")
+	arena.toggle_edit_mode(false)
+	check(not arena.edit_mode and not arena.edit_overlay.visible, "Done leaves edit mode")
+	check(arena.ability_buttons[0].mouse_filter == Control.MOUSE_FILTER_STOP, "Hotbar is clickable again")
+
+	# A malformed saved assignment must be refused whole, not half-applied —
+	# a duplicate entry would make one ability unreachable.
+	arena.config.set_value("hud", "assignment", [0, 0, 1, 2, 3, 4, 5])
+	arena.load_layout()
+	var default_order := true
+	for i in range(7):
+		if arena.assignment[i] != i:
+			default_order = false
+	check(default_order, "A duplicated assignment is rejected")
+	arena.config.set_value("hud", "assignment", [])
+
 	print("UI checks: %d passed / %d total" % [checks - failures, checks])
 	quit(1 if failures else 0)

@@ -163,6 +163,30 @@ A / D **strafe** rather than turn — a deliberate divergence from the WoW defau
 | Hold LMB | Orbit camera independently |
 | Hold both mouse buttons | Run forward |
 | F11 or Alt+Enter | Toggle fullscreen / windowed |
+| 1–7 (rebindable) | Hotbar slots. Keys and slot contents are set in Edit HUD. |
+
+## Buffs and debuffs
+
+Every effect is shown as a chip on the unit frame and again on the overhead nameplate, with its own countdown, and hovering a chip explains what it does. Stun, spell lockout, the damage-reduction shield, Grace, and diminishing-return stacks are all covered.
+
+**Auras are derived, never stored.** `scripts/auras.gd` reads the timers the simulation already keeps (`stunned`, `locked`, `shield`, `sprint`, `dr_timer`) rather than maintaining a second list. A displayed aura therefore cannot disagree with the simulation, and nothing extra has to be replicated. The shield field is one mechanic with four names — Ward, Iron Skin, Umbra, Sanctuary — chosen by the champion carrying it.
+
+Diminishing returns is surfaced as an aura even though it is not an effect on the fighter, because it decides whether your next stun is worth casting.
+
+## Edit HUD
+
+Settings → **Edit HUD**, WoW's Edit Mode in miniature:
+
+- Drag any frame — player, target, focus, party, enemies, hotbar — to move it. Positions are clamped on screen so nothing can be lost off an edge.
+- Click a hotbar slot to rebind its key. A key already in use is **swapped**, not duplicated, so no key ever fires two abilities.
+- Drag one hotbar slot onto another to swap which abilities sit where.
+- **Reset layout** restores the defaults.
+
+All of it is client-side presentation. The bar position a player chooses is translated to a kit index before anything reaches the simulation, so the server neither knows nor cares. Saved to `user://starfall.cfg` alongside display settings; a corrupt or malformed file falls back to defaults rather than producing a broken client — a saved assignment with a duplicate or out-of-range entry is rejected whole rather than half-applied.
+
+## Display settings
+
+Settings offers windowed, borderless fullscreen and exclusive fullscreen, plus a resolution picker filtered to what the monitor can actually show. Resolution is disabled in the fullscreen modes rather than hidden, so it is clear why it does not apply.
 | Wheel | Zoom (3–18 m); camera retracts against geometry |
 | Tab | Cycle living enemies |
 | Click a character / world | Camera control only; **never** changes target |

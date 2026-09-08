@@ -28,7 +28,14 @@ func _init() -> void:
 	hide()
 
 func present(ability: Dictionary, champion: String, pointer: Vector2, bounds: Vector2) -> void:
-	var text := Kits.description(ability, champion)
+	show_text(Kits.description(ability, champion), pointer, bounds)
+
+# Auras reuse this panel rather than adding a second tooltip that would need its
+# own placement and sizing logic.
+func present_text(text: String, pointer: Vector2, bounds: Vector2) -> void:
+	show_text(text, pointer, bounds)
+
+func show_text(text: String, pointer: Vector2, bounds: Vector2) -> void:
 	var width := minf(360, bounds.x - 40)
 	var key := "%s:%s" % [width, text]
 	if key != content_key:

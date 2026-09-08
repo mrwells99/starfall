@@ -211,5 +211,36 @@ func run() -> void:
 	await settle()
 	check(not arena.try_spell(1, 6, foe_target.actor_id), "Tether respects its range")
 
+	# --- auras are derived from simulation state, never stored separately -----
+	await reset("Ember", 1)
+	var Auras = load("res://scripts/auras.gd")
+	var subject = arena.actors[1]
+	subject.stunned = 2.4
+	subject.shield = 4.0
+	var list: Array = Auras.active(subject)
+	var keys: Array = []
+	for a in list:
+		keys.append(a.key)
+	check(keys.has("stun") and keys.has("shield"), "Auras reflect live simulation fields")
+	for a in list:
+		if a.key == "stun":
+			check(a.kind == Auras.DEBUFF and is_equal_approx(a.remaining, 2.4), "Stun aura carries its own timer")
+			check(not a.description.is_empty(), "Stun aura explains itself")
+		if a.key == "shield":
+			check(a.name == "Ward", "Shield aura is named for Ember's ability")
+	check(Auras.shield_name("Vanguard") == "Iron Skin" and Auras.shield_name("Fulcrum") == "Umbra"
+		and Auras.shield_name("Luminary") == "Sanctuary", "One shield field, four champion names")
+	subject.hp = 0
+	check(Auras.active(subject).is_empty(), "A defeated fighter shows no auras")
+	subject.hp = 100
+	subject.stunned = 0
+	subject.shield = 0
+	check(Auras.active(subject).is_empty(), "Auras clear when their timers do")
+	subject.dr_count = 2
+	subject.dr_timer = 9.0
+	var dr_list: Array = Auras.active(subject)
+	check(dr_list.size() == 1 and dr_list[0].key == "dr" and dr_list[0].description.contains("25%"),
+		"Diminishing returns is surfaced with what the next stun will do")
+
 	print("Combat checks: %d passed / %d total" % [checks - failures, checks])
 	quit(1 if failures else 0)

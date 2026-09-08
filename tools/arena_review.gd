@@ -15,6 +15,8 @@ func run() -> void:
 		push_error("Arena review needs a rendering window.")
 		quit(1)
 		return
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	DisplayServer.window_set_size(Vector2i(1600, 1000))
 	var arena = load("res://arena.tscn").instantiate()
 	root.add_child(arena)
 	root.size = Vector2i(1600, 1000)
@@ -23,7 +25,7 @@ func run() -> void:
 	arena.ui.hide()
 	var overview := Camera3D.new()
 	arena.add_child(overview)
-	overview.position = Vector3(39, 29, 44)
+	overview.position = Vector3(32, 26, 36)
 	overview.fov = 62
 	overview.look_at(Vector3(0, 1.5, -2))
 	overview.current = true
@@ -40,4 +42,5 @@ func run() -> void:
 	arena.update_visuals(0.0)
 	await capture("res://artifacts/sanctum-gameplay.png")
 	print("Arena review captured: overview, detail, gameplay")
+	print("Render: %d draw calls, %d primitives" % [Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME)])
 	quit()

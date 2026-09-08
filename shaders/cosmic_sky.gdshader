@@ -1,7 +1,8 @@
 shader_type sky;
 render_mode use_debanding;
 
-// The background can sample its one-time, in-memory panorama; stars remain pin sharp.
+// One-time, in-memory panorama plus crisp stars. The animated celestial shell
+// supplies wisps without TIME invalidating this sky's cached radiance cubemap.
 uniform sampler2D baked_panorama : source_color, filter_linear, repeat_enable;
 uniform bool use_baked_panorama = false;
 #include "res://shaders/cosmic_sky_common.gdshaderinc"

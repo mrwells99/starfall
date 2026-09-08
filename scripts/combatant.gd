@@ -6,6 +6,7 @@ var team := 0
 var champion := "Ember"
 var hp := 100.0
 var kit: Array = []
+const Auras = preload("res://scripts/auras.gd")
 var cooldowns: Array = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 var gcd := 0.0
 var casting := -1
@@ -128,18 +129,22 @@ func visual_tick(delta: float, camera: Camera3D) -> void:
 		cast_mesh.position.x = -0.77 * (1.0 - done)
 		if camera and (camera.global_position - cast_pivot.global_position).cross(Vector3.UP).length() > 0.01:
 			cast_pivot.look_at(camera.global_position, Vector3.UP, true)
+	# The nameplate carries the cast on one line and every active aura on the
+	# next, so you can read an enemy's crowd control from across the arena
+	# without having to target them. Auras.active() is the same source the unit
+	# frames use, so the two can never disagree.
 	var state := ""
 	if hp <= 0:
-		state = "DEAD"
-	elif stunned > 0:
-		state = "STUN %.1fs" % stunned
-	elif locked > 0:
-		state = "LOCKED %.1fs" % locked
+		state = "DEFEATED"
 	elif casting >= 0:
 		state = "%s %.1fs" % [kit[casting].name, cast_left]
-	elif shield > 0:
-		state = "WARD %.1fs" % shield
-	nameplate.text = "%s %s\n%s" % [champion, "[BOT]" if owner_peer == 0 else "", state]
+	var effects := "" if hp <= 0 else Auras.nameplate_text(self)
+	var lines := "%s %s" % [champion, "[BOT]" if owner_peer == 0 else ""]
+	if not state.is_empty():
+		lines += "\n" + state
+	if not effects.is_empty():
+		lines += "\n" + effects
+	nameplate.text = lines
 
 func snapshot() -> Dictionary:
 	return {"id": actor_id, "peer": owner_peer, "team": team, "champion": champion, "pos": position, "yaw": rotation.y, "hp": hp, "cd": cooldowns.duplicate(), "gcd": gcd, "casting": casting, "left": cast_left, "stun": stunned, "lock": locked, "shield": shield, "sprint": sprint, "dr": dr_count, "dr_timer": dr_timer, "target": target_id}

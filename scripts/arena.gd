@@ -8,6 +8,11 @@ const Config = preload("res://scripts/config.gd")
 # same number the simulation uses, so it lives here rather than inline.
 const GCD_DURATION := 1.5
 const CooldownOverlay = preload("res://scripts/cooldown_overlay.gd")
+const Auras = preload("res://scripts/auras.gd")
+const UserConfig = preload("res://scripts/user_config.gd")
+# Most fighters carry one or two effects; five is beyond anything the current
+# kits can stack, and pooling avoids rebuilding nodes every frame.
+const AURA_SLOTS := 5
 
 # --- UI palette ---------------------------------------------------------------
 # One place for every colour the interface uses, so the menu, the HUD and the
@@ -110,6 +115,28 @@ var queue_row: HBoxContainer
 var host_row: HBoxContainer
 var join_row: HBoxContainer
 var code_field: LineEdit
+var config := UserConfig.new()
+var settings_row: HBoxContainer
+var window_mode_choice: OptionButton
+var resolution_choice: OptionButton
+# --- edit mode ----------------------------------------------------------------
+# HUD layout, keybinds and hotbar assignment are all player-owned client state,
+# so they live in the same config file and none of them touch the simulation.
+var edit_mode := false
+var edit_overlay: Control
+var edit_hint: Label
+var dragging: Control = null
+var drag_offset := Vector2.ZERO
+# binds[slot] is the physical keycode that fires that hotbar slot.
+var binds: Array[int] = [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7]
+# assignment[slot] is which ability of the champion's kit that slot casts. The
+# identity mapping is the default; editing it is how a player moves Blink onto
+# slot 1 without the server needing to know anything about it.
+var assignment: Array[int] = [0, 1, 2, 3, 4, 5, 6]
+var rebinding := -1
+var drag_slot := -1
+var movable_frames: Array[Control] = []
+var hotbar_root: HBoxContainer
 var lobby_code := ""
 var intent := ""
 var probe_index := 0
@@ -132,7 +159,14 @@ func _ready() -> void:
 	# launch screen displayed every submenu at once — Online, Offline, the lobby
 	# rows and the code field all stacked on top of each other.
 	refresh_menu()
+	# Layout has to settle before frames can be re-anchored to their real rects.
+	call_deferred("initialise_player_config")
 	parse_arguments()
+
+func initialise_player_config() -> void:
+	load_settings()
+	register_movable_frames()
+	load_layout()
 
 func authoritative() -> bool:
 	return not network or multiplayer.is_server()
@@ -255,7 +289,49 @@ func unit_frame(pos: Vector2, color: Color) -> VBoxContainer:
 	frame.add_child(styled_bar(color, 27))
 	frame.add_child(styled_bar(GOLD, 22))
 	add_label(frame, "", 14)
+	var auras := HBoxContainer.new()
+	auras.add_theme_constant_override("separation", 3)
+	auras.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.add_child(auras)
+	for i in range(AURA_SLOTS):
+		auras.add_child(aura_widget())
 	return frame
+
+# One aura chip: a coloured border, an abbreviated name and a countdown. Hover
+# detection is done by rectangle test in update_ability_tooltip(), the same way
+# the hotbar does it, so the chips do not need to swallow mouse events.
+func aura_widget() -> PanelContainer:
+	var chip := PanelContainer.new()
+	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	chip.custom_minimum_size = Vector2(0, 22)
+	chip.hide()
+	var label := Label.new()
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.add_theme_font_size_override("font_size", 13)
+	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
+	label.add_theme_constant_override("shadow_offset_x", 1)
+	label.add_theme_constant_override("shadow_offset_y", 1)
+	chip.add_child(label)
+	return chip
+
+func paint_aura(chip: PanelContainer, aura: Dictionary) -> void:
+	chip.show()
+	chip.set_meta("aura", aura)
+	var tint: Color = aura.color
+	var box := ui_box(Color(tint.r * 0.22, tint.g * 0.22, tint.b * 0.22, 0.92), tint, 4)
+	box.content_margin_left = 6
+	box.content_margin_right = 6
+	box.content_margin_top = 2
+	box.content_margin_bottom = 2
+	chip.add_theme_stylebox_override("panel", box)
+	var label := chip.get_child(0) as Label
+	label.add_theme_color_override("font_color", tint)
+	label.text = "%s %s" % [aura.name, format_aura_time(aura.remaining)]
+
+# Long effects do not need tenths; the last few seconds do, because that is when
+# you are deciding whether to wait it out.
+static func format_aura_time(t: float) -> String:
+	return "%.0fs" % ceil(t) if t >= 10.0 else "%.1fs" % t
 
 func build_ui() -> void:
 	var layer := CanvasLayer.new()
@@ -292,7 +368,8 @@ func build_ui() -> void:
 	help.offset_top = -185
 	help.offset_right = 400
 	help.offset_bottom = -100
-	var hotbar := HBoxContainer.new()
+	hotbar_root = HBoxContainer.new()
+	var hotbar := hotbar_root
 	ui.add_child(hotbar)
 	hotbar.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
 	hotbar.offset_left = -340
@@ -369,6 +446,7 @@ func build_ui() -> void:
 	stack.add_child(main_row)
 	style_button(add_button(main_row, "Online", func(): menu_state = "online"; refresh_menu()), true)
 	add_button(main_row, "Offline", func(): menu_state = "offline"; refresh_menu())
+	add_button(main_row, "Settings", func(): menu_state = "settings"; refresh_menu())
 	offline_row = HBoxContainer.new()
 	offline_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	offline_row.add_theme_constant_override("separation", 10)
@@ -383,6 +461,13 @@ func build_ui() -> void:
 	add_button(online_row, "Host lobby", func(): menu_state = "host"; refresh_menu())
 	add_button(online_row, "Join lobby", func(): menu_state = "join"; refresh_menu())
 	add_button(online_row, "Back", func(): menu_state = "main"; refresh_menu())
+	settings_row = HBoxContainer.new()
+	settings_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	settings_row.add_theme_constant_override("separation", 10)
+	stack.add_child(settings_row)
+	style_button(add_button(settings_row, "Apply", apply_settings), true)
+	add_button(settings_row, "Edit HUD", func(): toggle_edit_mode(true))
+	add_button(settings_row, "Back", func(): menu_state = "main"; refresh_menu())
 	queue_row = HBoxContainer.new()
 	queue_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	queue_row.add_theme_constant_override("separation", 10)
@@ -412,6 +497,17 @@ func build_ui() -> void:
 	join_row.add_child(code_field)
 	style_button(add_button(join_row, "Join", func(): join_lobby(code_field.text)), true)
 	add_button(join_row, "Back", func(): menu_state = "online"; refresh_menu())
+	window_mode_choice = OptionButton.new()
+	window_mode_choice.add_item("Windowed", UserConfig.WINDOW_WINDOWED)
+	window_mode_choice.add_item("Fullscreen (borderless)", UserConfig.WINDOW_BORDERLESS)
+	window_mode_choice.add_item("Fullscreen (exclusive)", UserConfig.WINDOW_EXCLUSIVE)
+	style_picker(window_mode_choice)
+	stack.add_child(window_mode_choice)
+	resolution_choice = OptionButton.new()
+	for res in UserConfig.available_resolutions():
+		resolution_choice.add_item("%d x %d" % [res.x, res.y])
+	style_picker(resolution_choice)
+	stack.add_child(resolution_choice)
 	# Players never see the server address; this stays as a value holder for tests
 	# and for the --join= command-line path. It is parented but hidden so the scene
 	# owns it — an orphaned Control leaks its font and canvas RIDs at exit.
@@ -438,6 +534,7 @@ func build_ui() -> void:
 	exit_button = add_button(stack, "Return to menu", func(): leave_session("Returned to menu."))
 	ability_tooltip = preload("res://scripts/ability_tooltip.gd").new()
 	ui.add_child(ability_tooltip)
+	build_edit_overlay()
 
 func spawn_actor(id: int, peer: int, side: int, choice: String, pos: Vector3) -> void:
 	var actor = Fighter.new()
@@ -814,6 +911,16 @@ func refresh_menu() -> void:
 		offline_row.visible = in_menu and menu_state == "offline"
 	if online_row:
 		online_row.visible = in_menu and menu_state == "online"
+	if settings_row:
+		settings_row.visible = in_menu and menu_state == "settings"
+	if window_mode_choice:
+		window_mode_choice.visible = in_menu and menu_state == "settings"
+	if resolution_choice:
+		# Resolution only means anything in windowed mode; fullscreen adopts the
+		# monitor. Showing a disabled picker is clearer than hiding it, because
+		# it explains why the setting is unavailable.
+		resolution_choice.visible = in_menu and menu_state == "settings"
+		resolution_choice.disabled = window_mode_choice != null and window_mode_choice.get_selected_id() != UserConfig.WINDOW_WINDOWED
 	if queue_row:
 		queue_row.visible = in_menu and menu_state == "queue"
 	if host_row:
@@ -838,8 +945,258 @@ func refresh_menu() -> void:
 				lobby_text.text = "Enter the %d-character code a friend gave you." % Config.CODE_LENGTH
 			"offline":
 				lobby_text.text = "Spar against bots.\nEmpty team slots are filled automatically."
+			"settings":
+				lobby_text.text = "Display settings apply immediately and are remembered.\nEdit HUD lets you move frames and rebind abilities."
 			_:
 				lobby_text.text = "Online plays against people.\nOffline is local sparring against bots."
+
+# --- edit mode ----------------------------------------------------------------
+# WoW's Edit Mode in miniature: drag frames where you want them, click a hotbar
+# slot to rebind its key, drag one slot onto another to swap abilities. All of
+# it is client-side presentation — the server is never told and never cares.
+
+# Returns true when the event belonged to edit mode and must not travel further.
+func handle_edit_input(event: InputEvent) -> bool:
+	if event is InputEventKey and event.pressed and not event.echo:
+		if rebinding >= 0:
+			if event.keycode == KEY_ESCAPE:
+				rebinding = -1
+				refresh_edit_hint()
+			else:
+				finish_rebind(event.keycode)
+			return true
+		if event.keycode == KEY_ESCAPE:
+			toggle_edit_mode(false)
+			return true
+		return false
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		var point: Vector2 = ui.get_global_mouse_position()
+		if event.pressed:
+			var slot := hotbar_slot_at(point)
+			if slot >= 0:
+				drag_slot = slot
+				return true
+			var frame := movable_at(point)
+			if frame != null:
+				dragging = frame
+				drag_offset = frame.position - point
+				return true
+			return false
+		# Release: a slot press that ends on another slot swaps the two
+		# abilities; one that ends where it began is a click, meaning rebind.
+		if drag_slot >= 0:
+			var target := hotbar_slot_at(point)
+			if target >= 0 and target != drag_slot:
+				swap_slots(drag_slot, target)
+			elif target == drag_slot:
+				begin_rebind(drag_slot)
+			drag_slot = -1
+			return true
+		if dragging != null:
+			dragging = null
+			save_layout()
+			return true
+		return false
+	if event is InputEventMouseMotion and dragging != null:
+		# Clamped so a frame cannot be dragged entirely off-screen and lost.
+		var wanted: Vector2 = ui.get_global_mouse_position() + drag_offset
+		var limit: Vector2 = ui.size - dragging.size
+		dragging.position = Vector2(clampf(wanted.x, 0, maxf(0, limit.x)), clampf(wanted.y, 0, maxf(0, limit.y)))
+		return true
+	return false
+
+func build_edit_overlay() -> void:
+	edit_overlay = Control.new()
+	edit_overlay.name = "EditOverlay"
+	# Ignore the mouse: dragging is resolved by rectangle tests in _input, so the
+	# overlay must not sit between the cursor and the frames being moved.
+	edit_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	edit_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	edit_overlay.hide()
+	ui.add_child(edit_overlay)
+	var wash := ColorRect.new()
+	wash.color = Color(UI_VOID.r, UI_VOID.g, UI_VOID.b, 0.45)
+	wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	edit_overlay.add_child(wash)
+	var banner := PanelContainer.new()
+	banner.add_theme_stylebox_override("panel", ui_box(UI_PANEL, UI_ACCENT, 8))
+	banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	banner.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	banner.offset_left = -430
+	banner.offset_right = 430
+	banner.offset_top = 24
+	edit_overlay.add_child(banner)
+	edit_hint = Label.new()
+	edit_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	edit_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	edit_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	edit_hint.add_theme_font_size_override("font_size", 14)
+	edit_hint.add_theme_color_override("font_color", UI_ACCENT)
+	banner.add_child(edit_hint)
+	var controls := HBoxContainer.new()
+	controls.alignment = BoxContainer.ALIGNMENT_CENTER
+	controls.add_theme_constant_override("separation", 10)
+	controls.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	controls.offset_left = -220
+	controls.offset_right = 220
+	controls.offset_top = 96
+	edit_overlay.add_child(controls)
+	style_button(add_button(controls, "Done", func(): toggle_edit_mode(false)), true)
+	add_button(controls, "Reset layout", reset_layout)
+
+# Frames the player may reposition. Registered after build_ui() so the list is
+# built from the nodes that actually exist rather than repeated by hand.
+func register_movable_frames() -> void:
+	movable_frames.clear()
+	for frame in [player_frame, target_frame, focus_frame, party_box, enemy_box, hotbar_root]:
+		if frame == null:
+			continue
+		# Deliberately NOT re-anchored. These sit directly under `ui`, which is a
+		# plain Control rather than a container, so nothing re-lays them out and
+		# `position` already writes through to the anchor offsets. Leaving the
+		# anchors alone also means a frame pinned to the right edge stays pinned
+		# there when the window changes size.
+		movable_frames.append(frame)
+
+func movable_at(point: Vector2) -> Control:
+	# Reverse order so the topmost frame wins when two overlap.
+	for i in range(movable_frames.size() - 1, -1, -1):
+		var frame := movable_frames[i]
+		if frame != null and frame.is_visible_in_tree() and frame.get_global_rect().has_point(point):
+			return frame
+	return null
+
+func hotbar_slot_at(point: Vector2) -> int:
+	for slot in range(ability_buttons.size()):
+		var button := ability_buttons[slot]
+		if button.is_visible_in_tree() and button.get_global_rect().has_point(point):
+			return slot
+	return -1
+
+func toggle_edit_mode(on: bool) -> void:
+	edit_mode = on
+	rebinding = -1
+	dragging = null
+	if edit_overlay:
+		edit_overlay.visible = on
+	for button in ability_buttons:
+		button.mouse_filter = Control.MOUSE_FILTER_IGNORE if on else Control.MOUSE_FILTER_STOP
+	if on:
+		panel.hide()
+		release_mouse()
+	else:
+		save_layout()
+		panel.show()
+	refresh_edit_hint()
+	refresh_menu()
+
+func refresh_edit_hint() -> void:
+	if edit_hint == null:
+		return
+	if rebinding >= 0:
+		edit_hint.text = "Press a key for slot %d…    Esc cancels" % (rebinding + 1)
+	else:
+		edit_hint.text = "EDIT MODE — drag frames to move them · click a hotbar slot to rebind · drag one slot onto another to swap abilities · Esc or Done to finish"
+
+func begin_rebind(slot: int) -> void:
+	rebinding = slot
+	refresh_edit_hint()
+
+func finish_rebind(code: int) -> void:
+	if rebinding < 0:
+		return
+	# A key already used elsewhere is swapped rather than duplicated, so two
+	# slots can never answer the same key.
+	var existing := binds.find(code)
+	if existing >= 0 and existing != rebinding:
+		binds[existing] = binds[rebinding]
+	binds[rebinding] = code
+	rebinding = -1
+	save_layout()
+	refresh_binds()
+	refresh_edit_hint()
+
+func refresh_binds() -> void:
+	for slot in range(cooldown_overlays.size()):
+		cooldown_overlays[slot].set_key(OS.get_keycode_string(binds[slot]))
+
+func swap_slots(a: int, b: int) -> void:
+	if a == b or a < 0 or b < 0 or a >= assignment.size() or b >= assignment.size():
+		return
+	var carried := assignment[a]
+	assignment[a] = assignment[b]
+	assignment[b] = carried
+	save_layout()
+
+func save_layout() -> void:
+	config.set_value("hud", "binds", binds)
+	config.set_value("hud", "assignment", assignment)
+	var places := {}
+	for frame in movable_frames:
+		if frame != null:
+			places[frame.name] = frame.position
+	config.set_value("hud", "frames", places)
+	config.save_config()
+
+func load_layout() -> void:
+	var stored_binds = config.get_value("hud", "binds", [])
+	if stored_binds is Array and stored_binds.size() == binds.size():
+		for i in range(binds.size()):
+			binds[i] = int(stored_binds[i])
+	var stored_assign = config.get_value("hud", "assignment", [])
+	if stored_assign is Array and stored_assign.size() == assignment.size():
+		# Refuse a malformed table rather than half-applying it: a duplicated or
+		# out-of-range entry would make an ability unreachable.
+		var seen := {}
+		var ok := true
+		for value in stored_assign:
+			var index := int(value)
+			if index < 0 or index >= assignment.size() or seen.has(index):
+				ok = false
+				break
+			seen[index] = true
+		if ok:
+			for i in range(assignment.size()):
+				assignment[i] = int(stored_assign[i])
+	var places = config.get_value("hud", "frames", {})
+	if places is Dictionary:
+		for frame in movable_frames:
+			if frame != null and places.has(frame.name):
+				frame.position = places[frame.name]
+	refresh_binds()
+
+func reset_layout() -> void:
+	for i in range(binds.size()):
+		binds[i] = KEY_1 + i
+		assignment[i] = i
+	config.set_value("hud", "frames", {})
+	save_layout()
+	refresh_binds()
+
+func apply_settings() -> void:
+	config.set_value("display", "window_mode", window_mode_choice.get_selected_id())
+	var options := UserConfig.available_resolutions()
+	var index: int = clampi(resolution_choice.selected, 0, options.size() - 1)
+	if index >= 0 and index < options.size():
+		config.set_value("display", "resolution", options[index])
+	config.save_config()
+	config.apply_display()
+	refresh_menu()
+
+func load_settings() -> void:
+	config.load_config()
+	if window_mode_choice:
+		for i in range(window_mode_choice.item_count):
+			if window_mode_choice.get_item_id(i) == config.window_mode():
+				window_mode_choice.select(i)
+	if resolution_choice:
+		var options := UserConfig.available_resolutions()
+		var stored := config.resolution()
+		for i in range(options.size()):
+			if options[i] == stored:
+				resolution_choice.select(i)
+	config.apply_display()
 
 func host_start() -> void:
 	if authoritative() and phase in ["lobby", "results"]:
@@ -1160,14 +1517,24 @@ func validate_spell(actor, slot: int, victim_id: int) -> String:
 		return "Face your target"
 	return ""
 
+# Translates a hotbar position into the ability sitting in it. Everything below
+# this point — cooldowns, validation, the server — still speaks in kit indices.
+func kit_slot(bar_slot: int) -> int:
+	return assignment[bar_slot] if bar_slot >= 0 and bar_slot < assignment.size() else bar_slot
+
 func send_action(slot: int) -> void:
+	# In edit mode a hotbar click means "rebind me", not "cast me".
+	if edit_mode:
+		begin_rebind(slot)
+		return
 	if phase != "match" or not actors.has(local_id):
 		return
+	var ability := kit_slot(slot)
 	if authoritative():
-		try_spell(local_id, slot, selected_id)
+		try_spell(local_id, ability, selected_id)
 	else:
 		action_seq += 1
-		deliver_action(epoch, action_seq, slot, selected_id)
+		deliver_action(epoch, action_seq, ability, selected_id)
 
 func deliver_action(round_epoch: int, seq: int, slot: int, selected: int) -> void:
 	if latency_ms > 0:
@@ -1505,18 +1872,17 @@ func update_frame(frame: VBoxContainer, id: int, prefix: String) -> void:
 		var total: float = actor.kit[actor.casting].cast
 		cast.value = 100 * (1 - actor.cast_left / maxf(0.01, total))
 		(cast.get_child(0) as Label).text = "%s · %.1fs" % [actor.kit[actor.casting].name, actor.cast_left]
-	var statuses: Array[String] = []
-	if actor.hp <= 0:
-		statuses.append("DEAD")
-	if actor.stunned > 0:
-		statuses.append("STUN %.1fs" % actor.stunned)
-	if actor.locked > 0:
-		statuses.append("LOCKOUT %.1fs" % actor.locked)
-	if actor.shield > 0:
-		statuses.append("WARD %.1fs" % actor.shield)
-	if actor.dr_timer > 0:
-		statuses.append("DR %d · %.0fs" % [actor.dr_count, actor.dr_timer])
-	(frame.get_child(3) as Label).text = "  ".join(statuses)
+	(frame.get_child(3) as Label).text = "DEFEATED" if actor.hp <= 0 else ""
+	var strip := frame.get_child(4) as HBoxContainer
+	var auras := Auras.active(actor)
+	for i in range(AURA_SLOTS):
+		var chip := strip.get_child(i) as PanelContainer
+		if i < auras.size():
+			paint_aura(chip, auras[i])
+		else:
+			chip.hide()
+			if chip.has_meta("aura"):
+				chip.remove_meta("aura")
 
 func update_visuals(delta: float) -> void:
 	champion_choice.disabled = network
@@ -1562,17 +1928,18 @@ func update_visuals(delta: float) -> void:
 		if not button.visible:
 			continue
 		var actor = actors[local_id]
-		var spell: Dictionary = actor.kit[slot]
+		var ability := kit_slot(slot)
+		var spell: Dictionary = actor.kit[ability]
 		var art := AbilityArt.texture_for(spell.name)
 		ability_images[slot].texture = art
 		ability_images[slot].visible = art != null
 		ability_images[slot].modulate = Color("b6a4cf") if button.button_pressed else Color.WHITE
 		# Unillustrated abilities retain the existing text fallback.
-		button.text = "" if art != null or actor.cooldowns[slot] > 0.0 else spell.name
+		button.text = "" if art != null or actor.cooldowns[ability] > 0.0 else spell.name
 		# The ability's own cooldown wins the slot: it is the longer wait and the
 		# one worth a number. The global cooldown only shows where nothing else is
 		# running, and never on an off-GCD ability.
-		var own: float = actor.cooldowns[slot]
+		var own: float = actor.cooldowns[ability]
 		var global_cd: float = 0.0 if spell.off else actor.gcd
 		if own > 0.0:
 			cooldown_overlays[slot].sync(own, maxf(spell.cd, own), false)
@@ -1582,6 +1949,19 @@ func update_visuals(delta: float) -> void:
 			cooldown_overlays[slot].sync(0.0, 0.0, false)
 		button.modulate = Color("83919e") if actor.hp <= 0 else Color.WHITE
 	update_ability_tooltip()
+
+# Aura strips live at child index 4 of a unit frame. Party and enemy rows are
+# plain buttons with no strip, so they are skipped rather than special-cased.
+func aura_chip_at(frame: Node, pointer: Vector2) -> PanelContainer:
+	if frame == null or not (frame is VBoxContainer) or frame.get_child_count() < 5:
+		return null
+	if not (frame as Control).is_visible_in_tree():
+		return null
+	for chip in (frame.get_child(4) as HBoxContainer).get_children():
+		var panel := chip as PanelContainer
+		if panel.visible and panel.has_meta("aura") and panel.get_global_rect().has_point(pointer):
+			return panel
+	return null
 
 func party_ids() -> Array[int]:
 	var ids: Array[int] = []
@@ -1609,6 +1989,8 @@ func cycle_target() -> void:
 		selected_id = candidates[(candidates.find(selected_id) + 1) % candidates.size()]
 
 func _input(event: InputEvent) -> void:
+	if edit_mode and handle_edit_input(event):
+		return
 	if event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT] and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		get_viewport().set_input_as_handled()
 	if event is InputEventMouseButton and not event.pressed and event.button_index in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT]:
@@ -1658,8 +2040,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_TAB:
 			cycle_target()
-		if event.keycode >= KEY_1 and event.keycode <= KEY_7:
-			send_action(event.keycode - KEY_1)
+		var bound := binds.find(event.keycode)
+		if bound >= 0:
+			send_action(bound)
 		if event.keycode >= KEY_F1 and event.keycode <= KEY_F3:
 			select_party(event.keycode - KEY_F1)
 		if event.keycode == KEY_F:
@@ -1755,6 +2138,13 @@ func update_ability_tooltip() -> void:
 		ability_tooltip.hide()
 		return
 	var pointer := ui.get_global_mouse_position()
+	for frame in [player_frame, target_frame, focus_frame] + party_buttons + enemy_buttons:
+		var chip := aura_chip_at(frame, pointer)
+		if chip != null:
+			var aura: Dictionary = chip.get_meta("aura")
+			ability_tooltip.present_text("%s\n\n%s\n\n%s remaining" % [
+				aura.name, aura.description, format_aura_time(aura.remaining)], pointer, ui.size)
+			return
 	for slot in range(ability_buttons.size()):
 		var button := ability_buttons[slot]
 		if button.is_visible_in_tree() and button.get_global_rect().has_point(pointer):

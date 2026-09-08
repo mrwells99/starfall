@@ -1,5 +1,5 @@
 extends Node3D
-## The Shattered Sanctum. Collision is shared with navigation; chipped stone,
+## The Cosmic Sanctum. Collision is shared with navigation; chipped stone,
 ## rubble and light effects are decorative and cannot snag players or cameras.
 
 const BLUE = Color("62cfeb")
@@ -16,6 +16,8 @@ var _stone: ShaderMaterial
 var _dark_stone: ShaderMaterial
 var _floor_stone: ShaderMaterial
 var _trim: ShaderMaterial
+var _terrace_stone: ShaderMaterial
+var _rune: ShaderMaterial
 var _violet: ShaderMaterial
 var _white_energy: ShaderMaterial
 var _amber: ShaderMaterial
@@ -33,11 +35,12 @@ func material(color: Color, glow: bool = false) -> StandardMaterial3D:
 		mat.emission_energy_multiplier = 2.4
 	return mat
 
-func _rock_material(color: String, scale_value := 1.0) -> ShaderMaterial:
+func _rock_material(color: String, scale_value := 1.0, surface_kind := 0) -> ShaderMaterial:
 	var mat := ShaderMaterial.new()
 	mat.shader = StoneShader
 	mat.set_shader_parameter("stone_color", Color(color))
 	mat.set_shader_parameter("grain_scale", scale_value)
+	mat.set_shader_parameter("surface_kind", surface_kind)
 	mat.set_shader_parameter("slate_texture", load("res://assets/environment/sanctum_slate.png"))
 	return mat
 
@@ -97,13 +100,16 @@ func build_arena() -> void:
 	if DisplayServer.get_name() == "headless":
 		return
 	_art = Node3D.new()
-	_art.name = "ShatteredSanctum"
+	_art.name = "CosmicSanctum"
 	add_child(_art)
 	_geo = Geometry.new()
 	_stone = _rock_material("555062")
-	_dark_stone = _rock_material("302c42", 0.8)
-	_floor_stone = _rock_material("77717e", 1.5)
-	_trim = _rock_material("91818a")
+	_dark_stone = _rock_material("302c42", 0.8, 4)
+	_dark_stone.set_shader_parameter("vein_intensity", 3.2)
+	_floor_stone = _rock_material("77717e", 1.15, 1)
+	_terrace_stone = _rock_material("546e88", 1.1, 2)
+	_trim = _rock_material("91818a", 1.0, 3)
+	_rune = _energy("8b4fdc", 0.95)
 	_violet = _energy("8736ec", 1.1)
 	_white_energy = _energy("d6b8ff", 1.4)
 	_amber = _energy("ffd79a", 1.2)
@@ -116,11 +122,15 @@ func build_arena() -> void:
 	_build_gateway(-1.0)
 	_build_gateway(1.0)
 	_build_debris()
+	_build_inscriptions()
 	_geo.finish(_art)
 	_geo = null
 	var sky = load("res://scripts/arena_sky.gd").new()
 	_art.add_child(sky)
 	sky.build_sky()
+	var atmosphere = load("res://scripts/arena_atmosphere.gd").new()
+	_art.add_child(atmosphere)
+	atmosphere.build()
 
 func _build_floor() -> void:
 	_geo.block(_dark_stone, Vector3(0, -0.23, 0), Vector3(36, 0.4, 36))
@@ -177,13 +187,13 @@ func _build_terraces() -> void:
 		_geo.block(_stone, Vector3(x, 0.56, 0), Vector3(width, 1.12, 12))
 		for z in range(-5, 6, 2):
 			for dx in [-1.75, 0.0, 1.75]:
-				_geo.block(_floor_stone, Vector3(x + dx, 1.15, z), Vector3(1.72, 0.1, 1.96))
+				_geo.block(_terrace_stone, Vector3(x + dx, 1.15, z), Vector3(1.72, 0.1, 1.96))
 		_geo.block(_trim, Vector3(side * 12.4, 1.17, 0), Vector3(0.20, 0.08, 12))
 		for end in [-1.0, 1.0]:
 			for step in range(12):
 				var height := (step + 1) * 0.1
 				var z: float = end * (10.0 - (step + 0.5) / 3.0)
-				_geo.block(_floor_stone, Vector3(x, height * 0.5 - 0.018, z), Vector3(width, height - 0.036, 0.331))
+				_geo.block(_terrace_stone, Vector3(x, height * 0.5 - 0.018, z), Vector3(width, height - 0.036, 0.331))
 				_geo.block(_trim, Vector3(x, height - 0.017, z + end * 0.14), Vector3(width, 0.027, 0.035))
 			for i in range(4):
 				var z: float = end * (9.5 - i)
@@ -191,24 +201,30 @@ func _build_terraces() -> void:
 				_geo.rock(_stone, Vector3(side * 17.8, base, z), Vector3(0.8, 0.7, 1.2))
 
 func _build_cover(pos: Vector3) -> void:
-	# Broad broken wall cores keep the original four tactical footprints.
-	_geo.block(_stone, pos + Vector3.UP * 0.15, Vector3(3.3, 0.3, 3.3))
-	_geo.block(_stone, pos + Vector3.UP * 1.8, Vector3(2.78, 3.6, 2.78))
-	for i in range(5):
-		var x := -1.18 + i * 0.56
-		var h: float = [4.35, 3.65, 3.95, 3.2, 2.7][i]
-		var mirrored := x * signf(pos.x * pos.z)
-		_geo.rock(_stone, pos + Vector3(mirrored, 0.25, -0.12), Vector3(0.85, h, 2.6), 0.08 * (i - 2))
+	# Match the existing 4.4 x 3.8 x 2.8 collision all the way to its ends.
+	# Broken upper crests are decorative; the continuous core makes LOS clear.
+	_geo.block(_stone, pos + Vector3.UP * 0.2, Layout.COVER_BASE_SIZE)
+	_geo.block(_stone, pos + Vector3.UP * 1.9, Layout.COVER_BODY_SIZE)
+	for i in range(7):
+		var x := -1.86 + i * 0.62
+		var h: float = [0.52, 0.16, 0.34, 0.12, 0.21, 0.46, 0.18][i]
+		_geo.rock(_stone, pos + Vector3(x, 3.72, 0.08), Vector3(0.74, h, 2.55), 0.025 * (i-3))
+	# Bronze foot and shoulder straps distinguish constructed ruins from cliffs.
 	for side in [-1.0, 1.0]:
-		for i in range(5):
-			var x := -1.25 + i * 0.63
-			_geo.rock(_stone, pos + Vector3(x, 0.02, side * 1.3), Vector3(0.65, _geo.rng.randf_range(0.25, 0.65), 0.55), x)
-	for side in [-1.0, 1.0]:
-		var z: float = pos.z + side * 1.411
-		_geo.block(_dark_stone, Vector3(pos.x, 1.82, z), Vector3(0.55, 1.15, 0.023))
-		var marks: Array[Vector3] = [Vector3(pos.x - 0.15, 1.6, z + side * 0.018), Vector3(pos.x + 0.1, 1.87, z + side * 0.018),
-			Vector3(pos.x - 0.10, 2.10, z + side * 0.018)]
-		_geo.line_3d(_trim, marks, 0.032)
+		var z: float = pos.z + side * 1.408
+		_geo.block(_trim, Vector3(pos.x, 0.44, z), Vector3(4.4, 0.075, 0.018))
+		for x in [-1.85, 1.85]:
+			_geo.block(_trim, Vector3(pos.x + x, 1.84, z), Vector3(0.052, 2.7, 0.022))
+		_geo.block(_dark_stone, Vector3(pos.x, 1.95, z), Vector3(0.72, 1.55, 0.02))
+		var front: float = z + side * 0.015
+		var glyph: Array[Vector3] = [Vector3(pos.x, 2.53, front), Vector3(pos.x-0.24, 2.12, front),
+			Vector3(pos.x, 1.81, front), Vector3(pos.x+0.24, 2.12, front), Vector3(pos.x, 2.53, front)]
+		_geo.line_3d(_rune, glyph, 0.027)
+		var stem: Array[Vector3] = [Vector3(pos.x, 2.15, front), Vector3(pos.x, 1.38, front)]
+		_geo.line_3d(_rune, stem, 0.022)
+		for x in [-0.16, 0.16]:
+			var tick: Array[Vector3] = [Vector3(pos.x+x, 1.62, front), Vector3(pos.x, 1.46, front)]
+			_geo.line_3d(_rune, tick, 0.018)
 
 func _build_perimeter() -> void:
 	for side in [-1.0, 1.0]:
@@ -327,3 +343,24 @@ func _build_debris() -> void:
 		pos.y = Layout.surface_height(pos) + 0.01
 		var scale_value: float = _geo.rng.randf_range(0.10, 0.36)
 		_geo.rock(_stone, pos, Vector3(scale_value * 1.5, scale_value, scale_value), _geo.rng.randf() * TAU, Color.WHITE, 5)
+
+func _build_inscriptions() -> void:
+	# A restrained inlay circuit follows existing terraces; no new collision.
+	# Marks are flush with the surface and never resemble extra cover objects.
+	for side in [-1.0, 1.0]:
+		var x: float = side * 12.40
+		for z in [-4.5, -1.5, 1.5, 4.5]:
+			var mark: Array[Vector3] = [Vector3(x, 1.222, z-0.21), Vector3(x+side*0.14, 1.222, z),
+				Vector3(x, 1.222, z+0.21)]
+			_geo.ribbon(_rune, mark, 0.022)
+	# Broken arcs, rather than a solid glowing combat circle.
+	for i in range(8):
+		var start := TAU * i / 8.0 + 0.07
+		_geo.ring(_rune, Vector3(0, 0.024, 0), 3.88, 0.018, start, start+0.12, 8)
+	# Sparse energy leaking through the non-playable faces of the outer wall.
+	for side in [-1.0, 1.0]:
+		for x in [-12.0, 12.0]:
+			var z: float = side * 17.662
+			var vein: Array[Vector3] = [Vector3(x-0.3, 2.8, z), Vector3(x-0.17, 2.3, z),
+				Vector3(x+0.12, 1.97, z), Vector3(x-0.05, 1.42, z), Vector3(x+0.28, 0.7, z)]
+			_geo.line_3d(_violet, vein, 0.035)

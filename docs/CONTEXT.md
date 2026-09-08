@@ -26,6 +26,9 @@ Until all three exist, buddies play by manually launching Godot from a checkout.
 - **Documentation reorganized** into `docs/` as persistent shared memory for AI agents. Main README rewritten as a short operating manual.
 - **Dedicated server mode** — `--dedicated --mode=team --min-players=2 --rematch-delay=8`. No local player, auto-start when threshold met, auto-rematch after each round, holds in lobby when roster drops below threshold.
 - **Version handshake** in `register_player` — hard reject on mismatch.
+- **Buffs and debuffs** — `scripts/auras.gd` derives every effect from the timers the simulation already keeps, shown as hoverable chips on unit frames and on overhead nameplates.
+- **Edit HUD** — drag frames, rebind hotbar keys, swap ability positions. Client-side only; bar positions translate to kit indices before reaching the simulation.
+- **Display settings** — window mode and resolution, persisted to `user://starfall.cfg` with the HUD layout and keybinds.
 - **Fulcrum**, a fourth champion — mid-range control, signature ability `Tether` pulls an enemy *or* an ally 8 m toward the caster. Six of seven slots reuse existing ability kinds; only `pull` is new. Needs icons and a champion model — both degrade to fallbacks, neither breaks. `Config.VERSION` is now **0.3.0**.
 - **Cosmic sanctum map** (parallel agent session) — new arena geometry, layout, sky shaders and environment texture, with `tests/map_test.gd`, 57 checks. Bot pathing and line of sight verified intact against it.
 - **Queue fix** — a dedicated server now accepts players who connect mid-round and holds them for the next one. Previously the queue only worked in the idle seconds between matches; private lobbies were unaffected, which is why they worked while the queue looked broken. `Config.VERSION` is now **0.2.0** (the `lobby_state` RPC gained a field), so every client must be re-downloaded.
