@@ -32,9 +32,10 @@ Recommended reading order for a new developer: `kits.gd` → `combatant.gd` → 
 | `scripts/arena.gd` | Match lifecycle, local input, camera, GUI, target selection, authoritative combat, bots, networking, dedicated mode. **~1,300 lines — flagged for extraction in [`ROADMAP.md`](ROADMAP.md).** |
 | `scripts/arena_world.gd` | Floor, grid, pillars, walls, lighting. Parent of `arena.gd`. |
 | `scripts/combatant.gd` | `CharacterBody3D` fighter — state, generated appearance, snapshot pack/apply. |
-| `scripts/champion_model.gd` | Dispatches Ember to its imported Blender model and preserves procedural art for the other champions. Collision stays on the parent fighter. |
+| `scripts/champion_model.gd` | Dispatches Ember and Vanguard to their imported Blender models and preserves procedural art for remaining champions. Collision stays on the parent fighter. |
+| `scripts/vanguard_authored.gd` | Imported hammer warrior, directional clips, confirmed-hit Strike, shield/recoil presentation; see `VANGUARD_REBUILD_BRIEF.md`. |
 | `scripts/ember_art.gd` | Imports the skinned Ember GLB and blends authored movement/cast clips; updates presentation only. |
-| `scripts/ability_art.gd` | Cached name-to-texture presentation mapping for 20 icons; hotbar art layer and engine-rendered frames. |
+| `scripts/ability_art.gd` | Cached name-to-texture presentation mapping covering all twelve-slot kits; hotbar art layer and engine-rendered frames. |
 | `tools/art_review.gd` | Renders front/back character lineup and full icon atlas to `artifacts/` in a game window. |
 | `scripts/kits.gd` | Champion names, ability dictionaries, short + expanded descriptions. |
 | `scripts/ability_tooltip.gd` | Passive tooltip panel — wrapping text, cached content, viewport placement. |
@@ -55,7 +56,7 @@ flowchart TD
     Scene --> Camera[Pivot → SpringArm3D → Camera3D]
     Scene --> GUI[CanvasLayer → full-rect Control]
     GUI --> Frames[Player / target / focus / party / enemy frames]
-    GUI --> Hotbar[Seven ability buttons]
+    GUI --> Hotbar[Twelve abilities across two bars]
     Hotbar --> Tooltip[ability_tooltip.gd → kits.gd descriptions]
     Scene --> Actors[actors dict → Combatant bodies]
     Actors --> Kits[kits.gd ability dictionaries]
@@ -81,7 +82,7 @@ flowchart TD
 
 ### Fighter fields (per `Combatant`)
 
-HP (max 100), seven cooldowns, GCD, cast slot / time / target, stun / lockout / ward / sprint timers, DR count / reset, movement intent, queued jump, input age, selected target, bot timers / path, peer / team / champion, network sequence bookkeeping.
+HP (max 100), twelve cooldowns, GCD, cast slot / time / target, stun / lockout / ward / sprint timers, DR count / reset, movement intent, queued jump, input age, selected target, bot timers / path, peer / team / champion, network sequence bookkeeping.
 
 `owner_peer == 0` → bot. Nonzero → human connection.
 
@@ -359,3 +360,7 @@ The UI test **rejects `--headless`** — cursor APIs are not faithfully emulated
 | RPC checksum / path errors | Both sides need same scripts, RPC declarations, `/root/Arena` root path. |
 | Version mismatch on join | Client and server disagree on `Config.VERSION`. Rebuild both from the same commit. |
 | Game reads old code | Stop and relaunch after edits. New script files may need editor import. |
+
+## Class mechanics (0.6.0)
+
+`class_mechanics.gd` owns class-specific validation, resolution, timed effects, damage interception, bot priorities, and state-driven field visuals. It is called by the authoritative arena pipeline. `Combatant.identity` holds bounded resources, per-caster brands/stars, anchor state, ground fields and defensive timers; snapshots deep-copy it and include cast targets for telegraphs. `auras.gd` derives status icons from these values. `tests/class_identity_test.gd` validates mechanics, terrain/duel restrictions, icons, second-bar access and snapshot round-trips. `tools/class_reference.gd` regenerates the current ability reference.

@@ -13,9 +13,10 @@ const UserConfig = preload("res://scripts/user_config.gd")
 # Most fighters carry one or two effects; five is beyond anything the current
 # kits can stack, and pooling avoids rebuilding nodes every frame.
 const AURA_SLOTS := 5
-# Action bars. BAR_SLOTS matches the seven abilities a champion has; the extra
+# Action bars. Seven buttons per row; twelve abilities span two rows. The extra
 # bars hold alternate bindings for those same abilities.
 const BAR_COUNT := 3
+const ClassMechanics = preload("res://scripts/class_mechanics.gd")
 const BAR_SLOTS := 7
 const TOTAL_SLOTS := BAR_COUNT * BAR_SLOTS
 # 40% smaller than the original 92px, and every bar now matches rather than the
@@ -216,6 +217,7 @@ func _ready() -> void:
 func initialise_player_config() -> void:
 	load_settings()
 	register_movable_frames()
+	apply_slot_size(slot_size)
 	# A test run must not inherit the machine's saved HUD. Layout, keybinds and
 	# ability assignment all live in user://, so whoever ran the game last would
 	# otherwise decide what the suites see — an emptied slot 0 silently breaks
@@ -493,17 +495,14 @@ func build_ui() -> void:
 	add_label(enemy_box, "ENEMIES · Tab / click frame")
 	for i in range(3):
 		enemy_buttons.append(roster_row(enemy_box, select_enemy.bind(i)))
-	var help := add_label(ui, "W/S move · A/D strafe · Q/E turn · Space jump\nRMB steer · LMB orbit · Both run · Wheel zoom\nTab / frames target · F1–F3 allies · F / G focus\n1–7 abilities · Hover for details · Esc menu", 14)
+	var help := add_label(ui, "W/S move · A/D strafe · Q/E turn · Space jump\nRMB steer · LMB orbit · Both run · Wheel zoom\nTab / frames target · F1–F3 allies · F / G focus\n1–7 / Shift+1–5 abilities · Hover for details · Esc menu", 14)
 	help.add_theme_color_override("font_color", UI_TEXT_DIM)
 	help.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
 	help.offset_left = 24
 	help.offset_top = -185
 	help.offset_right = 400
 	help.offset_bottom = -100
-	# Three bars. The first carries the champion's kit; the others start empty
-	# and are filled by dragging abilities onto them in Edit HUD. With only seven
-	# abilities the extra bars exist to give a second, more comfortable key for
-	# the same spell — a side mouse button, a modifier — not to hold more spells.
+	# Twelve abilities fill the first two bars; the third holds alternate bindings.
 	for bar in range(BAR_COUNT):
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 6)
@@ -1601,12 +1600,25 @@ func load_layout() -> void:
 			var index := int(value)
 			# -1 is an empty slot, and the same ability may legitimately appear
 			# on more than one bar — that is what the extra bars are for.
-			if index < -1 or index >= BAR_SLOTS:
+			if index < -1 or index >= Kits.KIT_SIZE:
 				ok = false
 				break
 		if ok:
 			for i in range(assignment.size()):
 				assignment[i] = int(stored_assign[i])
+	# Migrate older layouts without losing their existing bindings.
+	for ability in range(Kits.KIT_SIZE):
+		if not assignment.has(ability):
+			var empty := assignment.find(-1)
+			if empty < 0:
+				for slot in range(assignment.size() - 1, -1, -1):
+					if assignment.count(assignment[slot]) > 1:
+						empty = slot
+						break
+			if empty >= 0:
+				assignment[empty] = ability
+				if binds[empty] == 0:
+					binds[empty] = (KEY_1 + ability % BAR_SLOTS) | KEY_MASK_SHIFT
 	var moved = config.get_value("hud", "moved", [])
 	if moved is Array:
 		for name in moved:
@@ -1624,14 +1636,14 @@ func load_layout() -> void:
 				frame.position = places[frame.name]
 	refresh_binds()
 
-# Bar one holds the kit on keys 1-7; the rest start empty and unbound.
+# Two populated bars: keys 1-7 and Shift+1-5. Third bar remains available.
 func default_bindings() -> void:
 	binds.resize(TOTAL_SLOTS)
 	assignment.resize(TOTAL_SLOTS)
 	for i in range(TOTAL_SLOTS):
 		var first_bar: bool = i < BAR_SLOTS
-		binds[i] = (KEY_1 + i) if first_bar else 0
-		assignment[i] = i if first_bar else -1
+		binds[i] = (KEY_1 + i) if first_bar else ((KEY_1 + i - BAR_SLOTS) | KEY_MASK_SHIFT if i < Kits.KIT_SIZE else 0)
+		assignment[i] = i if i < Kits.KIT_SIZE else -1
 
 func reset_layout() -> void:
 	default_bindings()
@@ -1940,13 +1952,14 @@ func pong(stamp: int) -> void:
 	round_trip_ms = Time.get_ticks_msec() - stamp
 
 func tick_actor(actor, delta: float) -> void:
+	ClassMechanics.tick(self, actor, delta)
 	actor.action_budget = maxf(0, actor.action_budget - delta)
 	actor.input_age += delta
 	if actor.hp <= 0:
 		actor.casting = -1
 		actor.velocity = Vector3.ZERO
 		return
-	for i in range(7):
+	for i in range(actor.cooldowns.size()):
 		actor.cooldowns[i] = maxf(0, actor.cooldowns[i] - delta)
 	for field in ["gcd", "stunned", "locked", "shield", "sprint", "dr_timer"]:
 		actor.set(field, maxf(0, actor.get(field) - delta))
@@ -1957,15 +1970,19 @@ func tick_actor(actor, delta: float) -> void:
 	elif actor.input_age > 0.3:
 		actor.move_input = Vector2.ZERO
 	var direction: Vector3 = actor.basis * Vector3(actor.move_input.x, 0, actor.move_input.y)
+	if actor.identity.root > 0 or actor.identity.hold > 0:
+		direction = Vector3.ZERO
 	if actor.stunned > 0:
 		direction = Vector3.ZERO
 		actor.casting = -1
 	var speed := 6.5 if actor.move_input.y <= 0 else 3.8
 	if actor.sprint > 0:
 		speed *= 1.65
+	if actor.identity.slow > 0 and actor.identity.immune <= 0:
+		speed *= 0.55
 	actor.velocity.x = direction.x * speed
 	actor.velocity.z = direction.z * speed
-	if actor.jump_queued and actor.is_on_floor() and actor.stunned <= 0:
+	if actor.jump_queued and actor.is_on_floor() and actor.stunned <= 0 and actor.identity.root <= 0 and actor.identity.hold <= 0:
 		actor.velocity.y = 7
 	actor.jump_queued = false
 	actor.velocity.y -= 20 * delta
@@ -1991,9 +2008,9 @@ func has_los(a, b) -> bool:
 
 func spell_target(actor, slot: int, requested: int) -> int:
 	var kind: String = actor.kit[slot].kind
-	if kind in ["shield", "self_heal", "blink", "sprint"]:
+	if kind in Kits.SELF_KINDS:
 		return actor.actor_id
-	if kind in ["heal", "ally_shield", "dispel"]:
+	if kind in Kits.ALLY_KINDS:
 		if actors.has(requested) and actors[requested].team == actor.team:
 			return requested
 		return actor.actor_id # Enemy or no target: helpful spells fall back to self.
@@ -2004,7 +2021,7 @@ func validate_spell(actor, slot: int, victim_id: int) -> String:
 		return "Select a living target"
 	var victim = actors[victim_id]
 	var spell: Dictionary = actor.kit[slot]
-	var friendly: bool = spell.kind in ["heal", "ally_shield", "dispel", "shield", "self_heal", "blink", "sprint"]
+	var friendly: bool = spell.kind in Kits.ALLY_KINDS or spell.kind in Kits.SELF_KINDS
 	# A pull is aimed at whoever is selected, ally or enemy — the only ability
 	# that does not care which side the target is on. It still needs range,
 	# line of sight and facing, because it is an aimed ability either way.
@@ -2013,6 +2030,11 @@ func validate_spell(actor, slot: int, victim_id: int) -> String:
 			return "Select another fighter"
 	elif (victim.team == actor.team) != friendly:
 		return "Select an ally" if friendly else "Select an enemy"
+	var identity_reason: String = ClassMechanics.validate(self, actor, spell, victim)
+	if not identity_reason.is_empty():
+		return identity_reason
+	if not friendly and victim.team != actor.team and not may_harm(actor, victim):
+		return "Challenge them to a duel first"
 	if victim == actor:
 		return ""
 	if actor.position.distance_to(victim.position) > float(spell.range):
@@ -2085,7 +2107,7 @@ func cancel_own_cast(actor, message: String) -> void:
 		feedback(actor, message)
 
 func try_spell(id: int, slot: int, requested: int) -> bool:
-	if not authoritative() or phase != "match" or not actors.has(id) or slot < 0 or slot >= 7:
+	if not authoritative() or phase != "match" or not actors.has(id) or slot < 0 or slot >= actors[id].kit.size():
 		return false
 	var actor = actors[id]
 	if actor.hp <= 0 or actor.stunned > 0:
@@ -2099,6 +2121,9 @@ func try_spell(id: int, slot: int, requested: int) -> bool:
 		return false
 	if actor.locked > 0 and actor.champion != "Vanguard" and spell.kind not in ["shield", "blink", "sprint"]:
 		feedback(actor, "Spell school locked out")
+		return false
+	if actor.identity.root > 0 and spell.kind in ["blink", "charge", "cinder", "pilgrim", "intercede", "swap"]:
+		feedback(actor, "Rooted")
 		return false
 	var victim_id := spell_target(actor, slot, requested)
 	var reason := validate_spell(actor, slot, victim_id)
@@ -2121,6 +2146,10 @@ func try_spell(id: int, slot: int, requested: int) -> bool:
 func resolve_spell(actor, slot: int, victim) -> void:
 	var spell: Dictionary = actor.kit[slot]
 	actor.cooldowns[slot] = spell.cd
+	if spell.kind not in Kits.SELF_KINDS and spell.kind not in Kits.ALLY_KINDS:
+		actor.identity.hold = 0.0
+	if ClassMechanics.resolve(self, actor, spell, victim):
+		return
 	match spell.kind:
 		"damage":
 			damage(actor, victim, spell.power)
@@ -2143,6 +2172,7 @@ func resolve_spell(actor, slot: int, victim) -> void:
 			if factor == 0:
 				combat_event(actor.actor_id, victim.actor_id, "IMMUNE", GOLD)
 			else:
+				victim.identity.disorient = false
 				victim.stunned = spell.power * factor
 				victim.stun_from = spell.name
 				victim.casting = -1
@@ -2183,7 +2213,8 @@ func resolve_spell(actor, slot: int, victim) -> void:
 
 func move_ability(actor, motion: Vector3) -> void:
 	# Sweep the character capsule: mobility cannot cross pillars or walls.
-	actor.move_and_collide(motion)
+	if actor.identity.hold <= 0:
+		actor.move_and_collide(motion)
 
 # In the world, damage only lands between two people who agreed to fight.
 func may_harm(source, victim) -> bool:
@@ -2195,7 +2226,15 @@ func damage(source, victim, amount: float) -> void:
 	if not may_harm(source, victim):
 		feedback(source, "Challenge them to a duel first")
 		return
-	var actual := minf(victim.hp, amount * (0.4 if victim.shield > 0 else 1.0))
+	if victim.hp <= 0:
+		return
+	amount = ClassMechanics.before_damage(self, source, victim, amount)
+	var reduction := ClassMechanics.damage_multiplier(source, victim)
+	var actual := minf(victim.hp, amount * reduction)
+	if victim.identity.last > 0 and actual >= victim.hp:
+		actual = maxf(0, victim.hp - 1)
+		victim.identity.last = 0.0
+		combat_event(source.actor_id, victim.actor_id, "LAST LIGHT", GOLD)
 	victim.hp = maxf(0, victim.hp - actual)
 	combat_event(source.actor_id, victim.actor_id, "−%d" % ceili(actual), RED)
 	if victim.hp == 0:
@@ -2244,6 +2283,7 @@ func confirm_duel(target_id: int) -> void:
 	# Both start clean, so a duel is never decided by who was already hurt.
 	for id in [from_id, target_id]:
 		actors[id].hp = 100
+		actors[id].reset_identity()
 		actors[id].stunned = 0
 		actors[id].locked = 0
 		actors[id].dr_count = 0
@@ -2253,6 +2293,9 @@ func confirm_duel(target_id: int) -> void:
 func end_duel(loser_id: int, winner_id: int) -> void:
 	duels.erase(loser_id)
 	duels.erase(winner_id)
+	for id in [loser_id, winner_id]:
+		if actors.has(id):
+			actors[id].reset_identity()
 	combat_event(winner_id, loser_id, "DUEL WON", GOLD)
 	# Losing a duel is not death: back up shortly, at full health.
 	respawn_timers[loser_id] = 3.0
@@ -2296,6 +2339,7 @@ func tick_world(delta: float) -> void:
 			if actors.has(id):
 				var actor = actors[id]
 				actor.hp = 100
+				actor.reset_identity()
 				actor.stunned = 0
 				actor.locked = 0
 				actor.shield = 0
@@ -2401,6 +2445,8 @@ func bot_think(actor, delta: float) -> void:
 	if actor.ai_timer > 0 or actor.casting >= 0:
 		return
 	actor.ai_timer = 0.25
+	if ClassMechanics.bot(self, actor, foe, ally):
+		return
 	if actor.hp < 45 and try_spell(actor.actor_id, 4, actor.actor_id):
 		return
 	if actor.champion == "Luminary":
@@ -2628,6 +2674,7 @@ func update_visuals(delta: float) -> void:
 	# Before the bar: it maintains cc_total, which the slots use as the sweep
 	# denominator.
 	update_cc_tracker()
+	ClassMechanics.paint(self)
 	for slot in range(TOTAL_SLOTS):
 		var button := ability_buttons[slot]
 		var ability := kit_slot(slot)
@@ -2947,7 +2994,7 @@ func update_ability_tooltip() -> void:
 		var button := ability_buttons[slot]
 		if button.is_visible_in_tree() and button.get_global_rect().has_point(pointer):
 			# `slot` is a position on a bar, not an index into the kit. With three
-			# bars there are 21 positions and only 7 abilities, so this has to be
+			# bars there are 21 positions and 12 abilities, so this has to be
 			# translated — and an empty slot has nothing to describe.
 			var ability := kit_slot(slot)
 			if ability < 0:

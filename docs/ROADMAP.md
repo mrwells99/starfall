@@ -6,6 +6,10 @@ _Practical, current, and small. This is not a speculative feature list — new i
 
 **Close the "push to `main` → buddies play the new build" loop.** Dedicated server mode is done; the DevOps pipeline is not.
 
+## Class playtesting
+
+The authorized class identity pass is implemented: twelve abilities per class, complete icons, replicated mechanics, and migrated action bars. Next gameplay work is human duels and 3v3 testing, especially Fulcrum displacement frequency, Ember burst thresholds, Vanguard interception, and Luminary emergency saves. Current rules: [`CLASS_ABILITIES.md`](CLASS_ABILITIES.md). No balance sign-off yet.
+
 ## In progress
 
 **Droplet provisioning.** Deploy scripts + runbook are in the repo (`deploy/`, [`DEPLOY.md`](DEPLOY.md)). Server target: `play.leafmods.com`. Waiting on the DO droplet + DNS setup before the first manual deploy.

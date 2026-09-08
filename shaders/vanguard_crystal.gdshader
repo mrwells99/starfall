@@ -1,4 +1,6 @@
 shader_type spatial;
+uniform float damage_flash = 0.0;
+uniform float defeated = 0.0;
 
 // Cell scale controls the size of the internal facets/fissures.
 // Default 31.0 matches the original character study crystal look
@@ -53,4 +55,7 @@ void fragment(){
     vec3 core = albedo * 0.6;
     vec3 seam = mix(vec3(0.55,0.08,1.0), hot, fissure);
     EMISSION = (core + seam * fissure * (2.6 + sin(TIME*1.1)*0.15)) * emission_boost;
+ ALBEDO = mix(ALBEDO, vec3(0.85, 0.9, 1.0), damage_flash * 0.8);
+ ALBEDO *= mix(1.0, 0.3, defeated);
+ EMISSION *= 1.0 - defeated * 0.85;
 }

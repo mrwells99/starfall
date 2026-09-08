@@ -1,6 +1,6 @@
 extends Node3D
 
-# Original faceted character art, built in engine. Visual-only joints never
+# Authored Ember/Vanguard presentation and procedural roster fallbacks. Visuals never
 # move the CharacterBody or its shared 0.42 m collision capsule.
 var torso: MeshInstance3D
 var left_arm: Node3D
@@ -18,10 +18,10 @@ var motion := 0.0
 var previous_position := Vector3.ZERO
 var initialized := false
 var archetype := ""
-var vanguard: Dictionary = {}
-const VanguardArt = preload("res://scripts/vanguard_art.gd")
 const EmberArt = preload("res://scripts/ember_art.gd")
 var ember_art: RefCounted
+const VanguardAuthored = preload("res://scripts/vanguard_authored.gd")
+var vanguard_art: RefCounted
 
 func paint(hex: String, luminous: bool = false, metal: float = 0.0) -> StandardMaterial3D:
 	var mat := StandardMaterial3D.new()
@@ -109,7 +109,8 @@ func build(champion: String, team_color: Color) -> void:
 		ember_art.build(self, team_color)
 		return
 	if champion == "Vanguard":
-		VanguardArt.build(self, team_color)
+		vanguard_art = VanguardAuthored.new()
+		vanguard_art.build(self, team_color)
 		return
 	var identity := paint(team_color.to_html(false))
 	var dark := paint("171a30")
@@ -168,6 +169,9 @@ func build(champion: String, team_color: Color) -> void:
 		gem(scepter, Vector3(0, 0.75, 0), Vector3(0.12, 0.24, 0.12), glow)
 
 func animate(delta: float, actor: CharacterBody3D) -> void:
+	if vanguard_art != null:
+		vanguard_art.animate(self, delta, actor)
+		return
 	if ember_art != null:
 		ember_art.animate(self, delta, actor)
 		return
@@ -201,12 +205,11 @@ func animate(delta: float, actor: CharacterBody3D) -> void:
 		halo.rotation.y += delta * 0.45
 	if focus_gem:
 		focus_gem.rotation.y += delta * (2.5 if casting else 0.7)
-	if archetype == "Vanguard":
-		VanguardArt.animate(self, delta, actor, swing)
 	for i in range(materials.size()):
 		materials[i].albedo_color = Color.WHITE if actor.flash > 0 else (colors[i] if alive else colors[i].lerp(Color("333744"), 0.8))
 
 # Called only by a confirmed damage event, including the same RPC on clients.
 func present_strike() -> void:
-	if archetype == "Vanguard" and not vanguard.is_empty():
-		vanguard.attack = 0.34
+	if vanguard_art != null:
+		vanguard_art.strike()
+		return

@@ -64,6 +64,13 @@ static func active(actor) -> Array:
 			"source": actor.sprint_from,
 			"description": "Moves 65% faster. Does not increase jump height or clear stuns.",
 		})
+	var identity: Dictionary = actor.identity
+	for item in [["root", "Rooted", "Collapse", "Cannot move; can still cast.", DEBUFF], ["slow", "Slowed", "Heavy Orbit", "Movement reduced by 45%.", DEBUFF], ["immune", "Absolution", "Absolution", "Immune to roots and slows.", BUFF], ["last", "Last Light", "Last Light", "The next lethal hit leaves 1 HP, then protection ends.", BUFF], ["hold", "Hold the Line", "Hold the Line", "Stationary, displacement resistant; 70% frontal damage reduction.", BUFF], ["guard_left", "Intercede", "Intercede", "Redirecting 30% of an ally's incoming damage, up to the remaining budget.", BUFF], ["challenge_left", "Challenge", "Challenge", "Marked enemy attacking allies grants Resolve.", BUFF]]:
+		if identity.get(item[0], 0.0) > 0:
+			out.append({"key": item[0], "name": item[1], "source": item[2], "description": item[3], "kind": item[4], "remaining": identity[item[0]], "color": Color("c9a0ff")})
+	if identity.get("disorient", false) and actor.stunned > 0:
+		out[0].name = "Disoriented"
+		out[0].description = "Cannot move or act. Damage breaks this effect."
 	# Diminishing returns is not an effect on the fighter, but it decides whether
 	# your next stun is worth casting, so it belongs on the frame.
 	if actor.dr_timer > 0 and actor.dr_count > 0:

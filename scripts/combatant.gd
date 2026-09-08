@@ -9,6 +9,7 @@ var kit: Array = []
 const Auras = preload("res://scripts/auras.gd")
 const Kits = preload("res://scripts/kits.gd")
 var cooldowns: Array = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+var identity: Dictionary = {}
 var gcd := 0.0
 var casting := -1
 var cast_left := 0.0
@@ -54,7 +55,10 @@ func setup(id: int, peer: int, side: int, choice: String) -> void:
 	owner_peer = peer
 	team = side
 	champion = choice
+	reset_identity()
 	kit = preload("res://scripts/kits.gd").get_kit(choice)
+	cooldowns.resize(kit.size())
+	cooldowns.fill(0.0)
 	collision_layer = 2
 	collision_mask = 1 # Characters may overlap, as in arena combat.
 	base_color = Color("62cfeb") if team == 0 else Color("e77f78")
@@ -198,9 +202,10 @@ func visual_tick(delta: float, camera: Camera3D) -> void:
 
 func snapshot() -> Dictionary:
 	return {"id": actor_id, "peer": owner_peer, "team": team, "champion": champion, "pos": position, "yaw": rotation.y, "hp": hp, "cd": cooldowns.duplicate(), "gcd": gcd, "casting": casting, "left": cast_left, "stun": stunned, "lock": locked, "shield": shield, "sprint": sprint,
-		"stun_src": stun_from, "lock_src": lock_from, "shield_src": shield_from, "sprint_src": sprint_from, "dr": dr_count, "dr_timer": dr_timer, "target": target_id}
+		"stun_src": stun_from, "lock_src": lock_from, "shield_src": shield_from, "sprint_src": sprint_from, "dr": dr_count, "dr_timer": dr_timer, "cast_target": cast_target, "target": target_id, "identity": identity.duplicate(true)}
 
 func receive(data: Dictionary, instant: bool = false) -> void:
+	identity = data.get("identity", {}).duplicate(true)
 	net_position = data.pos
 	net_yaw = data.yaw
 	if instant:
@@ -212,6 +217,7 @@ func receive(data: Dictionary, instant: bool = false) -> void:
 	gcd = data.gcd
 	casting = data.casting
 	cast_left = data.left
+	cast_target = data.get("cast_target", -1)
 	stunned = data.stun
 	locked = data.lock
 	shield = data.shield
@@ -224,3 +230,6 @@ func receive(data: Dictionary, instant: bool = false) -> void:
 	dr_count = data.dr
 	dr_timer = data.dr_timer
 	target_id = data.target
+
+func reset_identity() -> void:
+	identity = {"heat": 0.0, "resolve": 0.0, "brands": {}, "stars": [], "anchor_left": 0.0, "anchor_pos": Vector3.ZERO, "orbit": 0.0, "root": 0.0, "slow": 0.0, "immune": 0.0, "last": 0.0, "hold": 0.0, "disorient": false, "guard": -1, "guard_left": 0.0, "guard_budget": 0.0, "challenge": -1, "challenge_left": 0.0, "challenge_tick": 0.0, "exposed": -1, "exposed_left": 0.0, "wake": 0.0, "wake_pos": Vector3.ZERO, "wake_end": Vector3.ZERO, "wake_tick": 0.0}

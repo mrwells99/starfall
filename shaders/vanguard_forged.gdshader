@@ -1,4 +1,6 @@
 shader_type spatial;
+uniform float damage_flash = 0.0;
+uniform float defeated = 0.0;
 uniform vec4 base_color : source_color = vec4(0.12,0.14,0.18,1.0);
 uniform float metalness = 0.8;
 // Frequency of the fine pit/scratch noise. Default 115 matches the previous
@@ -25,4 +27,7 @@ void fragment(){
  vec3 a=cross(dy,NORMAL),b=cross(NORMAL,dx);
  float determinant=dot(dx,a);
  if(abs(determinant)>0.0000001){NORMAL=normalize(NORMAL-(a*dFdx(height)+b*dFdy(height))/determinant);}
+ ALBEDO = mix(ALBEDO, vec3(0.85, 0.9, 1.0), damage_flash * 0.8);
+ ALBEDO *= mix(1.0, 0.3, defeated);
+ EMISSION *= 1.0 - defeated * 0.85;
 }

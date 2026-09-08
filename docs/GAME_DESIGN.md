@@ -37,21 +37,9 @@ A three-second countdown starts each round. A round ends when every member of on
 
 ## Champions
 
-Four fixed-kit champions. Each has seven abilities on keys 1–7.
+Four fixed-kit champions now have twelve abilities each, preserving their baseline movement, damage reduction and sustain while adding class resources and signature mechanics. **Ember** builds Heat and brands; **Vanguard** earns Resolve and protects allies; **Luminary** allocates three Guiding Stars; **Fulcrum** controls positions around a placed Gravity Anchor.
 
-| Key | Ember — ranged | Vanguard — melee | Luminary — healer | Fulcrum — control |
-| --- | --- | --- | --- | --- |
-| 1 | Firebolt — casted damage | Cleave — melee damage | Smite — casted damage | Collapse — casted damage |
-| 2 | Flare — instant burst | Crush — melee burst | Renewal — instant ally heal | Tidal Force — instant burst |
-| 3 | Disrupt — interrupt | Pummel — melee interrupt | Dispel — remove an ally's stun | Horizon — interrupt |
-| 4 | Stasis — casted stun | Bash — melee stun | Rebuke — casted stun | Anchor — casted stun |
-| 5 | Ward — damage reduction | Iron Skin — damage reduction | Sanctuary — ally damage reduction | Umbra — damage reduction |
-| 6 | Mend — self heal | Mend — self heal | Greater Heal — repeatable ally heal | Mend — self heal |
-| 7 | Blink — forward escape | Charge — close on target | Grace — movement speed boost | Tether — pull a fighter to you |
-
-**Fulcrum** is the roster's control champion: mid-range, lowest damage of the three non-healers, and the only champion with no way to reposition *itself*. It decides where the fight happens instead. Every slot but 7 reuses an existing ability kind, so its identity rests almost entirely on Tether.
-
-**Tether** is the only ability in the game that does not care which team its target is on. On an enemy it is a peel and a kill setup — drag a healer out of line of sight, pull a kiting caster into melee. On an ally it is a save. It still requires range, line of sight and facing, because it is an aimed ability either way, and it deals no damage.
+The complete current kits, exact effects, cooldowns, and shared rules live in [`CLASS_ABILITIES.md`](CLASS_ABILITIES.md), generated from the kit definitions by `tools/class_reference.gd`. Keys **1–7** use the first bar; **Shift+1–5** use the second. Every ability has a 256px painted icon.
 
 ### Ability tooltips
 
@@ -73,40 +61,7 @@ Two places: the target/player unit frames, and a bar under the overhead nameplat
 
 ### Current numeric values
 
-Kit dictionaries: `name`, `kind`, `power`, `range`, `cast`, `cd`, `off`. `Kits.get_kit()` returns fresh dictionaries — do not share mutable cooldown state between fighters.
-
-| Champion | Key | Ability / kind | Power | Range | Cast | Own CD | Off GCD |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| Ember | 1 | Firebolt / damage | 16 dmg | 28 | 1.5 s | 0 | No |
-| Ember | 2 | Flare / damage | 22 dmg | 22 | Instant | 7 s | No |
-| Ember | 3 | Disrupt / interrupt | 4 s lock | 22 | Instant | 12 s | Yes |
-| Ember | 4 | Stasis / control | 4 s stun | 20 | 0.8 s | 16 s | No |
-| Ember | 5 | Ward / shield | 5 s duration | Self | Instant | 22 s | Yes |
-| Ember | 6 | Mend / self_heal | 28 healing | Self | 2 s | 16 s | No |
-| Ember | 7 | Blink / blink | 8 m travel | Self | Instant | 14 s | Yes |
-| Vanguard | 1 | Cleave / damage | 13 dmg | 3.5 | Instant | 0 | No |
-| Vanguard | 2 | Crush / damage | 25 dmg | 3.5 | Instant | 7 s | No |
-| Vanguard | 3 | Pummel / interrupt | 4 s lock | 4 | Instant | 12 s | Yes |
-| Vanguard | 4 | Bash / control | 3 s stun | 3.5 | Instant | 16 s | No |
-| Vanguard | 5 | Iron Skin / shield | 5 s duration | Self | Instant | 22 s | Yes |
-| Vanguard | 6 | Mend / self_heal | 28 healing | Self | 2 s | 16 s | No |
-| Vanguard | 7 | Charge / charge | 6 dmg | 22 | Instant | 12 s | Yes |
-| Luminary | 1 | Smite / damage | 10 dmg | 28 | 1.5 s | 0 | No |
-| Luminary | 2 | Renewal / heal | 18 healing | 28 | Instant | 7 s | No |
-| Luminary | 3 | Dispel / dispel | Remove stun | 28 | Instant | 10 s | Yes |
-| Luminary | 4 | Rebuke / control | 3 s stun | 20 | 1 s | 18 s | No |
-| Luminary | 5 | Sanctuary / ally_shield | 5 s duration | 28 | Instant | 22 s | Yes |
-| Luminary | 6 | Greater Heal / heal | 27 healing | 28 | 1.8 s | 0 | No |
-| Luminary | 7 | Grace / sprint | 4 s duration | Self | Instant | 16 s | Yes |
-| Fulcrum | 1 | Collapse / damage | 14 dmg | 24 | 1.3 s | 0 | No |
-| Fulcrum | 2 | Tidal Force / damage | 20 dmg | 20 | Instant | 7 s | No |
-| Fulcrum | 3 | Horizon / interrupt | 4 s lock | 22 | Instant | 12 s | Yes |
-| Fulcrum | 4 | Anchor / control | 3.5 s stun | 18 | 0.6 s | 16 s | No |
-| Fulcrum | 5 | Umbra / shield | 5 s duration | Self | Instant | 22 s | Yes |
-| Fulcrum | 6 | Mend / self_heal | 28 healing | Self | 2 s | 16 s | No |
-| Fulcrum | 7 | Tether / pull | 8 m travel | 22 | Instant | 14 s | Yes |
-
-Balance is provisional. Real playtesting has not happened.
+See [`CLASS_ABILITIES.md`](CLASS_ABILITIES.md). `scripts/kits.gd` and `scripts/class_mechanics.gd` are authoritative. Balance remains provisional pending human matches.
 
 ## Combat mechanics
 
@@ -132,7 +87,7 @@ Balance is provisional. Real playtesting has not happened.
 
 **Interrupts** cancel an active cast and set spell lockout to **4 seconds**. Missing does neither but still spends the cooldown.
 
-**Control (stun) diminishing returns** — all stun types share one DR category:
+**Control diminishing returns** — stuns, disorients, and roots share one DR category:
 
 - Duration factors: 1.0 → 0.5 → 0.25 → 0.0 (immune).
 - A successful stun increments DR count and sets reset timer to `18 + duration`.
@@ -171,7 +126,7 @@ A / D **strafe** rather than turn — a deliberate divergence from the WoW defau
 | Hold LMB | Orbit camera independently |
 | Hold both mouse buttons | Run forward |
 | F11 or Alt+Enter | Toggle fullscreen / windowed |
-| 1–7 (rebindable) | Hotbar slots. Keys and slot contents are set in Edit HUD. |
+| 1–7 / Shift+1–5 (rebindable) | Hotbar slots. Keys and slot contents are set in Edit HUD. |
 
 ## Buffs and debuffs
 
@@ -224,7 +179,7 @@ Settings → **Edit HUD**, WoW's Edit Mode in miniature:
 
 **Shift + drag rearranges the bars at any time**, in a match or in the world, without opening Edit HUD. Empty slots on the other bars appear the moment a drag starts, so there is somewhere to drop, and disappear again when it ends. Each bar has a grip handle on its left, shown in Edit HUD, because the only draggable pixels were otherwise the few between buttons.
 
-**Three action bars.** The first carries the champion's kit on keys 1–7. The other two start empty and unbound, and are filled by dragging an ability onto them in Edit HUD. With only seven abilities they exist to give a spell a **second, more comfortable key** — a side mouse button, a modifier — not to hold more spells, so the same ability appearing on two bars is expected rather than an error. Empty slots are hidden in play and visible while editing, so there is somewhere to drop things.
+**Three action bars.** Twelve abilities occupy the first two bars; the third starts empty. Edit HUD supports moving, rebinding, and duplicating assignments. Saved seven-ability layouts gain missing abilities in empty slots automatically.
 
 ## Class colours
 
