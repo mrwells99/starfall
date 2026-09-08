@@ -12,15 +12,30 @@ client_cmd = ["godot", "--headless", "--path", str(ROOT),
 
 server = subprocess.Popen(server_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
 clients = []
+late = None
 try:
     time.sleep(1.5)
     for _ in range(2):
         clients.append(subprocess.Popen(client_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True))
+    # A queue must accept someone who arrives while a round is already running
+    # and put them in the next one. Before this was fixed, register_player
+    # rejected any client whose connection landed mid-round — which, on a server
+    # that auto-rematches, is nearly always.
+    time.sleep(6)
+    late = subprocess.Popen(client_cmd + ["--queued-only"], stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT, text=True)
+
     for i, c in enumerate(clients):
         out, _ = c.communicate(timeout=45)
         print("--- CLIENT %d ---\n%s" % (i, out))
         if c.returncode or "ERROR:" in out or "DEDICATED CLIENT PASS" not in out:
+            print("client %d did not reach a round" % i)
             sys.exit(1)
+    late_out, _ = late.communicate(timeout=60)
+    print("--- LATE JOINER ---\n%s" % late_out)
+    if late.returncode or "DEDICATED CLIENT QUEUED" not in late_out:
+        print("A client that arrived mid-round was not queued")
+        sys.exit(1)
     server.terminate()
     try:
         server_out, _ = server.communicate(timeout=5)
@@ -37,7 +52,7 @@ try:
     if "ERROR:" in server_out:
         sys.exit(1)
 finally:
-    for p in [server] + clients:
+    for p in [server, late] + clients:
         if p is not None and p.poll() is None:
             p.terminate()
             p.wait(timeout=5)

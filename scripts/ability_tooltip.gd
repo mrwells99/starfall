@@ -27,9 +27,9 @@ func _init() -> void:
 	margin.add_child(label)
 	hide()
 
-func present(ability: Dictionary, champion: String, expanded: bool, pointer: Vector2, bounds: Vector2) -> void:
-	var text := Kits.description(ability, champion, expanded)
-	var width := minf(470 if expanded else 320, bounds.x - 40)
+func present(ability: Dictionary, champion: String, pointer: Vector2, bounds: Vector2) -> void:
+	var text := Kits.description(ability, champion)
+	var width := minf(360, bounds.x - 40)
 	var key := "%s:%s" % [width, text]
 	if key != content_key:
 		content_key = key

@@ -208,6 +208,15 @@ No address or port should be visible anywhere in the UI.
 
 ---
 
+## Troubleshooting
+
+| Symptom | Cause and fix |
+| --- | --- |
+| All containers `(healthy)` but players get "Could not reach the server" | A container can be healthy and still have **no host port mapping**. The healthcheck runs inside the network namespace, where the server always binds successfully — it cannot see a failed publish. Compare `ss -ulnp \| grep 278` (expect six listeners) against `docker ps` (six healthy). Fix with `docker compose up -d --force-recreate <service>`. Cause is normally something else holding the port when the container was first created. `starfall-deploy` now fails the deploy when this happens, but a container created before that check existed can still be in this state. |
+| `address already in use` on a game port | Something outside Docker holds it — most often a leftover `ringfall`/`starfall` systemd unit from the pre-Docker model. `ss -ulnp \| grep 278` names the process. Never run both deployment models on one droplet. |
+| Clients rejected with a version error | `Config.VERSION` differs between client and server. Expected after a protocol change — everyone must re-download. |
+| Queue says "Searching…" forever | Working as designed: it needs `*_MIN_PLAYERS` humans. Lobbies show a code immediately, which is why they can look fine while the queue looks broken. |
+
 ## How to roll back
 
 Every build is an immutable tag, so rollback is a redeploy of an older one.

@@ -106,24 +106,23 @@ func run() -> void:
 	point_mouse(arena.ability_buttons[0].get_global_rect().get_center())
 	arena.update_ability_tooltip()
 	check(arena.ability_tooltip.visible, "Hover shows custom tooltip")
-	check(arena.ability_tooltip.label.text.contains("Deal 16") and not arena.ability_tooltip.label.text.contains("Cooldown:"), "Normal hover gives a short effect description")
+	# One hover, everything on it. There is no Shift variant any more.
+	var hovered: String = arena.ability_tooltip.label.text
+	check(hovered.contains("Deal 16"), "Hover gives the effect description")
+	check(hovered.contains("Cooldown") and hovered.contains("Range") and hovered.contains("Cost"),
+		"Hover carries cast, range, cooldown and cost")
+	check(hovered.contains("Instant") or hovered.contains("cast"), "Hover states cast time")
+	check(not hovered.contains("Shift"), "Tooltip no longer advertises a Shift variant")
 	await process_frame
 	await process_frame
 	arena.update_ability_tooltip()
-	check(arena.ability_tooltip.size.y < 180, "Short tooltip stays compact after layout")
+	check(arena.ability_tooltip.size.y < 220, "Tooltip stays compact after layout")
 	await RenderingServer.frame_post_draw
 	root.get_texture().get_image().save_png("res://artifacts/tooltip-short.png")
 	key_event(KEY_SHIFT)
 	arena.update_ability_tooltip()
-	check(arena.ability_tooltip.label.text.contains("Cooldown:") and arena.ability_tooltip.label.text.contains("line of sight"), "Shift expands existing hover without moving mouse")
-	await process_frame
-	await process_frame
-	arena.update_ability_tooltip()
-	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://artifacts/tooltip-expanded.png")
+	check(arena.ability_tooltip.label.text == hovered, "Holding Shift changes nothing")
 	key_event(KEY_SHIFT, false)
-	arena.update_ability_tooltip()
-	check(not arena.ability_tooltip.label.text.contains("Cooldown:"), "Releasing Shift collapses tooltip without moving mouse")
 	arena.panel.show()
 	arena.update_ability_tooltip()
 	check(not arena.ability_tooltip.visible, "Opening menu hides tooltip")
@@ -134,13 +133,32 @@ func run() -> void:
 	arena.release_mouse()
 	for champion in arena.Kits.NAMES:
 		for ability in arena.Kits.get_kit(champion):
-			var brief: String = arena.Kits.description(ability, champion, false)
-			var full: String = arena.Kits.description(ability, champion, true)
-			check(not arena.Kits.summary(ability).is_empty() and full.length() > brief.length(), "Description coverage: " + ability.name)
-			arena.ability_tooltip.present(ability, champion, true, Vector2(1100, 740), arena.ui.size)
+			var text: String = arena.Kits.description(ability, champion)
+			check(not arena.Kits.summary(ability).is_empty() and text.contains("Cooldown"),
+				"Description coverage: " + ability.name)
+			arena.ability_tooltip.present(ability, champion, Vector2(1100, 740), arena.ui.size)
 			await process_frame
 			await process_frame
-			arena.ability_tooltip.present(ability, champion, true, Vector2(1100, 740), arena.ui.size)
-			check(Rect2(Vector2.ZERO, arena.ui.size).encloses(arena.ability_tooltip.get_global_rect()), "Expanded tooltip fits viewport: " + ability.name)
+			arena.ability_tooltip.present(ability, champion, Vector2(1100, 740), arena.ui.size)
+			check(Rect2(Vector2.ZERO, arena.ui.size).encloses(arena.ability_tooltip.get_global_rect()), "Tooltip fits viewport: " + ability.name)
+	# Cooldown sweep: an ability on cooldown shades its slot and shows a number;
+	# an off-GCD ability must not be shaded by the global cooldown.
+	var me = arena.actors[arena.local_id]
+	me.cooldowns[1] = 6.0
+	me.gcd = 1.2
+	arena.update_visuals(0)
+	check(arena.cooldown_overlays[1].remaining > 5.0 and not arena.cooldown_overlays[1].is_gcd,
+		"Ability cooldown drives its own sweep")
+	check(arena.cooldown_overlays[1].label.visible, "Ability cooldown shows a number")
+	check(arena.cooldown_overlays[0].is_gcd and arena.cooldown_overlays[0].remaining > 0.0,
+		"Global cooldown sweeps a ready slot")
+	check(not arena.cooldown_overlays[0].label.visible, "Global cooldown shows no number")
+	check(arena.cooldown_overlays[2].remaining == 0.0, "Off-GCD ability is not swept by the global cooldown")
+	me.cooldowns[1] = 0.0
+	me.gcd = 0.0
+	arena.update_visuals(0)
+	check(arena.cooldown_overlays[1].remaining == 0.0, "Sweep clears when the cooldown ends")
+	check(arena.CooldownOverlay.format_time(72.0) == "2m" and arena.CooldownOverlay.format_time(12.4) == "13"
+		and arena.CooldownOverlay.format_time(3.4) == "3.4", "Countdown formats like OmniCC")
 	print("UI checks: %d passed / %d total" % [checks - failures, checks])
 	quit(1 if failures else 0)

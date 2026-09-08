@@ -141,6 +141,9 @@ python3 tests/run_six.py
 python3 tests/run_dedicated.py
 python3 tests/run_lobby.py
 
+# Art and icons (real window):
+godot --path . --script tests/ability_art_test.gd
+
 # Real-window UI test (rejects --headless):
 godot --path . --script tests/ui_test.gd
 ```

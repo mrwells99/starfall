@@ -43,6 +43,24 @@ Three fixed-kit champions. Each has seven abilities on keys 1–7.
 | 6 | Mend — self heal | Mend — self heal | Greater Heal — repeatable ally heal |
 | 7 | Blink — forward escape | Charge — close on target | Grace — movement speed boost |
 
+### Ability tooltips
+
+One hover, one tooltip. Name, effect, then cast/range/cooldown/cost. There is no Shift-expanded variant — it was removed along with the long rules prose it carried, which duplicated `GAME_DESIGN.md` and drifted from it.
+
+### Cooldown display
+
+WoW-style radial sweep on each hotbar slot, drawn in `scripts/cooldown_overlay.gd`:
+
+- **Ability cooldown** — heavy shade plus an OmniCC-style countdown (minutes when long, whole seconds, tenths at the end). The ability name steps aside while the number shows.
+- **Global cooldown** — lighter shade, no number. 1.5s of flickering digits is noise.
+- An ability's own cooldown takes the slot when both are running, and an off-GCD ability is never swept by the global cooldown.
+
+The shaded wedge is what is still to come: it starts at the elapsed angle and runs clockwise round to 12 o'clock, so the slot reveals clockwise from the top as it comes off cooldown.
+
+### Cast bars
+
+Two places: the target/player unit frames, and a bar under the overhead nameplate that fills left to right and hides when nothing is casting.
+
 ### Current numeric values
 
 Kit dictionaries: `name`, `kind`, `power`, `range`, `cast`, `cd`, `off`. `Kits.get_kit()` returns fresh dictionaries — do not share mutable cooldown state between fighters.

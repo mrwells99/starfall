@@ -31,6 +31,9 @@ Recommended reading order for a new developer: `kits.gd` → `combatant.gd` → 
 | `scripts/arena.gd` | Match lifecycle, local input, camera, GUI, target selection, authoritative combat, bots, networking, dedicated mode. **~1,300 lines — flagged for extraction in [`ROADMAP.md`](ROADMAP.md).** |
 | `scripts/arena_world.gd` | Floor, grid, pillars, walls, lighting. Parent of `arena.gd`. |
 | `scripts/combatant.gd` | `CharacterBody3D` fighter — state, generated appearance, snapshot pack/apply. |
+| `scripts/champion_model.gd` | Original faceted meshes and visual-only procedural joints for all three champions. Collision stays on the parent fighter. |
+| `scripts/ability_art.gd` | Cached name-to-texture presentation mapping for 20 icons; hotbar art layer and engine-rendered frames. |
+| `tools/art_review.gd` | Renders front/back character lineup and full icon atlas to `artifacts/` in a game window. |
 | `scripts/kits.gd` | Champion names, ability dictionaries, short + expanded descriptions. |
 | `scripts/ability_tooltip.gd` | Passive tooltip panel — wrapping text, cached content, viewport placement. |
 | `scripts/arena_navigation.gd` | Inflated-obstacle AStarGrid2D pathfinding. |
@@ -248,6 +251,16 @@ Changing this structure requires updating `update_frame()` and tests. Frame's `a
 - `"online"` — Host + address + Join + Back.
 
 Rows are `HBoxContainer`s toggled by `refresh_menu()`. Mode picker is visible in submenus, hidden in main. Champion picker is always visible in the menu.
+
+## HUD cooldowns
+
+`scripts/cooldown_overlay.gd` is a `Control` parented to each hotbar button, drawing a radial sweep with `draw_colored_polygon` over a fan of points. Radius is half the slot's diagonal so the wedge reaches the corners rather than leaving lit crescents.
+
+**It runs its own clock.** `update_visuals()` only refreshes when server state arrives, well below frame rate, so an overlay that waited to be told would tick in visible steps. `sync()` supplies the authoritative remaining/duration whenever a snapshot lands and `_process` fills the gaps.
+
+`GCD_DURATION` in `arena.gd` is shared by the simulation and the sweep — the first of the duplicated balance constants noted in [`ROADMAP.md`](ROADMAP.md) to be pulled out of an inline literal.
+
+Slot text is the ability name; the keybind is drawn in the overlay's corner so the countdown owns the centre. Once real icons exist the overlay needs no change — only what sits under it.
 
 ## Testing
 

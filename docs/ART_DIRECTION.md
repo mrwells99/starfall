@@ -1,6 +1,6 @@
 # Art Direction — established source of truth
 
-_Established visual direction. Ideas and exploration are labeled. Aesthetics have deliberately been deferred — see [`DECISIONS.md`](DECISIONS.md)._
+_Established theme and current prototype art. Character designs remain an initial art pass, subject to playtest and visual review._
 
 ## Theme — Cosmic Gladiators (established 2026-09-07)
 
@@ -23,21 +23,28 @@ Space + fantasy. The arena is an ancient structure floating in space, not a buil
 - Extremely bright magical accent colors on top of that base.
 - Lots of stars, glowing weapons, cosmic effects.
 
-**What this does and does not settle:** it settles *what the game is about and what it looks like thematically*. It does **not** reverse the placeholder-first decision in [`DECISIONS.md`](DECISIONS.md) — no external assets, no animation system, no art pipeline until core feel is validated. New placeholder work should lean toward the theme (color, background, effect tint) rather than away from it, but building art is still not the current priority. See [`ROADMAP.md`](ROADMAP.md).
+**Current authorization:** The owner requested ability art and player models on 2026-09-07, superseding the earlier blanket art deferral for these areas. Arena/environment art, audio and a full skeletal animation pipeline remain separate work.
 
-## Current state — placeholder-first
+## Current implementation — first roster art pass
 
-The game uses **code-generated placeholder geometry only**:
+- **20 original painted icons cover all 21 ability slots.** Mend is shared between Ember and Vanguard. Assets and full generation prompts live in `assets/icons/abilities/`. The built-in image generation tool produced the illustrations, using Firebolt as the style anchor. Source PNGs are preserved; Godot imports at a maximum of 256 pixels with mipmaps.
+- **Ember:** angular hood and split robes, team-colored mantle, gold ember staff and floating flame crystal.
+- **Vanguard:** broad faceted plate, helmet crest, team-colored cape/tabard and kite shield, luminous astral sword.
+- **Luminary:** ivory floating vestments, team-colored sashes, halo, six celestial feather ornaments, mint focus crystal and scepter.
+- **Models are original in-engine meshes**, constructed by `scripts/champion_model.gd`. Procedural joint poses cover idle/walking, casting, stun and defeat; hit flashes affect the complete model. No external models, rig or AnimationTree dependency.
+- Every champion retains the same radius 0.42 / height 1.8 collision capsule. Weapons, robes and ornaments are visual only. They never become clickable target surfaces.
+- Hotbar artwork sits below the existing radial cooldown overlay. Keybinds, borders, focus/hover states and countdowns are rendered by Godot, not baked into textures. Tooltips retain ability names and mechanics.
+- Billboard names/health/cast bars sit above the new silhouettes. The arena still uses its existing floor/pillars, beam cues and floating combat text. Audio remains absent.
 
-- Character capsules (radius 0.42, height 1.8) with a small forward marker box for facing.
-- Billboard overhead labels for names and status.
-- Simple health mesh above each character, always facing the camera.
-- Cylinder mesh beams (~0.16 s lifetime) for cast/hit effects.
-- Rising floating text labels (~1.1 s lifetime) for damage / heal / status events.
-- Arena floor 36 × 36 with pillars at (±6, ±5) and boundary walls at ±18.
-- No animations. No external models. No audio.
+These character designs are the **implemented prototype**, not a final lock on champion lore or production rendering style.
 
-This is intentional. See [`DECISIONS.md`](DECISIONS.md) — core mechanics and multiplayer feel are validated first, aesthetics layer on afterward.
+### Review and extension
+
+Run `godot --path . --script tools/art_review.gd` in a rendering window to regenerate front/back lineup boards and the full icon atlas under `artifacts/`. Run `godot --path . --script tests/ability_art_test.gd` for art coverage, champion switching, overlay order and visual/collision separation checks.
+
+For UI tests under Xvfb, supply a screen larger than the game window: `xvfb-run -a -s '-screen 0 1600x1000x24' godot --path . --script tests/ui_test.gd`. A 640×480 virtual screen clamps the cursor before it can reach the hotbar, even though the viewport screenshot is 1280×800.
+
+Keep icons readable by silhouette at 64–92 pixels: one primary motif, dark indigo backgrounds, limited cosmic texture, strong light/dark contrast. Ember attacks use orange/magenta; Vanguard uses steel/gold; Luminary uses mint/ivory/gold. Functional abilities may cross those palettes (e.g. green Mend and blue Ward). Add future icon paths to `scripts/ability_art.gd`; art is presentation data and must not enter network snapshots or balance dictionaries.
 
 ## Established visual language
 
@@ -57,10 +64,12 @@ Flip based on viewer. Frame color is **presentation**.
 
 **Do not conflate the two.**
 
-### Accent color on character forward marker
+### Character magical accents
 
-- Luminary: soft green (`#97edb1`)
-- Ember / Vanguard: warm gold (`#e8be78`)
+- Luminary: mint light with ivory/gold ornaments.
+- Ember: warm amber flame with gold trim.
+- Vanguard: pale gold weapon/visor accents.
+- Facing reads from faces, weapons and posture; the old capsule marker is removed.
 
 ### Feedback cue palette
 
@@ -79,9 +88,9 @@ Dark near-black clear color (`#0a0f17`) for high contrast against character silh
 _Open. Do not silently promote:_
 
 - Rendering style within the theme (stylized / painterly / semi-realistic / abstract).
-- Character silhouette identity beyond the capsule, and which cosmic archetype each of the three champions becomes.
+- Final champion lore and production silhouettes beyond this first model pass.
 - How the arena is realized — geometry of the floating platform, which celestial structures appear, what the god-observers look like.
-- Animation approach (rigged / procedural / hybrid).
+- Production animation approach; current model poses are procedural.
 - Audio direction (music, SFX, VO).
 - UI visual style beyond current functional dark panels — whether the HUD adopts the purple/blue cosmic palette.
 - Whether the existing functional colors (team blue/red, feedback cue palette) survive contact with the cosmic palette, or get re-tuned for contrast against deep purple.
@@ -97,3 +106,11 @@ _(none currently)_
 ## Rejected directions
 
 _(none currently)_
+
+## Asset budget
+
+Ability icons ship at **256 x 256**. They display at 92 px in the hotbar, so 256 leaves headroom for hi-dpi and larger UI scales without paying for pixels nobody sees.
+
+The generated originals were 1254 x 1254 — around 2.2 MB each, 44 MB for twenty icons. That is roughly 186x the pixels the hotbar draws, and git keeps every blob forever, so it was downscaled before the first push. Regenerate from `assets/icons/abilities/PROMPTS.md` if a higher-resolution master is ever needed, but do not commit one.
+
+**Check the size of any generated art before committing it.** A texture that looks fine in isolation can carry a cost that is permanent once pushed.

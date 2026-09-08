@@ -101,6 +101,26 @@ for attempt in \$(seq 1 30); do
                  --format '{{.Status}}' | grep -c '(healthy)' || true)
     if [[ "\${healthy}" -ge "\${expected}" ]]; then
         echo "All \${expected} containers healthy."
+        # Healthy is not the same as reachable. The container healthcheck runs
+        # INSIDE the network namespace, where the server always binds its port
+        # successfully — it cannot see a failed host-side publish. A container
+        # whose port mapping never got established therefore reports healthy
+        # while being completely unreachable from the internet. Verify the host
+        # mapping separately, or the deploy goes green on a dead server.
+        unpublished=""
+        for cid in \$(docker compose ps -q); do
+            cname=\$(docker inspect -f '{{.Name}}' "\$cid" | tr -d /)
+            if [[ -z "\$(docker port "\$cid")" ]]; then
+                unpublished="\${unpublished} \${cname}"
+            fi
+        done
+        if [[ -n "\${unpublished}" ]]; then
+            echo "Containers are healthy but have NO published host ports:\${unpublished}" >&2
+            echo "They are unreachable from outside. Recreate them:" >&2
+            echo "  docker compose up -d --force-recreate\${unpublished}" >&2
+            docker compose ps >&2
+            exit 1
+        fi
         docker image prune -f --filter "until=168h" >/dev/null || true
         docker compose ps
         exit 0

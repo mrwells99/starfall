@@ -60,48 +60,16 @@ static func summary(ability: Dictionary) -> String:
 			return "Move 65%% faster for %s seconds." % ability.power
 	return ""
 
-static func description(ability: Dictionary, champion: String, expanded: bool) -> String:
-	var brief := "%s\n%s" % [ability.name, summary(ability)]
-	if not expanded:
-		return brief + "\n\nHold Shift for full details."
+static func description(ability: Dictionary, champion: String) -> String:
 	var self_only: bool = ability.kind in ["shield", "self_heal", "blink", "sprint"]
-	var helpful: bool = ability.kind in ["heal", "ally_shield", "dispel"]
-	var lines: Array[String] = [brief, ""]
-	lines.append("Cast: %s  |  Cooldown: %s" % ["%ss" % ability.cast if ability.cast > 0 else "Instant", "%ss" % ability.cd if ability.cd > 0 else "None"])
-	lines.append("Range: %s  |  Cost: None" % ["Self" if self_only else "%s meters" % ability.range])
-	lines.append("Global cooldown: %s" % ["Bypasses it; does not trigger it." if ability.off else "Triggers 1.5 seconds when used or casting starts."])
-	if self_only:
-		lines.append("Target: Always yourself; your selected target is unchanged.")
-	elif helpful:
-		lines.append("Target: Selected living ally. With an enemy or no target selected, casts on yourself. A selected dead ally is invalid.")
-		lines.append("Other allies must be in range and line of sight. Facing is not required.")
-	else:
-		lines.append("Target: Selected living enemy, in range and line of sight, in your forward half-circle.")
-	if ability.cast > 0:
-		lines.append("Stand still and stay grounded. Moving, jumping, Escape, a stun or an interrupt cancels the cast. Target checks repeat when it finishes; changing selection does not redirect it.")
-		lines.append("Its own cooldown starts on completion; a cancelled cast keeps any global cooldown already triggered.")
-	else:
-		lines.append("Usable while moving. Its own cooldown starts immediately on use.")
-	match ability.kind:
-		"damage", "charge":
-			lines.append("Damage is reduced by a target's ward. No critical hits, armor, damage-over-time effect or area damage.")
-		"heal", "self_heal":
-			lines.append("Health caps at 100. Healing reduction begins at 60s, rises by 1 percentage point every 1.8s, and caps at 70% at 186s. Cannot revive the dead.")
-		"interrupt":
-			lines.append("Only succeeds against an active cast. A missed interrupt still spends the cooldown. Deals no damage and does not stun. Vanguard ignores spell lockout.")
-		"control":
-			lines.append("Shared stun diminishing returns: %ss → %ss → %ss → immune. Resets 18s after the last successful stun ends. Damage does not break it; Dispel removes it. An immune target still costs the cooldown." % [ability.power, ability.power * 0.5, ability.power * 0.25])
-		"shield", "ally_shield":
-			lines.append("Reduces each damage hit; it is not an absorb shield. Reapplying refreshes duration without stacking. Does not prevent control or interrupts.")
-		"dispel":
-			lines.append("Removes only stun, not spell lockout, wards or other effects. Does not reset stun diminishing returns. An unstunned target still costs the cooldown. You cannot cast it while stunned yourself.")
-		"blink":
-			lines.append("Stops against pillars and walls; it does not pass through them or grant immunity. Travel may be shorter than its maximum distance. Does not clear stuns.")
-		"sprint":
-			lines.append("Increases forward, strafe and backward speed. Does not increase jump height or clear stuns. Reapplying refreshes duration without stacking.")
-	if ability.kind == "charge":
-		lines.append("Stops about 1.8m from the target, or earlier at geometry. Damage requires ending within 3.5m. No minimum range, stun or immunity; a blocked charge still costs the cooldown.")
-	lines.append("Cannot be used while dead, stunned or already casting, even when off the global cooldown.")
-	if champion != "Vanguard":
-		lines.append("Available during spell lockout." if ability.kind in ["shield", "blink", "sprint"] else "Unavailable during spell lockout.")
+	var lines: Array[String] = [ability.name, "", summary(ability), ""]
+	lines.append("%s  ·  Range %s" % [
+		"Instant" if ability.cast <= 0 else "%ss cast" % ability.cast,
+		"Self" if self_only else "%s m" % ability.range])
+	lines.append("Cooldown %s  ·  Cost None" % ["None" if ability.cd <= 0 else "%ss" % ability.cd])
+	# Only worth a line when it is the exception: most abilities trigger the GCD.
+	if ability.off:
+		lines.append("Off the global cooldown.")
+	if champion == "Vanguard" and ability.kind == "interrupt":
+		lines.append("Vanguard ignores spell lockout.")
 	return "\n".join(lines)

@@ -4,6 +4,15 @@ _Meaningful decisions that future agents should not silently reverse. Trivial im
 
 Newest first.
 
+
+## 2026-09-07 — Begin ability icons and original player models
+
+**Decision:** The owner explicitly requested the full three-class icon roster and player models. This supersedes the prior blanket placeholder-only restriction for ability artwork and character presentation.
+
+**Implementation:** Twenty generated painted icons cover the 21 slots (shared Mend). Original faceted Godot meshes provide distinct class silhouettes and simple procedural poses, while preserving collision, targeting and authoritative combat. Art mapping remains client presentation data outside ability dictionaries and snapshots.
+
+**Scope:** These are usable first-pass designs, not a final champion-lore commitment. Environment art, audio and a skeletal animation pipeline are not implied by this decision. See `ART_DIRECTION.md` for current assets and review commands.
+
 ---
 
 ## 2026-09-07 — Theme: Cosmic Gladiators
@@ -20,6 +29,23 @@ Newest first.
 - This does **not** reverse "Placeholder art, defer aesthetics" below. No external assets, no animation system yet. It gives placeholder work a direction to lean toward, not permission to start an art pipeline.
 - Cross-universe variety is intentional: champions are *not* required to share a silhouette language or material palette.
 - Existing functional colors (absolute team blue/red, the feedback cue palette) were chosen for contrast against a near-black background. Re-tuning them against a deep-purple cosmic palette is an open question, not a settled one — see the open list in [`ART_DIRECTION.md`](ART_DIRECTION.md).
+
+---
+
+## 2026-09-07 — A queue holds you for the next round; it never turns you away
+
+**Decision:** On a dedicated server, `register_player` accepts a client that connects during `countdown`, `match` or `results`. The player waits in the roster and is spawned by the next `begin_round()`. Player-hosted lobbies keep the stricter rule — they have a host whose lobby you are genuinely waiting on.
+
+**Why:** The queue servers auto-rematch continuously, so a round is in progress nearly all the time. The old check (`phase != "lobby"` → reject) meant the Online queue only worked during the few idle seconds between matches; every other attempt was bounced with "Lobby unavailable or full. Ask the host to return to the lobby." — a message that makes no sense in matchmaking, where there is no host. Private lobbies were unaffected because you claim an *idle* slot, which is why they worked while the queue appeared broken.
+
+**Why it is safe:** actors are built from the roster at `begin_round()`, so registering mid-round spawns nothing. A waiting client ignores in-flight snapshots because `receive_snapshot` drops anything whose epoch does not match, and `round_started` is broadcast to all peers, so the newcomer is picked up by the next round. `maybe_auto_start()` still requires `phase == "lobby"`, so a mid-round registration cannot start a second round.
+
+**Alternatives considered:**
+
+- **Reject with a better message** ("a round is in progress, try again in 30s"). Honest, but it makes the player do the queue's job.
+- **Spawn the late joiner into the running round.** Rejected: teams are balanced at `begin_round()`, and dropping someone into a match already in progress at partial HP is a different feature, not a fix.
+
+**Consequence:** `lobby_state` gained an `in_round` flag so a queued client can say "Match in progress — you are in for the next round" instead of "Searching…". That is a protocol change, so `Config.VERSION` went to **0.2.0** and older clients are refused — which is the handshake doing its job.
 
 ---
 

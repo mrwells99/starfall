@@ -2,7 +2,12 @@ extends "res://scripts/arena_world.gd"
 
 const Fighter = preload("res://scripts/combatant.gd")
 const Kits = preload("res://scripts/kits.gd")
+const AbilityArt = preload("res://scripts/ability_art.gd")
 const Config = preload("res://scripts/config.gd")
+# Seconds of global cooldown an ability triggers. The hotbar sweep needs the
+# same number the simulation uses, so it lives here rather than inline.
+const GCD_DURATION := 1.5
+const CooldownOverlay = preload("res://scripts/cooldown_overlay.gd")
 var actors: Dictionary = {}
 var local_id := 1
 var selected_id := -1
@@ -30,6 +35,8 @@ var focus_frame: VBoxContainer
 var party_box: VBoxContainer
 var party_buttons: Array[Button] = []
 var ability_buttons: Array[Button] = []
+var ability_images: Array[TextureRect] = []
+var cooldown_overlays: Array = []
 var champion_choice: OptionButton
 var mode_choice: OptionButton
 var address: LineEdit
@@ -62,6 +69,7 @@ var dedicated := false
 var min_players := Config.DEFAULT_MIN_PLAYERS
 var current_port := Config.SERVER_PORT
 var remote_min_players := Config.DEFAULT_MIN_PLAYERS
+var remote_in_round := false
 var rematch_delay := 8.0
 var menu_state := "main"
 var main_row: HBoxContainer
@@ -196,7 +204,7 @@ func build_ui() -> void:
 	add_label(enemy_box, "ENEMIES · Tab / click frame")
 	for i in range(3):
 		enemy_buttons.append(add_button(enemy_box, "", select_enemy.bind(i)))
-	var help := add_label(ui, "W/S move · A/D turn · Q/E strafe · Space jump\nRMB steer · LMB orbit · Both run · Wheel zoom\nTab / frames target · F1–F3 allies · F / G focus\n1–7 abilities · Hover + Shift details · Esc menu", 14)
+	var help := add_label(ui, "W/S move · A/D turn · Q/E strafe · Space jump\nRMB steer · LMB orbit · Both run · Wheel zoom\nTab / frames target · F1–F3 allies · F / G focus\n1–7 abilities · Hover for details · Esc menu", 14)
 	help.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
 	help.offset_left = 24
 	help.offset_top = -185
@@ -205,15 +213,21 @@ func build_ui() -> void:
 	var hotbar := HBoxContainer.new()
 	ui.add_child(hotbar)
 	hotbar.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
-	hotbar.offset_left = -420
-	hotbar.offset_top = -95
-	hotbar.offset_right = 420
+	hotbar.offset_left = -340
+	hotbar.offset_top = -117
+	hotbar.offset_right = 340
 	hotbar.offset_bottom = -25
 	hotbar.add_theme_constant_override("separation", 6)
 	for slot in range(7):
 		var button := add_button(hotbar, "", send_action.bind(slot))
-		button.custom_minimum_size = Vector2(114, 70)
+		button.custom_minimum_size = Vector2(92, 92)
+		button.clip_contents = true
 		ability_buttons.append(button)
+		ability_images.append(AbilityArt.attach(button))
+		var overlay = CooldownOverlay.new()
+		button.add_child(overlay)
+		overlay.set_key(str(slot + 1))
+		cooldown_overlays.append(overlay)
 	notice = add_label(ui, "", 21)
 	notice.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
 	notice.offset_left = -350
@@ -496,6 +510,7 @@ func leave_session(message: String) -> void:
 	menu_state = "main"
 	intent = ""
 	searching = false
+	remote_in_round = false
 	lobby_code = ""
 	pending_code = ""
 	roster.clear()
@@ -580,8 +595,22 @@ func register_player(choice: String, client_version: String) -> void:
 	if client_version != Config.VERSION:
 		rejected.rpc_id(peer, version_message(client_version))
 		return
-	if phase != "lobby" or roster.size() >= mode * 2 or choice not in Kits.NAMES:
-		rejected.rpc_id(peer, "Lobby unavailable or full. Ask the host to return to the lobby.")
+	if choice not in Kits.NAMES:
+		rejected.rpc_id(peer, "Unknown champion.")
+		return
+	if roster.size() >= mode * 2:
+		rejected.rpc_id(peer, "That server is full. Try again in a moment.")
+		return
+	# A queue has to hold you for the NEXT round rather than turning you away.
+	# These servers auto-rematch continuously, so a round is in progress most of
+	# the time, and rejecting mid-round meant the queue only ever worked in the
+	# few idle seconds between matches. Registering now costs nothing: actors are
+	# built from the roster at begin_round(), and a waiting client ignores
+	# in-flight snapshots because its epoch is stale.
+	# Player-hosted lobbies keep the stricter rule — they have a host to wait for.
+	var accepting: bool = phase == "lobby" or (dedicated and phase in ["countdown", "match", "results"])
+	if not accepting:
+		rejected.rpc_id(peer, "Lobby unavailable. Ask the host to return to the lobby.")
 		return
 	var counts := [0, 0]
 	for entry in roster.values():
@@ -605,13 +634,14 @@ func rejected(reason: String) -> void:
 func broadcast_lobby() -> void:
 	refresh_lobby()
 	if network:
-		lobby_state.rpc(roster, mode, "" if dedicated else status, min_players)
+		lobby_state.rpc(roster, mode, "" if dedicated else status, min_players, phase != "lobby")
 
 @rpc("authority", "call_remote", "reliable")
-func lobby_state(players: Dictionary, size_per_team: int, message: String, needed: int) -> void:
+func lobby_state(players: Dictionary, size_per_team: int, message: String, needed: int, in_round: bool) -> void:
 	roster = players
 	mode = size_per_team
 	remote_min_players = maxi(1, needed)
+	remote_in_round = in_round
 	mode_choice.select(1 if mode == 3 else 0)
 	phase = "lobby"
 	status = message
@@ -624,6 +654,9 @@ func refresh_lobby() -> void:
 		var lines: Array[String] = []
 		if dedicated:
 			lines.append("Dedicated · %dv%d · %d/%d players" % [mode, mode, roster.size(), min_players])
+		elif searching and remote_in_round:
+			lines.append("Match in progress — you are in for the next round.")
+			lines.append("%d players queued" % roster.size())
 		elif searching:
 			lines.append("Searching for an opponent…" if mode == 1 else "Searching for players…")
 			lines.append("%d of %d players ready" % [roster.size(), remote_min_players])
@@ -1041,7 +1074,7 @@ func try_spell(id: int, slot: int, requested: int) -> bool:
 	else:
 		resolve_spell(actor, slot, actors[victim_id])
 	if not spell.off:
-		actor.gcd = 1.5
+		actor.gcd = GCD_DURATION
 	return true
 
 func resolve_spell(actor, slot: int, victim) -> void:
@@ -1372,9 +1405,24 @@ func update_visuals(delta: float) -> void:
 			continue
 		var actor = actors[local_id]
 		var spell: Dictionary = actor.kit[slot]
-		var remaining := maxf(actor.cooldowns[slot], actor.gcd if not spell.off else 0.0)
-		button.text = "%d  %s\n%s" % [slot + 1, spell.name, "%.1fs" % remaining if remaining > 0 else "READY"]
-		button.modulate = Color("83919e") if remaining > 0 or actor.hp <= 0 else Color.WHITE
+		var art := AbilityArt.texture_for(spell.name)
+		ability_images[slot].texture = art
+		ability_images[slot].visible = art != null
+		ability_images[slot].modulate = Color("b6a4cf") if button.button_pressed else Color.WHITE
+		# Unillustrated abilities retain the existing text fallback.
+		button.text = "" if art != null or actor.cooldowns[slot] > 0.0 else spell.name
+		# The ability's own cooldown wins the slot: it is the longer wait and the
+		# one worth a number. The global cooldown only shows where nothing else is
+		# running, and never on an off-GCD ability.
+		var own: float = actor.cooldowns[slot]
+		var global_cd: float = 0.0 if spell.off else actor.gcd
+		if own > 0.0:
+			cooldown_overlays[slot].sync(own, maxf(spell.cd, own), false)
+		elif global_cd > 0.0:
+			cooldown_overlays[slot].sync(global_cd, GCD_DURATION, true)
+		else:
+			cooldown_overlays[slot].sync(0.0, 0.0, false)
+		button.modulate = Color("83919e") if actor.hp <= 0 else Color.WHITE
 	update_ability_tooltip()
 
 func party_ids() -> Array[int]:
@@ -1544,6 +1592,6 @@ func update_ability_tooltip() -> void:
 		var button := ability_buttons[slot]
 		if button.is_visible_in_tree() and button.get_global_rect().has_point(pointer):
 			var actor = actors[local_id]
-			ability_tooltip.present(actor.kit[slot], actor.champion, Input.is_key_pressed(KEY_SHIFT), pointer, ui.size)
+			ability_tooltip.present(actor.kit[slot], actor.champion, pointer, ui.size)
 			return
 	ability_tooltip.hide()
