@@ -113,6 +113,10 @@ Ability icons ship at **256 x 256**. They display at 92 px in the hotbar, so 256
 
 The generated originals were 1254 x 1254 — around 2.2 MB each, 44 MB for twenty icons. That is roughly 186x the pixels the hotbar draws, and git keeps every blob forever, so it was downscaled before the first push. Regenerate from `assets/icons/abilities/PROMPTS.md` if a higher-resolution master is ever needed, but do not commit one.
 
+**Mipmaps must be on for anything sampled in 3D.** `sanctum_slate.png` shipped with `mipmaps/generate=false` while the stone shader asked for `filter_linear_mipmap_anisotropic`, so the floor aliased and shimmered in motion with no filtering to fall back on. Static screenshots barely show it; movement does.
+
+**Judge texture resolution by texel density, not by the number.** The slate tiles every 4.17 world units, so at 512 it supplies ~123 texels per world unit against roughly 51 screen pixels per world unit at normal framing — oversampled about 2.4x. Resolution was not what made the floor look cheap; the missing mipmaps were. Zooming the camera fully in narrows that margin, so 512 is adequate rather than generous.
+
 **Check the size of any generated art before committing it.** A texture that looks fine in isolation can carry a cost that is permanent once pushed.
 
 ## Fulcrum — awaiting art
