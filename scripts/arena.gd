@@ -204,7 +204,7 @@ func build_ui() -> void:
 	add_label(enemy_box, "ENEMIES · Tab / click frame")
 	for i in range(3):
 		enemy_buttons.append(add_button(enemy_box, "", select_enemy.bind(i)))
-	var help := add_label(ui, "W/S move · A/D turn · Q/E strafe · Space jump\nRMB steer · LMB orbit · Both run · Wheel zoom\nTab / frames target · F1–F3 allies · F / G focus\n1–7 abilities · Hover for details · Esc menu", 14)
+	var help := add_label(ui, "W/S move · A/D strafe · Q/E turn · Space jump\nRMB steer · LMB orbit · Both run · Wheel zoom\nTab / frames target · F1–F3 allies · F / G focus\n1–7 abilities · Hover for details · Esc menu", 14)
 	help.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
 	help.offset_left = 24
 	help.offset_top = -185
@@ -842,13 +842,13 @@ func gather_input(delta: float) -> void:
 	if not panel.visible and actor.hp > 0:
 		var right := Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
 		if not right:
-			var turn := (key(KEY_A) - key(KEY_D)) * delta * 2.5
+			var turn := (key(KEY_Q) - key(KEY_E)) * delta * 2.5
 			local_yaw += turn
 			if not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 				pivot.rotation.y += turn
-		movement = Vector2(key(KEY_E) - key(KEY_Q), key(KEY_S) - key(KEY_W))
+		movement = Vector2(key(KEY_D) - key(KEY_A), key(KEY_S) - key(KEY_W))
 		if right:
-			movement.x += key(KEY_D) - key(KEY_A)
+			movement.x += key(KEY_E) - key(KEY_Q)
 			if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 				movement.y = -1
 		movement = movement.limit_length()

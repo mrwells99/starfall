@@ -151,11 +151,13 @@ Cannot revive the dead.
 
 Third-person camera. WASD movement. Mouse-turn / strafe. Tab targeting.
 
+A / D **strafe** rather than turn — a deliberate divergence from the WoW default, where A / D turn and Q / E strafe. Turning moved to Q / E, which keeps keyboard turning available; mouse steering is unchanged and remains the primary way to turn.
+
 | Input | Action |
 | --- | --- |
 | W / S | Forward / backward |
-| A / D | Turn; strafe while holding RMB |
-| Q / E | Strafe |
+| A / D | Strafe |
+| Q / E | Turn; strafe while holding RMB |
 | Space | Jump |
 | Hold RMB | Steer character and camera |
 | Hold LMB | Orbit camera independently |
