@@ -17,7 +17,8 @@ set -euo pipefail
 
 DEPLOY_USER="${DEPLOY_USER:-deploy}"
 APP_DIR="${APP_DIR:-/opt/starfall}"
-PUBKEY="${1:-}"
+# All arguments, not just $1 — see the note in create-deploy-user.sh.
+PUBKEY="$*"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Must match DUEL_PORT / TEAM_PORT / LOBBY_PORTS in scripts/config.gd and the
@@ -55,7 +56,7 @@ firewall-cmd --permanent --zone=trusted --add-interface=docker0 >/dev/null 2>&1 
 firewall-cmd --reload
 
 echo "==> [3/4] Deploy user"
-bash "${SCRIPT_DIR}/create-deploy-user.sh" "${PUBKEY}"
+bash "${SCRIPT_DIR}/create-deploy-user.sh" "${PUBKEY}"   # quoted: one argument
 
 echo "==> [4/4] Application directory"
 install -d -m 0755 -o "${DEPLOY_USER}" -g "${DEPLOY_USER}" "${APP_DIR}"

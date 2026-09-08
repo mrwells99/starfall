@@ -15,7 +15,10 @@ DEPLOY_USER="${DEPLOY_USER:-deploy}"
 APP_DIR="${APP_DIR:-/opt/starfall}"
 WRAPPER="/usr/local/bin/starfall-deploy"
 STATUS_WRAPPER="/usr/local/bin/starfall-status"
-PUBKEY="${1:-}"
+# Joined from every argument, not just $1: an unquoted key on the command line
+# arrives as three words (type, blob, comment) and taking only $1 would silently
+# install the string "ssh-ed25519" as the authorized key.
+PUBKEY="$*"
 
 if [[ $EUID -ne 0 ]]; then
     echo "create-deploy-user.sh must run as root (or via sudo)." >&2
@@ -26,10 +29,32 @@ if [[ -z "${PUBKEY}" ]]; then
     echo "Generate one with: ssh-keygen -t ed25519 -C ci@starfall -f starfall_deploy" >&2
     exit 1
 fi
-if [[ "${PUBKEY}" != ssh-* && "${PUBKEY}" != ecdsa-* ]]; then
-    echo "That does not look like an SSH public key. Did you paste the private key by mistake?" >&2
+# This check MUST come first: `ssh-keygen -l` happily fingerprints a private
+# key and exits 0, so the validation below would pass one straight through and
+# write the secret into authorized_keys.
+if [[ "${PUBKEY}" == *"PRIVATE KEY"* ]]; then
+    echo "That is a PRIVATE key. Pass the .pub half instead." >&2
     exit 1
 fi
+# Validate with ssh-keygen rather than a prefix match — a prefix match accepts
+# the bare word "ssh-ed25519", which is exactly the failure this guards against.
+_keycheck="$(mktemp)"
+trap 'rm -f "${_keycheck}"' EXIT
+printf '%s\n' "${PUBKEY}" > "${_keycheck}"
+if ! ssh-keygen -l -f "${_keycheck}" >/dev/null 2>&1; then
+    echo "Not a valid SSH public key:" >&2
+    echo "  ${PUBKEY}" >&2
+    echo >&2
+    echo "Quote it — an unquoted key splits into separate arguments:" >&2
+    echo "  bash create-deploy-user.sh \"\$(cat ~/starfall_deploy.pub)\"" >&2
+    exit 1
+fi
+# A public key file is one line; a private key is many. Belt and braces.
+if [[ "$(printf '%s' "${PUBKEY}" | wc -l)" -gt 0 ]]; then
+    echo "A public key is a single line; this has more. Pass the .pub half." >&2
+    exit 1
+fi
+echo "==> Key fingerprint: $(ssh-keygen -l -f "${_keycheck}")"
 
 echo "==> Creating ${DEPLOY_USER}"
 if ! id -u "${DEPLOY_USER}" >/dev/null 2>&1; then

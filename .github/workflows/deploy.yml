@@ -143,9 +143,13 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository }}
+          # Priorities matter: outputs.version is the HIGHEST-priority tag, and
+          # that is what the deploy job pins. type=raw defaults to 200 and
+          # type=sha to 100, so without these the deploy would pin `latest` —
+          # mutable, and useless to roll back to.
           tags: |
-            type=sha,prefix=sha-,format=short
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=sha-,format=short,priority=900
+            type=raw,value=latest,enable={{is_default_branch}},priority=100
           labels: |
             org.opencontainers.image.title=Starfall dedicated server
             org.opencontainers.image.description=Godot 4.5 arena server (queues + private lobby pool)
@@ -206,6 +210,12 @@ jobs:
           case "$tag" in
             *[!A-Za-z0-9._-]*) echo "Refusing suspicious tag: $tag" >&2; exit 1 ;;
           esac
+          # Guard the promise above: an automatic deploy must never pin a
+          # mutable tag. A human asking for it by hand is their call.
+          if [ "$tag" = "latest" ] && [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+            echo "Refusing to auto-deploy the mutable tag 'latest' — check the tag priorities in the metadata step." >&2
+            exit 1
+          fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "Deploying tag: $tag"
 
