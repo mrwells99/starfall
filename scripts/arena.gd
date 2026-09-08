@@ -8,6 +8,37 @@ const Config = preload("res://scripts/config.gd")
 # same number the simulation uses, so it lives here rather than inline.
 const GCD_DURATION := 1.5
 const CooldownOverlay = preload("res://scripts/cooldown_overlay.gd")
+
+# --- UI palette ---------------------------------------------------------------
+# One place for every colour the interface uses, so the menu, the HUD and the
+# hotbar stay in step. Keyed to the cosmic sanctum: void-blue grounds, slate
+# structure, and a small number of bright accents that only appear on things the
+# player can act on.
+const UI_VOID := Color("0b0a16")        # deepest ground, panel fill
+const UI_PANEL := Color("141227")       # raised surface
+const UI_SURFACE := Color("1d1a35")     # controls at rest
+const UI_SURFACE_HI := Color("2b2650")  # controls under the cursor
+const UI_EDGE := Color("3b3566")        # ordinary borders
+const UI_EDGE_HI := Color("8f7fd4")     # borders that want attention
+const UI_TEXT := Color("e8e6f5")
+const UI_TEXT_DIM := Color("9a94bd")
+const UI_ACCENT := Color("f4c778")      # gold: confirm, primary action
+const UI_VIOLET := Color("c9a0ff")      # arcane highlight
+const UI_CYAN := Color("6fe3ff")        # ally / friendly
+const UI_ROSE := Color("ff7d92")        # enemy / danger
+
+# Fills a StyleBoxFlat so every surface shares one shape language.
+func ui_box(fill: Color, edge: Color, radius: int = 6, width: int = 1) -> StyleBoxFlat:
+	var box := StyleBoxFlat.new()
+	box.bg_color = fill
+	box.border_color = edge
+	box.set_border_width_all(width)
+	box.set_corner_radius_all(radius)
+	box.content_margin_left = 14
+	box.content_margin_right = 14
+	box.content_margin_top = 7
+	box.content_margin_bottom = 7
+	return box
 var actors: Dictionary = {}
 var local_id := 1
 var selected_id := -1
@@ -97,6 +128,10 @@ func _ready() -> void:
 	multiplayer.connection_failed.connect(on_connection_failed)
 	multiplayer.server_disconnected.connect(func(): leave_session("Host disconnected."))
 	multiplayer.peer_disconnected.connect(on_peer_left)
+	# Rows are shown and hidden by refresh_menu(). Without a first call, the
+	# launch screen displayed every submenu at once — Online, Offline, the lobby
+	# rows and the code field all stacked on top of each other.
+	refresh_menu()
 	parse_arguments()
 
 func authoritative() -> bool:
@@ -127,6 +162,12 @@ func add_label(parent: Node, text: String, font_size: int = 16) -> Label:
 	var label := Label.new()
 	label.text = text
 	label.add_theme_font_size_override("font_size", font_size)
+	# Everything sits on dark, moving art, so text carries its own shadow rather
+	# than relying on the background staying dark behind it.
+	label.add_theme_color_override("font_color", UI_TEXT)
+	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.75))
+	label.add_theme_constant_override("shadow_offset_x", 1)
+	label.add_theme_constant_override("shadow_offset_y", 1)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(label)
 	return label
@@ -134,24 +175,63 @@ func add_label(parent: Node, text: String, font_size: int = 16) -> Label:
 func add_button(parent: Node, text: String, callback: Callable) -> Button:
 	var button := Button.new()
 	button.text = text
-	button.custom_minimum_size.y = 36
+	button.custom_minimum_size = Vector2(112, 40)
 	button.focus_mode = Control.FOCUS_NONE
+	style_button(button)
 	button.pressed.connect(callback)
 	parent.add_child(button)
 	return button
+
+# `primary` marks the one action a screen is really offering — it gets the gold
+# edge so a menu reads at a glance instead of presenting a wall of equal buttons.
+func style_button(button: Button, primary: bool = false) -> void:
+	var edge := UI_ACCENT if primary else UI_EDGE
+	button.add_theme_stylebox_override("normal", ui_box(UI_SURFACE, edge))
+	button.add_theme_stylebox_override("hover", ui_box(UI_SURFACE_HI, UI_EDGE_HI))
+	button.add_theme_stylebox_override("pressed", ui_box(UI_VOID, UI_ACCENT))
+	button.add_theme_stylebox_override("disabled", ui_box(UI_PANEL, UI_EDGE))
+	button.add_theme_color_override("font_color", UI_ACCENT if primary else UI_TEXT)
+	button.add_theme_color_override("font_hover_color", Color.WHITE)
+	button.add_theme_color_override("font_pressed_color", UI_ACCENT)
+	button.add_theme_color_override("font_disabled_color", UI_TEXT_DIM)
+	button.add_theme_font_size_override("font_size", 16)
+
+# A one-pixel divider. Cheaper than a texture and it keeps sections apart
+# without adding another box.
+func style_picker(picker: OptionButton) -> void:
+	picker.custom_minimum_size.y = 42
+	picker.focus_mode = Control.FOCUS_NONE
+	picker.add_theme_stylebox_override("normal", ui_box(UI_SURFACE, UI_EDGE))
+	picker.add_theme_stylebox_override("hover", ui_box(UI_SURFACE_HI, UI_EDGE_HI))
+	picker.add_theme_stylebox_override("pressed", ui_box(UI_VOID, UI_ACCENT))
+	picker.add_theme_stylebox_override("focus", ui_box(UI_SURFACE, UI_EDGE_HI))
+	picker.add_theme_color_override("font_color", UI_TEXT)
+	picker.add_theme_color_override("font_hover_color", Color.WHITE)
+	picker.add_theme_font_size_override("font_size", 16)
+	# The popup is a separate control tree and keeps the engine default unless
+	# it is dressed too, which reads as a different application entirely.
+	var popup := picker.get_popup()
+	popup.add_theme_stylebox_override("panel", ui_box(UI_PANEL, UI_EDGE_HI, 8))
+	popup.add_theme_color_override("font_color", UI_TEXT)
+	popup.add_theme_color_override("font_hover_color", UI_ACCENT)
+	popup.add_theme_font_size_override("font_size", 16)
+
+func ui_rule() -> Control:
+	var rule := ColorRect.new()
+	rule.color = UI_EDGE
+	rule.custom_minimum_size.y = 1
+	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return rule
 
 func styled_bar(color: Color, height: float) -> ProgressBar:
 	var bar := ProgressBar.new()
 	bar.custom_minimum_size = Vector2(280, height)
 	bar.show_percentage = false
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var back := StyleBoxFlat.new()
-	back.bg_color = Color("16202c")
-	back.set_border_width_all(1)
-	back.border_color = Color("657586")
-	bar.add_theme_stylebox_override("background", back)
+	bar.add_theme_stylebox_override("background", ui_box(UI_VOID, UI_EDGE, 4))
 	var fill := StyleBoxFlat.new()
 	fill.bg_color = color
+	fill.set_corner_radius_all(4)
 	bar.add_theme_stylebox_override("fill", fill)
 	var amount := Label.new()
 	bar.add_child(amount)
@@ -166,6 +246,7 @@ func styled_bar(color: Color, height: float) -> ProgressBar:
 
 func unit_frame(pos: Vector2, color: Color) -> VBoxContainer:
 	var frame := VBoxContainer.new()
+	frame.add_theme_constant_override("separation", 3)
 	frame.position = pos
 	frame.mouse_filter = Control.MOUSE_FILTER_STOP
 	frame.gui_input.connect(on_unit_frame_input.bind(frame))
@@ -205,6 +286,7 @@ func build_ui() -> void:
 	for i in range(3):
 		enemy_buttons.append(add_button(enemy_box, "", select_enemy.bind(i)))
 	var help := add_label(ui, "W/S move · A/D strafe · Q/E turn · Space jump\nRMB steer · LMB orbit · Both run · Wheel zoom\nTab / frames target · F1–F3 allies · F / G focus\n1–7 abilities · Hover for details · Esc menu", 14)
+	help.add_theme_color_override("font_color", UI_TEXT_DIM)
 	help.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
 	help.offset_left = 24
 	help.offset_top = -185
@@ -239,58 +321,96 @@ func build_ui() -> void:
 	panel = PanelContainer.new()
 	ui.add_child(panel)
 	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	panel.offset_left = -290
-	panel.offset_top = -270
-	panel.offset_right = 290
-	panel.offset_bottom = 270
-	panel.custom_minimum_size = Vector2(580, 520)
+	panel.offset_left = -300
+	panel.offset_top = -280
+	panel.offset_right = 300
+	panel.offset_bottom = 280
+	panel.custom_minimum_size = Vector2(600, 560)
+	var shell := ui_box(Color(UI_VOID.r, UI_VOID.g, UI_VOID.b, 0.94), UI_EDGE_HI, 10, 2)
+	shell.content_margin_left = 0
+	shell.content_margin_right = 0
+	shell.content_margin_top = 0
+	shell.content_margin_bottom = 0
+	shell.shadow_color = Color(0, 0, 0, 0.55)
+	shell.shadow_size = 18
+	panel.add_theme_stylebox_override("panel", shell)
 	var margin := MarginContainer.new()
-	for side in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 18)
+	for side in ["left", "right"]:
+		margin.add_theme_constant_override("margin_" + side, 30)
+	margin.add_theme_constant_override("margin_top", 26)
+	margin.add_theme_constant_override("margin_bottom", 22)
 	panel.add_child(margin)
 	var stack := VBoxContainer.new()
-	stack.add_theme_constant_override("separation", 10)
+	stack.add_theme_constant_override("separation", 12)
 	margin.add_child(stack)
-	add_label(stack, "R I N G F A L L  /  ARENA", 28)
-	result_text = add_label(stack, "Choose a champion. Your full kit is ready.", 18)
+	var wordmark := add_label(stack, "S T A R F A L L", 34)
+	wordmark.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	wordmark.add_theme_color_override("font_color", UI_ACCENT)
+	var subtitle := add_label(stack, "COSMIC  ARENA", 12)
+	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	subtitle.add_theme_color_override("font_color", UI_VIOLET)
+	stack.add_child(ui_rule())
+	result_text = add_label(stack, "Choose a champion. Your full kit is ready.", 16)
+	result_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	result_text.add_theme_color_override("font_color", UI_TEXT_DIM)
 	champion_choice = OptionButton.new()
 	for title in ["Ember — ranged damage", "Vanguard — melee damage", "Luminary — healer", "Fulcrum — control"]:
 		champion_choice.add_item(title)
+	style_picker(champion_choice)
 	stack.add_child(champion_choice)
 	mode_choice = OptionButton.new()
 	mode_choice.add_item("Duel · 1v1", 1)
 	mode_choice.add_item("Team arena · 3v3", 3)
+	style_picker(mode_choice)
 	stack.add_child(mode_choice)
 	main_row = HBoxContainer.new()
+	main_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	main_row.add_theme_constant_override("separation", 10)
 	stack.add_child(main_row)
-	add_button(main_row, "Online", func(): menu_state = "online"; refresh_menu())
+	style_button(add_button(main_row, "Online", func(): menu_state = "online"; refresh_menu()), true)
 	add_button(main_row, "Offline", func(): menu_state = "offline"; refresh_menu())
 	offline_row = HBoxContainer.new()
+	offline_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	offline_row.add_theme_constant_override("separation", 10)
 	stack.add_child(offline_row)
-	add_button(offline_row, "Local sparring", local_match)
+	style_button(add_button(offline_row, "Local sparring", local_match), true)
 	add_button(offline_row, "Back", func(): menu_state = "main"; refresh_menu())
 	online_row = HBoxContainer.new()
+	online_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	online_row.add_theme_constant_override("separation", 10)
 	stack.add_child(online_row)
 	add_button(online_row, "Online queue", func(): menu_state = "queue"; refresh_menu())
 	add_button(online_row, "Host lobby", func(): menu_state = "host"; refresh_menu())
 	add_button(online_row, "Join lobby", func(): menu_state = "join"; refresh_menu())
 	add_button(online_row, "Back", func(): menu_state = "main"; refresh_menu())
 	queue_row = HBoxContainer.new()
+	queue_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	queue_row.add_theme_constant_override("separation", 10)
 	stack.add_child(queue_row)
-	add_button(queue_row, "Find match", matchmake)
+	style_button(add_button(queue_row, "Find match", matchmake), true)
 	add_button(queue_row, "Back", func(): menu_state = "online"; refresh_menu())
 	host_row = HBoxContainer.new()
+	host_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	host_row.add_theme_constant_override("separation", 10)
 	stack.add_child(host_row)
-	add_button(host_row, "Create lobby", host_lobby)
+	style_button(add_button(host_row, "Create lobby", host_lobby), true)
 	add_button(host_row, "Back", func(): menu_state = "online"; refresh_menu())
 	join_row = HBoxContainer.new()
+	join_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	join_row.add_theme_constant_override("separation", 10)
 	stack.add_child(join_row)
 	code_field = LineEdit.new()
 	code_field.placeholder_text = "Lobby code"
 	code_field.max_length = Config.CODE_LENGTH
-	code_field.custom_minimum_size.x = 150
+	code_field.custom_minimum_size = Vector2(160, 40)
+	code_field.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	code_field.add_theme_stylebox_override("normal", ui_box(UI_VOID, UI_EDGE))
+	code_field.add_theme_stylebox_override("focus", ui_box(UI_VOID, UI_ACCENT))
+	code_field.add_theme_color_override("font_color", UI_ACCENT)
+	code_field.add_theme_color_override("font_placeholder_color", UI_TEXT_DIM)
+	code_field.add_theme_font_size_override("font_size", 20)
 	join_row.add_child(code_field)
-	add_button(join_row, "Join", func(): join_lobby(code_field.text))
+	style_button(add_button(join_row, "Join", func(): join_lobby(code_field.text)), true)
 	add_button(join_row, "Back", func(): menu_state = "online"; refresh_menu())
 	# Players never see the server address; this stays as a value holder for tests
 	# and for the --join= command-line path. It is parented but hidden so the scene
@@ -300,7 +420,14 @@ func build_ui() -> void:
 	address.hide()
 	stack.add_child(address)
 	lobby_text = add_label(stack, "Choose Online to matchmake into a duel or 3v3. Offline is local sparring vs bots.", 16)
-	lobby_text.custom_minimum_size.y = 115
+	lobby_text.custom_minimum_size.y = 96
+	lobby_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lobby_text.add_theme_color_override("font_color", UI_TEXT_DIM)
+	var spacer := Control.new()
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stack.add_child(spacer)
+	stack.add_child(ui_rule())
 	start_button = add_button(stack, "Start round / Rematch", host_start)
 	start_button.hide()
 	resume_button = add_button(stack, "Resume / Close panel", func():
@@ -697,6 +824,22 @@ func refresh_menu() -> void:
 		mode_choice.visible = not in_menu or menu_state in ["queue", "host", "offline"]
 	if requeue_button:
 		requeue_button.visible = phase == "results" and network and not multiplayer.is_server()
+	# refresh_lobby() writes the session status into this label, so only speak
+	# for it while sitting in the menu with nothing to report.
+	if lobby_text and phase == "menu":
+		match menu_state:
+			"online":
+				lobby_text.text = "Queue for a public match, or use a private code to play with friends."
+			"queue":
+				lobby_text.text = "Pick a mode, then Find match.\nYou are matched with the next player who queues."
+			"host":
+				lobby_text.text = "Creates a private lobby and gives you a code to share."
+			"join":
+				lobby_text.text = "Enter the %d-character code a friend gave you." % Config.CODE_LENGTH
+			"offline":
+				lobby_text.text = "Spar against bots.\nEmpty team slots are filled automatically."
+			_:
+				lobby_text.text = "Online plays against people.\nOffline is local sparring against bots."
 
 func host_start() -> void:
 	if authoritative() and phase in ["lobby", "results"]:

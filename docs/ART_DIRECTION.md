@@ -122,3 +122,13 @@ The control champion ships without icons or a dedicated model; it borrows a gene
 Slate and void-purple, cracked like something compressed and never fully recovered. Its abilities read as **rings, orbits and lines of force**, not projectiles — Tether should be a visible strand of bent light strung between two fighters, not a bolt that travels. Six icons needed: Collapse, Tidal Force, Horizon, Anchor, Umbra, Tether. Slot 6 is Mend, which already shares Ember and Vanguard's icon.
 
 Keep to the 256 x 256 budget above.
+
+## Interface palette
+
+Every colour the UI uses lives in one block at the top of `scripts/arena.gd` (`UI_VOID` through `UI_ROSE`), so the menu, HUD and hotbar cannot drift apart. Shape language comes from a single helper, `ui_box()` — same corner radius, same border weight, same padding everywhere.
+
+Grounds are void-blue and slate. **Accents are rationed**: gold marks the one action a screen is actually offering, violet is arcane highlight, cyan is friendly, rose is hostile. If everything glows, nothing reads — a screen should have exactly one gold thing on it.
+
+Text carries its own shadow because it sits over moving art, not a fixed background. Body copy is `UI_TEXT_DIM`; full-strength white is reserved for hover.
+
+New controls should be styled through `style_button()`, `style_picker()` and `ui_box()` rather than hand-rolled `StyleBoxFlat`s, or the next redesign has to find them all again.
