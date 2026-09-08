@@ -2714,7 +2714,13 @@ func update_ability_tooltip() -> void:
 	for slot in range(ability_buttons.size()):
 		var button := ability_buttons[slot]
 		if button.is_visible_in_tree() and button.get_global_rect().has_point(pointer):
+			# `slot` is a position on a bar, not an index into the kit. With three
+			# bars there are 21 positions and only 7 abilities, so this has to be
+			# translated — and an empty slot has nothing to describe.
+			var ability := kit_slot(slot)
+			if ability < 0:
+				break
 			var actor = actors[local_id]
-			ability_tooltip.present(actor.kit[slot], actor.champion, pointer, ui.size)
+			ability_tooltip.present(actor.kit[ability], actor.champion, pointer, ui.size)
 			return
 	ability_tooltip.hide()

@@ -335,6 +335,31 @@ func run() -> void:
 	plain.pressed = true
 	check(not arena.handle_shift_drag(plain), "A plain click is left alone for the ability to handle")
 
+	# Hovering a slot on another bar must not read past the end of the kit.
+	# With three bars there are 21 positions and 7 abilities, and a shift-drag
+	# makes the empty ones visible — which is how this crashed.
+	arena.reset_layout()
+	# Leaving edit mode reopened the menu panel, and the tooltip is suppressed
+	# while it is up — without this both hover checks pass for the wrong reason.
+	arena.panel.hide()
+	arena.drag_slot = 0
+	arena.update_visuals(0)
+	var empty_slot := arena.ability_buttons[arena.BAR_SLOTS + 4] as Button
+	check(empty_slot.is_visible_in_tree(), "Empty slots are visible while dragging")
+	point_mouse(empty_slot.get_global_rect().get_center())
+	await process_frame
+	arena.update_ability_tooltip()
+	check(not arena.ability_tooltip.visible, "Hovering an empty slot shows no tooltip and does not crash")
+	arena.swap_slots(0, arena.BAR_SLOTS + 4)
+	arena.update_visuals(0)
+	point_mouse(arena.ability_buttons[arena.BAR_SLOTS + 4].get_global_rect().get_center())
+	await process_frame
+	arena.update_ability_tooltip()
+	check(arena.ability_tooltip.visible and arena.ability_tooltip.label.text.contains("Deal 16"),
+		"A slot on another bar describes the ability actually assigned to it")
+	arena.drag_slot = -1
+	arena.reset_layout()
+
 	# --- offline opponent picker ----------------------------------------------
 	check(arena.opponent_choice != null, "Offline offers an opponent choice")
 	check(arena.opponent_choice.get_item_id(0) == arena.RANDOM_OPPONENT,
