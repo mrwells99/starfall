@@ -56,6 +56,11 @@ func run() -> void:
 	Input.use_accumulated_input = false
 	arena = load("res://arena.tscn").instantiate()
 	root.add_child(arena)
+	# HUD positions persist in user://, so a previous run — or a real player's
+	# saved layout on a dev machine — could move frames out from under this
+	# suite's click coordinates. Start from the shipped layout every time.
+	arena.register_movable_frames()
+	arena.reset_layout()
 	arena.mode_choice.select(1)
 	arena.local_match()
 	arena.set_physics_process(false)
@@ -169,6 +174,10 @@ func run() -> void:
 	var me2 = arena.actors[arena.local_id]
 	me2.stunned = 3.0
 	me2.shield = 5.0
+	# Real effects carry the ability that applied them; combat_test covers that
+	# resolve_spell records it. Set it here so the display can be tested alone.
+	me2.stun_from = "Stasis"
+	me2.shield_from = "Ward"
 	arena.update_visuals(0)
 	var strip := arena.player_frame.get_child(4) as HBoxContainer
 	var shown := 0
@@ -177,8 +186,14 @@ func run() -> void:
 			shown += 1
 	check(shown == 2, "Active auras appear as chips on the unit frame")
 	var first := strip.get_child(0) as PanelContainer
-	check(first.has_meta("aura") and (first.get_child(0) as Label).text.contains("Stunned"),
-		"Aura chip is labelled and carries its data")
+	var first_row := first.get_child(0) as HBoxContainer
+	check(first.has_meta("aura"), "Aura chip carries its data")
+	# The stun came from an ability, so the chip shows that ability's icon and
+	# the text collapses to just the countdown.
+	check((first_row.get_child(0) as TextureRect).visible,
+		"Aura chip shows the icon of the ability that caused it")
+	check((first_row.get_child(1) as Label).text.contains("s"),
+		"Aura chip counts down")
 	# Hovering a chip explains the effect.
 	point_mouse(first.get_global_rect().get_center())
 	arena.update_ability_tooltip()
@@ -186,6 +201,8 @@ func run() -> void:
 		"Hovering an aura describes it")
 	me2.stunned = 0
 	me2.shield = 0
+	me2.stun_from = ""
+	me2.shield_from = ""
 	arena.update_visuals(0)
 	var still := 0
 	for chip in strip.get_children():

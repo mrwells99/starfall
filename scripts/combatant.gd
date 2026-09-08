@@ -16,6 +16,10 @@ var stunned := 0.0
 var locked := 0.0
 var shield := 0.0
 var sprint := 0.0
+var stun_from := ""
+var lock_from := ""
+var shield_from := ""
+var sprint_from := ""
 var dr_count := 0
 var dr_timer := 0.0
 var move_input := Vector2.ZERO
@@ -147,7 +151,8 @@ func visual_tick(delta: float, camera: Camera3D) -> void:
 	nameplate.text = lines
 
 func snapshot() -> Dictionary:
-	return {"id": actor_id, "peer": owner_peer, "team": team, "champion": champion, "pos": position, "yaw": rotation.y, "hp": hp, "cd": cooldowns.duplicate(), "gcd": gcd, "casting": casting, "left": cast_left, "stun": stunned, "lock": locked, "shield": shield, "sprint": sprint, "dr": dr_count, "dr_timer": dr_timer, "target": target_id}
+	return {"id": actor_id, "peer": owner_peer, "team": team, "champion": champion, "pos": position, "yaw": rotation.y, "hp": hp, "cd": cooldowns.duplicate(), "gcd": gcd, "casting": casting, "left": cast_left, "stun": stunned, "lock": locked, "shield": shield, "sprint": sprint,
+		"stun_src": stun_from, "lock_src": lock_from, "shield_src": shield_from, "sprint_src": sprint_from, "dr": dr_count, "dr_timer": dr_timer, "target": target_id}
 
 func receive(data: Dictionary, instant: bool = false) -> void:
 	net_position = data.pos
@@ -165,6 +170,11 @@ func receive(data: Dictionary, instant: bool = false) -> void:
 	locked = data.lock
 	shield = data.shield
 	sprint = data.sprint
+	# Older snapshots may predate the source fields; default rather than fail.
+	stun_from = data.get("stun_src", "")
+	lock_from = data.get("lock_src", "")
+	shield_from = data.get("shield_src", "")
+	sprint_from = data.get("sprint_src", "")
 	dr_count = data.dr
 	dr_timer = data.dr_timer
 	target_id = data.target

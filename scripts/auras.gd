@@ -37,24 +37,31 @@ static func active(actor) -> Array:
 		out.append({
 			"key": "stun", "name": "Stunned", "kind": DEBUFF,
 			"remaining": actor.stunned, "color": Color("ff7d92"),
+			"source": actor.stun_from,
 			"description": "Cannot move, act or cast. Damage does not break it. Dispel removes it.",
 		})
 	if actor.locked > 0:
 		out.append({
 			"key": "lockout", "name": "Spell Lockout", "kind": DEBUFF,
 			"remaining": actor.locked, "color": Color("e8845f"),
+			"source": actor.lock_from,
 			"description": "Interrupted. Most abilities are unusable; defensive and movement abilities still work.",
 		})
 	if actor.shield > 0:
+		# Sanctuary comes from a Luminary, so the source is more accurate than
+		# guessing from the champion wearing it. Fall back for old snapshots.
+		var name: String = actor.shield_from if not actor.shield_from.is_empty() else shield_name(actor.champion)
 		out.append({
-			"key": "shield", "name": shield_name(actor.champion), "kind": BUFF,
+			"key": "shield", "name": name, "kind": BUFF,
 			"remaining": actor.shield, "color": Color("6fe3ff"),
+			"source": actor.shield_from,
 			"description": "Takes 60% less damage from every hit. Does not prevent control or interrupts.",
 		})
 	if actor.sprint > 0:
 		out.append({
 			"key": "sprint", "name": "Grace", "kind": BUFF,
 			"remaining": actor.sprint, "color": Color("97edb1"),
+			"source": actor.sprint_from,
 			"description": "Moves 65% faster. Does not increase jump height or clear stuns.",
 		})
 	# Diminishing returns is not an effect on the fighter, but it decides whether
@@ -68,6 +75,7 @@ static func active(actor) -> Array:
 		out.append({
 			"key": "dr", "name": "Diminished %d" % actor.dr_count, "kind": DEBUFF,
 			"remaining": actor.dr_timer, "color": Color("c9a0ff"),
+			"source": "",
 			"description": "Recently stunned — %s. Resets 18s after the last stun ends." % next_text,
 		})
 	return out

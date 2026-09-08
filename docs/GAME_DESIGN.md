@@ -169,6 +169,8 @@ A / D **strafe** rather than turn — a deliberate divergence from the WoW defau
 
 Every effect is shown as a chip on the unit frame and again on the overhead nameplate, with its own countdown, and hovering a chip explains what it does. Stun, spell lockout, the damage-reduction shield, Grace, and diminishing-return stacks are all covered.
 
+Each chip shows **the icon of the ability that caused the effect** — an Ember stun and a Vanguard stun are told apart at a glance — with the countdown beside it. Effects with no illustrated source, such as diminishing returns, fall back to their name so a chip is never blank.
+
 **Auras are derived, never stored.** `scripts/auras.gd` reads the timers the simulation already keeps (`stunned`, `locked`, `shield`, `sprint`, `dr_timer`) rather than maintaining a second list. A displayed aura therefore cannot disagree with the simulation, and nothing extra has to be replicated. The shield field is one mechanic with four names — Ward, Iron Skin, Umbra, Sanctuary — chosen by the champion carrying it.
 
 Diminishing returns is surfaced as an aura even though it is not an effect on the fighter, because it decides whether your next stun is worth casting.
@@ -180,7 +182,11 @@ Settings → **Edit HUD**, WoW's Edit Mode in miniature:
 - Drag any frame — player, target, focus, party, enemies, hotbar — to move it. Positions are clamped on screen so nothing can be lost off an edge.
 - Click a hotbar slot to rebind its key. A key already in use is **swapped**, not duplicated, so no key ever fires two abilities.
 - Drag one hotbar slot onto another to swap which abilities sit where.
-- **Reset layout** restores the defaults.
+- **Reset layout** restores the defaults, frame positions included.
+
+Edit HUD works from the main menu with no match running: it shows placeholder frames and a full hotbar, the way WoW's Edit Mode does, because otherwise there is nothing on screen to arrange.
+
+Saved frame positions are keyed by **stable names** (`PlayerFrame`, `Hotbar`, …). Godot's generated names shift when node creation order changes, which would silently apply a saved position to the wrong frame after an unrelated UI edit.
 
 All of it is client-side presentation. The bar position a player chooses is translated to a kit index before anything reaches the simulation, so the server neither knows nor cares. Saved to `user://starfall.cfg` alongside display settings; a corrupt or malformed file falls back to defaults rather than producing a broken client — a saved assignment with a duplicate or out-of-range entry is rejected whole rather than half-applied.
 

@@ -137,6 +137,7 @@ var rebinding := -1
 var drag_slot := -1
 var movable_frames: Array[Control] = []
 var hotbar_root: HBoxContainer
+var default_positions := {}
 var lobby_code := ""
 var intent := ""
 var probe_index := 0
@@ -303,15 +304,30 @@ func unit_frame(pos: Vector2, color: Color) -> VBoxContainer:
 func aura_widget() -> PanelContainer:
 	var chip := PanelContainer.new()
 	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	chip.custom_minimum_size = Vector2(0, 22)
+	chip.custom_minimum_size = Vector2(0, 26)
 	chip.hide()
+	# PanelContainer sizes itself to a single child, so icon and text share a
+	# row rather than being parented directly and overlapping.
+	var row := HBoxContainer.new()
+	row.name = "Row"
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_theme_constant_override("separation", 4)
+	chip.add_child(row)
+	var art := TextureRect.new()
+	art.name = "Icon"
+	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	art.custom_minimum_size = Vector2(22, 22)
+	art.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	row.add_child(art)
 	var label := Label.new()
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.add_theme_font_size_override("font_size", 13)
 	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
 	label.add_theme_constant_override("shadow_offset_x", 1)
 	label.add_theme_constant_override("shadow_offset_y", 1)
-	chip.add_child(label)
+	row.add_child(label)
 	return chip
 
 func paint_aura(chip: PanelContainer, aura: Dictionary) -> void:
@@ -324,9 +340,18 @@ func paint_aura(chip: PanelContainer, aura: Dictionary) -> void:
 	box.content_margin_top = 2
 	box.content_margin_bottom = 2
 	chip.add_theme_stylebox_override("panel", box)
-	var label := chip.get_child(0) as Label
+	# Show the icon of the ability that caused the effect, the way WoW does —
+	# an Ember stun and a Vanguard stun should be distinguishable at a glance.
+	# Effects with no illustrated source (diminishing returns, or an older
+	# snapshot) fall back to the name, so a chip is never blank.
+	var row := chip.get_child(0) as HBoxContainer
+	var art := row.get_child(0) as TextureRect
+	var icon: Texture2D = AbilityArt.texture_for(aura.get("source", ""))
+	art.texture = icon
+	art.visible = icon != null
+	var label := row.get_child(1) as Label
 	label.add_theme_color_override("font_color", tint)
-	label.text = "%s %s" % [aura.name, format_aura_time(aura.remaining)]
+	label.text = format_aura_time(aura.remaining) if icon != null else "%s %s" % [aura.name, format_aura_time(aura.remaining)]
 
 # Long effects do not need tenths; the last few seconds do, because that is when
 # you are deciding whether to wait it out.
@@ -502,6 +527,10 @@ func build_ui() -> void:
 	window_mode_choice.add_item("Fullscreen (borderless)", UserConfig.WINDOW_BORDERLESS)
 	window_mode_choice.add_item("Fullscreen (exclusive)", UserConfig.WINDOW_EXCLUSIVE)
 	style_picker(window_mode_choice)
+	# Without this the disabled state of the resolution picker was only
+	# recomputed on the next refresh_menu(), so choosing Windowed left
+	# resolution greyed out and apparently broken.
+	window_mode_choice.item_selected.connect(func(_i): refresh_menu())
 	stack.add_child(window_mode_choice)
 	resolution_choice = OptionButton.new()
 	for res in UserConfig.available_resolutions():
@@ -1037,10 +1066,14 @@ func build_edit_overlay() -> void:
 	var controls := HBoxContainer.new()
 	controls.alignment = BoxContainer.ALIGNMENT_CENTER
 	controls.add_theme_constant_override("separation", 10)
-	controls.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	# Centre of the screen, not under the banner: the HUD clusters along the top
+	# edge, and these are real buttons that capture the mouse, so sitting over a
+	# frame would make that frame undraggable.
+	controls.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	controls.offset_left = -220
 	controls.offset_right = 220
-	controls.offset_top = 96
+	controls.offset_top = -22
+	controls.offset_bottom = 22
 	edit_overlay.add_child(controls)
 	style_button(add_button(controls, "Done", func(): toggle_edit_mode(false)), true)
 	add_button(controls, "Reset layout", reset_layout)
@@ -1049,9 +1082,22 @@ func build_edit_overlay() -> void:
 # built from the nodes that actually exist rather than repeated by hand.
 func register_movable_frames() -> void:
 	movable_frames.clear()
-	for frame in [player_frame, target_frame, focus_frame, party_box, enemy_box, hotbar_root]:
+	default_positions.clear()
+	# Stable names. These are the keys a saved layout is stored under, and Godot's
+	# generated names (@VBoxContainer@105) shift whenever node creation order
+	# changes — which would silently apply a player's saved position to the wrong
+	# frame after any unrelated UI edit.
+	var named := [
+		[player_frame, "PlayerFrame"], [target_frame, "TargetFrame"],
+		[focus_frame, "FocusFrame"], [party_box, "PartyFrame"],
+		[enemy_box, "EnemyFrame"], [hotbar_root, "Hotbar"],
+	]
+	for entry in named:
+		var frame: Control = entry[0]
 		if frame == null:
 			continue
+		frame.name = entry[1]
+		default_positions[frame.name] = frame.position
 		# Deliberately NOT re-anchored. These sit directly under `ui`, which is a
 		# plain Control rather than a container, so nothing re-lays them out and
 		# `position` already writes through to the anchor offsets. Leaving the
@@ -1170,7 +1216,12 @@ func reset_layout() -> void:
 	for i in range(binds.size()):
 		binds[i] = KEY_1 + i
 		assignment[i] = i
-	config.set_value("hud", "frames", {})
+	# Put the frames back before saving. Clearing the stored dictionary alone did
+	# nothing, because save_layout() immediately rewrote it from wherever the
+	# frames happened to be sitting.
+	for frame in movable_frames:
+		if frame != null and default_positions.has(frame.name):
+			frame.position = default_positions[frame.name]
 	save_layout()
 	refresh_binds()
 
@@ -1609,6 +1660,7 @@ func resolve_spell(actor, slot: int, victim) -> void:
 			if victim.casting >= 0:
 				victim.casting = -1
 				victim.locked = spell.power
+				victim.lock_from = spell.name
 				combat_event(actor.actor_id, victim.actor_id, "INTERRUPTED", GOLD)
 			else:
 				feedback(actor, "Interrupt missed — target was not casting")
@@ -1618,15 +1670,18 @@ func resolve_spell(actor, slot: int, victim) -> void:
 				combat_event(actor.actor_id, victim.actor_id, "IMMUNE", GOLD)
 			else:
 				victim.stunned = spell.power * factor
+				victim.stun_from = spell.name
 				victim.casting = -1
 				victim.dr_count += 1
 				victim.dr_timer = 18 + victim.stunned
 				combat_event(actor.actor_id, victim.actor_id, "STUN %.1fs" % victim.stunned, GOLD)
 		"shield", "ally_shield":
 			victim.shield = spell.power
+			victim.shield_from = spell.name
 			combat_event(actor.actor_id, victim.actor_id, "WARD", BLUE)
 		"dispel":
 			victim.stunned = 0
+			victim.stun_from = ""
 			victim.dr_timer = minf(victim.dr_timer, 18)
 			combat_event(actor.actor_id, victim.actor_id, "DISPELLED", Color("97edb1"))
 		"blink":
@@ -1640,6 +1695,7 @@ func resolve_spell(actor, slot: int, victim) -> void:
 				damage(actor, victim, spell.power)
 		"sprint":
 			actor.sprint = spell.power
+			actor.sprint_from = spell.name
 			combat_event(actor.actor_id, actor.actor_id, "GRACE", Color("97edb1"))
 		"pull":
 			# Charge's arithmetic, applied to the target instead of the caster.
@@ -1854,6 +1910,40 @@ func say(text: String) -> void:
 	notice.text = text
 	notice_time = 3.5
 
+# Placeholder HUD shown while arranging the layout outside a match. Everything
+# is positioned exactly as it will be in play; only the contents are invented.
+func show_edit_previews() -> void:
+	var champion: String = Kits.NAMES[champion_choice.selected]
+	var kit: Array = Kits.get_kit(champion)
+	for entry in [[player_frame, "YOU", champion], [target_frame, "TARGET", "Luminary"], [focus_frame, "FOCUS", "Vanguard"]]:
+		var frame: VBoxContainer = entry[0]
+		frame.visible = true
+		(frame.get_child(0) as Label).text = "%s · %s" % [entry[1], entry[2]]
+		var bar := frame.get_child(1) as ProgressBar
+		bar.value = 100
+		(bar.get_child(0) as Label).text = "100 / 100 HP"
+		(frame.get_child(2) as ProgressBar).visible = false
+		(frame.get_child(3) as Label).text = ""
+		for chip in (frame.get_child(4) as HBoxContainer).get_children():
+			(chip as PanelContainer).hide()
+	party_box.visible = true
+	enemy_box.visible = true
+	for i in range(3):
+		party_buttons[i].visible = true
+		party_buttons[i].text = "F%d  %s   100 HP" % [i + 1, Kits.NAMES[i]]
+		enemy_buttons[i].visible = true
+		enemy_buttons[i].text = "%s  100 HP" % Kits.NAMES[i]
+	for slot in range(ability_buttons.size()):
+		var button := ability_buttons[slot]
+		button.visible = true
+		button.modulate = Color.WHITE
+		var spell: Dictionary = kit[kit_slot(slot)]
+		var art := AbilityArt.texture_for(spell.name)
+		ability_images[slot].texture = art
+		ability_images[slot].visible = art != null
+		button.text = "" if art != null else spell.name
+		cooldown_overlays[slot].sync(0.0, 0.0, false)
+
 func update_frame(frame: VBoxContainer, id: int, prefix: String) -> void:
 	frame.set_meta("actor_id", id)
 	frame.visible = actors.has(id)
@@ -1901,6 +1991,11 @@ func update_visuals(delta: float) -> void:
 	ring.visible = actors.has(selected_id) and actors[selected_id].hp > 0
 	if ring.visible:
 		ring.position = actors[selected_id].position + Vector3(0, 0.08, 0)
+	if edit_mode and not actors.has(local_id):
+		# Editing from the menu, with no match running. WoW shows dummy frames
+		# for exactly this reason: otherwise there is nothing on screen to drag.
+		show_edit_previews()
+		return
 	update_frame(player_frame, local_id, "YOU")
 	update_frame(target_frame, selected_id, "TARGET")
 	update_frame(focus_frame, focus_id, "FOCUS")

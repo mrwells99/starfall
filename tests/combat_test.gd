@@ -242,5 +242,26 @@ func run() -> void:
 	check(dr_list.size() == 1 and dr_list[0].key == "dr" and dr_list[0].description.contains("25%"),
 		"Diminishing returns is surfaced with what the next stun will do")
 
+	# An effect must remember which ability applied it, so the HUD can show that
+	# ability's icon rather than a word.
+	await reset("Ember", 1)
+	var caster = arena.actors[1]
+	var mark = arena.actors[2]
+	caster.position = Vector3(0, 0, 6)
+	mark.position = Vector3(0, 0, -2)
+	caster.rotation.y = 0
+	await settle()
+	# resolve_spell rather than try_spell: Stasis has a 0.8s cast, so try_spell
+	# would only begin one, and resolve_spell is the unit that records the source.
+	arena.resolve_spell(caster, 3, mark)
+	check(mark.stunned > 0 and mark.stun_from == "Stasis", "A stun records the ability that caused it")
+	var stun_aura := {}
+	for a in Auras.active(mark):
+		if a.key == "stun":
+			stun_aura = a
+	check(stun_aura.get("source", "") == "Stasis", "The aura carries the source through to the HUD")
+	arena.resolve_spell(caster, 5, mark)
+	check(mark.stun_from == "Stasis", "An unrelated ability does not overwrite provenance")
+
 	print("Combat checks: %d passed / %d total" % [checks - failures, checks])
 	quit(1 if failures else 0)
