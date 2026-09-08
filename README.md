@@ -128,6 +128,10 @@ Constraints the user has explicitly set. Do not silently reverse. Reasoning is i
 Full details in [`docs/TECHNICAL_ARCHITECTURE.md`](docs/TECHNICAL_ARCHITECTURE.md).
 
 ```sh
+# First run on a fresh clone — builds the import cache for the icon assets.
+# Test scripts do not import on their own and will fail without this.
+godot --headless --path . --import
+
 # Play locally:
 godot --path .
 

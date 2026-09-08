@@ -61,6 +61,13 @@ jobs:
       - name: Godot version
         run: godot --version
 
+      # A fresh checkout has no .godot/imported/, and `--script` runs do not
+      # trigger an import — they just fail to open every .ctex. This was
+      # invisible until the project gained its first real assets: before the
+      # ability icons there was nothing to import.
+      - name: Import project assets
+        run: godot --headless --path . --import
+
       - name: Parse check
         run: godot --headless --path . --check-only --script scripts/arena.gd
 

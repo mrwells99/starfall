@@ -266,7 +266,16 @@ Slot text is the ability name; the keybind is drawn in the overlay's corner so t
 
 All tests run from project root. Network suites bind fixed ports — **run sequentially**.
 
+**Run `godot --headless --path . --import` first on any fresh clone.** Test
+scripts launched with `--script` do not import assets themselves; without the
+cache they fail to open every `.ctex` and the harnesses fail on the resulting
+`ERROR:` lines even though every assertion passes. This only started mattering
+when the project gained its first real assets — the ability icons.
+
 ```sh
+# Build the import cache (fresh clone, or after changing an asset):
+godot --headless --path . --import
+
 # Import / parse check:
 godot --headless --path . --editor --quit
 
