@@ -31,7 +31,7 @@ func run() -> void:
 	var actor = arena.actors[arena.local_id]
 	arena.update_visuals(0)
 	await create_timer(0.3).timeout
-	for slot in range(7):
+	for slot in range(arena.Kits.KIT_SIZE):
 		var art: TextureRect = arena.ability_images[slot]
 		check(art.texture != null, "Ember art loads: " + actor.kit[slot].name)
 		check(art.mouse_filter == Control.MOUSE_FILTER_IGNORE, "Art passes input to ability button")
@@ -61,18 +61,10 @@ func run() -> void:
 		actor.champion = champion
 		actor.kit = arena.Kits.get_kit(champion)
 		arena.update_visuals(0)
-		for slot in range(7):
+		for slot in range(arena.Kits.KIT_SIZE):
 			var tex: Texture2D = arena.ability_images[slot].texture
-			# A champion may legitimately be awaiting art. Assert the two states
-			# precisely instead of demanding every ability be illustrated:
-			# illustrated abilities show an optimized texture, and unillustrated
-			# ones must fall back to the ability name rather than an empty slot.
-			if arena.AbilityArt.PATHS.has(actor.kit[slot].name):
-				check(tex != null and tex.get_width() <= 256,
-					champion + " has optimized art: " + actor.kit[slot].name)
-			else:
-				check(tex == null and arena.ability_buttons[slot].text == actor.kit[slot].name,
-					champion + " falls back to text: " + actor.kit[slot].name)
+			check(tex != null and tex.get_width() <= 256,
+				champion + " has optimized art: " + actor.kit[slot].name)
 		await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_png("res://artifacts/" + champion.to_lower() + "-hotbar.png")
 	check(arena.AbilityArt.texture_for("Future ability") == null, "Unknown ability safely falls back")
@@ -81,7 +73,7 @@ func run() -> void:
 		var before: Transform3D = fighter.transform
 		fighter.casting = 0
 		fighter.visual_tick(0.1, arena.camera)
-		check(fighter.champion_model.ember_art.clip == "Cast" if fighter.champion_model.ember_art != null else fighter.champion_model.left_arm.rotation.x < -0.5, "Casting poses the arm")
+		check(fighter.champion_model.vanguard_art.clip == "Cast" if fighter.champion_model.vanguard_art != null else fighter.champion_model.ember_art.clip == "Cast" if fighter.champion_model.ember_art != null else fighter.champion_model.left_arm.rotation.x < -0.5, "Casting poses the arm")
 		fighter.casting = -1
 		fighter.hp = 0
 		fighter.visual_tick(0.4, arena.camera)

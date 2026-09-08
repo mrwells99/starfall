@@ -247,9 +247,9 @@ func run() -> void:
 	# --- extra action bars ----------------------------------------------------
 	check(arena.ability_buttons.size() == arena.TOTAL_SLOTS and arena.bar_roots.size() == arena.BAR_COUNT,
 		"Every bar is built")
-	var second: int = arena.BAR_SLOTS
+	var second: int = arena.BAR_SLOTS * 2
 	check(arena.assignment[second] == -1 and arena.binds[second] == 0,
-		"Bars beyond the first start empty and unbound")
+		"Third bar starts empty and unbound")
 	check(arena.kit_slot(second) == -1, "An empty slot resolves to no ability")
 	# Dragging an ability from bar one onto bar two moves it there.
 	arena.swap_slots(0, second)
@@ -319,7 +319,7 @@ func run() -> void:
 	# --- shift-drag rearranges bars outside edit mode --------------------------
 	arena.reset_layout()
 	check(not arena.edit_mode, "Shift-drag does not require edit mode")
-	var far: int = arena.BAR_SLOTS
+	var far: int = arena.BAR_SLOTS * 2
 	var from_rect: Vector2 = arena.ability_buttons[0].get_global_rect().get_center()
 	var to_rect: Vector2 = arena.ability_buttons[far].get_global_rect().get_center()
 	shift_drag(from_rect, to_rect)
@@ -344,15 +344,15 @@ func run() -> void:
 	arena.panel.hide()
 	arena.drag_slot = 0
 	arena.update_visuals(0)
-	var empty_slot := arena.ability_buttons[arena.BAR_SLOTS + 4] as Button
+	var empty_slot := arena.ability_buttons[arena.BAR_SLOTS * 2 + 4] as Button
 	check(empty_slot.is_visible_in_tree(), "Empty slots are visible while dragging")
 	point_mouse(empty_slot.get_global_rect().get_center())
 	await process_frame
 	arena.update_ability_tooltip()
 	check(not arena.ability_tooltip.visible, "Hovering an empty slot shows no tooltip and does not crash")
-	arena.swap_slots(0, arena.BAR_SLOTS + 4)
+	arena.swap_slots(0, arena.BAR_SLOTS * 2 + 4)
 	arena.update_visuals(0)
-	point_mouse(arena.ability_buttons[arena.BAR_SLOTS + 4].get_global_rect().get_center())
+	point_mouse(arena.ability_buttons[arena.BAR_SLOTS * 2 + 4].get_global_rect().get_center())
 	await process_frame
 	arena.update_ability_tooltip()
 	check(arena.ability_tooltip.visible and arena.ability_tooltip.label.text.contains("Deal 16"),

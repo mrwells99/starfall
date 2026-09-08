@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://c4bu4gsl82rne"
-path="res://.godot/imported/ember.glb-7eb5e90ae63401fd176ba8cb34b3c415.scn"
+uid="uid://dnu3n4koplfc3"
+path="res://.godot/imported/vanguard.glb-d69cabaebbc442d233c4e4783a8e821e.scn"
 
 [deps]
 
-source_file="res://assets/characters/ember.glb"
-dest_files=["res://.godot/imported/ember.glb-7eb5e90ae63401fd176ba8cb34b3c415.scn"]
+source_file="res://assets/characters/vanguard.glb"
+dest_files=["res://.godot/imported/vanguard.glb-d69cabaebbc442d233c4e4783a8e821e.scn"]
 
 [params]
 

@@ -29,9 +29,9 @@ Space + fantasy. The arena is an ancient structure floating in space, not a buil
 
 - **20 original painted icons cover all 21 ability slots.** Mend is shared between Ember and Vanguard. Assets and full generation prompts live in `assets/icons/abilities/`. The built-in image generation tool produced the illustrations, using Firebolt as the style anchor. Source PNGs are preserved; Godot imports at a maximum of 256 pixels with mipmaps.
 - **Ember:** replaced by the Blender-authored hooded celestial mage described below. The old staff and faceted robe construction have been removed.
-- **Vanguard:** broad faceted plate, helmet crest, team-colored cape/tabard and kite shield, luminous astral sword.
+- **Vanguard:** Blender-authored closed visor helmet, layered dark forged armor, violet crystal clusters and a large two-handed hammer in a head-up guard. The owner rejected the exposed-face attempt; the helmet is the latest explicit direction. Current implementation and unresolved visual quality: `VANGUARD_REBUILD_BRIEF.md`.
 - **Luminary:** ivory floating vestments, team-colored sashes, halo, six celestial feather ornaments, mint focus crystal and scepter.
-- **Vanguard, Luminary and the fallback remain original in-engine meshes**, constructed through `scripts/champion_model.gd`. Ember uses an imported skinned Blender model. Procedural joint poses cover idle/walking, casting, stun and defeat; hit flashes affect the complete model. Ember uses an original Blender rig and AnimationPlayer; the other models keep their procedural joints.
+- **Ember and Vanguard use imported skinned Blender models**, dispatched by `scripts/champion_model.gd` to their dedicated presentation modules. Luminary and the generic fallback retain procedural geometry. Vanguard includes a weapon bone and confirmed-hit hammer animation; gameplay and collision remain on the parent actor.
 - Every champion retains the same radius 0.42 / height 1.8 collision capsule. Weapons, robes and ornaments are visual only. They never become clickable target surfaces.
 - Hotbar artwork sits below the existing radial cooldown overlay. Keybinds, borders, focus/hover states and countdowns are rendered by Godot, not baked into textures. Tooltips retain ability names and mechanics.
 - Billboard names/health/cast bars sit above the new silhouettes. The arena still uses its existing floor/pillars, beam cues and floating combat text. Audio remains absent.
@@ -125,7 +125,7 @@ Flip based on viewer. Frame color is **presentation**.
 
 - Luminary: mint light with ivory/gold ornaments.
 - Ember: warm amber flame with gold trim.
-- Vanguard: pale gold weapon/visor accents.
+- Vanguard: restrained violet crystal and visor accents, dark forged plate, muted team cloth.
 - Facing reads from faces, weapons and posture; the old capsule marker is removed.
 
 ### Feedback cue palette
@@ -176,13 +176,11 @@ The generated originals were 1254 x 1254 — around 2.2 MB each, 44 MB for twent
 
 **Check the size of any generated art before committing it.** A texture that looks fine in isolation can carry a cost that is permanent once pushed.
 
-## Fulcrum — awaiting art
+## Class ability icons — 2026-09-08
 
-The control champion ships without icons or a dedicated model; it borrows a generic silhouette and its hotbar shows ability names as text. Direction when someone gets to it:
+Every ability in all four twelve-slot kits now has a 256px painted icon. Eight new images were generated with the built-in image tool: Gravity Anchor, Inward, Outward, Heavy Orbit, Counterweight, Collapse, Guiding Star, Supernova. Existing spell art is reused for the other new names. Mapping: `scripts/ability_art.gd`; prompts: `assets/icons/abilities/CLASS_PROMPTS.md`. Fulcrum still uses its existing generic character presentation.
 
-Slate and void-purple, cracked like something compressed and never fully recovered. Its abilities read as **rings, orbits and lines of force**, not projectiles — Tether should be a visible strand of bent light strung between two fighters, not a bolt that travels. Six icons needed: Collapse, Tidal Force, Horizon, Anchor, Umbra, Tether. Slot 6 is Mend, which already shares Ember and Vanguard's icon.
-
-Keep to the 256 x 256 budget above.
+Authoritative state drives ground-ring telegraphs, anchor timers, burning-field outlines, and resource/brand/star counts. These are first-pass combat-readable effects, not a new character animation production pass.
 
 ## Interface palette
 

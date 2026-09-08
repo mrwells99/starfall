@@ -1,6 +1,6 @@
 # Character production handoff
 
-Recorded 2026-09-08 after the Ember replacement. Read this before repeating the work for another class, alongside `CONTEXT.md`, the character's art notes, and `ART_DIRECTION.md`. This is a project workflow and factual handoff; the next class has not yet been named or authorized for implementation.
+Recorded 2026-09-08 after the Ember replacement. Read this before repeating the work for another class, alongside `CONTEXT.md`, the character's art notes, and `ART_DIRECTION.md`. This is the Ember workflow and factual handoff. Vanguard was subsequently authorized; its current helmet/hammer implementation and local tool paths are in `VANGUARD_REBUILD_BRIEF.md`.
 
 ## Owner's requested outcome
 

@@ -18,6 +18,10 @@ var initial_epoch := 0
 var rematch_seen := false
 var disconnected_bot := false
 var peer_target := 2
+var host_attacked := false
+var identity_seen := false
+var extended_sent := false
+var extended_seen := false
 var finishing := false
 
 func _initialize() -> void:
@@ -67,16 +71,25 @@ func _process(delta: float) -> bool:
 			action_timer -= delta
 			if action_timer <= 0 and match_clock > 1:
 				action_timer = 2.0
-				arena.send_action(0)
+				if not extended_sent:
+					arena.send_action(10) # Shift+4: Stoke, beyond the original seven slots.
+					extended_sent = true
+				else:
+					arena.send_action(0)
 		var actor = arena.actors[arena.local_id]
 		moved = moved or actor.position.distance_to(initial_position) > 1.0
 		cast_seen = cast_seen or actor.casting >= 0
 		if arena.actors.has(peer_target):
 			damaged = damaged or arena.actors[peer_target].hp < 100
+		if is_host:
+			host_attacked = host_attacked or arena.actors[1].hp < 100 or arena.actors[peer_target].identity.brands.has(1)
+		else:
+			identity_seen = identity_seen or actor.identity.heat > 0
+			extended_seen = extended_seen or actor.cooldowns[10] > 0
 		if is_host and match_clock > 7 and not phase_two:
 			var remote = arena.actors[peer_target]
 			verify(remote.position.distance_to(arena.spawn_position(remote.team, 0)) > 1, "Host simulated client movement")
-			verify(arena.actors[1].hp < 100, "Host applied client attack damage")
+			verify(host_attacked, "Host applied client attack damage before healing")
 			verify(arena.actors.size() == (6 if team_mode else 2), "Expected match size")
 			phase_two = true
 			arena.begin_round()
@@ -92,6 +105,8 @@ func _process(delta: float) -> bool:
 		verify(moved, "Client received server movement")
 		verify(cast_seen, "Client received authoritative casting state")
 		verify(damaged, "Client received damage state")
+		verify(identity_seen, "Client received authoritative Heat state")
+		verify(extended_seen, "Extended ability input and cooldown replicate")
 		verify(arena.packets_received > 30, "Client received ordered snapshots")
 		verify(arena.actors[arena.local_id].hp == 100, "Rematch reset local health")
 		print("NETWORK CLIENT PASS: movement, casting, damage, snapshots, rematch")

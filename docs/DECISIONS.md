@@ -4,6 +4,11 @@ _Meaningful decisions that future agents should not silently reverse. Trivial im
 
 Newest first.
 
+## 2026-09-08 — Implement class identities while preserving the combat baseline
+
+The owner authorized Ember Heat, Vanguard Resolve, Luminary Guiding Stars, and Fulcrum Gravity Anchor mechanics, with baseline mobility, damage reduction and sustain preserved. Kits expand to twelve slots over two action bars rather than replacing those tools. Anchor placement follows facing, stops at terrain and projects to ground, retaining keyboard/target combat. All abilities have painted icons; existing art is reused where appropriate. Version 0.6.0 separates these state/kit changes from older clients. Full implemented rules are in `CLASS_ABILITIES.md`; numbers need human playtesting.
+
+
 
 ## 2026-09-07 — Begin ability icons and original player models
 
