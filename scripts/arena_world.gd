@@ -26,6 +26,11 @@ func material(color: Color, glow: bool = false) -> StandardMaterial3D:
 	mat.roughness = 0.85
 	if glow:
 		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		# See champion_model.paint(): unshaded caps at the albedo value, so the
+		# bloom pass never sees it. Emission is what makes it a light source.
+		mat.emission_enabled = true
+		mat.emission = color
+		mat.emission_energy_multiplier = 2.4
 	return mat
 
 func _rock_material(color: String, scale_value := 1.0) -> ShaderMaterial:

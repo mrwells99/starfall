@@ -33,6 +33,26 @@ func build_sky() -> void:
 	environment.fog_light_energy = 0.65
 	environment.fog_density = 0.00085
 	environment.fog_sky_affect = 0.0
+	# Bloom. Everything in this arena that matters is emissive — rune lines,
+	# energy arcs, ability cues, champion trim — and without glow none of it
+	# reads as light, only as brightly coloured paint.
+	environment.glow_enabled = true
+	environment.glow_intensity = 0.62
+	environment.glow_strength = 1.0
+	environment.glow_bloom = 0.03
+	environment.glow_blend_mode = Environment.GLOW_BLEND_MODE_SCREEN
+	# HDR threshold: only genuinely bright surfaces bloom, so lit stone stays
+	# crisp instead of the whole scene going soft.
+	environment.glow_hdr_threshold = 1.35
+	environment.glow_hdr_scale = 2.0
+	environment.set_glow_level(3, 1.0)
+	environment.set_glow_level(4, 0.7)
+	environment.set_glow_level(5, 0.45)
+	# A touch of tint keeps the bloom in the violet family rather than washing
+	# toward white as intensities stack.
+	environment.adjustment_enabled = true
+	environment.adjustment_saturation = 1.08
+	environment.adjustment_contrast = 1.02
 	world.environment = environment
 	add_child(world)
 	var sun := DirectionalLight3D.new()
@@ -51,6 +71,16 @@ func build_sky() -> void:
 	fill.light_energy = 0.46
 	fill.shadow_enabled = false
 	add_child(fill)
+	# Rim light from behind and above. The arena is dark and the champions are
+	# dark; without a back light they read as silhouettes fused to the floor.
+	var rim := DirectionalLight3D.new()
+	rim.name = "HorizonRim"
+	rim.rotation_degrees = Vector3(-12, 168, 0)
+	rim.light_color = Color("7fd4ff")
+	rim.light_energy = 0.20
+	rim.light_specular = 0.7
+	rim.shadow_enabled = false
+	add_child(rim)
 	_distant_islands()
 	if DisplayServer.get_name() != "headless":
 		_bake_panorama.call_deferred(sky_material)

@@ -132,3 +132,26 @@ Grounds are void-blue and slate. **Accents are rationed**: gold marks the one ac
 Text carries its own shadow because it sits over moving art, not a fixed background. Body copy is `UI_TEXT_DIM`; full-strength white is reserved for hover.
 
 New controls should be styled through `style_button()`, `style_picker()` and `ui_box()` rather than hand-rolled `StyleBoxFlat`s, or the next redesign has to find them all again.
+
+## Lighting and glow
+
+The environment (`scripts/arena_sky.gd`) runs filmic tonemapping, violet distance fog, a warm key, a violet fill, and a cool back light. Bloom is on with a **high HDR threshold (1.35)** so only genuinely emissive surfaces glow and lit stone stays stone.
+
+**Emissive means emission, not unshaded.** `material(color, glow)` and `champion_model.paint(hex, luminous)` previously only set `SHADING_MODE_UNSHADED`, which caps at the albedo value and can never cross the bloom threshold — so nothing in the game actually glowed. Both now set `emission` with an energy multiplier above 1. Anything that should read as *light* rather than as bright paint has to do the same.
+
+Two things that look right in isolation and are wrong here:
+
+- **`glow_bloom` above ~0.05** lifts every pixel toward the bloom pass, not just bright ones, and turns dark slate into pale lavender.
+- **A `DirectionalLight3D` used as a "rim" light** lights every surface facing it, not silhouette edges. Keep the back light under ~0.25 energy or it becomes a second key and flattens the arena.
+
+## Renderer
+
+The project runs `gl_compatibility`, Godot's OpenGL backend. **Forward+ is the single biggest available visual upgrade** — it unlocks SSAO, SSIL, volumetric fog, SDFGI and real reflections, none of which exist on this path.
+
+It was tested and deliberately not adopted:
+
+- Godot does **not** fall back when Vulkan is unavailable; it hard-fails to launch. A player with a broken driver gets nothing.
+- Vulkan cannot present under Xvfb (no DRI3), so CI and any headless capture must pass `--rendering-driver opengl3` — meaning automated tests would exercise a different renderer than players use.
+- It therefore cannot be visually verified in this environment at all.
+
+Flipping `renderer/rendering_method` to `forward_plus` is a one-line change. It needs a human on a machine with a GPU to judge the result and accept the support burden.

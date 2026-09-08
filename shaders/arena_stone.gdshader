@@ -20,6 +20,12 @@ void fragment() {
 		+ texture(slate_texture, p.xz).rgb * weights.y
 		+ texture(slate_texture, p.xy).rgb * weights.z;
 	ALBEDO = tex * (0.62 + stone_color.rgb * 2.5) * COLOR.rgb;
-	ROUGHNESS = 0.94;
-	SPECULAR = 0.18;
+	// Vary roughness with the slate's own luminance instead of leaving the whole
+	// floor uniformly matte. Polished tile catches the rim light while the
+	// weathered grain stays dull, which is what makes a large flat surface read
+	// as stone rather than as a painted plane. Cheaper and more robust than a
+	// tangent-space normal map, which triplanar mapping cannot use directly.
+	float grain = dot(tex, vec3(0.299, 0.587, 0.114));
+	ROUGHNESS = mix(0.70, 0.98, grain);
+	SPECULAR = mix(0.34, 0.12, grain) * (1.0 - weathering * 0.35);
 }

@@ -27,6 +27,12 @@ func paint(hex: String, luminous: bool = false, metal: float = 0.0) -> StandardM
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	if luminous:
 		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		# Unshaded is only ever as bright as its albedo, so it never crosses the
+		# environment's glow threshold. Emission pushes it into HDR, which is what
+		# makes trim and runes read as light rather than as pale paint.
+		mat.emission_enabled = true
+		mat.emission = Color(hex)
+		mat.emission_energy_multiplier = 2.1
 	materials.append(mat)
 	colors.append(mat.albedo_color)
 	return mat
