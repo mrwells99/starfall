@@ -124,6 +124,12 @@ jobs:
             xvfb-run -a --server-args="-screen 0 1280x800x24" \
             godot --path . --script tests/map_test.gd
 
+      - name: Vanguard presentation suite (Xvfb)
+        run: |
+          ./tests/check_suite.sh "Vanguard presentation" \
+            xvfb-run -a --server-args="-screen 0 1280x800x24" \
+            godot --path . --script tests/vanguard_presentation_test.gd
+
       # The server hard-rejects clients whose Config.VERSION differs. Shipping a
       # protocol change without bumping it lets stale clients connect and
       # desync, which is far harder to diagnose than a refused connection.

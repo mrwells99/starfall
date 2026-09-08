@@ -1,62 +1,75 @@
-# Cosmic Sanctum full-arena upgrade — continuation notes
+# Cosmic Sanctum — graphics handoff
 
-Updated 2026-09-08. The user resumed after changing accounts. The earlier usage stop is resolved; do not treat the old 94% reading as current. Continue checking account usage and honor their approximate 90% cutoff. No reset credit was redeemed by this agent.
+Updated 2026-09-08. This is the current state, superseding earlier usage-stop snapshots.
 
-## Delivered scope
+## Authorized work and status
 
-The user subsequently authorized expanding the approved quality section across the full arena. The prepared scene now has four authored covers at the original centers, nine shared floor modules covering all36x36m, twelve boundary modules covering all four sides, and two authored terraces with their existing ramp dimensions. Total115 mesh instances share17 compressed mesh resources and the existing nine PBR maps. Portals, cliffs, sky, distant gods, banners and motes retain the preceding atmosphere pass.
+The user approved extending the authored architecture over the whole arena, then approved two further upgrades: lighting contrast and the surrounding landscape. Both are implemented. Final baked-render reviews passed and the gameplay, lane and landscape images were visually inspected. Both requested upgrades are complete. See the verification section and logs below. No commit or deployment was requested.
 
-Full-arena final checkpoint: user90% usage cutoff reached, development stopped. Geometry is integrated; map57/57, combat81/81 and world13/13 passed. Native lighting bake completed in219seconds, assigned115meshes, and saved/reimported successfully. Runtime environment totals8,327,245bytes (7.94MiB). Roughness PNGs now store the exact same red-channel scalar in lossless grayscale, removing redundant RGB data. All other maps unchanged.
+The user's rule persists: monitor account usage, stop development around 90%, and document current work for the next agent. Usage is shared across tasks and the user has switched accounts during this conversation. Always query the live meter rather than relying on an old reading. No reset credit was redeemed by this agent.
 
-The pre-bake full-arena overview and gameplay view rendered successfully and the overview was visually inspected: all four cover positions and both terraces are clear. Final baked review was launched before the cutoff with `tools/sanctum_slice_review.gd`; its log is `/tmp/sanctum-full-final-review.log`. It checks4covers/9floor modules/12wall modules/2terraces,19world physics bodies and0art bodies, then saves updated baked/unbaked and gameplay PNGs. Collect/check this log and inspect `artifacts/sanctum-slice-gameplay.png` before declaring final visual sign-off. `artifacts/sanctum-overview.png` is the full-map overview before the new lighting bake. Do not imply a physical-GPU60fps test was performed. All remaining work is final visual verification/performance assessment; no known gameplay failures.
+## Current visuals
 
-The cover has real bevels, carved blind arches, bronze armillary relief, emissive inlay, and a broken crown. The floor has fitted flagstones, small silhouette chips, split slabs, individual stone tint variation and bronze aisle marks. The perimeter has coursed masonry, arched niches, buttresses and small emissive slots. The authored architecture uses shared modular mesh instances and have proper UVs and unique UV2.
+The full playable architecture uses four carved covers, nine floor modules, twelve wall modules and two terraces, sharing 17 compressed mesh resources across 115 mesh instances. The geometry includes bevels, blind arches, bronze ornament, emissive inlay, fitted/split flagstones and worn stone variation. Proper UVs and UV2 support normal maps and baked indirect lighting. All four covers retain their original orientation and collision.
+
+The lighting pass has a shared profile in `scripts/sanctum_lighting.gd`: ambient energy 0.24, cool key 1.12, subdued violet fill 0.12, cool rim 0.17, exposure 1.04. Four short-range warm lights are placed at existing side shrines (x±17.25,z±9,y1.65), with no shadows. Existing central votive and gateway lights remain. Runtime and bake use the same profile. Directional and new votive lights bake indirect only; live lighting still responds to champions. Native LightmapGI was rebaked for all 115 meshes using two bounces and the low sampling preset. Review for noise before increasing sample counts; the previous heavier process was terminated before producing output.
+
+The ordinary depth fog starts 22 m from the camera and reaches its endpoint at 205 m, using a blue-violet tint. Bloom threshold remains 1.35. No SSAO, SSIL, SDFGI, volumetric fog or screen-space reflections were introduced; runtime remains Godot 4.5.1 OpenGL Compatibility.
+
+`scripts/sanctum_landscape.gd` adds a broad hanging island foundation, six large layered cliff formations, broken causeways, nine ruined sanctuaries with fractured apses and partial celestial rings, and receding shelves. Far islands were reduced from48 to24 clusters, and near decorative spikes from36 to12, leaving space for the larger forms. The new landscape has six render batches /19,116 triangles, with no collision, no navigation and no extra shadow passes. Its cliff shader reuses existing slate with triplanar mapping, restrained strata and derivative height relief. Three faint animated mist sheets below the island are ordinary transparent surfaces, not volumetric fog. No new texture assets were added.
 
 ## Runtime files
 
-- `scripts/sanctum_slice.gd` loads `scenes/sanctum_quality_slice.tscn`, removes the scene's BakeLights before adding it, and reports whether its surrounding art loaded.
-- `scripts/arena_world.gd` retains ALL authoritative collision. It conditionally omits all four old covers, all old floor slabs and wall segments, and the old terrace visual meshes. Central floor insignia, spawn marks, portal structures and atmospheric decor remain. Missing packed scene retains the old procedural visuals. Headless servers skip all artwork.
-- `assets/environment/slice/meshes/` contains compressed static runtime meshes. The scene references them externally; no giant embedded mesh arrays.
-- `assets/environment/slice/textures/`: nine original 512x512 PNGs, albedo/normal/roughness for basalt, floor and bronze. Four metres/tile, exact matching opposite-edge pixels, flat unlit albedo without AO/shadows/highlights. StandardMaterial3D uses UV-based tangent normals, so the legacy triplanar limitation does not apply to these authored meshes. Existing procedural art keeps its derivative height shader.
-- `assets/environment/slice/lighting/`: native Godot LightmapGI data and HDR EXR atlas. Ambient occlusion/contact lighting is part of the separate lighting bake, never painted into the albedo. Directional lights bake indirect only; matching live lights still illuminate and shadow champions. Runtime stays OpenGL Compatibility.
+- `scripts/arena_world.gd`: authoritative collision plus remaining procedural ornament; loads authored architecture through `scripts/sanctum_slice.gd`. Dedicated headless servers return before building art.
+- `scenes/sanctum_quality_slice.tscn`: full authored arena, despite its historical filename. `full_arena` metadata prevents loading an obsolete partial scene. Runtime removes its BakeLights before adding it, avoiding doubled lighting.
+- `scripts/arena_sky.gd`: sky, depth fog, live lights, distant islands and landscape entry point.
+- `scripts/sanctum_lighting.gd`: shared live/baked lighting configuration.
+- `scripts/sanctum_landscape.gd`, `shaders/sanctum_cliff.gdshader`, `shaders/sanctum_abyss_mist.gdshader`: exterior landscape and subtle mist motion.
+- `assets/environment/slice/meshes/`: compressed runtime meshes, external scene resources.
+- `assets/environment/slice/textures/`: nine 512x512 seamless PNGs, albedo/normal/roughness for basalt, floor and bronze. Albedo contains no baked lighting or AO. Normal maps are tangent-space for authored UV meshes. Roughness is lossless single-channel grayscale. Exact opposite-edge pixels match. Coverage is approximately 4 m; floor modules compress their longitudinal axis 12/14 to tile the 36 m arena.
+- `assets/environment/slice/lighting/`: native `.lmbake` and HDR EXR atlas. Lighting belongs here, not in albedo.
 
-## Authoring and rebuild
+## Budget and verification
 
-Editable `.blend` and interchange `.glb` sources live in `assets-source/sanctum_slice/`. `assets-source/.gdignore` keeps them out of normal import/export. The preparation tool reads GLBs explicitly with GLTFDocument, then saves compressed runtime meshes, avoiding duplicate shipped geometry. Do not move the GLBs back into the runtime environment directory.
+Final review: both tools exited 0 with no runtime script/shader errors. The architectural inventory remains 4 covers, 9 floor modules, 12 perimeter modules and 2 terraces; 19 physics bodies in the world and zero beneath the art. All 115 lightmap assignments are present. Both teams’ lanes, the final baked gameplay view and the exterior landscape view were visually inspected. Full-match HUD-hidden frame: 1,708 draw calls on llvmpipe, compared with 1,705 in the prior review; this is not a hardware performance benchmark. Final usage checkpoint was 69%, safely below the user’s cutoff.
 
-1. `blender -b --python tools/build_sanctum_cover.py` (optional `-- --render` creates the studio preview).
-2. `blender -b --python tools/build_sanctum_surround.py`.
-3. `blender -b --python tools/bake_sanctum_materials.py` (only when material graphs change).
-4. `godot --headless --path . --editor --import --quit --log-file /tmp/sanctum-import.log`.
-5. `godot --headless --path . --script tools/prepare_sanctum_slice.gd --log-file /tmp/sanctum-prepare.log`.
-6. `python3 tools/bake_sanctum_slice.py --scene scenes/sanctum_quality_slice.tscn --data assets/environment/slice/lighting/sanctum.lmbake --timeout 600`.
-7. Reimport, then render with the review tools below.
+Current runtime environment files total 8,373,829 bytes, just below 8 MiB (8,388,608 bytes). Textures plus lightmap total 6,670,805 bytes. This count excludes tiny `.import`/`.uid` metadata and ignored authoring sources. There is very little remaining headroom; recheck after every bake. The new landscape uses code and existing textures. It creates geometry at load time, so disk budget does not measure its GPU memory.
 
-Preparing the scene clears its baked-light assignment; always rebake afterward. The native bake helper creates an isolated temporary editor project; source project settings and plugins are not changed. It registers the output directory before baking and preserves EXR texture-array import settings. The Godot 4.5.1 editor may emit an internal list-erase error after a successful bake; verify the bake report, all 13 mesh assignments, and actual runtime renders. Details are in SANCTUM_LIGHTING_BAKE.md.
+Passed after this pass: map 57/57, combat 81/81, world 13/13. Landscape verification checks every vertex: none lies within |x|<18,|z|<18,y>−0.5. The hanging foundation may occupy space below the floor, but no new visual geometry enters playable airspace. All landscape children are meshes with shadow casting disabled.
 
-Blender 5.2 on this host emits unrelated bundled-addon and thumbnail warnings and can hang in audio shutdown after output files are already saved. Check the explicit DONE markers and files before stopping a completed process. Do not discard valid outputs based on those shutdown warnings.
+Production bake completed in 140.545 seconds, assigned 115 meshes, and reimported successfully. Its isolated project/log is `/tmp/sanctum_bake_u4z4bdlc`. The first heavier interrupted attempt is `/tmp/sanctum_bake_4313l7ne` and is not a valid bake. The editor may emit internal list-erase/import warnings after a bake; success must be established by resource assignments and actual runtime rendering, not merely exit status.
 
-## Verification and evidence
+The bake helper was improved to read freshly saved EXR pixels instead of cached texture-array layers when reporting image statistics; syntax check passes. That statistics-only improvement was made while the completed bake ran in its already-copied temporary project, so the current report uses the previous helper. Do not treat its cached peak/mean as a fresh source-image measurement. This does not affect the saved atlas or scene bindings.
 
-Final running review result collected at cutoff: exit0; exactly4covers,9floor modules,12perimeter modules,2terraces;19world physics bodies,0art bodies;115lightmap assignments. No runtime script/shader errors. Baked/unbaked/gameplay captures saved; their final images were not visually inspected after the90% stop. HUD-hidden full-match frame reports1705draw calls on llvmpipe. Next agent should inspect the saved final gameplay image and profile physical hardware before further detail work.
+Physical-GPU60fps is NOT verified: this host uses Mesa llvmpipe software rendering. Review the actual GPU before adding more lights or geometry. New landscape contributes six batches and no shadow passes; removing old decorative clusters offsets part of its cost. Full-game draw counts also include the existing champions, HUD and shadow passes.
 
-Historical first-section delivery verification (superseded by full-arena checkpoint above): completed after compacting the runtime meshes and the final bake: both review tools exited0 with no runtime script/shader errors. Actual runtime environment assets total8,141,401bytes (7.76MiB), including6,575,352texture/lightmap bytes. Final account usage reading was54% five-hour /8% weekly; no cutoff reached on the resumed account. Full-game HUD capture reports1337draw calls/609365primitives including shadow passes and existing champions/UI; these are software-renderer observations, not a60fps claim.
+## Rebuild workflow
 
-- Map 57/57 and combat 81/81 passed after integration.
-- Rendered inventory: 19 physics bodies in the world, zero under CosmicSanctum, no duplicate BakeLights in the game.
-- Native production bake assigns all115 meshes. Earlier controlled baked/unbaked view changed 48.3% of pixels by more than 3/255; this is a lighting A/B, not a performance benchmark.
-- All nine PBR PNGs are 512x512 and have zero opposite-edge pixel error. Roughness PNGs are now single-channel lossless; the manifest records their updated byte counts. Their manifest records dimensions, range and tile coverage.
-- Runtime environment folder, including meshes, textures and lightmap, is approximately7.94MiB. Editable authoring sources are separate and ignored. Budget must be rechecked after future bakes.
-- No physical-GPU 60fps result is claimed: this host uses Mesa llvmpipe software rendering.
+Editable `.blend`/`.glb` files live in `assets-source/sanctum_slice/`, ignored by Godot via `.gdignore`. Preparation reads those GLBs explicitly using GLTFDocument and saves compressed runtime meshes. Do not move authoring GLBs into the runtime environment folder; that duplicates shipped geometry.
 
-`tools/sanctum_slice_review.gd` renders the actual arena, checks body counts, and captures `artifacts/sanctum-slice.png`, `sanctum-slice-unbaked.png`, and `sanctum-slice-gameplay.png` (HUD hidden for inspection). Run with `xvfb-run -a -s '-screen 0 1600x1000x24' godot --path . --script tools/sanctum_slice_review.gd --log-file /tmp/sanctum-slice-review.log`.
+1. Only if geometry changes: `blender -b --python tools/build_sanctum_cover.py` and/or `blender -b --python tools/build_sanctum_surround.py`.
+2. Only if material graphs change: `blender -b --python tools/bake_sanctum_materials.py`.
+3. `godot --headless --path . --editor --import --quit --log-file /tmp/sanctum-import.log`.
+4. `godot --headless --path . --script tools/prepare_sanctum_slice.gd --log-file /tmp/sanctum-prepare.log`.
+5. `python3 tools/bake_sanctum_slice.py --scene scenes/sanctum_quality_slice.tscn --data assets/environment/slice/lighting/sanctum.lmbake --timeout 600`.
+6. Reimport, run rendered checks, inspect gameplay images and verify the disk budget.
 
-`tools/arena_review.gd` also captures overview, detail and the real gameplay camera with HUD. `artifacts/sanctum-cover-studio.png` is the Blender studio preview, not an in-game screenshot.
+Preparing the scene clears its bake assignment; always rebake afterward. Changing `sanctum_lighting.gd` requires preparation and rebaking to keep indirect light consistent. Landscape-only changes need no bake because the exterior geometry does not cast shadows or participate in GI. The isolated bake launcher leaves the real project settings and editor plugins unchanged.
 
-## Constraints and follow-up
+Blender 5.2 on this host can emit unrelated addon/thumbnail warnings and hang during audio shutdown after saving. Check explicit DONE markers and files before stopping a completed process.
 
-Keep four cover centers (+/-6,0,+/-5), body4.4x3.8x2.8 and base4.7x0.4x3.3; floor36x36, HALF_EXTENT18, navigation-17..17; terraces |x|12.3..17.65 at1.2m, ramps between z+/-6 and+/-10; boundary0.7 thick and3 tall. Never change movement, line of sight, bot routes or colliders to suit art.
+## Render review
 
-The authored construction now covers the full playable architecture. A physical-GPU profile is still required before claiming the60fps target. Further visual detail should reuse the modules and materials. Do not change gameplay or add colliders to accommodate art.
+Run with `xvfb-run -a -s '-screen 0 1600x1000x24' godot --path . --script TOOL --log-file /tmp/NAME.log`:
 
-Preserve concurrent HUD, champion, aura and deployment work. Other tasks share the checkout and have committed work during this session. No commit, reset, stash or deployment was requested here.
+- `tools/sanctum_slice_review.gd`: checks 4 covers / 9 floors / 12 walls / 2 terraces, 19 world bodies, 0 art bodies, no duplicate baking lights, then saves baked/unbaked closeups and HUD-hidden gameplay.
+- `tools/landscape_review.gd`: checks landscape bounds and no shadow passes, then saves `artifacts/sanctum-landscape.png`, `sanctum-lanes-north.png`, `sanctum-lanes-south.png`.
+- `tools/arena_review.gd`: full overview/detail and actual gameplay camera with HUD.
+
+Final logs for this pass: `/tmp/landscape-baked-gameplay-review.log`, `/tmp/landscape-baked-lanes-review.log`. Earlier landscape bounds test passed 6 batches / 19,116 triangles / 57,348 vertices. Existing before-lighting gameplay screenshot was copied to `/tmp/sanctum-lighting-before.png`. Studio preview `sanctum-cover-studio.png` is Blender, not gameplay.
+
+## Gameplay constraints and handoff rules
+
+Keep floor 36x36, HALF_EXTENT 18, nav −17..17; four cover centers(±6,0,±5), body 4.4x3.8x2.8 and base 4.7x0.4x3.3; terraces |x|12.3..17.65 at 1.2 m, ramps between z±6 and±10; boundary 0.7 thick / 3 tall. Keep all 19 original physics bodies. Never change movement, bot routes, LOS or spell blocking to suit decoration.
+
+Preserve concurrent HUD, champion, aura and deployment work. Other tasks share this checkout and have committed work during the session. No commit, reset, stash or deployment is authorized by this art request. Next substantial work should be driven by actual gameplay review and a physical-GPU profile rather than adding detail indiscriminately.

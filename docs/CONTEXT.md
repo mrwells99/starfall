@@ -4,6 +4,10 @@ _Short-term memory. Keep concise. Historical decisions live in [`DECISIONS.md`](
 
 Last updated: **2026-09-08**.
 
+Latest visual direction: owner rejected the marginal upgrade and chose a reference-inspired exposed-head, dark-armored Vanguard with violet crystals and a **two-handed hammer**. A separate static Blender study and in-arena previews now exist; **not rigged or integrated, and still below reference quality**. Development stopped at 91% usage. Read [`VANGUARD_HAMMER_STUDY.md`](VANGUARD_HAMMER_STUDY.md) first for files, honest visual gaps and next steps. The playable sword/shield model remains intact.
+
+Visual continuation: **Vanguard's first procedural upgrade is implemented** — layered armor and shield, cloth shader motion, articulated knees, damage recoil, confirmed-hit sword effects and Iron Skin activation. Final model: 40 mesh instances / 3,596 triangles. Map 57/57, combat 81/81, rendered art 91/91, new presentation tests 274/274. See [`VANGUARD_ART_HANDOFF.md`](VANGUARD_ART_HANDOFF.md) for remaining rig/animation work, review images and reproduction steps. Hardware GPU profiling remains pending. The owner's 90% usage stop rule still applies; final usage checkpoint was 53%. Completed arena work remains in `ART_SLICE_HANDOFF.md`.
+
 ## Current milestone
 
 **Playable prototype with dedicated-server mode landed.** The game runs in two modes: **Offline** (local sparring vs bots) and **Online** (join a dedicated server or a player-hosted lobby). The pipeline that would actually deploy that server to DigitalOcean does not exist yet.
@@ -19,6 +23,8 @@ Close the "push to `main` → buddies play the new build" loop:
 Until all three exist, buddies play by manually launching Godot from a checkout.
 
 ## Recently completed (this batch)
+
+- **Sanctum lighting and landscape:** shared live/baked lighting profile, lower ambient/fill, warm shrine lighting and a new indirect bake; large exterior cliffs, hanging foundations, broken approaches, distant sanctuaries and subtle non-volumetric mist. Landscape6batches/19,116triangles, no colliders/shadow passes. Map57/57, combat81/81, world13/13. Assets remain just under8MiB. Current complete handoff: `ART_SLICE_HANDOFF.md`.
 
 - **Authored Sanctum arena:** expanded the approved section to all four covers, the full floor, all boundary walls and both terraces/ramps, using shared Blender-authored meshes, UV-based PBR materials and native baked lighting in Compatibility. No new collision. Runtime environment budget approximately7.94MiB including meshes and lightmap; map57/57, combat81/81. Rebuild and continuation notes: `ART_SLICE_HANDOFF.md`. Actual render: `artifacts/sanctum-slice.png`. Cosmic backdrop, portals and atmospheric decor retain the previous procedural pass.
 
@@ -54,6 +60,14 @@ Roster art validation: combat 47/47, UI 73/73, art/model checks 84/84 (all three
 All six suites pass as of this batch: `combat_test` 47/47, `ui_test` 64/64, `run_network`, `run_six`, `run_dedicated`, `run_lobby` all exit 0.
 
 Watch for `ERROR:` in test output — `run_network.py`, `run_six.py`, `run_dedicated.py` and `run_lobby.py` all fail the run if the string appears. A `Control` created but never added to the scene tree leaks its font and canvas RIDs at exit and trips exactly this check; that is how the orphaned `address` field was caught.
+
+## Repository hygiene
+
+`artifacts/` is **no longer tracked**. It holds screenshots and review renders that every test run rewrites, so tracking them added multi-megabyte blobs to history for output that is regenerated on demand — `.git` reached 371 MB against a ~90 MB working tree. `artifacts/.gdignore` is kept so Godot does not import whatever lands there, and docs still reference the paths, since the review tools recreate them locally.
+
+Untracking stops the growth but does not shrink existing history. Reclaiming that 371 MB would need a history rewrite (`git filter-repo`), which is disruptive with a shared remote and has deliberately not been done.
+
+`tests/check_references.py` fails CI when a committed file references a resource that is not itself committed. Two agents in one repository will otherwise ship half a coupled change: a preload of a file, or a call to a method, whose other half is still local. It catches the file case; the method case is only caught by actually running the suites, so **verify the staged tree rather than the working tree** — `git archive $(git write-tree)` into a temp directory and run them there.
 
 ## Known blockers
 

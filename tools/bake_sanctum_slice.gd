@@ -73,18 +73,21 @@ func _run_bake() -> void:
 	var peak := 0.0
 	var pixel_count := 0
 	var total := 0.0
-	for texture in result.lightmap_textures:
-		for layer in texture.get_layers():
-			var image := texture.get_layer_data(layer)
-			if image == null:
-				continue
-			for y in image.get_height():
-				for x in image.get_width():
-					var color := image.get_pixel(x, y)
-					var value := maxf(color.r, maxf(color.g, color.b))
-					peak = maxf(peak, value)
-					total += value
-					pixel_count += 1
+	# Read newly written source atlases, not cached Texture2DArray layers from
+	# the old bake still alive in the editor during asynchronous reimport.
+	for filename in DirAccess.get_files_at(_data_path.get_base_dir()):
+		if not filename.begins_with(_data_path.get_file().get_basename()) or not filename.ends_with(".exr"):
+			continue
+		var image := Image.load_from_file(_data_path.get_base_dir().path_join(filename))
+		if image == null:
+			continue
+		for y in image.get_height():
+			for x in image.get_width():
+				var color := image.get_pixel(x,y)
+				var value := maxf(color.r,maxf(color.g,color.b))
+				peak = maxf(peak,value)
+				total += value
+				pixel_count += 1
 	if peak <= 0.0001 or pixel_count == 0:
 		_fail("Native bake produced only black lightmap pixels.")
 		return

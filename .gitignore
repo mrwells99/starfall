@@ -1,2 +1,9 @@
 .godot/
 .env
+
+# Screenshots and review renders. Every test run rewrites these, so tracking
+# them adds multi-megabyte blobs to history forever for output that is
+# regenerated on demand. Docs reference them by path; run the review tool.
+# .gdignore is kept so Godot does not import whatever lands here.
+artifacts/*
+!artifacts/.gdignore

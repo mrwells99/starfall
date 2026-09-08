@@ -2,6 +2,7 @@ extends SceneTree
 ## Rebuild the editor-ready visual scene before running the native light bake.
 
 const ASSETS := "res://assets/environment/slice/"
+const Lighting = preload("res://scripts/sanctum_lighting.gd")
 var materials: Dictionary = {}
 
 func _initialize() -> void:
@@ -125,27 +126,24 @@ func build() -> void:
 	bake_lights.name = "BakeLights"
 	scene.add_child(bake_lights)
 	bake_lights.owner = scene
-	for info in [[Vector3(-48,-30,0), Color("e6d7ce"),1.4],
-		[Vector3(-20,140,0),Color("9f83ee"),.28],
-		[Vector3(-12,168,0),Color("7fd4ff"),.20]]:
+	for index in range(3):
 		var light := DirectionalLight3D.new()
-		light.rotation_degrees = info[0]
-		light.light_color = info[1]
-		light.light_energy = info[2]
+		Lighting.apply_directional(light, index)
 		light.light_bake_mode = Light3D.BAKE_DYNAMIC
 		light.shadow_enabled = true
 		bake_lights.add_child(light)
 		light.owner = scene
+	Lighting.add_votive_lights(bake_lights, scene)
 	var gi := LightmapGI.new()
 	gi.name = "BakedSanctumLight"
-	gi.quality = LightmapGI.BAKE_QUALITY_MEDIUM
-	gi.bounces = 3
+	gi.quality = LightmapGI.BAKE_QUALITY_LOW
+	gi.bounces = 2
 	gi.use_denoiser = false
 	gi.max_texture_size = 2048 # Godot's minimum atlas cap; inputs stay 512 or smaller.
 	gi.generate_probes_subdiv = LightmapGI.GENERATE_PROBES_DISABLED
 	gi.environment_mode = LightmapGI.ENVIRONMENT_MODE_CUSTOM_COLOR
-	gi.environment_custom_color = Color("9699c5")
-	gi.environment_custom_energy = 0.43
+	gi.environment_custom_color = Lighting.AMBIENT_COLOR
+	gi.environment_custom_energy = Lighting.AMBIENT_ENERGY
 	scene.add_child(gi)
 	gi.owner = scene
 	DirAccess.make_dir_recursive_absolute("res://scenes")

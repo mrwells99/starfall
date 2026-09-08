@@ -60,6 +60,10 @@ xvfb-run -a -s '-screen 0 1280x720x24' godot \
 Use `--no-xvfb` on a normal desktop and `--godot /path/to/godot` to choose a
 binary. The helper expects an English editor, matching this host.
 
+## Shared lighting profile
+
+Current live and bake settings come from `scripts/sanctum_lighting.gd`. Any change requires regenerating the prepared scene and rebaking. Current production bake uses2bounces and the low sampling preset,115mesh assignments, with live directional and short-range shrine lights set to Dynamic bake mode. Landscape remains outside the bake and casts no shadows. The helper now reads raw output EXRs for statistics to avoid measuring cached prior atlases; source-image statistics from older reports may be stale.
+
 ## Production slice status
 
 **The production slice is now baked and integrated.** `scenes/sanctum_quality_slice.tscn` contains 115 static UV2 mesh instances, shared PBR materials and LightmapGI. The bake assigns all115meshes. Runtime removes its temporary BakeLights so direct illumination is not doubled. `tools/prepare_sanctum_slice.gd` rebuilds the scene and clears the previous bake assignment; rebake after running it. The review tool confirms 19 world bodies and zero artwork bodies.

@@ -769,8 +769,9 @@ func local_match() -> void:
 	roster = {1: {"champion": Kits.NAMES[champion_choice.selected], "team": 0}}
 	begin_round()
 
-func host_session(dedicated_mode: bool = false) -> void:
+func host_session(dedicated_mode: bool = false, world: bool = false) -> void:
 	leave_session("")
+	world_mode = world
 	dedicated = dedicated_mode
 	mode = mode_choice.get_selected_id()
 	var peer := ENetMultiplayerPeer.new()
@@ -786,7 +787,7 @@ func host_session(dedicated_mode: bool = false) -> void:
 		roster = {}
 		phase = "lobby"
 		status = "Starfall dedicated on UDP %d · %dv%d · v%s" % [current_port, mode, mode, Config.VERSION]
-		print("DEDICATED READY %s port=%d mode=%d min_players=%d rematch_delay=%.1f private=%s" % [Config.VERSION, current_port, mode, min_players, rematch_delay, private_lobby])
+		print("DEDICATED READY %s port=%d mode=%d min_players=%d rematch_delay=%.1f private=%s world=%s" % [Config.VERSION, current_port, mode, min_players, rematch_delay, private_lobby, world_mode])
 	else:
 		roster = {1: {"champion": Kits.NAMES[champion_choice.selected], "team": 0}}
 		phase = "lobby"
@@ -2868,17 +2869,20 @@ func parse_arguments() -> void:
 			rematch_delay = maxf(0.5, float(arg.get_slice("=", 1)))
 	if wants_dedicated:
 		mode = mode_choice.get_selected_id()
+		# The world opens for the first person through the door, whether or not
+		# its port was given explicitly — this used to sit inside the port branch
+		# and was skipped whenever --port was passed, which compose always does.
+		if world_mode:
+			min_players = 1
 		if explicit_port > 0:
 			current_port = explicit_port
 		elif world_mode:
 			current_port = Config.WORLD_PORT
-			# The world opens for the first person through the door.
-			min_players = 1
 		elif private_lobby:
 			current_port = Config.LOBBY_PORTS[0]
 		else:
 			current_port = Config.DUEL_PORT if mode == 1 else Config.TEAM_PORT
-		host_session(true)
+		host_session(true, world_mode)
 		return
 	for arg in args:
 		if arg == "--host":

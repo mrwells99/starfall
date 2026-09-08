@@ -1,4 +1,4 @@
-[gd_scene load_steps=35 format=3 uid="uid://bqhumw2wx486y"]
+[gd_scene load_steps=35 format=3 uid="uid://dnthplhuaispd"]
 
 [ext_resource type="ArrayMesh" path="res://assets/environment/slice/meshes/Cover/Basalt_geometry.res" id="1_lna22"]
 [ext_resource type="Texture2D" uid="uid://dydo6yjgfdnd" path="res://assets/environment/slice/textures/basalt_albedo.png" id="2_0t22p"]
@@ -650,28 +650,54 @@ surface_material_override/0 = SubResource("StandardMaterial3D_o2eul")
 [node name="BakeLights" type="Node3D" parent="."]
 
 [node name="@DirectionalLight3D@2" type="DirectionalLight3D" parent="BakeLights"]
-transform = Transform3D(0.8660254, 0.37157243, -0.33456528, 0, 0.66913056, 0.74314487, 0.5, -0.64358234, 0.57948405, 0, 0, 0)
-light_color = Color(0.9019608, 0.84313726, 0.80784315, 1)
-light_energy = 1.4
+transform = Transform3D(0.7880108, 0.41195798, -0.45752564, 0, 0.7431448, 0.6691306, 0.6156615, -0.5272821, 0.5856061, 0, 0, 0)
+light_color = Color(0.7882353, 0.84705883, 0.93333334, 1)
+light_energy = 1.12
 shadow_enabled = true
 
 [node name="@DirectionalLight3D@3" type="DirectionalLight3D" parent="BakeLights"]
-transform = Transform3D(-0.76604444, -0.21984631, 0.6040228, 0, 0.9396926, 0.34202012, -0.64278764, 0.26200262, -0.7198463, 0, 0, 0)
-light_color = Color(0.62352943, 0.5137255, 0.93333334, 1)
-light_energy = 0.28
+transform = Transform3D(-0.76604444, -0.26144528, 0.5872157, 0, 0.9135454, 0.40673664, -0.64278764, 0.31157833, -0.6998164, 0, 0, 0)
+light_color = Color(0.53333336, 0.4862745, 0.7607843, 1)
+light_energy = 0.12
 shadow_enabled = true
 
 [node name="@DirectionalLight3D@4" type="DirectionalLight3D" parent="BakeLights"]
-transform = Transform3D(-0.9781476, -0.043227255, 0.20336825, 0, 0.9781476, 0.2079117, -0.20791161, 0.20336834, -0.9567728, 0, 0, 0)
-light_color = Color(0.49803922, 0.83137256, 1, 1)
-light_energy = 0.2
+transform = Transform3D(-0.9781476, -0.05730821, 0.19985747, 0, 0.9612617, 0.27563736, -0.20791161, 0.26961404, -0.9402558, 0, 0, 0)
+light_color = Color(0.54901963, 0.7490196, 0.8862745, 1)
+light_energy = 0.17
 shadow_enabled = true
 
+[node name="WarmVotive" type="OmniLight3D" parent="BakeLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -17.25, 1.65, -9)
+light_color = Color(1, 0.75686276, 0.49411765, 1)
+light_energy = 1.65
+omni_attenuation = 1.45
+
+[node name="@OmniLight3D@5" type="OmniLight3D" parent="BakeLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -17.25, 1.65, 9)
+light_color = Color(1, 0.75686276, 0.49411765, 1)
+light_energy = 1.65
+omni_attenuation = 1.45
+
+[node name="@OmniLight3D@6" type="OmniLight3D" parent="BakeLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 17.25, 1.65, -9)
+light_color = Color(1, 0.75686276, 0.49411765, 1)
+light_energy = 1.65
+omni_attenuation = 1.45
+
+[node name="@OmniLight3D@7" type="OmniLight3D" parent="BakeLights"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 17.25, 1.65, 9)
+light_color = Color(1, 0.75686276, 0.49411765, 1)
+light_energy = 1.65
+omni_attenuation = 1.45
+
 [node name="BakedSanctumLight" type="LightmapGI" parent="."]
+quality = 0
+bounces = 2
 use_denoiser = false
 max_texture_size = 2048
 environment_mode = 3
-environment_custom_color = Color(0.5882353, 0.6, 0.77254903, 1)
-environment_custom_energy = 0.43
+environment_custom_color = Color(0.5019608, 0.5647059, 0.7019608, 1)
+environment_custom_energy = 0.24
 generate_probes_subdiv = 0
 light_data = ExtResource("27_0t22p")

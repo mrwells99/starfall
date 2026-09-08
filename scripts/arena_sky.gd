@@ -6,6 +6,7 @@ const ARENA_GEOMETRY = preload("res://scripts/arena_geometry.gd")
 const SKY_SHADER = preload("res://shaders/cosmic_sky.gdshader")
 const BAKE_SHADER = preload("res://shaders/cosmic_sky_bake.gdshader")
 const MOTION_SHADER = preload("res://shaders/cosmic_sky_motion.gdshader")
+const Lighting = preload("res://scripts/sanctum_lighting.gd")
 var _built := false
 
 func build_sky() -> void:
@@ -25,20 +26,20 @@ func build_sky() -> void:
 	sky.radiance_size = Sky.RADIANCE_SIZE_512
 	environment.sky = sky
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	environment.ambient_light_color = Color("9699c5")
-	environment.ambient_light_energy = 0.43
+	environment.ambient_light_color = Lighting.AMBIENT_COLOR
+	environment.ambient_light_energy = Lighting.AMBIENT_ENERGY
 	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	environment.tonemap_exposure = 1.15
+	environment.tonemap_exposure = Lighting.EXPOSURE
 	environment.fog_enabled = true
-	# Ordinary depth fog is supported by Compatibility. Its gradual onset keeps
-	# nearby cover crisp, adds about 11% haze at 40m, and separates distant islands.
+	# Ordinary depth fog keeps nearby cover crisp and separates the landscape
+	# beyond the walls. No volumetric or screen-space effects are required.
 	environment.fog_mode = Environment.FOG_MODE_DEPTH
-	environment.fog_light_color = Color("2b2240")
+	environment.fog_light_color = Color("303652")
 	environment.fog_light_energy = 0.72
 	environment.fog_density = 0.40
-	environment.fog_depth_begin = 12.0
-	environment.fog_depth_end = 240.0
-	environment.fog_depth_curve = 0.40
+	environment.fog_depth_begin = 22.0
+	environment.fog_depth_end = 205.0
+	environment.fog_depth_curve = 0.65
 	environment.fog_sky_affect = 0.0
 	# Bloom. Everything in this arena that matters is emissive — rune lines,
 	# energy arcs, ability cues, champion trim — and without glow none of it
@@ -64,31 +65,29 @@ func build_sky() -> void:
 	add_child(world)
 	var sun := DirectionalLight3D.new()
 	sun.name = "PaleStarlight"
-	sun.rotation_degrees = Vector3(-48, -30, 0)
-	sun.light_color = Color("e6d7ce")
-	sun.light_energy = 1.40
+	Lighting.apply_directional(sun, 0)
 	sun.shadow_enabled = true
 	sun.directional_shadow_max_distance = 95.0
 	sun.shadow_bias = 0.03
 	add_child(sun)
 	var fill := DirectionalLight3D.new()
 	fill.name = "VioletNebulaFill"
-	fill.rotation_degrees = Vector3(-20, 140, 0)
-	fill.light_color = Color("9f83ee")
-	fill.light_energy = 0.28
+	Lighting.apply_directional(fill, 1)
 	fill.shadow_enabled = false
 	add_child(fill)
 	# Rim light from behind and above. The arena is dark and the champions are
 	# dark; without a back light they read as silhouettes fused to the floor.
 	var rim := DirectionalLight3D.new()
 	rim.name = "HorizonRim"
-	rim.rotation_degrees = Vector3(-12, 168, 0)
-	rim.light_color = Color("7fd4ff")
-	rim.light_energy = 0.20
+	Lighting.apply_directional(rim, 2)
 	rim.light_specular = 0.7
 	rim.shadow_enabled = false
 	add_child(rim)
+	Lighting.add_votive_lights(self)
 	_distant_islands()
+	var landscape = load("res://scripts/sanctum_landscape.gd").new()
+	add_child(landscape)
+	landscape.build()
 	_sky_motion()
 	if DisplayServer.get_name() != "headless":
 		_bake_panorama.call_deferred(sky_material)
@@ -152,7 +151,7 @@ func _distant_islands() -> void:
 		mat.albedo_color = colors[layer]
 		mat.vertex_color_use_as_albedo = true
 		mat.roughness = 1.0
-		var cluster_count := 12 + layer * 4
+		var cluster_count := 6 + layer * 2
 		for i in range(cluster_count):
 			var angle := (float(i) + random.randf_range(-0.26, 0.26)) * TAU / float(cluster_count)
 			var distance: float = [110.0, 190.0, 285.0][layer] + random.randf_range(-14.0, 18.0)

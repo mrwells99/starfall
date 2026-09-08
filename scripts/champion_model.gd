@@ -18,6 +18,8 @@ var motion := 0.0
 var previous_position := Vector3.ZERO
 var initialized := false
 var archetype := ""
+var vanguard: Dictionary = {}
+const VanguardArt = preload("res://scripts/vanguard_art.gd")
 
 func paint(hex: String, luminous: bool = false, metal: float = 0.0) -> StandardMaterial3D:
 	var mat := StandardMaterial3D.new()
@@ -100,6 +102,9 @@ func ring(parent: Node3D, at: Vector3, radius: float, width: float, mat: Materia
 func build(champion: String, team_color: Color) -> void:
 	archetype = champion
 	name = "ChampionModel"
+	if champion == "Vanguard":
+		VanguardArt.build(self, team_color)
+		return
 	var identity := paint(team_color.to_html(false))
 	var dark := paint("171a30")
 	var cloth := paint("302647" if champion == "Ember" else "293749")
@@ -152,27 +157,7 @@ func build(champion: String, team_color: Color) -> void:
 			var prong := gem(staff, Vector3(side * 0.105, 1.0, 0), Vector3(0.095, 0.42, 0.095), gold)
 			prong.rotation.z = side * -0.3
 		focus_gem = gem(staff, Vector3(0, 1.14, 0), Vector3(0.21, 0.38, 0.21), glow)
-	elif champion == "Vanguard":
-		# Broad breastplate, split tabard, swept helmet crest, sword and kite shield.
-		form(self, Vector3(0, 0, -0.04), [Vector3(1.0, 0.24, 0.18), Vector3(1.32, 0.35, 0.23), Vector3(1.42, 0.27, 0.18)], steel)
-		gem(self, Vector3(0, 1.22, -0.28), Vector3(0.18, 0.31, 0.09), gold)
-		for side in [-1.0, 1.0]:
-			var skirt := block(self, Vector3(side * 0.18, 0.7, -0.21), Vector3(0.22, 0.38, 0.045), identity)
-			skirt.rotation.z = side * 0.14
-		form(mantle, Vector3.ZERO, [Vector3(-0.95, 0.39, 0.04), Vector3(-0.65, 0.32, 0.04), Vector3(0, 0.33, 0.04)], identity)
-		mantle.rotation.x = -0.14
-		block(self, Vector3(0, 1.64, -0.19), Vector3(0.25, 0.045, 0.025), dark)
-		block(self, Vector3(0, 1.64, -0.207), Vector3(0.18, 0.019, 0.025), glow)
-		gem(self, Vector3(0, 1.88, 0.02), Vector3(0.1, 0.38, 0.35), identity)
-		var sword := joint(right_arm, Vector3(0, -0.55, -0.06), "AstralSword")
-		block(sword, Vector3(0, 0, 0), Vector3(0.065, 0.24, 0.065), dark)
-		block(sword, Vector3(0, 0.13, 0), Vector3(0.36, 0.06, 0.1), gold)
-		form(sword, Vector3.ZERO, [Vector3(0.17, 0.11, 0.045), Vector3(0.9, 0.085, 0.032), Vector3(1.12, 0, 0)], steel, 4)
-		block(sword, Vector3(0, 0.54, -0.033), Vector3(0.028, 0.66, 0.018), glow)
-		var shield_node := joint(left_arm, Vector3(-0.1, -0.3, -0.19), "KiteShield")
-		gem(shield_node, Vector3.ZERO, Vector3(0.68, 0.98, 0.18), gold)
-		gem(shield_node, Vector3(0, 0.015, -0.06), Vector3(0.57, 0.84, 0.13), identity)
-		gem(shield_node, Vector3(0, 0.025, -0.13), Vector3(0.16, 0.48, 0.06), glow)
+
 	else:
 		# Floating vestments and six separated celestial feathers, not a cape.
 		form(self, Vector3.ZERO, [Vector3(0.18, 0.33, 0.24), Vector3(0.45, 0.3, 0.22), Vector3(0.91, 0.22, 0.17)], ivory)
@@ -228,5 +213,12 @@ func animate(delta: float, actor: CharacterBody3D) -> void:
 		halo.rotation.y += delta * 0.45
 	if focus_gem:
 		focus_gem.rotation.y += delta * (2.5 if casting else 0.7)
+	if archetype == "Vanguard":
+		VanguardArt.animate(self, delta, actor, swing)
 	for i in range(materials.size()):
 		materials[i].albedo_color = Color.WHITE if actor.flash > 0 else (colors[i] if alive else colors[i].lerp(Color("333744"), 0.8))
+
+# Called only by a confirmed damage event, including the same RPC on clients.
+func present_strike() -> void:
+	if archetype == "Vanguard" and not vanguard.is_empty():
+		vanguard.attack = 0.34

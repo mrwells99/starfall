@@ -144,6 +144,7 @@ python3 tests/run_network.py --test-team --test-latency
 python3 tests/run_six.py
 python3 tests/run_dedicated.py
 python3 tests/run_lobby.py
+python3 tests/run_world.py
 
 # Art and icons (real window):
 godot --path . --script tests/ability_art_test.gd

@@ -292,8 +292,9 @@ func _build_foundation() -> void:
 						crack.append(Vector3(along + drift, y, side * 20.72) if direction == 0 else Vector3(side * 20.72, y, along + drift))
 					_geo.line_3d(_violet, crack, 0.13)
 					_geo.line_3d(_white_energy, crack, 0.034)
-	for i in range(36):
-		var angle := i * TAU / 36.0
+	# Leave breathing room for the large landscape shelves beyond the island.
+	for i in range(12):
+		var angle := i * TAU / 12.0
 		var radius: float = _geo.rng.randf_range(29.0, 43.0)
 		var pos := Vector3(cos(angle) * radius, _geo.rng.randf_range(-13.0, -8.0), sin(angle) * radius)
 		var height: float = _geo.rng.randf_range(5.0, 14.0)
