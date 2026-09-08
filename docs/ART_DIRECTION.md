@@ -23,15 +23,15 @@ Space + fantasy. The arena is an ancient structure floating in space, not a buil
 - Extremely bright magical accent colors on top of that base.
 - Lots of stars, glowing weapons, cosmic effects.
 
-**Current authorization:** The owner requested ability art and player models on 2026-09-07, superseding the earlier blanket art deferral for these areas. The owner subsequently requested the Cosmic Sanctum environment and its material/atmosphere upgrade. Audio and a full skeletal animation pipeline remain separate work.
+**Current authorization:** The owner requested ability art and player models on 2026-09-07, superseding the earlier blanket art deferral for these areas. The owner subsequently requested the Cosmic Sanctum environment and its material/atmosphere upgrade. Audio remains separate work. The owner authorized a Blender skeletal pipeline for Ember on 2026-09-08; see below.
 
 ## Current implementation — first roster art pass
 
 - **20 original painted icons cover all 21 ability slots.** Mend is shared between Ember and Vanguard. Assets and full generation prompts live in `assets/icons/abilities/`. The built-in image generation tool produced the illustrations, using Firebolt as the style anchor. Source PNGs are preserved; Godot imports at a maximum of 256 pixels with mipmaps.
-- **Ember:** angular hood and split robes, team-colored mantle, gold ember staff and floating flame crystal.
+- **Ember:** replaced by the Blender-authored hooded celestial mage described below. The old staff and faceted robe construction have been removed.
 - **Vanguard:** broad faceted plate, helmet crest, team-colored cape/tabard and kite shield, luminous astral sword.
 - **Luminary:** ivory floating vestments, team-colored sashes, halo, six celestial feather ornaments, mint focus crystal and scepter.
-- **Models are original in-engine meshes**, constructed by `scripts/champion_model.gd`. Procedural joint poses cover idle/walking, casting, stun and defeat; hit flashes affect the complete model. No external models, rig or AnimationTree dependency.
+- **Vanguard, Luminary and the fallback remain original in-engine meshes**, constructed through `scripts/champion_model.gd`. Ember uses an imported skinned Blender model. Procedural joint poses cover idle/walking, casting, stun and defeat; hit flashes affect the complete model. Ember uses an original Blender rig and AnimationPlayer; the other models keep their procedural joints.
 - Every champion retains the same radius 0.42 / height 1.8 collision capsule. Weapons, robes and ornaments are visual only. They never become clickable target surfaces.
 - Hotbar artwork sits below the existing radial cooldown overlay. Keybinds, borders, focus/hover states and countdowns are rendered by Godot, not baked into textures. Tooltips retain ability names and mechanics.
 - Billboard names/health/cast bars sit above the new silhouettes. The arena still uses its existing floor/pillars, beam cues and floating combat text. Audio remains absent.
@@ -45,6 +45,22 @@ Run `godot --path . --script tools/art_review.gd` in a rendering window to regen
 For UI tests under Xvfb, supply a screen larger than the game window: `xvfb-run -a -s '-screen 0 1600x1000x24' godot --path . --script tests/ui_test.gd`. A 640×480 virtual screen clamps the cursor before it can reach the hotbar, even though the viewport screenshot is 1280×800.
 
 Keep icons readable by silhouette at 64–92 pixels: one primary motif, dark indigo backgrounds, limited cosmic texture, strong light/dark contrast. Ember attacks use orange/magenta; Vanguard uses steel/gold; Luminary uses mint/ivory/gold. Functional abilities may cross those palettes (e.g. green Mend and blue Ward). Add future icon paths to `scripts/ability_art.gd`; art is presentation data and must not enter network snapshots or balance dictionaries.
+
+## Ember — Blender model and locomotion (2026-09-08)
+
+Complete production and next-class handoff: [`CHARACTER_PIPELINE.md`](CHARACTER_PIPELINE.md).
+
+The owner explicitly rejected Ember's faceted construction and rigid limb swings. The new original model follows the supplied reference's open hood, dark tailored armor, antique bronze borders, articulated gloves, split astral robes, burning hems and celestial halo. The linked WoW Classic/Retail comparison was viewed as a model and movement quality reference; no game assets were copied.
+
+- Editable source: `art_source/ember.blend`, saved with the Walk NLA track active, 30 fps, frames 1–37. Other named NLA tracks are muted for inspection. The `REVIEW_ONLY` collection contains a studio and is excluded from the game export by selection.
+- Runtime asset: `assets/characters/ember.glb`, one smooth skinned mesh, nine material surfaces and a 52-bone skeleton. Packed 1024px astral fabric texture; Godot also extracts its embedded texture during import. Approximately 127k source triangles; Godot generates import LODs.
+- Clips: Idle, Walk, Run, WalkBackward, StrafeLeft, StrafeRight and Cast. Leg poses use an analytic two-bone solve, grounded stance targets, toe clearance and eased swing return. Robe bones provide delayed secondary motion. All clips close their first/last poses.
+- `scripts/ember_art.gd` chooses direction from actual displacement, blends clips over 0.2 seconds, smooths cadence, and retains casting, stun, damage flash, defeat and revive presentation. A 180-degree import correction aligns Blender -Y with the game's -Z facing. Team color is confined to shoulder inlays. Combat transforms, capsules, targeting and network state are unchanged.
+- Review: open `scenes/ember_preview.tscn` and run the scene. Buttons select clips, drag rotates the camera, scroll zooms, Space pauses, and the slider changes playback speed. Rebuild with Blender `--background --python tools/build_ember.py`; verify source skin/stance with `tools/verify_ember.py`, then import in Godot and run `tests/ember_presentation_test.gd`.
+
+Validation: Blender verified all 69,923 vertices have normalized skin weights and sampled stance ankles remain within 0.000001 m of their authored target height. Godot passed 761/761 Ember presentation checks, 81/81 combat checks and 91/91 rendered ability/art checks. Blender motion samples and a real Godot render were visually inspected. These checks validate deformation and integration, not a claim of reference-quality artistry.
+
+This is a complete original rigged model and authored movement implementation, but remains a stylized interpretation below the supplied image's production surface detail. Armor is smoother and simpler, cloth uses bone animation rather than cloth collision simulation, and there is no terrain foot IK. Extreme backward/sideways travel can slide because cadence is capped; future stride warping should preserve gameplay speed. The reference's spell-effect illustrations are not new ability implementations. Further visual approval and multi-character GPU profiling remain open.
 
 ## Cosmic Sanctum — environment implementation (2026-09-08)
 

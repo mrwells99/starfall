@@ -81,7 +81,7 @@ func run() -> void:
 		var before: Transform3D = fighter.transform
 		fighter.casting = 0
 		fighter.visual_tick(0.1, arena.camera)
-		check(fighter.champion_model.left_arm.rotation.x < -0.5, "Casting poses the arm")
+		check(fighter.champion_model.ember_art.clip == "Cast" if fighter.champion_model.ember_art != null else fighter.champion_model.left_arm.rotation.x < -0.5, "Casting poses the arm")
 		fighter.casting = -1
 		fighter.hp = 0
 		fighter.visual_tick(0.4, arena.camera)

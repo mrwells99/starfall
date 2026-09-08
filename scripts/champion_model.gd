@@ -20,6 +20,8 @@ var initialized := false
 var archetype := ""
 var vanguard: Dictionary = {}
 const VanguardArt = preload("res://scripts/vanguard_art.gd")
+const EmberArt = preload("res://scripts/ember_art.gd")
+var ember_art: RefCounted
 
 func paint(hex: String, luminous: bool = false, metal: float = 0.0) -> StandardMaterial3D:
 	var mat := StandardMaterial3D.new()
@@ -102,6 +104,10 @@ func ring(parent: Node3D, at: Vector3, radius: float, width: float, mat: Materia
 func build(champion: String, team_color: Color) -> void:
 	archetype = champion
 	name = "ChampionModel"
+	if champion == "Ember":
+		ember_art = EmberArt.new()
+		ember_art.build(self, team_color)
+		return
 	if champion == "Vanguard":
 		VanguardArt.build(self, team_color)
 		return
@@ -137,28 +143,7 @@ func build(champion: String, team_color: Color) -> void:
 	for x in [-0.065, 0.065]:
 		block(self, Vector3(x, 1.65, -0.164), Vector3(0.067, 0.027, 0.025), glow)
 	mantle = joint(self, Vector3(0, 1.4, 0.16), "Mantle")
-	if champion == "Ember":
-		# Split angular robe, a deep hood, tall staff and cinder crown.
-		form(self, Vector3.ZERO, [Vector3(0.18, 0.43, 0.31), Vector3(0.35, 0.4, 0.28), Vector3(0.87, 0.25, 0.18)], cloth)
-		for side in [-1.0, 1.0]:
-			var panel := block(self, Vector3(side * 0.19, 0.54, -0.255), Vector3(0.15, 0.64, 0.035), identity)
-			panel.rotation.z = side * -0.18
-			block(self, Vector3(side * 0.29, 0.28, -0.26), Vector3(0.12, 0.035, 0.04), gold)
-		form(self, Vector3(0, 1.68, 0.035), [Vector3(-0.22, 0.235, 0.195), Vector3(0.11, 0.24, 0.23), Vector3(0.37, 0.04, 0.03)], cloth)
-		# Dark opening is proud of the hood so the eyes never disappear inside it.
-		gem(self, Vector3(0, 1.64, -0.195), Vector3(0.29, 0.34, 0.09), dark)
-		for x in [-0.055, 0.055]:
-			block(self, Vector3(x, 1.66, -0.25), Vector3(0.06, 0.024, 0.02), glow)
-		form(mantle, Vector3.ZERO, [Vector3(-1.12, 0.38, 0.035), Vector3(-0.5, 0.28, 0.04), Vector3(0, 0.28, 0.035)], identity)
-		mantle.rotation.x = -0.13
-		var staff := joint(right_arm, Vector3(0.1, -0.52, -0.15), "EmberStaff")
-		form(staff, Vector3.ZERO, [Vector3(-0.65, 0.035, 0.035), Vector3(1.02, 0.035, 0.035)], gold, 6)
-		for side in [-1.0, 1.0]:
-			var prong := gem(staff, Vector3(side * 0.105, 1.0, 0), Vector3(0.095, 0.42, 0.095), gold)
-			prong.rotation.z = side * -0.3
-		focus_gem = gem(staff, Vector3(0, 1.14, 0), Vector3(0.21, 0.38, 0.21), glow)
-
-	else:
+	if champion != "Ember":
 		# Floating vestments and six separated celestial feathers, not a cape.
 		form(self, Vector3.ZERO, [Vector3(0.18, 0.33, 0.24), Vector3(0.45, 0.3, 0.22), Vector3(0.91, 0.22, 0.17)], ivory)
 		for side in [-1.0, 1.0]:
@@ -183,6 +168,9 @@ func build(champion: String, team_color: Color) -> void:
 		gem(scepter, Vector3(0, 0.75, 0), Vector3(0.12, 0.24, 0.12), glow)
 
 func animate(delta: float, actor: CharacterBody3D) -> void:
+	if ember_art != null:
+		ember_art.animate(self, delta, actor)
+		return
 	clock += delta
 	var travel := 0.0
 	if initialized and delta > 0.0:
