@@ -1,21 +1,22 @@
 extends RefCounted
 
+const Layout = preload("res://scripts/arena_layout.gd")
+
 var grid := AStarGrid2D.new()
 
 func _init() -> void:
-	grid.region = Rect2i(-17, -17, 35, 35)
+	var width := Layout.GRID_MAX - Layout.GRID_MIN + 1
+	grid.region = Rect2i(Layout.GRID_MIN, Layout.GRID_MIN, width, width)
 	grid.cell_size = Vector2.ONE
 	grid.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_ONLY_IF_NO_OBSTACLES
 	grid.update()
-	for x in range(-17, 18):
-		for z in range(-17, 18):
-			for px in [-6, 6]:
-				for pz in [-5, 5]:
-					if abs(x - px) <= 2 and abs(z - pz) <= 2:
-						grid.set_point_solid(Vector2i(x, z))
+	for x in range(Layout.GRID_MIN, Layout.GRID_MAX + 1):
+		for z in range(Layout.GRID_MIN, Layout.GRID_MAX + 1):
+			var cell := Vector2i(x, z)
+			grid.set_point_solid(cell, Layout.is_navigation_blocked(cell))
 
 func nearest(pos: Vector3) -> Vector2i:
-	var cell := Vector2i(clampi(roundi(pos.x), -17, 17), clampi(roundi(pos.z), -17, 17))
+	var cell := Vector2i(clampi(roundi(pos.x), Layout.GRID_MIN, Layout.GRID_MAX), clampi(roundi(pos.z), Layout.GRID_MIN, Layout.GRID_MAX))
 	if not grid.is_point_solid(cell):
 		return cell
 	var best := Vector2i.ZERO
