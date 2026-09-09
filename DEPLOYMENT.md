@@ -12,13 +12,17 @@ bind the same UDP ports.
 
 ## What gets deployed
 
-Six containers from one image: two public matchmaking queues and a four-slot
-private-lobby pool.
+Three containers start by default: two public matchmaking queues and the persistent world.
+The four private-lobby containers are optional (`COMPOSE_PROFILES=private-lobbies` in `.env`).
+When disabling an existing pool, run `docker compose stop lobby1 lobby2 lobby3 lobby4`
+once; then normal deployments keep those services disabled. Private lobby codes require
+the pool to be enabled.
 
 | Container | UDP | Role |
 | --- | --- | --- |
 | `starfall-duel` | 27840 | Duel queue (1v1) |
 | `starfall-team` | 27841 | Team queue (3v3) |
+| `starfall-world` | 27842 | Persistent world |
 | `starfall-lobby1..4` | 27850–27853 | Private lobbies, claimed by code |
 
 These port numbers are **baked into the client** at build time
@@ -30,15 +34,15 @@ These port numbers are **baked into the client** at build time
 The image bundles the pinned Godot binary, the project source, and a
 **pre-built import cache**; it does not use Godot's export pipeline.
 
-The repo has no `export_presets.cfg` and no external assets — all geometry is
-generated at runtime — so an export would need roughly a gigabyte of export
-templates to produce a `.pck` that is essentially the source already present.
+The repo has no `export_presets.cfg`. Authored character models and textures are
+imported during the image build; dedicated actors do not load their presentation
+models at runtime. A stripped server export remains a possible image-size improvement.
 Bundling gets the properties that matter in production: one immutable artifact,
-no writes to the project tree at run time, no import-cache race between six
+no writes to the project tree at run time, no import-cache race between
 processes, and a fast start.
 
-Revisit this if the project gains real assets (textures, audio, models), when
-`.pck` packing and shipping compiled bytecode start to pay for themselves.
+A future dedicated export could also reduce image size by excluding client assets.
+The current optimization reduces runtime work and memory, not the Docker image size.
 
 ---
 
@@ -77,8 +81,8 @@ workflow file, is what stops an arbitrary branch from reaching the droplet.
 
 ## Required server setup
 
-A $6 Rocky Linux 9 droplet is enough for six containers, though all six share
-one vCPU; see [Sizing](#sizing).
+Use Rocky Linux 9 with Docker Compose. Size the machine from measured active-match
+load; the previous 1 vCPU / 1 GB deployment saturated its CPU. See [Sizing](#sizing).
 
 ```bash
 # 1. Ship the deploy scripts
@@ -160,7 +164,7 @@ On the server, each deploy:
    belongs to the operator and is never overwritten.
 3. Runs `sudo /usr/local/bin/starfall-deploy`, which performs
    `docker compose pull`, `docker compose up -d --remove-orphans`, waits for all
-   six containers to report healthy, prunes images older than a week, and exits
+   enabled containers to report healthy, prunes images older than a week, and exits
    non-zero if the stack did not come up.
 
 Images are tagged `sha-<short commit>`, plus `latest` on `main`. Deploys always
@@ -172,7 +176,7 @@ back to what?" unanswerable.
 ## How to verify a deployment
 
 From CI: the run summary shows the deployed tag and `docker compose ps` output.
-The deploy step fails if fewer than six containers become healthy.
+The deploy step fails if fewer than the configured number of enabled containers become healthy.
 
 From the droplet:
 
@@ -212,7 +216,7 @@ No address or port should be visible anywhere in the UI.
 
 | Symptom | Cause and fix |
 | --- | --- |
-| All containers `(healthy)` but players get "Could not reach the server" | A container can be healthy and still have **no host port mapping**. The healthcheck runs inside the network namespace, where the server always binds successfully — it cannot see a failed publish. Compare `ss -ulnp \| grep 278` (expect six listeners) against `docker ps` (six healthy). Fix with `docker compose up -d --force-recreate <service>`. Cause is normally something else holding the port when the container was first created. `starfall-deploy` now fails the deploy when this happens, but a container created before that check existed can still be in this state. |
+| All containers `(healthy)` but players get "Could not reach the server" | A container can be healthy and still have **no host port mapping**. The healthcheck runs inside the network namespace, where the server always binds successfully — it cannot see a failed publish. Compare `ss -ulnp \| grep 278` (expect three listeners by default, seven with private lobbies) against `docker ps` (matching healthy services). Fix with `docker compose up -d --force-recreate <service>`. Cause is normally something else holding the port when the container was first created. `starfall-deploy` now fails the deploy when this happens, but a container created before that check existed can still be in this state. |
 | `address already in use` on a game port | Something outside Docker holds it — most often a leftover `ringfall`/`starfall` systemd unit from the pre-Docker model. `ss -ulnp \| grep 278` names the process. Never run both deployment models on one droplet. |
 | Clients rejected with a version error | `Config.VERSION` differs between client and server. Expected after a protocol change — everyone must re-download. |
 | Queue says "Searching…" forever | Working as designed: it needs `*_MIN_PLAYERS` humans. Lobbies show a code immediately, which is why they can look fine while the queue looks broken. |
@@ -264,14 +268,32 @@ CI emits a warning when `scripts/` changes without a `VERSION` bump.
 
 ## Sizing
 
-Six Godot processes on one vCPU. Each is idle until players connect, and a
-round simulates six actors at 30 Hz — light, but not free.
+Dedicated servers retain 60 Hz physics and 20 Hz snapshots. Their frame loop is
+capped at physics frequency, actors keep collision capsules without loading models,
+and HUD/animation/local combat-effect updates are skipped. Menu controls are still
+constructed once to support the shared session lifecycle.
+
+A short local Linux comparison (same Godot 4.5.1, seeded six-bot workload) measured:
+
+| Workload | Before CPU | After CPU | Before RSS | After RSS |
+| --- | --- | --- | --- | --- |
+| Idle queue | 6.8% | 1.8% | 164.7 MiB | 129.8 MiB |
+| Six bots fighting | 92.8% | 7.8% | 169.3 MiB | 130.3 MiB |
+
+CPU is percent of one logical core; RSS is peak sampled resident process memory.
+These are six-second local samples, not production capacity guarantees. Run
+`python tools/measure_server.py` on Linux with Godot installed to repeat the idle
+and six-bot workloads on a free UDP port (default 27944; override with `--port`).
+It launches temporary servers and terminates only those processes. The benchmark
+keeps bot HP full and excludes real client/network load. After deployment, sample
+`docker stats --no-stream`, `vmstat 1 30`, and `free -h` during simultaneous matches
+and world activity to decide whether hardware still needs upgrading.
 
 `.env` sets per-container ceilings (`STARFALL_CPU_LIMIT=0.75`,
-`STARFALL_MEM_LIMIT=512M`) so one busy match cannot starve the others. On a 1 GB
-droplet the memory limits are a ceiling, not a reservation; six containers each
-actually using 512 MB would OOM. In practice an idle server sits far below that.
-Watch `docker stats` during the first real 3v3 before assuming headroom.
+`STARFALL_MEM_LIMIT=512M`). These are limits, not reserved capacity or a guarantee
+against contention. Three containers each using their memory ceiling would exceed
+a 1 GB host. Stable occupied swap alone does not demonstrate active swapping;
+check `vmstat`'s `si`/`so`, CPU idle time, and match responsiveness under load.
 
 If you need more concurrent private lobbies, add a port to `Config.LOBBY_PORTS`,
 a port to `.env`, a service to `docker-compose.yml`, and a firewall rule — all
@@ -336,7 +358,7 @@ no credentials. `.env` is configuration only, and `.env` is gitignored.
    secret in the `register_player` RPC; real accounts.
 
 3. **No rate limiting on connections.** ENet will happily accept a flood of
-   connection attempts, and six processes on one vCPU is not much to exhaust.
+   connection attempts, and several processes on one vCPU is not much to exhaust.
    Consider `firewalld`/nftables rate limits on the game ports, and a DigitalOcean
    cloud firewall in front of the droplet.
 

@@ -52,7 +52,7 @@ var last_input_seq := -1
 var last_action_seq := -1
 var action_budget := 0.0
 
-func setup(id: int, peer: int, side: int, choice: String) -> void:
+func setup(id: int, peer: int, side: int, choice: String, presentation: bool = true) -> void:
 	actor_id = id
 	owner_peer = peer
 	team = side
@@ -71,7 +71,11 @@ func setup(id: int, peer: int, side: int, choice: String) -> void:
 	collision.shape = capsule
 	collision.position.y = 0.9
 	add_child(collision)
-	champion_model = preload("res://scripts/champion_model.gd").new()
+	# Dedicated actors retain the same capsule and simulation state. Loading the
+	# model script lazily also keeps its authored GLB resources out of servers.
+	if not presentation:
+		return
+	champion_model = load("res://scripts/champion_model.gd").new()
 	add_child(champion_model)
 	champion_model.build(champion, base_color)
 	body_mesh = champion_model.torso

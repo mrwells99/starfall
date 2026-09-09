@@ -2,7 +2,9 @@
 
 _Short-term memory. Keep concise. Historical decisions live in [`DECISIONS.md`](DECISIONS.md); long-range plan lives in [`ROADMAP.md`](ROADMAP.md)._
 
-Last updated: **2026-09-08**.
+Last updated: **2026-09-09**.
+
+Latest server optimization (2026-09-09): dedicated actors now retain collision and combat state without loading authored models. Dedicated mode skips HUD/animation/local VFX updates and player settings; its frame loop is capped at the unchanged 60 Hz physics rate (snapshots remain 20 Hz). The headless map already skipped artwork. Compose now starts only duel, team, world; four private lobbies require the `private-lobbies` profile. Local seeded six-bot CPU dropped 92.8%→7.8% of one core and sampled RSS 169.3→130.3 MiB; these are local comparisons, not cloud capacity estimates. Combat 81/81, focused server runtime 27/27, dedicated queue/late join, private lobby, world chat/duel/despawn, and delayed-network movement/combat/rematch passed. Repeatable Linux benchmark: `python tools/measure_server.py`. See DEPLOYMENT sizing for methodology. No deployment performed; production resource readings are still needed after deploying. RPC surface and version remain unchanged.
 
 Latest connection fix: **0.9.1** negotiates version and RPC schema before allowing any scene RPC, preventing old snapshots from being dispatched to `ping_host`. Matching builds still need to be restarted on both sides; no deployment performed. Regression cases cover version mismatch, same-version RPC mismatch and legacy servers.
 
