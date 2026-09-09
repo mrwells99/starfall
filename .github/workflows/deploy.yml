@@ -90,6 +90,9 @@ jobs:
       - name: Menu, availability, rematch and frame-budget checks
         run: ./tests/check_suite.sh "Polish checks" godot --headless --path . --script tests/polish_test.gd
 
+      - name: Eliminated player and spectator checks
+        run: ./tests/check_suite.sh "Spectator checks" godot --headless --path . --script tests/spectator_test.gd
+
       # These bind fixed UDP ports and must not overlap — hence one step, in order.
       - name: Networked suites (sequential)
         run: |
@@ -125,6 +128,7 @@ jobs:
             libxkbcommon0 fontconfig
 
       - name: UI suite (Xvfb)
+        timeout-minutes: 3
         run: |
           ./tests/check_suite.sh "UI checks" \
             xvfb-run -a --server-args="-screen 0 1280x800x24" \
