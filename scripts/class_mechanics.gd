@@ -322,6 +322,7 @@ static func before_damage(game, source, victim, amount: float) -> float:
 		victim.stunned = 0.0
 		victim.identity.disorient = false
 	for a in game.actors.values():
+		if a.training_dummy: continue
 		var s: Dictionary = a.identity
 		if a.hp <= 0 or a.team != victim.team:
 			continue
@@ -385,6 +386,9 @@ static func bot(game, a, foe, ally) -> bool:
 # Replicated state drives the same anchor and resource readouts on every peer.
 static func paint(game) -> void:
 	for a in game.actors.values():
+		if a.training_dummy:
+			a.nameplate.text = a.nameplate_base_text()
+			continue
 		var s: Dictionary = a.identity
 		var marker := a.get_node_or_null("GravityMarker") as Node3D
 		if marker == null:

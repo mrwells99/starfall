@@ -5,6 +5,9 @@ var label: Label
 var content_key := ""
 var state_label: Label
 var column: VBoxContainer
+var header: HBoxContainer
+var icon: TextureRect
+var heading: Label
 
 func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -24,6 +27,23 @@ func _init() -> void:
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	column.add_theme_constant_override("separation", 8)
 	margin.add_child(column)
+	header = HBoxContainer.new()
+	header.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	header.add_theme_constant_override("separation", 12)
+	column.add_child(header)
+	icon = TextureRect.new()
+	icon.custom_minimum_size = Vector2(48, 48)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	header.add_child(icon)
+	heading = Label.new()
+	heading.add_theme_font_size_override("font_size", 18)
+	heading.add_theme_color_override("font_color", Color("e8be78"))
+	heading.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	header.add_child(heading)
+	header.hide()
 	label = Label.new()
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -41,16 +61,19 @@ func _init() -> void:
 	hide()
 
 func present(ability: Dictionary, champion: String, pointer: Vector2, bounds: Vector2) -> void:
+	header.hide()
 	state_label.hide()
 	show_text(Kits.description(ability, champion), pointer, bounds)
 
 # Auras reuse this panel rather than adding a second tooltip that would need its
 # own placement and sizing logic.
 func present_text(text: String, pointer: Vector2, bounds: Vector2) -> void:
+	header.hide()
 	state_label.hide()
 	show_text(text, pointer, bounds)
 
 func present_availability(text: String, reason: String, pointer: Vector2, bounds: Vector2) -> void:
+	header.hide()
 	var changed := state_label.text != "UNAVAILABLE · " + reason or state_label.visible != (not reason.is_empty())
 	state_label.visible = not reason.is_empty()
 	state_label.text = "UNAVAILABLE · " + reason
@@ -58,6 +81,14 @@ func present_availability(text: String, reason: String, pointer: Vector2, bounds
 	show_text(text.replace("\n\n", "\n") if not reason.is_empty() else text, pointer, bounds)
 	if changed: reset_size()
 	position = Vector2(clampf(pointer.x + 16, 8, maxf(8, bounds.x - size.x - 8)), maxf(8, pointer.y - size.y - 16))
+
+func present_illustrated(ability: Dictionary, champion: String, art: Texture2D, pointer: Vector2, bounds: Vector2) -> void:
+	header.show()
+	icon.texture = art
+	heading.text = ability.name
+	state_label.hide()
+	var description := Kits.description(ability, champion)
+	show_text(description.trim_prefix(String(ability.name) + "\n\n"), pointer, bounds)
 
 func show_text(text: String, pointer: Vector2, bounds: Vector2) -> void:
 	var width := minf(360, bounds.x - 40)

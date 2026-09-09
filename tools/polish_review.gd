@@ -55,6 +55,12 @@ func run() -> void:
 	game.menu_state = "offline"
 	game.refresh_menu()
 	await capture("offline")
+	game.menu_presentation.introduction.rows[0].mouse_entered.emit()
+	await capture("ability-guide")
+	game.menu_presentation.introduction.clear_hover()
+	game.menu_presentation.introduction.all_button.pressed.emit()
+	await capture("all-abilities")
+	game.menu_presentation.introduction.all_button.pressed.emit()
 	game.menu_state = "settings"
 	game.refresh_menu()
 	await capture("settings")
@@ -106,8 +112,18 @@ func run() -> void:
 	game.phase = "match"
 	game.refresh_menu()
 	await capture("pause")
-	print("POLISH RENDER REVIEW COMPLETE actual_size=%s renderer=%s" % [root.size, RenderingServer.get_current_rendering_method()])
+	game.world_mode = true
+	game.roster = {1: {"champion": "Ember", "team": 0}}
+	game.begin_round()
+	game.panel.hide()
+	game.update_visuals(0)
+	game.menu_camera.make_current()
+	game.menu_camera.position = Vector3(0, 10, 3)
+	game.menu_camera.look_at(Vector3(0, 1, -8))
+	await capture("world-dummies")
+	print("POLISH CAPTURES COMPLETE; releasing scene")
 	game.queue_free()
 	await process_frame
 	await process_frame
+	print("POLISH RENDER REVIEW COMPLETE actual_size=%s renderer=%s" % [root.size, RenderingServer.get_current_rendering_method()])
 	quit()

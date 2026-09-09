@@ -32,6 +32,7 @@ var ai_timer := 0.0
 var path_timer := 0.0
 var path: PackedVector2Array = []
 var body_mesh: MeshInstance3D
+var training_dummy := false
 var champion_model: Node3D
 var nameplate: Label3D
 var health_mesh: MeshInstance3D
@@ -178,7 +179,7 @@ func paint_nameplate_auras(auras: Array, art) -> void:
 
 func visual_tick(delta: float, camera: Camera3D) -> void:
 	flash = maxf(0, flash - delta)
-	champion_model.animate(delta, self)
+	if not training_dummy: champion_model.animate(delta, self)
 	health_mesh.scale.x = maxf(0.001, hp / 100.0)
 	health_mesh.position.x = -0.77 * (1.0 - hp / 100.0)
 	if camera and (camera.global_position - health_pivot.global_position).cross(Vector3.UP).length() > 0.01:
@@ -198,6 +199,7 @@ func visual_tick(delta: float, camera: Camera3D) -> void:
 	# then appending the text each tick forces Label3D to rebuild unchanged text.
 
 func nameplate_base_text() -> String:
+	if training_dummy: return "TRAINING DUMMY"
 	var lines := "%s %s" % [champion, "[BOT]" if owner_peer == 0 else ""]
 	if hp <= 0:
 		lines += "\nDEFEATED"

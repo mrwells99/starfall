@@ -8,6 +8,8 @@ var metrics: HBoxContainer
 var values: Array[Label] = []
 var status_card: PanelContainer
 var preview: TextureRect
+var hero: HBoxContainer
+var introduction: VBoxContainer
 
 func install(arena) -> void:
 	game = arena
@@ -45,8 +47,15 @@ func install(arena) -> void:
 		var detail = game.add_label(content, descriptions[i], 12)
 		detail.add_theme_color_override("font_color", game.UI_TEXT_DIM)
 	preview = preload("res://scripts/champion_preview.gd").new()
-	stack.add_child(preview)
-	stack.move_child(preview, game.champion_choice.get_index())
+	hero = HBoxContainer.new()
+	hero.add_theme_constant_override("separation", 18)
+	stack.add_child(hero)
+	stack.move_child(hero, game.champion_choice.get_index())
+	hero.add_child(preview)
+	preview.size_flags_horizontal = Control.SIZE_EXPAND | Control.SIZE_SHRINK_CENTER
+	introduction = preload("res://scripts/champion_introduction.gd").new()
+	hero.add_child(introduction)
+	introduction.install(game)
 	preview.hide()
 	game.champion_choice.item_selected.connect(func(_index): refresh())
 	metrics = HBoxContainer.new()
@@ -85,8 +94,11 @@ func install(arena) -> void:
 func refresh() -> void:
 	var results: bool = game.phase == "results" and game.menu_state != "settings"
 	metrics.visible = results
-	var selecting: bool = game.phase == "menu" and game.menu_state in ["online", "offline", "queue", "host", "join"]
+	var selecting: bool = game.phase == "menu" and game.menu_state in ["online", "offline", "queue", "host", "join", "abilities"]
 	preview.show_champion(game.Kits.NAMES[game.champion_choice.selected], selecting)
+	status_card.visible = game.menu_state != "abilities"
+	hero.visible = selecting
+	introduction.show_champion(game.Kits.NAMES[game.champion_choice.selected], selecting and game.menu_state in ["online", "offline", "abilities"])
 	wordmark.add_theme_font_size_override("font_size", 28 if selecting else 42)
 	eyebrow.visible = not selecting
 	stack.add_theme_constant_override("separation", 10 if selecting else 14)
@@ -110,7 +122,7 @@ func refresh() -> void:
 	else:
 		eyebrow.text = "C O S M I C   G L A D I A T O R S"
 		if game.phase == "menu" and game.menu_state != "settings":
-			game.result_text.text = {"main":"Enter the arena", "online":"Find your next fight", "offline":"Hone your champion", "queue":"Join the competition", "host":"Bring your rivals", "join":"Your party awaits"}.get(game.menu_state, "Enter the arena")
+			game.result_text.text = {"main":"Enter the arena", "online":"Find your next fight", "offline":"Hone your champion", "queue":"Join the competition", "host":"Bring your rivals", "join":"Your party awaits", "abilities":"Explore your champion"}.get(game.menu_state, "Enter the arena")
 	layout.call_deferred()
 
 func layout() -> void:
@@ -118,7 +130,7 @@ func layout() -> void:
 	if preview.visible:
 		# Spend remaining vertical space on the portrait without pushing actions
 		# off short displays. Its 3:4 frame stays centered above the full-width picker.
-		var other_height: float = game.panel.get_combined_minimum_size().y - preview.custom_minimum_size.y
+		var other_height: float = game.panel.get_combined_minimum_size().y - hero.get_combined_minimum_size().y
 		var portrait_height := clampf(game.ui.size.y - other_height - 40.0, 180.0, 360.0)
 		preview.custom_minimum_size = Vector2(portrait_height * 0.75, portrait_height)
 	game.panel.reset_size()
