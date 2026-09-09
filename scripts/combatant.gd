@@ -194,17 +194,14 @@ func visual_tick(delta: float, camera: Camera3D) -> void:
 		cast_mesh.position.x = -0.77 * (1.0 - done)
 		if camera and (camera.global_position - cast_pivot.global_position).cross(Vector3.UP).length() > 0.01:
 			cast_pivot.look_at(camera.global_position, Vector3.UP, true)
-	# The nameplate carries the cast on one line and every active aura on the
-	# next, so you can read an enemy's crowd control from across the arena
-	# without having to target them. Auras.active() is the same source the unit
-	# frames use, so the two can never disagree.
-	var state := ""
-	if hp <= 0:
-		state = "DEFEATED"
+	# ClassMechanics composes base text and resources in one assignment. Resetting
+	# then appending the text each tick forces Label3D to rebuild unchanged text.
+
+func nameplate_base_text() -> String:
 	var lines := "%s %s" % [champion, "[BOT]" if owner_peer == 0 else ""]
-	if not state.is_empty():
-		lines += "\n" + state
-	nameplate.text = lines
+	if hp <= 0:
+		lines += "\nDEFEATED"
+	return lines
 
 func snapshot() -> Dictionary:
 	return {"move_ack": last_motion_seq, "velocity": velocity, "motion_revision": motion_revision, "id": actor_id, "peer": owner_peer, "team": team, "champion": champion, "pos": position, "yaw": rotation.y, "hp": hp, "cd": cooldowns.duplicate(), "gcd": gcd, "casting": casting, "left": cast_left, "stun": stunned, "lock": locked, "shield": shield, "sprint": sprint,

@@ -86,6 +86,13 @@ func run() -> void:
 		var authored_art = fighter.champion_model.fulcrum_art
 		if authored_art == null:
 			authored_art = fighter.champion_model.vanguard_art if fighter.champion_model.vanguard_art != null else (fighter.champion_model.luminary_art if fighter.champion_model.luminary_art != null else fighter.champion_model.ember_art)
+		if authored_art != null:
+			fighter.flash = 0.2
+			fighter.visual_tick(0.01, arena.camera)
+			check(authored_art.materials[0].albedo_color == Color.WHITE, "Impact still flashes with cached materials")
+			fighter.flash = 0
+			fighter.visual_tick(0.01, arena.camera)
+			check(authored_art.materials[0].albedo_color == authored_art.base_colors[0], "Impact restores original material color")
 		check(authored_art.clip == "Cast" if authored_art != null else fighter.champion_model.left_arm.rotation.x < -0.5, "Casting poses the arm")
 		fighter.casting = -1
 		fighter.hp = 0

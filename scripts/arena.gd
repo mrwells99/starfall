@@ -377,12 +377,20 @@ func paint_bar_edge(bar: ProgressBar, color: Color, width: int) -> void:
 	var edge := bar_edge(bar)
 	if edge == null:
 		return
-	var box := StyleBoxFlat.new()
-	box.bg_color = Color.TRANSPARENT
-	box.border_color = color
-	box.set_border_width_all(width)
-	box.set_corner_radius_all(4)
-	edge.add_theme_stylebox_override("panel", box)
+	# Each bar owns one style. Replacing it every tick invalidates the HUD theme
+	# and allocates hundreds of resources per second in a six-player match.
+	var box: StyleBoxFlat
+	if edge.has_theme_stylebox_override("panel"):
+		box = edge.get_theme_stylebox("panel") as StyleBoxFlat
+	if box == null:
+		box = StyleBoxFlat.new()
+		box.bg_color = Color.TRANSPARENT
+		box.set_corner_radius_all(4)
+		edge.add_theme_stylebox_override("panel", box)
+	if box.border_color != color:
+		box.border_color = color
+	if box.border_width_left != width:
+		box.set_border_width_all(width)
 
 # A party or enemy row: still a Button so clicking it targets, but the health is
 # a real bar rather than a number. The bar is a child so the button keeps its

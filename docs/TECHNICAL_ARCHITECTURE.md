@@ -424,3 +424,24 @@ and checks model resources are absent, actors retain collision, effects create
 no presentation nodes, simulation frequency remains unchanged, and frame-cap
 restoration. `tools/measure_server.py` provides repeatable Linux idle/six-bot
 CPU/RSS samples; methodology and deployment profiles are in DEPLOYMENT.md.
+
+## Local match presentation cost (2026-09-09)
+
+Six-player rendering exposed repeated resource invalidation despite low script
+simulation cost. `paint_bar_edge` now owns/reuses one StyleBoxFlat per bar and
+changes only differing border properties. `Combatant.nameplate_base_text()` and
+`ClassMechanics.paint` compose the complete nameplate before one conditional
+assignment; never clear it before appending resource text every tick. Authored
+class art caches a four-state alive/dead × flashing/not-flashing value, updating
+material parameters only on state changes. Animation still advances every tick;
+mesh detail, High environment settings and simulation cadence are unchanged.
+
+Rendered UI tests check border reuse and subsequent style changes; art tests
+check flash restoration as well as defeat/revive poses. Run
+`godot --path . --script tools/local_match_benchmark.gd` for a 1280×800 six-player
+frame-pacing sample capped at 60 FPS, or append `-- --bench-duel`. Requires a
+rendering window. It warms up for 60 physics ticks and samples 359 more, keeps
+HP full, and reports mean/p95/max frame intervals and GPU render time. GPU time
+excludes other frame work; mean frame interval measures the complete pacing.
+Use the same hardware/renderer/window and avoid concurrent rendering jobs for
+comparisons. Short local measurements are not multiplayer capacity guarantees.
