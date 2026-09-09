@@ -214,3 +214,9 @@ It was tested and deliberately not adopted:
 - It therefore cannot be visually verified in this environment at all.
 
 Flipping `renderer/rendering_method` to `forward_plus` is a one-line change. It needs a human on a machine with a GPU to judge the result and accept the support burden.
+
+## Unique active ability artwork — 2026-09-08
+
+The owner requested replacement of repeated icons between different abilities. Seventeen new built-in image_gen illustrations now cover Stoke, Solar Flare, Cinderstep, Burning Wake, Intercede, Hold the Line, Challenge, Earthsplitter, Unbroken, Pilgrim’s Step, Last Light, Starfall, Graviton, Horizon, Anchor, Umbra and Tether. All 45 distinct active ability names have unique file paths and image contents. Mend remains one shared ability across classes. Retired ability aliases may still point at their old art; they are outside the active kits.
+
+Final PNGs are 256×256 with mipmap import settings. Prompts and file names: `assets/icons/abilities/UNIQUE_PROMPTS.md`. `tools/audit_ability_icons.py` verifies active coverage and duplicate image contents; the rendered art test now also rejects shared paths for different active names. Artwork and hotbar-sized contact sheets were inspected. A fresh Godot import/render remains pending due to the session’s automatic approval review credit block.

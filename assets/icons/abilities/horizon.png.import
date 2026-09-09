@@ -1,0 +1,19 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+path="res://.godot/imported/horizon.png-1652b38fa35ecd807301690f5e1e7c59.ctex"
+metadata={
+"vram_texture": false
+}
+
+[deps]
+
+source_file="res://assets/icons/abilities/horizon.png"
+dest_files=["res://.godot/imported/horizon.png-1652b38fa35ecd807301690f5e1e7c59.ctex"]
+
+[params]
+
+compress/mode=0
+mipmaps/generate=true
+process/fix_alpha_border=true

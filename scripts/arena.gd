@@ -93,7 +93,6 @@ var roster: Dictionary = {}
 var status := ""
 var notice_time := 0.0
 var snapshot_timer := 0.0
-var input_timer := 0.0
 var input_seq := 0
 var action_seq := 0
 var last_snapshot := -1
@@ -127,6 +126,11 @@ var host_row: HBoxContainer
 var join_row: HBoxContainer
 var code_field: LineEdit
 var config := UserConfig.new()
+var controls = preload("res://scripts/key_bindings.gd").new()
+var prediction = preload("res://scripts/movement_prediction.gd").new()
+var keybind_menu
+var match_settings: Button
+var controls_help: Label
 var settings_row: HBoxContainer
 var window_mode_choice: OptionButton
 var resolution_choice: OptionButton
@@ -196,6 +200,8 @@ var requeue_button: Button
 var searching := false
 
 func _ready() -> void:
+	Input.use_accumulated_input = false
+	controls.setup(TOTAL_SLOTS)
 	build_arena()
 	build_camera()
 	build_ui()
@@ -482,7 +488,7 @@ func build_ui() -> void:
 	party_box = VBoxContainer.new()
 	party_box.position = Vector2(24, 220)
 	ui.add_child(party_box)
-	add_label(party_box, "PARTY · F1–F3 to select")
+	add_label(party_box, "PARTY · select by key or frame")
 	for i in range(3):
 		party_buttons.append(roster_row(party_box, select_party.bind(i)))
 	enemy_box = VBoxContainer.new()
@@ -492,13 +498,14 @@ func build_ui() -> void:
 	enemy_box.offset_top = 220
 	enemy_box.offset_right = -24
 	enemy_box.offset_bottom = 360
-	add_label(enemy_box, "ENEMIES · Tab / click frame")
+	add_label(enemy_box, "ENEMIES · select by key or frame")
 	for i in range(3):
 		enemy_buttons.append(roster_row(enemy_box, select_enemy.bind(i)))
 	var help := add_label(ui, "W/S move · A/D strafe · Q/E turn · Space jump\nRMB steer · LMB orbit · Both run · Wheel zoom\nTab / frames target · F1–F3 allies · F / G focus\n1–7 / Shift+1–5 abilities · Hover for details · Esc menu", 14)
 	help.add_theme_color_override("font_color", UI_TEXT_DIM)
 	help.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
 	help.offset_left = 24
+	controls_help = help
 	help.offset_top = -185
 	help.offset_right = 400
 	help.offset_bottom = -100
@@ -641,6 +648,7 @@ func build_ui() -> void:
 	size_row.add_child(slot_size_field)
 	settings_extra.append(size_row)
 	style_button(add_button(settings_row, "Apply", apply_settings), true)
+	add_button(settings_row, "Keybinds", func(): keybind_menu.open())
 	add_button(settings_row, "Edit HUD", func(): toggle_edit_mode(true))
 	add_button(settings_row, "Back", func(): menu_state = "main"; refresh_menu())
 	queue_row = HBoxContainer.new()
@@ -710,6 +718,7 @@ func build_ui() -> void:
 			panel.hide())
 	requeue_button = add_button(stack, "Requeue", requeue)
 	requeue_button.hide()
+	match_settings = add_button(stack, "Settings", func(): menu_state = "settings"; refresh_menu())
 	exit_button = add_button(stack, "Return to menu", func(): leave_session("Returned to menu."))
 	ability_tooltip = preload("res://scripts/ability_tooltip.gd").new()
 	ui.add_child(ability_tooltip)
@@ -738,6 +747,9 @@ func build_ui() -> void:
 	ui.add_child(self_auras)
 	for i in range(AURA_SLOTS):
 		self_auras.add_child(aura_widget())
+	keybind_menu = preload("res://scripts/keybind_menu.gd").new()
+	ui.add_child(keybind_menu)
+	keybind_menu.setup(self)
 	build_cc_tracker()
 	build_edit_overlay()
 
@@ -753,6 +765,7 @@ func spawn_actor(id: int, peer: int, side: int, choice: String, pos: Vector3) ->
 	actors[id] = actor
 
 func clear_actors() -> void:
+	prediction.reset()
 	for actor in actors.values():
 		remove_child(actor)
 		actor.queue_free()
@@ -946,6 +959,8 @@ func make_code() -> String:
 	return out
 
 func leave_session(message: String) -> void:
+	if keybind_menu != null:
+		keybind_menu.close()
 	if network:
 		multiplayer.multiplayer_peer.close()
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
@@ -1134,7 +1149,9 @@ func refresh_lobby() -> void:
 	refresh_menu()
 
 func refresh_menu() -> void:
-	var in_menu: bool = phase == "menu"
+	var in_menu: bool = phase == "menu" or menu_state == "settings"
+	if match_settings:
+		match_settings.visible = phase != "menu" and menu_state != "settings"
 	if main_row:
 		main_row.visible = in_menu and menu_state == "main"
 	if offline_row:
@@ -1180,7 +1197,7 @@ func refresh_menu() -> void:
 			"offline":
 				lobby_text.text = "Spar against bots.\nEmpty team slots are filled automatically."
 			"settings":
-				lobby_text.text = "Display settings apply immediately and are remembered.\nEdit HUD lets you move frames and rebind abilities."
+				lobby_text.text = "Display settings apply immediately and are remembered.\nKeybinds configures controls and bars. Edit HUD arranges your layout."
 			_:
 				lobby_text.text = "Online plays against people.\nOffline is local sparring against bots."
 
@@ -1473,7 +1490,7 @@ func refresh_edit_hint() -> void:
 	if rebinding >= 0:
 		edit_hint.text = "Press a key for slot %d…    Esc cancels" % (rebinding + 1)
 	else:
-		edit_hint.text = "EDIT MODE\nCLICK a slot to rebind its key  ·  DRAG a slot onto another to move the ability  ·  DRAG a frame to reposition it\nBars 2 and 3 start empty — drag abilities onto them for a second keybind  ·  Esc or Done to finish"
+		edit_hint.text = "EDIT MODE\nCLICK a slot to rebind its key  ·  DRAG a slot onto another to move the ability  ·  DRAG a frame to reposition it\nUse Settings → Keybinds for movement, targeting and secondary bindings  ·  Esc or Done to finish"
 
 func begin_rebind(slot: int) -> void:
 	rebinding = slot
@@ -1482,12 +1499,10 @@ func begin_rebind(slot: int) -> void:
 func finish_rebind(code: int) -> void:
 	if rebinding < 0:
 		return
-	# A key already used elsewhere is swapped rather than duplicated, so two
-	# slots can never answer the same key.
-	var existing := binds.find(code)
-	if existing >= 0 and existing != rebinding and code != 0:
-		binds[existing] = binds[rebinding]
-	binds[rebinding] = code
+	if controls.reserved(code):
+		edit_hint.text = "That key is reserved for menu/window controls. Choose another key."
+		return
+	controls.assign(self, "bar_%d" % rebinding, 0, code)
 	rebinding = -1
 	save_layout()
 	refresh_binds()
@@ -1498,7 +1513,7 @@ func finish_rebind(code: int) -> void:
 # OS.get_keycode_string() already renders the mask as "Shift+1", so the label
 # needs no special handling.
 static func event_binding(event: InputEventKey) -> int:
-	var code: int = event.keycode
+	var code: int = event.physical_keycode if event.physical_keycode != 0 else event.keycode
 	# A modifier pressed on its own is not a binding.
 	if code in [KEY_SHIFT, KEY_ALT, KEY_CTRL, KEY_META]:
 		return 0
@@ -1508,6 +1523,8 @@ static func event_binding(event: InputEventKey) -> int:
 		code |= KEY_MASK_ALT
 	if event.ctrl_pressed:
 		code |= KEY_MASK_CTRL
+	if event.meta_pressed:
+		code |= KEY_MASK_META
 	return code
 
 # Slot size is a single number: the bars are square grids, so a width and a
@@ -1530,9 +1547,12 @@ func apply_slot_size(size: int) -> void:
 			row.offset_bottom = -(25 + bar * step)
 
 func refresh_binds() -> void:
+	if controls_help != null:
+		controls_help.text = "%s/%s move · %s/%s strafe · %s jump\nRMB steer · LMB orbit · Both run · Wheel zoom\n%s enemies · %s/%s/%s allies\nKeys shown on bars · Settings → Keybinds · Esc menu" % [control_label("forward"), control_label("backward"), control_label("strafe_left"), control_label("strafe_right"), control_label("jump"), control_label("target_next"), control_label("party_1"), control_label("party_2"), control_label("party_3")]
 	for slot in range(cooldown_overlays.size()):
 		# An unbound slot shows nothing rather than a stray "0".
-		cooldown_overlays[slot].set_key(OS.get_keycode_string(binds[slot]) if binds[slot] != 0 else "")
+		var binding: int = binds[slot] if binds[slot] != 0 else controls.secondary[slot]
+		cooldown_overlays[slot].set_key(OS.get_keycode_string(binding) if binding != 0 else "")
 
 # Picks the dragged icon up under the cursor, or puts it away.
 func show_drag_ghost(slot: int) -> void:
@@ -1575,6 +1595,7 @@ func tick_camera_save(delta: float) -> void:
 func save_layout() -> void:
 	if arm != null:
 		config.set_value("hud", "camera_distance", arm.spring_length)
+	controls.save(config)
 	config.set_value("hud", "binds", binds)
 	config.set_value("hud", "assignment", assignment)
 	var places := {}
@@ -1587,6 +1608,7 @@ func save_layout() -> void:
 	config.save_config()
 
 func load_layout() -> void:
+	controls.load_from(config)
 	var stored_binds = config.get_value("hud", "binds", [])
 	if stored_binds is Array and stored_binds.size() == TOTAL_SLOTS:
 		for i in range(binds.size()):
@@ -1821,6 +1843,8 @@ func _physics_process(delta: float) -> void:
 				leave_session("Could not reach the server. Try again in a moment.")
 	tick_camera_save(delta)
 	if phase in ["countdown", "match"]:
+		if not authoritative() and actors.has(local_id):
+			prediction.reconcile(self, actors[local_id])
 		gather_input(delta)
 		if authoritative() and world_mode:
 			tick_world(delta)
@@ -1845,6 +1869,8 @@ func _physics_process(delta: float) -> void:
 				deliver_snapshot(epoch, snapshot_seq, make_snapshot(), phase, elapsed, countdown)
 	if network and not multiplayer.is_server() and phase in ["match", "countdown", "results"]:
 		for actor in actors.values():
+			if actor.actor_id == local_id and phase == "match":
+				continue
 			actor.position = actor.position.lerp(actor.net_position, minf(1, delta * 22))
 			actor.rotation.y = lerp_angle(actor.rotation.y, actor.net_yaw, minf(1, delta * 22))
 		ping_timer -= delta
@@ -1858,26 +1884,29 @@ func gather_input(delta: float) -> void:
 		return
 	var actor = actors[local_id]
 	var movement := Vector2.ZERO
-	if not panel.visible and actor.hp > 0:
+	if not panel.visible and not edit_mode and actor.hp > 0:
 		var right := Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
 		if not right:
-			var turn := (key(KEY_Q) - key(KEY_E)) * delta * 2.5
+			var turn := (controls.held("turn_left") - controls.held("turn_right")) * delta * 2.5
 			local_yaw += turn
 			if not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 				pivot.rotation.y += turn
-		movement = Vector2(key(KEY_D) - key(KEY_A), key(KEY_S) - key(KEY_W))
+		movement = Vector2(controls.held("strafe_right") - controls.held("strafe_left"), controls.held("backward") - controls.held("forward"))
 		if right:
-			movement.x += key(KEY_E) - key(KEY_Q)
+			movement.x += controls.held("turn_right") - controls.held("turn_left")
 			if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 				movement.y = -1
 		movement = movement.limit_length()
-	input_timer -= delta
 	if authoritative():
 		apply_input(local_id, movement, local_yaw, queued_jump, selected_id)
 		queued_jump = false
-	elif input_timer <= 0:
-		input_timer = 1.0 / 30.0
+	else:
 		input_seq += 1
+		var command := {"seq": input_seq, "move": movement, "yaw": local_yaw, "jump": queued_jump, "delta": delta}
+		if phase == "match":
+			prediction.predict(self, actor, command)
+		else:
+			apply_input(local_id, Vector2.ZERO, local_yaw, false, selected_id)
 		deliver_input(epoch, input_seq, movement, local_yaw, queued_jump, selected_id)
 		queued_jump = false
 
@@ -1937,6 +1966,8 @@ func receive_snapshot(round_epoch: int, seq: int, payload: PackedByteArray, roun
 	for data in states:
 		if actors.has(data.id):
 			actors[data.id].receive(data)
+			if data.id == local_id:
+				prediction.pending = data.duplicate(true)
 	if phase != "results":
 		phase = round_phase
 	elapsed = time
@@ -1969,24 +2000,10 @@ func tick_actor(actor, delta: float) -> void:
 		bot_think(actor, delta)
 	elif actor.input_age > 0.3:
 		actor.move_input = Vector2.ZERO
-	var direction: Vector3 = actor.basis * Vector3(actor.move_input.x, 0, actor.move_input.y)
-	if actor.identity.root > 0 or actor.identity.hold > 0:
-		direction = Vector3.ZERO
 	if actor.stunned > 0:
-		direction = Vector3.ZERO
 		actor.casting = -1
-	var speed := 6.5 if actor.move_input.y <= 0 else 3.8
-	if actor.sprint > 0:
-		speed *= 1.65
-	if actor.identity.slow > 0 and actor.identity.immune <= 0:
-		speed *= 0.55
-	actor.velocity.x = direction.x * speed
-	actor.velocity.z = direction.z * speed
-	if actor.jump_queued and actor.is_on_floor() and actor.stunned <= 0 and actor.identity.root <= 0 and actor.identity.hold <= 0:
-		actor.velocity.y = 7
-	actor.jump_queued = false
-	actor.velocity.y -= 20 * delta
-	actor.move_and_slide()
+	var direction := simulate_movement(actor, delta)
+	actor.last_motion_seq = actor.last_input_seq
 	if actor.casting >= 0:
 		if direction.length() > 0.01 or not actor.is_on_floor():
 			cancel_own_cast(actor, "Cast cancelled by movement")
@@ -2001,6 +2018,30 @@ func tick_actor(actor, delta: float) -> void:
 					resolve_spell(actor, slot, actors.get(victim_id))
 				else:
 					feedback(actor, reason)
+
+func simulate_movement(actor, delta: float) -> Vector3:
+	if actor.hp <= 0:
+		actor.velocity = Vector3.ZERO
+		actor.jump_queued = false
+		return Vector3.ZERO
+	var direction: Vector3 = actor.basis * Vector3(actor.move_input.x, 0, actor.move_input.y)
+	if actor.identity.root > 0 or actor.identity.hold > 0:
+		direction = Vector3.ZERO
+	if actor.stunned > 0:
+		direction = Vector3.ZERO
+	var speed := 6.5 if actor.move_input.y <= 0 else 3.8
+	if actor.sprint > 0:
+		speed *= 1.65
+	if actor.identity.slow > 0 and actor.identity.immune <= 0:
+		speed *= 0.55
+	actor.velocity.x = direction.x * speed
+	actor.velocity.z = direction.z * speed
+	if actor.jump_queued and actor.is_on_floor() and actor.stunned <= 0 and actor.identity.root <= 0 and actor.identity.hold <= 0:
+		actor.velocity.y = 7
+	actor.jump_queued = false
+	actor.velocity.y -= 20 * delta
+	actor.move_and_slide()
+	return direction
 
 func has_los(a, b) -> bool:
 	var query := PhysicsRayQueryParameters3D.create(a.position + Vector3.UP, b.position + Vector3.UP, 1)
@@ -2215,6 +2256,7 @@ func move_ability(actor, motion: Vector3) -> void:
 	# Sweep the character capsule: mobility cannot cross pillars or walls.
 	if actor.identity.hold <= 0:
 		actor.move_and_collide(motion)
+		actor.motion_revision += 1
 
 # In the world, damage only lands between two people who agreed to fight.
 func may_harm(source, victim) -> bool:
@@ -2303,7 +2345,7 @@ func end_duel(loser_id: int, winner_id: int) -> void:
 @rpc("authority", "call_remote", "reliable")
 func duel_invited(from_id: int, champion: String) -> void:
 	pending_offer = from_id
-	say("%s challenges you to a duel — press Y to accept" % champion)
+	say("%s challenges you to a duel — %s to accept" % [champion, control_label("accept_duel")])
 
 # Spawns any roster member who does not yet have a body, without disturbing
 # anyone already in the world.
@@ -2565,7 +2607,7 @@ func show_edit_previews() -> void:
 	enemy_box.visible = true
 	for i in range(3):
 		party_buttons[i].visible = true
-		party_buttons[i].text = "F%d  %s   100 HP" % [i + 1, Kits.NAMES[i]]
+		party_buttons[i].text = "%s  %s   100 HP" % [control_label("party_%d" % (i + 1)), Kits.NAMES[i]]
 		enemy_buttons[i].visible = true
 		enemy_buttons[i].text = "%s  100 HP" % Kits.NAMES[i]
 	for slot in range(ability_buttons.size()):
@@ -2655,7 +2697,7 @@ func update_visuals(delta: float) -> void:
 		party_buttons[i].visible = i < party.size()
 		if i < party.size():
 			var member = actors[party[i]]
-			paint_roster_row(party_buttons[i], member, "F%d  %s" % [i + 1, member.champion], true)
+			paint_roster_row(party_buttons[i], member, "%s  %s" % [control_label("party_%d" % (i + 1)), member.champion], true)
 	var enemies := enemy_ids()
 	enemy_box.visible = not enemies.is_empty()
 	for i in range(3):
@@ -2784,7 +2826,7 @@ func select_party(index: int) -> void:
 	if index < ids.size():
 		selected_id = ids[index]
 
-func cycle_target() -> void:
+func cycle_target(direction: int = 1) -> void:
 	if not actors.has(local_id):
 		return
 	var candidates: Array[int] = []
@@ -2792,9 +2834,14 @@ func cycle_target() -> void:
 		if actor.team != actors[local_id].team and actor.hp > 0:
 			candidates.append(actor.actor_id)
 	if not candidates.is_empty():
-		selected_id = candidates[(candidates.find(selected_id) + 1) % candidates.size()]
+		var current := candidates.find(selected_id)
+		selected_id = candidates[(0 if direction > 0 else candidates.size() - 1) if current < 0 else posmod(current + direction, candidates.size())]
 
 func _input(event: InputEvent) -> void:
+	if keybind_menu != null and keybind_menu.visible:
+		if keybind_menu.handle(event):
+			get_viewport().set_input_as_handled()
+		return
 	if edit_mode and handle_edit_input(event):
 		return
 	if handle_shift_drag(event):
@@ -2836,7 +2883,7 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
-	if panel.visible or phase not in ["match", "countdown"]:
+	if panel.visible or keybind_menu.visible or edit_mode or phase not in ["match", "countdown"]:
 		return
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
@@ -2848,18 +2895,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.button_index in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT]:
 			capture_mouse()
 	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_TAB:
-			cycle_target()
 		var pressed_binding := event_binding(event)
 		# C challenges whoever you have targeted; Y accepts an offer. Both route
 		# through the server, which owns the pairing.
-		if world_mode and event.keycode == KEY_C and selected_id != -1:
+		if world_mode and controls.matches("challenge", pressed_binding) and selected_id != -1:
 			if authoritative():
 				offer_duel(local_id, selected_id)
 			else:
 				challenge_duel.rpc_id(1, selected_id)
 			return
-		if world_mode and event.keycode == KEY_Y and pending_offer != -1:
+		if world_mode and controls.matches("accept_duel", pressed_binding) and pending_offer != -1:
 			if authoritative():
 				confirm_duel(local_id)
 			else:
@@ -2867,15 +2912,22 @@ func _unhandled_input(event: InputEvent) -> void:
 			pending_offer = -1
 			return
 		var bound := binds.find(pressed_binding)
+		if bound < 0:
+			bound = controls.secondary.find(pressed_binding)
 		if bound >= 0 and pressed_binding != 0:
 			send_action(bound)
-		if event.keycode >= KEY_F1 and event.keycode <= KEY_F3:
-			select_party(event.keycode - KEY_F1)
-		if event.keycode == KEY_F:
+		if controls.matches("target_next", pressed_binding):
+			cycle_target()
+		if controls.matches("target_previous", pressed_binding):
+			cycle_target(-1)
+		for i in range(3):
+			if controls.matches("party_%d" % (i + 1), pressed_binding):
+				select_party(i)
+		if controls.matches("set_focus", pressed_binding):
 			focus_id = selected_id
-		if event.keycode == KEY_G and actors.has(focus_id):
+		if controls.matches("target_focus", pressed_binding) and actors.has(focus_id):
 			selected_id = focus_id
-		if event.keycode == KEY_SPACE:
+		if controls.matches("jump", pressed_binding):
 			queued_jump = true
 
 func _notification(what: int) -> void:
@@ -3003,3 +3055,17 @@ func update_ability_tooltip() -> void:
 			ability_tooltip.present(actor.kit[ability], actor.champion, pointer, ui.size)
 			return
 	ability_tooltip.hide()
+
+func reset_all_keybinds() -> void:
+	controls.actions = controls.DEFAULTS.duplicate(true)
+	controls.secondary.fill(0)
+	for slot in range(TOTAL_SLOTS):
+		binds[slot] = (KEY_1 + slot) if slot < BAR_SLOTS else ((KEY_1 + slot - BAR_SLOTS) | KEY_MASK_SHIFT if slot < Kits.KIT_SIZE else 0)
+	refresh_binds()
+	save_layout()
+
+func control_label(action: String) -> String:
+	for binding in controls.actions[action]:
+		if binding != 0:
+			return OS.get_keycode_string(binding)
+	return "Unbound"

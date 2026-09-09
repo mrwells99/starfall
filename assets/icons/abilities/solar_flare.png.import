@@ -1,0 +1,19 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+path="res://.godot/imported/solar_flare.png-154cd483c4447312aae00aa1d42ff0b0.ctex"
+metadata={
+"vram_texture": false
+}
+
+[deps]
+
+source_file="res://assets/icons/abilities/solar_flare.png"
+dest_files=["res://.godot/imported/solar_flare.png-154cd483c4447312aae00aa1d42ff0b0.ctex"]
+
+[params]
+
+compress/mode=0
+mipmaps/generate=true
+process/fix_alpha_border=true

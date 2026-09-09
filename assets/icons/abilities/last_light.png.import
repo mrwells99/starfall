@@ -1,0 +1,19 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+path="res://.godot/imported/last_light.png-b1d1cc39fcc8eec66264ebc9eae5403c.ctex"
+metadata={
+"vram_texture": false
+}
+
+[deps]
+
+source_file="res://assets/icons/abilities/last_light.png"
+dest_files=["res://.godot/imported/last_light.png-b1d1cc39fcc8eec66264ebc9eae5403c.ctex"]
+
+[params]
+
+compress/mode=0
+mipmaps/generate=true
+process/fix_alpha_border=true

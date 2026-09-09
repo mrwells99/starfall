@@ -1,0 +1,19 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+path="res://.godot/imported/challenge.png-5787d13501abfa29aa9e5bfee44d9ed6.ctex"
+metadata={
+"vram_texture": false
+}
+
+[deps]
+
+source_file="res://assets/icons/abilities/challenge.png"
+dest_files=["res://.godot/imported/challenge.png-5787d13501abfa29aa9e5bfee44d9ed6.ctex"]
+
+[params]
+
+compress/mode=0
+mipmaps/generate=true
+process/fix_alpha_border=true

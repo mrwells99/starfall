@@ -1,0 +1,19 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+path="res://.godot/imported/burning_wake.png-9149e8b2708c3713beeeecdc46ff2c08.ctex"
+metadata={
+"vram_texture": false
+}
+
+[deps]
+
+source_file="res://assets/icons/abilities/burning_wake.png"
+dest_files=["res://.godot/imported/burning_wake.png-9149e8b2708c3713beeeecdc46ff2c08.ctex"]
+
+[params]
+
+compress/mode=0
+mipmaps/generate=true
+process/fix_alpha_border=true

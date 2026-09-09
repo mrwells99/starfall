@@ -1,0 +1,19 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+path="res://.godot/imported/stoke.png-2798d02670dfd9366a7d1f12337980f9.ctex"
+metadata={
+"vram_texture": false
+}
+
+[deps]
+
+source_file="res://assets/icons/abilities/stoke.png"
+dest_files=["res://.godot/imported/stoke.png-2798d02670dfd9366a7d1f12337980f9.ctex"]
+
+[params]
+
+compress/mode=0
+mipmaps/generate=true
+process/fix_alpha_border=true

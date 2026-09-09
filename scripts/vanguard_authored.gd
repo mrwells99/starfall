@@ -108,7 +108,7 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
  last_position = actor.global_position
  initialized = true
  var measured := displacement.length() / maxf(delta, 0.0001)
- filtered_speed = lerpf(filtered_speed, measured, 1.0 - exp(-delta * 12.0))
+ filtered_speed = measured
  var alive: bool = actor.hp > 0
  var stunned: bool = actor.stunned > 0
  var casting: bool = actor.casting >= 0 and alive
@@ -131,7 +131,7 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
    rate = clampf(filtered_speed / (2.74 if desired == "Run" else 0.54), 0.55, 2.4)
  if desired != clip:
   clip = desired
-  player.play(clip_names[clip], 0.20)
+  player.play(clip_names[clip], 0.0 if desired in ["Idle", "Walk", "Run", "WalkBackward", "StrafeLeft", "StrafeRight"] else 0.12)
  player.speed_scale = 1.0 if desired == "Strike" else lerpf(player.speed_scale, rate, 1.0 - exp(-delta * 10.0))
  if alive and not stunned:
   player.advance(delta)

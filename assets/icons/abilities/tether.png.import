@@ -1,0 +1,19 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+path="res://.godot/imported/tether.png-80ed8db7b0251968dcf4aa43bd71f3d2.ctex"
+metadata={
+"vram_texture": false
+}
+
+[deps]
+
+source_file="res://assets/icons/abilities/tether.png"
+dest_files=["res://.godot/imported/tether.png-80ed8db7b0251968dcf4aa43bd71f3d2.ctex"]
+
+[params]
+
+compress/mode=0
+mipmaps/generate=true
+process/fix_alpha_border=true

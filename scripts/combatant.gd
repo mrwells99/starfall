@@ -46,6 +46,8 @@ var base_color := Color.WHITE
 var flash := 0.0
 var net_position := Vector3.ZERO
 var net_yaw := 0.0
+var last_motion_seq := -1
+var motion_revision := 0
 var last_input_seq := -1
 var last_action_seq := -1
 var action_budget := 0.0
@@ -201,7 +203,7 @@ func visual_tick(delta: float, camera: Camera3D) -> void:
 	nameplate.text = lines
 
 func snapshot() -> Dictionary:
-	return {"id": actor_id, "peer": owner_peer, "team": team, "champion": champion, "pos": position, "yaw": rotation.y, "hp": hp, "cd": cooldowns.duplicate(), "gcd": gcd, "casting": casting, "left": cast_left, "stun": stunned, "lock": locked, "shield": shield, "sprint": sprint,
+	return {"move_ack": last_motion_seq, "velocity": velocity, "motion_revision": motion_revision, "id": actor_id, "peer": owner_peer, "team": team, "champion": champion, "pos": position, "yaw": rotation.y, "hp": hp, "cd": cooldowns.duplicate(), "gcd": gcd, "casting": casting, "left": cast_left, "stun": stunned, "lock": locked, "shield": shield, "sprint": sprint,
 		"stun_src": stun_from, "lock_src": lock_from, "shield_src": shield_from, "sprint_src": sprint_from, "dr": dr_count, "dr_timer": dr_timer, "cast_target": cast_target, "target": target_id, "identity": identity.duplicate(true)}
 
 func receive(data: Dictionary, instant: bool = false) -> void:

@@ -1,0 +1,19 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+path="res://.godot/imported/anchor.png-6c69d43e8f2a285f3310625ecc0a3d47.ctex"
+metadata={
+"vram_texture": false
+}
+
+[deps]
+
+source_file="res://assets/icons/abilities/anchor.png"
+dest_files=["res://.godot/imported/anchor.png-6c69d43e8f2a285f3310625ecc0a3d47.ctex"]
+
+[params]
+
+compress/mode=0
+mipmaps/generate=true
+process/fix_alpha_border=true
