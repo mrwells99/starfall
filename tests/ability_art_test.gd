@@ -31,7 +31,7 @@ func run() -> void:
 	var actor = arena.actors[arena.local_id]
 	arena.update_visuals(0)
 	await create_timer(0.3).timeout
-	for slot in range(arena.Kits.KIT_SIZE):
+	for slot in range(actor.kit.size()):
 		var art: TextureRect = arena.ability_images[slot]
 		check(art.texture != null, "Ember art loads: " + actor.kit[slot].name)
 		check(art.mouse_filter == Control.MOUSE_FILTER_IGNORE, "Art passes input to ability button")
@@ -60,15 +60,18 @@ func run() -> void:
 	var unique_art := {}
 	for champion in arena.Kits.NAMES:
 		for ability in arena.Kits.get_kit(champion):
-			var path: String = arena.AbilityArt.PATHS.get(ability.name, "")
+			var art_key: String = "Fulcrum/Starfall" if champion == "Fulcrum" and ability.name == "Starfall" else ability.name
+			var path: String = arena.AbilityArt.PATHS.get(art_key, "")
 			check(not unique_art.has(path) or unique_art[path] == ability.name,
 				"Different abilities must have different icons: " + ability.name)
 			unique_art[path] = ability.name
 	for champion in arena.Kits.NAMES:
 		actor.champion = champion
 		actor.kit = arena.Kits.get_kit(champion)
+		actor.cooldowns.resize(actor.kit.size())
+		actor.cooldowns.fill(0.0)
 		arena.update_visuals(0)
-		for slot in range(arena.Kits.KIT_SIZE):
+		for slot in range(actor.kit.size()):
 			var tex: Texture2D = arena.ability_images[slot].texture
 			check(tex != null and tex.get_width() <= 256,
 				champion + " has optimized art: " + actor.kit[slot].name)

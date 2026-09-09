@@ -28,7 +28,7 @@ func setup(arena) -> void:
 	box.add_theme_constant_override("separation", 12)
 	panel.add_child(box)
 	game.add_label(box, "KEYBINDS", 28)
-	game.add_label(box, "Movement, targeting and all three action bars. Changes save immediately.", 16)
+	game.add_label(box, "Movement, chat, targeting and all three action bars. Changes save immediately.", 16)
 	search = LineEdit.new()
 	search.placeholder_text = "Search actions or abilities…"
 	search.text_changed.connect(func(_text): rebuild())
@@ -80,7 +80,7 @@ func rebuild() -> void:
 	var last_group := ""
 	for action in game.controls.rows(game):
 		var title: String
-		var group := "Movement" if action in ["forward", "backward", "strafe_left", "strafe_right", "turn_left", "turn_right", "jump"] else "Targeting and duels"
+		var group := "Movement" if action in ["forward", "backward", "strafe_left", "strafe_right", "turn_left", "turn_right", "jump"] else "Chat, targeting and duels"
 		if action.begins_with("bar_"):
 			var slot := int(action.trim_prefix("bar_"))
 			group = "Action bar %d" % (slot / game.BAR_SLOTS + 1)

@@ -9,7 +9,6 @@ uniform float grain_scale = 1.0;
 uniform float weathering = 0.5;
 uniform int surface_kind : hint_range(0, 4) = 0; // basalt, flagstone, cut tile, bronze, obsidian
 uniform float relief : hint_range(0.0, 2.0) = 1.0;
-uniform float vein_intensity : hint_range(0.0, 6.0) = 0.0;
 varying vec3 world_pos;
 varying vec3 world_normal;
 varying vec3 view_pos;
@@ -89,6 +88,7 @@ void fragment() {
 		// Hammered bronze. Patina lives in pits; exposed metal is smoother.
 		float patina = smoothstep(0.50, 0.76, mineral + (1.0-grain) * 0.20);
 		albedo = mix(vec3(0.64, 0.47, 0.235), vec3(0.16, 0.30, 0.275), patina);
+		albedo = mix(albedo, vec3(dot(albedo, vec3(0.2126, 0.7152, 0.0722))), 0.16);
 		albedo *= 0.82 + grit * 0.28;
 		height = grit * 0.006 + grain * 0.003;
 		roughness = mix(0.32, 0.83, patina);
@@ -96,7 +96,7 @@ void fragment() {
 	} else if (surface_kind == 4) {
 		// Volcanic glass and rough fracture planes below the playable island.
 		float fracture = smoothstep(0.32, 0.64, grain);
-		albedo = tex * vec3(0.42, 0.40, 0.65);
+		albedo = tex * vec3(0.42, 0.44, 0.49);
 		height = grain * 0.043;
 		roughness = mix(0.86, 0.37, fracture);
 		spec = 0.44;
@@ -112,8 +112,5 @@ void fragment() {
 	ROUGHNESS = clamp(roughness + (weathering - 0.5) * 0.2, 0.05, 1.0);
 	METALLIC = metal;
 	SPECULAR = spec;
-	// Sparse fissure fragments, restricted to explicitly opted-in materials.
-	float fissure = 1.0 - smoothstep(0.11, 0.18, grain);
-	float pocket = smoothstep(0.67, 0.77, mineral);
-	EMISSION = vec3(0.29, 0.045, 0.85) * fissure * pocket * vein_intensity;
+	// Stone has no emissive patches. Purposeful runes use arena_energy instead.
 }

@@ -15,10 +15,7 @@ void vertex() {
 
 void fragment() {
 	float strata = sin(local_position.y * 32.0 + sin(local_position.x * 7.0) + local_position.z * 1.9);
-	ALBEDO = mix(vec3(0.065, 0.049, 0.105), vec3(0.14, 0.12, 0.20), strata * 0.25 + 0.5) * COLOR.rgb;
+	ALBEDO = mix(vec3(0.065, 0.072, 0.085), vec3(0.14, 0.15, 0.17), strata * 0.25 + 0.5) * COLOR.rgb;
 	ROUGHNESS = 0.92;
 	SPECULAR = 0.18;
-	float fissure = abs(local_position.x + sin(local_position.y * 6.0 + local_position.z * 3.0) * 0.035);
-	float vein = 1.0 - smoothstep(0.008, 0.020, fissure);
-	EMISSION = vec3(0.34, 0.095, 0.72) * vein * 2.7;
 }

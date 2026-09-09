@@ -33,6 +33,8 @@ static func active(actor) -> Array:
 	var out: Array = []
 	if actor == null or actor.hp <= 0:
 		return out
+	for source_id in actor.identity.dots:
+		out.append({"key": "graviton_%s" % source_id, "name": "Graviton", "kind": DEBUFF, "remaining": actor.identity.dots[source_id].left, "color": Color("b98cff"), "source": "Graviton", "description": "2 damage each second; generates Meditation for its caster. DPS Mend removes this DoT."})
 	if actor.stunned > 0:
 		out.append({
 			"key": "stun", "name": "Stunned", "kind": DEBUFF,

@@ -76,6 +76,12 @@ The hood supersedes earlier exposed-face/hair notes. Fine ornament and fabric de
 
 ## Cosmic Sanctum — environment implementation (2026-09-08)
 
+The owner requested a large sun outside the map aligned with the shadows. A pale-gold sky disc and soft corona now sit directly toward the existing shadow-casting light, at 42° elevation. Its position is derived from the actual light transform, preserving the established lighting and baked shadows.
+
+Owner-requested palette refinement: bronze remains recognizable but slightly cooler and less reflective throughout. Stone and floating rubble no longer contain random emissive purple masks; purple magic belongs to purposeful runes and effects, not spray-painted-looking rock patches. High remains the default.
+
+The owner approved the corner treatment for the full arena and explicitly retained the original glowing armillary artwork on every pillar. All 27 modules now use the upgraded materials; the plaque that concealed one pillar's artwork was removed. Original luminous inlays remain on all four covers and all walls. Two opposing boundary shrines and one arena-wide reflection probe complete the rollout. Forward+ High lighting now starts by default; Compatibility remains available. See `ART_SLICE_HANDOFF.md` for the approved rollout; the corner-only study below is historical.
+
 Latest lighting/landscape pass: a shared runtime/bake profile reduces broad ambient and fill light, preserves cool key illumination, and adds four short-range warm shrine lights. Native indirect light is rebaked for all115 architectural instances. Six large layered cliffs, hanging foundations, broken approaches and distant temple ruins now frame the arena; repeated small islands/spikes were reduced. Six new landscape batches (19,116triangles) reuse existing textures and add no collision or shadow passes. Faint moving mist consists of three transparent sheets below the island, not volumetric fog. Current environment asset budget:8,373,829bytes, just under8MiB. See `ART_SLICE_HANDOFF.md` for exact settings, verification and rebuild steps.
 
 
@@ -101,13 +107,13 @@ This is shader-built material variety, not five differently tinted copies of the
 
 `arena_atmosphere.gd` builds eight render instances: five static material batches, one cloth banner batch, a 96-instance ember MultiMesh, and an 18-instance floating-rock MultiMesh. Eight embroidered banners move at their free ends; bronze chain links hang beyond the island. Two distant seated watcher shrines occupy roughly (±47, -6, -59). Moving art uses shader time instead of per-frame GDScript. Decoration has no bodies, areas or navigation and casts no additional shadows.
 
-The expensive sky panorama is still baked once into memory. A single distant additive shell carries faint moving currents, keeping `TIME` out of the sky shader and avoiding a per-frame radiance bake. This shell is scattered sky color below bloom, not an emissive combat effect. Conventional **depth fog** and three layers of distant crags provide atmospheric perspective. The warm key remains dominant; reduced ambient/fill light preserves relief and silhouettes. No SSAO, SSIL, SDFGI, volumetric fog or screen-space reflections are used.
+The expensive sky panorama is still baked once into memory. A single distant additive shell carries faint moving currents, keeping `TIME` out of the sky shader and avoiding a per-frame radiance bake. This shell is scattered sky color below bloom, not an emissive combat effect. Conventional **depth fog** and three layers of distant crags provide atmospheric perspective. The warm key remains dominant; reduced ambient/fill light preserves relief and silhouettes. The default Compatibility path uses no SSAO, SSIL, SDFGI, volumetric fog or screen-space reflections. The optional High corner trial above adds SSAO, SSIL and volumetric fog.
 
 ### Gameplay invariants and validation
 
 The world still has **19 collision bodies**. The entire decorative subtree has **zero collision bodies**. The 36 × 36 footprint, four 4.4 × 3.8 × 2.8 cover bodies, cover bases, terrace/ramp dimensions, boundary collision and navigation remain unchanged. The visible cover cores now match the full collision width; the earlier narrow visuals left the outer collision ends invisible.
 
-Validation: map **57/57**, combat **81/81**, plus actual Compatibility rendering and a collider inventory. `tools/arena_review.gd` captures `artifacts/sanctum-overview.png`, `sanctum-detail.png`, and `sanctum-gameplay.png` in a fixed window. Review the player camera as well as overview art. The available renderer is Mesa llvmpipe software; rendering successfully here does **not** certify 60 FPS on a physical GPU. Environment art is batched; the full-game draw count also includes the existing champion models and HUD.
+Validation: map **57/57**, combat **81/81**, plus actual Compatibility rendering and a collider inventory. `tools/arena_review.gd` captures `artifacts/sanctum-overview.png`, `sanctum-detail.png`, and `sanctum-gameplay.png` in a fixed window. Review the player camera as well as overview art. That historical review used Mesa llvmpipe software and did not certify physical-GPU60fps. The later native Wayland study uses the actual Radeon GPU; see `FORWARD_PLUS_ASSESSMENT.md` for the remaining measurement limits. Environment art is batched; the full-game draw count also includes the existing champion models and HUD.
 
 ### Texture requirements and budget
 
@@ -217,18 +223,20 @@ Two things that look right in isolation and are wrong here:
 
 ## Renderer
 
-The project runs `gl_compatibility`, Godot's OpenGL backend. **Forward+ is the single biggest available visual upgrade** — it unlocks SSAO, SSIL, volumetric fog, SDFGI and real reflections, none of which exist on this path.
+The default remains `gl_compatibility`, Godot's OpenGL backend. Forward+ enables additional contact lighting, atmosphere and post-processing, but must be tuned together with the map's materials and checked during combat.
 
-It was tested and deliberately not adopted:
+**The 2026-09-08 renderer investigation supersedes the earlier Xvfb-only conclusion.** Authorized native Wayland execution successfully renders Forward+ on this host's physical Radeon RX 7800 XT; the sandbox hides that GPU. Xvfb still fails Vulkan presentation and is unsuitable for this validation. Godot 4.5 supports a Compatibility fallback, although the observed Xvfb crash is an exception that must not be mistaken for reliable fallback behavior.
 
-- Godot does **not** fall back when Vulkan is unavailable; it hard-fails to launch. A player with a broken driver gets nothing.
-- Vulkan cannot present under Xvfb (no DRI3), so CI and any headless capture must pass `--rendering-driver opengl3` — meaning automated tests would exercise a different renderer than players use.
-- It therefore cannot be visually verified in this environment at all.
-
-Flipping `renderer/rendering_method` to `forward_plus` is a one-line change. It needs a human on a machine with a GPU to judge the result and accept the support burden.
+Original-map A/B measurements, screenshots, active-combat limitations and the reusable probe are recorded in [FORWARD_PLUS_ASSESSMENT.md](FORWARD_PLUS_ASSESSMENT.md). Keep the default while the optional High corner profile is evaluated. Neither a successful startup nor a fast empty-map sample establishes a stable full-match frame rate.
 
 ## Unique active ability artwork — 2026-09-08
 
 The owner requested replacement of repeated icons between different abilities. Seventeen new built-in image_gen illustrations now cover Stoke, Solar Flare, Cinderstep, Burning Wake, Intercede, Hold the Line, Challenge, Earthsplitter, Unbroken, Pilgrim’s Step, Last Light, Starfall, Graviton, Horizon, Anchor, Umbra and Tether. All 45 distinct active ability names have unique file paths and image contents. Mend remains one shared ability across classes. Retired ability aliases may still point at their old art; they are outside the active kits.
 
 Final PNGs are 256×256 with mipmap import settings. Prompts and file names: `assets/icons/abilities/UNIQUE_PROMPTS.md`. `tools/audit_ability_icons.py` verifies active coverage and duplicate image contents; the rendered art test now also rejects shared paths for different active names. Artwork and hotbar-sized contact sheets were inspected. A fresh Godot import/render remains pending due to the session’s automatic approval review credit block.
+
+### Fulcrum Starfall ability icon (2026-09-08)
+
+Generated with the built-in image tool and saved to `assets/icons/abilities/fulcrum_starfall.png`; the original is retained in the generated-images directory. Imported at 256px with mipmaps for action-bar use. Champion-aware art lookup preserves Luminary's separate Starfall illustration.
+
+Generation prompt: “Create a square painted fantasy RPG ability icon for Starfall, a gravity mage spell. A huge brilliant white-violet star plunges diagonally downward into a compressed black-violet gravity well, sharp lavender rays and a few smaller falling stars, deep midnight purple background, bold readable central silhouette for a small action bar icon. Rich hand-painted game spell illustration, luminous high contrast, edge-to-edge art. No text, lettering, border, frame or watermark. Save the generated icon.”

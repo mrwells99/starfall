@@ -18,6 +18,9 @@ func build() -> bool:
 			if lights != null:
 				lights.free()
 			add_child(visuals)
+			var corner = load("res://scripts/sanctum_corner.gd").new()
+			add_child(corner)
+			corner.build(visuals)
 			has_surround = true
 			return true
 	return false # The caller retains procedural geometry if the scene is absent.

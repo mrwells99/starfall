@@ -24,6 +24,7 @@ const PATHS := {
 	"Pilgrim's Step": "res://assets/icons/abilities/pilgrims_step.png",
 	"Last Light": "res://assets/icons/abilities/last_light.png",
 	"Starfall": "res://assets/icons/abilities/starfall.png",
+	"Fulcrum/Starfall": "res://assets/icons/abilities/fulcrum_starfall.png",
 	"Graviton": "res://assets/icons/abilities/graviton.png",
 	"Inward": "res://assets/icons/abilities/inward.png",
 	"Horizon": "res://assets/icons/abilities/horizon.png",
@@ -59,7 +60,9 @@ const PATHS := {
 }
 static var textures: Dictionary = {}
 
-static func texture_for(ability_name: String) -> Texture2D:
+static func texture_for(ability_name: String, champion: String = "") -> Texture2D:
+	if champion == "Fulcrum" and ability_name == "Starfall":
+		ability_name = "Fulcrum/Starfall"
 	if not PATHS.has(ability_name):
 		return null
 	if not textures.has(ability_name):

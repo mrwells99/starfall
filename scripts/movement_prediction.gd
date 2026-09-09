@@ -28,6 +28,7 @@ func reconcile(game, actor) -> void:
 	actor.rotation.y = state.yaw
 	if forced:
 		history.clear()
+		actor.reset_physics_interpolation()
 	else:
 		for command in history:
 			game.apply_input(actor.actor_id, command.move, command.yaw, command.jump, game.selected_id)

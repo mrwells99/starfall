@@ -4,6 +4,19 @@ _Meaningful decisions that future agents should not silently reverse. Trivial im
 
 Newest first.
 
+## 2026-09-08 — Approved full-map materials and restored pillar artwork
+
+The owner approved extending the corner treatment across the whole map and explicitly requested the original pillar art back on every pillar. Apply shared upgraded materials to all authored modules, remove the plaque that hid the original armillary, and preserve all original emissive inlays. Forward+ High is now the default presentation, with Compatibility and base-lighting options retained. This supersedes the earlier optional-only corner trial; it does not turn the prior contended performance samples into a clean frame-rate benchmark.
+
+
+## 2026-09-08 — Build one environment benchmark and investigate Forward+
+
+The owner authorized a polished corner of the current map and investigation of Forward+ and other substantial graphics upgrades, with characters deferred. The implemented corner uses new 1024px stone and bronze maps, authored relief, local reflections and warm practical lighting. It preserves the existing architecture transforms, physics and baked GI. Its interactive preview separates the corner asset comparison from the optional High environment profile.
+
+Forward+ is verified on the actual Radeon GPU through native Wayland. Keep Compatibility as the project default during this exploration: API startup and static-map headroom are proven, but neither renderer has demonstrated consistent 60 fps in an uncontended active 3v3 test. Another game instance was running during the recorded combat samples, so their hitches cannot be attributed to this map or renderer alone. High adds SSAO/SSIL,2xMSAA and restrained volumetric fog; it does not replace the static map's baked GI with SDFGI. This is an implemented visual trial, not owner approval of a final style or a whole-map rollout. Measurements and limitations live in `FORWARD_PLUS_ASSESSMENT.md`.
+
+---
+
 ## 2026-09-08 — Implement class identities while preserving the combat baseline
 
 The owner authorized Ember Heat, Vanguard Resolve, Luminary Guiding Stars, and Fulcrum Gravity Anchor mechanics, with baseline mobility, damage reduction and sustain preserved. Kits expand to twelve slots over two action bars rather than replacing those tools. Anchor placement follows facing, stops at terrain and projects to ground, retaining keyboard/target combat. All abilities have painted icons; existing art is reused where appropriate. Version 0.6.0 separates these state/kit changes from older clients. Full implemented rules are in `CLASS_ABILITIES.md`; numbers need human playtesting.
@@ -240,7 +253,17 @@ The owner authorized Ember Heat, Vanguard Resolve, Luminary Guiding Stars, and F
 
 **Why:** Prevents common multiplayer cheats and keeps state consistent across clients. Authority centralization also keeps combat rules simple to reason about.
 
-**Consequence:** Clients feel input-to-motion delay at high latency because they render server state without prediction. Client movement prediction / reconciliation is a real problem past ~80 ms RTT — deferred until playtesting justifies it. **Do not make HP or combat client-authoritative to hide lag.** Fix it with prediction, not authority splitting.
+**Consequence:** **Do not make HP or combat client-authoritative to hide lag.** Fix input-to-motion delay with prediction, not authority splitting. Prediction landed for movement only in 2026-09-08 — see the entry below.
+
+---
+
+## 2026-09-08 — Client movement prediction, movement only
+
+**Decision:** Local movement is predicted on the client every physics tick and reconciled against periodic snapshots. `scripts/movement_prediction.gd` runs `apply_input` + `simulate_movement` on the local actor the same tick the key is pressed, buffers each command, and — on the next snapshot — snaps to server state and replays any unacknowledged commands. Snapshots carry `move_ack`, `velocity`, and `motion_revision`; a revision bump (teleport, knockback, swap) forces a hard resync so ability displacements are never overwritten by replayed history. Sub-frame corrections under 0.12 m are ignored when no collider separates old and new positions, so ordinary snapshot noise does not jitter the camera. Non-movement state — HP, cooldowns, casts, CC, ability resolution — stays server-authoritative.
+
+**Why:** WoW-style controls demand that a key press and a direction change register the same instant. The previous 30 Hz gated input plus interpolation felt sluggish even on LAN, and unusable at internet RTT. `Input.use_accumulated_input = false` gets input on the tick it happens; prediction closes the visual gap without weakening authority.
+
+**Consequence:** The snapshot payload grew (`Combatant.snapshot` adds `move_ack`, `velocity`, `motion_revision`), so `Config.VERSION` bumped to `0.7.0` and mismatched clients are rejected. The prediction scope is movement only — do not extend it to combat, cooldowns, or resource state to "hide" more lag. If a new ability moves the actor, bump `motion_revision` inside the resolution so the client cannot replay past it. Covered by `tests/movement_bindings_test.gd` and `run_network.py --test-movement --test-latency`.
 
 ---
 

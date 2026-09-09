@@ -28,7 +28,7 @@ func build() -> void:
 	_stone.set_shader_parameter("grain_scale", 0.75)
 	_stone.set_shader_parameter("slate_texture", load("res://assets/environment/sanctum_slate.png"))
 	_dark = _material("272034")
-	_bronze = _material("6c5061", 0.55)
+	_bronze = _material("675761", 0.55)
 	_bronze.metallic = 0.55
 	_violet = _material("9560e8", 0.75, 3.0)
 	_gold = _material("d1b389", 0.75, 2.7)

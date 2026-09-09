@@ -163,6 +163,10 @@ const RANDOM_OPPONENT := 100
 #
 # Damage is refused unless both fighters agreed to a duel, so standing around is
 # safe and a fight is always something both people chose.
+var social
+var network_handshake
+var chat_last_sent := {}
+var next_world_actor_id := 1
 var world_mode := false
 var duels := {}          # actor_id -> actor_id, server-authoritative pairing
 var duel_offers := {}    # target_id -> challenger_id, pending invitations
@@ -200,11 +204,14 @@ var requeue_button: Button
 var searching := false
 
 func _ready() -> void:
+	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	Input.use_accumulated_input = false
 	controls.setup(TOTAL_SLOTS)
 	build_arena()
 	build_camera()
 	build_ui()
+	network_handshake = preload("res://scripts/network_handshake.gd").new()
+	network_handshake.setup(self)
 	multiplayer.connected_to_server.connect(on_connected)
 	multiplayer.connection_failed.connect(on_connection_failed)
 	multiplayer.server_disconnected.connect(func(): leave_session("Host disconnected."))
@@ -241,6 +248,7 @@ func authoritative() -> bool:
 
 func build_camera() -> void:
 	pivot = Node3D.new()
+	pivot.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	pivot.position = Vector3(0, 1.6, 9)
 	add_child(pivot)
 	arm = SpringArm3D.new()
@@ -252,6 +260,7 @@ func build_camera() -> void:
 	camera.current = true
 	arm.add_child(camera)
 	ring = MeshInstance3D.new()
+	ring.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
 	var torus := TorusMesh.new()
 	torus.inner_radius = 0.75
 	torus.outer_radius = 0.86
@@ -752,17 +761,26 @@ func build_ui() -> void:
 	keybind_menu.setup(self)
 	build_cc_tracker()
 	build_edit_overlay()
+	social = preload("res://scripts/session_social.gd").new()
+	ui.add_child(social)
+	social.setup(self)
 
 func spawn_actor(id: int, peer: int, side: int, choice: String, pos: Vector3) -> void:
 	var actor = Fighter.new()
 	actor.name = "Fighter%d" % id
-	actor.setup(id, peer, side, choice)
+	# World players are independent, even if the lobby assigned the same side.
+	actor.setup(id, peer, id if world_mode else side, choice)
+	actor.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
 	add_child(actor)
 	actor.position = pos
 	actor.rotation.y = 0 if side == 0 else PI
 	actor.net_position = pos
 	actor.net_yaw = actor.rotation.y
 	actors[id] = actor
+	if world_mode:
+		next_world_actor_id = maxi(next_world_actor_id, id + 1)
+	actor.get_global_transform_interpolated()
+	actor.reset_physics_interpolation()
 
 func clear_actors() -> void:
 	prediction.reset()
@@ -965,6 +983,12 @@ func leave_session(message: String) -> void:
 		multiplayer.multiplayer_peer.close()
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 	network = false
+	chat_last_sent.clear()
+	duels.clear()
+	duel_offers.clear()
+	pending_offer = -1
+	if social != null:
+		social.reset()
 	dedicated = false
 	world_mode = false
 	menu_state = "main"
@@ -1350,6 +1374,8 @@ func update_cc_tracker() -> void:
 		return
 	var holder = actors.get(local_id)
 	var cc: Dictionary = Auras.crowd_control(holder) if holder != null else {}
+	if cc.is_empty() and edit_mode:
+		cc = {"key": "preview", "remaining": 3.0, "source": "Bash", "cc": "CC INDICATOR", "color": Color("ff7d92")}
 	if cc.is_empty():
 		cc_tracker.hide()
 		cc_total = 0.0
@@ -1716,6 +1742,7 @@ func host_start() -> void:
 		begin_round()
 
 func begin_round() -> void:
+	next_world_actor_id = 1
 	clear_actors()
 	epoch += 1
 	elapsed = 0
@@ -1730,7 +1757,7 @@ func begin_round() -> void:
 	var id := 1
 	for peer in roster:
 		var entry: Dictionary = roster[peer]
-		spawn_actor(id, peer, entry.team, entry.champion, spawn_position(entry.team, counts[entry.team]))
+		spawn_actor(id, peer, entry.team, entry.champion, spawn_position(entry.team, id if world_mode else counts[entry.team]))
 		counts[entry.team] += 1
 		id += 1
 	if world_mode:
@@ -1790,14 +1817,20 @@ func assign_local() -> void:
 
 @rpc("authority", "call_remote", "reliable")
 func round_started(round_epoch: int, size_per_team: int, states: Array) -> void:
+	if world_mode and epoch == round_epoch and actors.has(local_id):
+		for data in states:
+			if not actors.has(data.id):
+				spawn_actor(data.id, data.peer, data.team, data.champion, data.pos)
+				actors[data.id].receive(data, true)
+		return
 	clear_actors()
 	epoch = round_epoch
 	last_snapshot = -1
 	mode = size_per_team
 	winner = -1
-	countdown = 3
+	countdown = 0 if world_mode else 3
 	elapsed = 0
-	phase = "countdown"
+	phase = "match" if world_mode else "countdown"
 	for data in states:
 		spawn_actor(data.id, data.peer, data.team, data.champion, data.pos)
 		actors[data.id].receive(data, true)
@@ -1809,6 +1842,15 @@ func on_peer_left(peer: int) -> void:
 	if not network or not multiplayer.is_server():
 		return
 	roster.erase(peer)
+	chat_last_sent.erase(peer)
+	if world_mode:
+		var departed := actor_for_peer(peer)
+		if departed >= 0:
+			remove_world_actor(departed)
+			world_actor_left.rpc(epoch, departed)
+			sync_duels()
+		broadcast_lobby()
+		return
 	if private_lobby and roster.is_empty():
 		claimed = false
 		lobby_code = ""
@@ -1884,7 +1926,7 @@ func gather_input(delta: float) -> void:
 		return
 	var actor = actors[local_id]
 	var movement := Vector2.ZERO
-	if not panel.visible and not edit_mode and actor.hp > 0:
+	if not panel.visible and not edit_mode and not social.typing() and actor.hp > 0:
 		var right := Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
 		if not right:
 			var turn := (controls.held("turn_left") - controls.held("turn_right")) * delta * 2.5
@@ -2080,7 +2122,7 @@ func validate_spell(actor, slot: int, victim_id: int) -> String:
 		return ""
 	if actor.position.distance_to(victim.position) > float(spell.range):
 		return "Out of range"
-	if not has_los(actor, victim):
+	if spell.kind not in ["inward", "outward"] and not has_los(actor, victim):
 		return "Target is out of line of sight"
 	if not friendly and (-actor.basis.z).dot((victim.position - actor.position).normalized()) < 0:
 		return "Face your target"
@@ -2091,7 +2133,9 @@ func validate_spell(actor, slot: int, victim_id: int) -> String:
 func kit_slot(bar_slot: int) -> int:
 	if bar_slot < 0 or bar_slot >= assignment.size():
 		return -1
-	return assignment[bar_slot]
+	var ability: int = assignment[bar_slot]
+	var count: int = actors[local_id].kit.size() if actors.has(local_id) else Kits.get_kit(Kits.NAMES[champion_choice.selected]).size()
+	return ability if ability < count else -1
 
 func send_action(slot: int) -> void:
 	# In edit mode a hotbar click means "rebind me", not "cast me".
@@ -2171,7 +2215,8 @@ func try_spell(id: int, slot: int, requested: int) -> bool:
 	if not reason.is_empty():
 		feedback(actor, reason)
 		return false
-	if float(spell.cast) > 0:
+	var instant_graviton: bool = spell.kind == "graviton" and actor.identity.instant_graviton
+	if float(spell.cast) > 0 and not instant_graviton:
 		if actor.move_input.length() > 0.01 or not actor.is_on_floor():
 			feedback(actor, "Stand still to cast")
 			return false
@@ -2195,8 +2240,11 @@ func resolve_spell(actor, slot: int, victim) -> void:
 		"damage":
 			damage(actor, victim, spell.power)
 		"heal", "self_heal":
-			# Gentle dampening prevents healer stalemates in longer rounds.
-			var dampening := clampf((elapsed - 60) / 180.0, 0, 0.7)
+			if spell.kind == "self_heal" and actor.champion != "Luminary":
+				victim.identity.dots.clear()
+			# Mend always restores its listed amount. Match-only dampening still
+			# prevents healer stalemates; persistent worlds never inherit it.
+			var dampening := 0.0 if world_mode or spell.kind == "self_heal" else clampf((elapsed - 60) / 180.0, 0, 0.7)
 			var amount := minf(100 - victim.hp, spell.power * (1.0 - dampening))
 			victim.hp = minf(100, victim.hp + amount)
 			combat_event(actor.actor_id, victim.actor_id, "+%d" % ceili(amount), Color("97edb1"))
@@ -2257,6 +2305,7 @@ func move_ability(actor, motion: Vector3) -> void:
 	if actor.identity.hold <= 0:
 		actor.move_and_collide(motion)
 		actor.motion_revision += 1
+		actor.reset_physics_interpolation()
 
 # In the world, damage only lands between two people who agreed to fight.
 func may_harm(source, victim) -> bool:
@@ -2295,11 +2344,14 @@ func challenge_duel(target_id: int) -> void:
 	offer_duel(actor_for_peer(multiplayer.get_remote_sender_id()), target_id)
 
 func offer_duel(from_id: int, target_id: int) -> void:
-	if not world_mode or from_id < 0 or not actors.has(target_id) or from_id == target_id:
+	if not world_mode or not actors.has(from_id) or not actors.has(target_id) or from_id == target_id:
 		return
-	if duels.has(from_id) or duels.has(target_id):
+	if actors[from_id].hp <= 0 or actors[target_id].hp <= 0 or actors[target_id].owner_peer == 0:
+		return
+	if duels.has(from_id) or duels.has(target_id) or duel_offers.has(target_id) or from_id in duel_offers.values():
 		return
 	duel_offers[target_id] = from_id
+	sync_duels()
 	combat_event(from_id, target_id, "DUEL OFFERED", GOLD)
 	var peer: int = actors[target_id].owner_peer
 	if peer > 1 and network:
@@ -2318,10 +2370,14 @@ func confirm_duel(target_id: int) -> void:
 		return
 	var from_id: int = duel_offers[target_id]
 	duel_offers.erase(target_id)
-	if not actors.has(from_id) or duels.has(from_id) or duels.has(target_id):
+	if not actors.has(from_id) or not actors.has(target_id) or duels.has(from_id) or duels.has(target_id):
+		sync_duels()
 		return
 	duels[from_id] = target_id
 	duels[target_id] = from_id
+	clear_duel_offers(from_id)
+	clear_duel_offers(target_id)
+	sync_duels()
 	# Both start clean, so a duel is never decided by who was already hurt.
 	for id in [from_id, target_id]:
 		actors[id].hp = 100
@@ -2335,6 +2391,7 @@ func confirm_duel(target_id: int) -> void:
 func end_duel(loser_id: int, winner_id: int) -> void:
 	duels.erase(loser_id)
 	duels.erase(winner_id)
+	sync_duels()
 	for id in [loser_id, winner_id]:
 		if actors.has(id):
 			actors[id].reset_identity()
@@ -2345,12 +2402,13 @@ func end_duel(loser_id: int, winner_id: int) -> void:
 @rpc("authority", "call_remote", "reliable")
 func duel_invited(from_id: int, champion: String) -> void:
 	pending_offer = from_id
-	say("%s challenges you to a duel — %s to accept" % [champion, control_label("accept_duel")])
+	if social != null:
+		social.append_message("%s challenges you to a duel — use Accept or press %s" % [champion, control_label("accept_duel")])
 
 # Spawns any roster member who does not yet have a body, without disturbing
 # anyone already in the world.
 func admit_to_world() -> void:
-	var next_id := 1
+	var next_id := next_world_actor_id
 	for actor in actors.values():
 		next_id = maxi(next_id, actor.actor_id + 1)
 	for peer in roster:
@@ -2361,9 +2419,10 @@ func admit_to_world() -> void:
 		if present:
 			continue
 		var entry: Dictionary = roster[peer]
-		spawn_actor(next_id, peer, entry.team, entry.champion, spawn_position(entry.team, next_id % 3))
+		spawn_actor(next_id, peer, entry.team, entry.champion, spawn_position(entry.team, next_id))
 		next_id += 1
 	broadcast_round()
+	sync_duels()
 
 # Which actor a peer controls, or -1.
 func actor_for_peer(peer: int) -> int:
@@ -2385,7 +2444,9 @@ func tick_world(delta: float) -> void:
 				actor.stunned = 0
 				actor.locked = 0
 				actor.shield = 0
-				actor.position = spawn_position(actor.team, id % 3)
+				actor.position = spawn_position(actor.team, id)
+				actor.motion_revision += 1
+				actor.reset_physics_interpolation()
 				combat_event(id, id, "RECOVERED", Color("97edb1"))
 
 func check_winner() -> void:
@@ -2565,6 +2626,8 @@ func show_event(round_epoch: int, source: int, victim: int, text: String, color:
 		if actors[source].champion == "Vanguard" and text.begins_with("−"):
 			actors[source].champion_model.present_strike()
 			preload("res://scripts/vanguard_strike.gd").spawn(self, actors[source].position, actor.position, actors[source].base_color)
+		elif text == "STARFALL" and actors[source].champion == "Fulcrum":
+			beam(actor.position + Vector3(0, 12, 0), actor.position, Color("dbbaff"))
 		else:
 			beam(actors[source].position, actor.position, color)
 
@@ -2590,6 +2653,7 @@ func say(text: String) -> void:
 # Placeholder HUD shown while arranging the layout outside a match. Everything
 # is positioned exactly as it will be in play; only the contents are invented.
 func show_edit_previews() -> void:
+	update_cc_tracker()
 	var champion: String = Kits.NAMES[champion_choice.selected]
 	var kit: Array = Kits.get_kit(champion)
 	for entry in [[player_frame, "YOU", champion], [target_frame, "TARGET", "Luminary"], [focus_frame, "FOCUS", "Vanguard"]]:
@@ -2622,7 +2686,7 @@ func show_edit_previews() -> void:
 			continue
 		button.modulate = Color.WHITE
 		var spell: Dictionary = kit[ability]
-		var art := AbilityArt.texture_for(spell.name)
+		var art := AbilityArt.texture_for(spell.name, champion)
 		ability_images[slot].texture = art
 		ability_images[slot].visible = art != null
 		button.text = "" if art != null else spell.name
@@ -2662,7 +2726,24 @@ func update_frame(frame: VBoxContainer, id: int, prefix: String) -> void:
 			if chip.has_meta("aura"):
 				chip.remove_meta("aura")
 
+# Follow the rendered actor pose, rather than the latest 60 Hz physics pose.
+# Mouse look remains event-driven and is not interpolated a second time.
+func _process(_delta: float) -> void:
+	if actors.has(local_id):
+		pivot.global_position = actors[local_id].get_global_transform_interpolated().origin + Vector3(0, 1.6, 0)
+	update_proc_flash()
+
+func update_proc_flash() -> void:
+	var actor = actors.get(local_id)
+	var pulse := (sin(Time.get_ticks_msec() * 0.012) + 1.0) * 0.5
+	for slot in range(ability_images.size()):
+		var ability := kit_slot(slot) if actor != null else -1
+		var ready: bool = actor != null and actor.hp > 0 and ability >= 0 and actor.kit[ability].kind == "graviton" and actor.identity.instant_graviton
+		ability_images[slot].self_modulate = Color(0.5, 0.4, 0.65).lerp(Color(1.5, 1.3, 0.85), pulse) if ready else Color.WHITE
+
 func update_visuals(delta: float) -> void:
+	if social != null:
+		social.refresh()
 	champion_choice.disabled = network
 	mode_choice.disabled = network
 	resume_button.disabled = phase not in ["match", "countdown"]
@@ -2672,8 +2753,6 @@ func update_visuals(delta: float) -> void:
 		notice.text = ""
 	if phase == "countdown":
 		notice.text = "Arena opens in %d" % ceili(countdown)
-	if actors.has(local_id):
-		pivot.position = actors[local_id].position + Vector3(0, 1.6, 0)
 	for actor in actors.values():
 		actor.visual_tick(delta, camera)
 	ring.visible = actors.has(selected_id) and actors[selected_id].hp > 0
@@ -2689,8 +2768,10 @@ func update_visuals(delta: float) -> void:
 	update_frame(focus_frame, focus_id, "FOCUS")
 	var connection := "LOCAL" if not network else ("HOST" if multiplayer.is_server() else "%dms RTT" % round_trip_ms)
 	scoreboard.text = "STARFALL   /   %dv%d   /   %s                                      %02d:%02d" % [mode, mode, connection, int(elapsed) / 60, int(elapsed) % 60]
-	if elapsed > 60:
-		scoreboard.text += "  Healing −%d%%" % int(clampf((elapsed - 60) / 180.0, 0, 0.7) * 100)
+	if world_mode:
+		scoreboard.text = "STARFALL   /   WORLD   /   %s" % connection
+	if elapsed > 60 and not world_mode:
+		scoreboard.text += "  Healing (except Mend) −%d%%" % int(clampf((elapsed - 60) / 180.0, 0, 0.7) * 100)
 	var party := party_ids()
 	party_box.visible = not party.is_empty()
 	for i in range(3):
@@ -2733,7 +2814,7 @@ func update_visuals(delta: float) -> void:
 			continue
 		var actor = actors[local_id]
 		var spell: Dictionary = actor.kit[ability]
-		var art := AbilityArt.texture_for(spell.name)
+		var art := AbilityArt.texture_for(spell.name, actor.champion)
 		ability_images[slot].texture = art
 		ability_images[slot].visible = art != null
 		ability_images[slot].modulate = Color("b6a4cf") if button.button_pressed else Color.WHITE
@@ -2751,7 +2832,7 @@ func update_visuals(delta: float) -> void:
 		var held: float = cc_block_remaining(actor, spell)
 		# A slot you cannot press because you are held reads as unusable, not just
 		# as counting down.
-		button.modulate = Color(0.55, 0.58, 0.72) if held > 0.0 else Color.WHITE
+		button.modulate = Color(0.55, 0.58, 0.72) if held > 0.0 else (Color("ffe699") if spell.kind == "graviton" and actor.identity.instant_graviton else Color.WHITE)
 		if held > own and held > 0.0:
 			cooldown_overlays[slot].sync(held, maxf(cc_total, held), false)
 		elif own > 0.0:
@@ -2838,6 +2919,11 @@ func cycle_target(direction: int = 1) -> void:
 		selected_id = candidates[(0 if direction > 0 else candidates.size() - 1) if current < 0 else posmod(current + direction, candidates.size())]
 
 func _input(event: InputEvent) -> void:
+	if social != null and social.handle_input(event):
+		get_viewport().set_input_as_handled()
+		return
+	if social != null and social.typing():
+		return
 	if keybind_menu != null and keybind_menu.visible:
 		if keybind_menu.handle(event):
 			get_viewport().set_input_as_handled()
@@ -2883,7 +2969,7 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
-	if panel.visible or keybind_menu.visible or edit_mode or phase not in ["match", "countdown"]:
+	if social.typing() or panel.visible or keybind_menu.visible or edit_mode or phase not in ["match", "countdown"]:
 		return
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
@@ -3069,3 +3155,111 @@ func control_label(action: String) -> String:
 		if binding != 0:
 			return OS.get_keycode_string(binding)
 	return "Unbound"
+
+# Session social actions are validated by the authority; clients only request.
+func request_duel_action(action: String) -> void:
+	if not world_mode:
+		return
+	if authoritative():
+		match action:
+			"challenge": offer_duel(local_id, selected_id)
+			"accept": confirm_duel(local_id)
+			"decline": dismiss_duel(local_id)
+	else:
+		match action:
+			"challenge": challenge_duel.rpc_id(1, selected_id)
+			"accept": accept_duel.rpc_id(1)
+			"decline": decline_duel.rpc_id(1)
+
+func clear_duel_offers(id: int) -> void:
+	for target in duel_offers.keys():
+		if target == id or duel_offers[target] == id:
+			duel_offers.erase(target)
+
+func dismiss_duel(id: int) -> void:
+	if not world_mode or not actors.has(id):
+		return
+	clear_duel_offers(id)
+	sync_duels()
+
+@rpc("any_peer", "call_remote", "reliable")
+func decline_duel() -> void:
+	if network and multiplayer.is_server():
+		dismiss_duel(actor_for_peer(multiplayer.get_remote_sender_id()))
+
+func sync_duels() -> void:
+	pending_offer = duel_offers.get(local_id, -1)
+	if network and multiplayer.is_server():
+		duel_state.rpc(epoch, duels, duel_offers)
+
+@rpc("authority", "call_remote", "reliable")
+func duel_state(round_epoch: int, pairs: Dictionary, offers: Dictionary) -> void:
+	if not world_mode or round_epoch != epoch:
+		return
+	duels = pairs.duplicate()
+	duel_offers = offers.duplicate()
+	pending_offer = duel_offers.get(local_id, -1)
+
+func remove_world_actor(id: int) -> void:
+	if not actors.has(id):
+		return
+	var opponent: int = duels.get(id, -1)
+	duels.erase(id)
+	duels.erase(opponent)
+	if actors.has(opponent):
+		actors[opponent].reset_identity()
+		actors[opponent].casting = -1
+	clear_duel_offers(id)
+	respawn_timers.erase(id)
+	var actor = actors[id]
+	actors.erase(id)
+	remove_child(actor)
+	actor.queue_free()
+	if selected_id == id: selected_id = -1
+	if focus_id == id: focus_id = -1
+	if pending_offer == id: pending_offer = -1
+	for other in actors.values():
+		if other.target_id == id: other.target_id = -1
+		if other.cast_target == id: other.casting = -1
+
+@rpc("authority", "call_remote", "reliable")
+func world_actor_left(round_epoch: int, id: int) -> void:
+	if world_mode and round_epoch == epoch:
+		remove_world_actor(id)
+
+func send_chat(message: String) -> void:
+	if authoritative():
+		relay_chat(multiplayer.get_unique_id(), message)
+	elif network:
+		request_chat.rpc_id(1, message)
+
+@rpc("any_peer", "call_remote", "reliable", 4)
+func request_chat(message: String) -> void:
+	if network and multiplayer.is_server():
+		relay_chat(multiplayer.get_remote_sender_id(), message)
+
+func relay_chat(peer: int, message: String) -> void:
+	var id := actor_for_peer(peer)
+	if not actors.has(id) or message.length() > 240 or phase not in ["match", "countdown", "results"]:
+		return
+	var clean := ""
+	for ch in message:
+		var code := ch.unicode_at(0)
+		if code >= 32 and code != 127 and not (code >= 0x202A and code <= 0x202E) and not (code >= 0x2066 and code <= 0x2069):
+			clean += ch
+	clean = clean.strip_edges()
+	if clean.is_empty():
+		return
+	var now := Time.get_ticks_msec()
+	if now - int(chat_last_sent.get(peer, -1000)) < 750:
+		return
+	chat_last_sent[peer] = now
+	var line := "%s · %s #%d: %s" % ["World" if world_mode else "Match", actors[id].champion, id, clean]
+	chat_message(epoch, line)
+	if network:
+		chat_message.rpc(epoch, line)
+
+@rpc("authority", "call_remote", "reliable", 4)
+func chat_message(round_epoch: int, message: String) -> void:
+	if round_epoch == epoch and social != null:
+		social.append_message(message)

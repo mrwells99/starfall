@@ -27,9 +27,9 @@ Intended experience:
 
 **World** — a persistent hangout on the arena map. One always-running server, no queue, no lobby, no rounds, no timer and no victory. You walk in, you are there, and other people are walking around with you.
 
-**Damage is refused between people who have not agreed to a duel**, so standing around is safe and every fight is one both people chose. Target someone and press **C** to challenge; they press **Y** to accept. Both are restored to full health and cleared of stuns when a duel begins, so it is never decided by who was already hurt. Losing ends the duel and brings you back at full health a few seconds later — there is no death in the world, only a defeat.
+**Damage is refused between people who have not agreed to a duel**, so standing around is safe and every fight is one both people chose. Target someone and use **Challenge to duel**; the recipient sees **Accept** and **Decline**. The sender can cancel a pending challenge. These controls appear only in World mode. **C** to challenge and **Y** to accept remain rebindable shortcuts. Both are restored to full health and cleared of stuns when a duel begins, so it is never decided by who was already hurt. Losing ends the duel and brings you back at full health a few seconds later — there is no death in the world, only a defeat.
 
-A bystander cannot damage either duellist. Latecomers are spawned into the running world without restarting it for anyone already there.
+A bystander cannot damage either duellist. Latecomers are spawned into the running world without restarting it or resetting existing cameras. Leaving removes your character and cancels related duels and invitations; world characters never become replacement bots. Each world participant has an independent combat side so any two players can duel.
 
 **Team arena · 3v3** — six players per match, three per team. Local sparring auto-fills a team with a healer, melee fighter, and ranged caster if role slots are empty. Human champion choices in networked matches are unrestricted.
 
@@ -268,3 +268,9 @@ _Considered and set aside. Recorded so they aren't relitigated without new reaso
 - **Top-down / click-to-move camera** (League-style). Rejected — the WoW gameplay identity requires WASD + mouse-turn + third-person.
 - **Gear or item progression during a match.** Rejected — the design premise is equal starting power.
 - **Click-to-target on character models.** Rejected — caused specific self-select bugs and undermines the intended explicit targeting framework. See [`DECISIONS.md`](DECISIONS.md).
+
+### Session chat and CC editing
+
+World and match chat goes to everyone in the current server session. Enter opens chat, Enter sends, and Escape cancels typing; **Settings → Keybinds → Open chat** changes the opening key. Typing blocks gameplay hotkeys and movement. Messages identify the class and actor number, show literal text, and keep the latest 100 lines; leaving clears the local history. Messages are limited to 240 characters with a server-enforced send interval. There are no private messages or cross-server channels.
+
+The personal crowd-control indicator shows a sample icon in Edit HUD even outside a match. Drag it like a unit frame; its position saves with the rest of the HUD.
