@@ -54,7 +54,7 @@ Recommended reading order for a new developer: `kits.gd` → `combatant.gd` → 
 | `tests/movement_bindings_test.gd` | Prediction, reconciliation, and full keybind menu (search, conflict swap, reserved keys, round-trip save). |
 | `tools/keybind_review.gd` | Renders `artifacts/keybind-menu.png` / `keybind-bars.png` for the keybind UI. |
 | `tests/ui_test.gd` | Real-window mouse/key routing, frame clicks, tooltip content and bounds. |
-| `tests/network_peer.gd` + `run_network.py` | Two-process ENet duel. |
+| `tests/network_peer.gd` + `network_fixture_arena.gd` + `run_network.py` | Two-process ENet duel/team replication fixture. |
 | `tests/six_peer.gd` + `run_six.py` | Host + 5 clients (3v3). |
 | `tests/dedicated_client.gd` + `run_dedicated.py` | Dedicated server + 2 clients (version handshake, auto-start). |
 | `tests/visual_check.gd` | Staged lobby/healer screenshots. |
@@ -323,7 +323,17 @@ godot --path . --script tests/visual_check.gd
 
 `tests/check_suite.sh "<label>" <godot args...>` wraps a Godot suite for CI: it enforces the suite's exit code, requires the `N passed / M total` line to appear at all, and compares N against M. It deliberately does **not** compare against a literal count — a hardcoded number turns every new assertion into a CI failure, which is exactly what happened when the UI suite grew from 64 checks to 73 and the workflow was still grepping for 64.
 
-Python launchers enforce timeouts and clean up child processes. They return failure on nonzero exits or Godot `ERROR:` output. Some success-marker text can appear even when assertions fail — inspect exit code and full output.
+Python launchers enforce timeouts and clean up child processes. They return failure on nonzero exits or Godot `ERROR:` output. `run_network.py` also requires both success markers; `network_peer.gd` prints PASS only when its assertions pass.
+
+The two-peer team replication fixture keeps all six actors but holds autonomous
+bot decisions during the scripted first round, preventing valid interrupts/heals
+from invalidating its expected player actions. It restores bot decisions for the
+rematch/disconnect check. The client retries Stoke until its cooldown is observed;
+the host waits at least seven seconds and for attack evidence before rematching,
+with a hard twelve-second assertion deadline. Damage, Heat, casting, extended
+cooldown, movement, snapshot ordering and reset assertions remain mandatory.
+This tests replication rather than winning an uncontrolled bot fight; production
+bot behavior is unchanged. A separate six-peer suite exercises a full human roster.
 
 The `ERROR:` check is stricter than it looks: Godot prints RID-leak errors at exit for any `Control` that was constructed but never added to the scene tree, so an orphaned node fails the suite even when every assertion passed. If a network suite starts failing with `RID allocations ... were leaked at exit` and no assertion message, look for a `.new()` UI node missing its `add_child`.
 
