@@ -1,0 +1,19 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+path="res://.godot/imported/unbroken.png-aa1de6f0de44b6346504d3adbca3d561.ctex"
+metadata={
+"vram_texture": false
+}
+
+[deps]
+
+source_file="res://assets/icons/abilities/unbroken.png"
+dest_files=["res://.godot/imported/unbroken.png-aa1de6f0de44b6346504d3adbca3d561.ctex"]
+
+[params]
+
+compress/mode=0
+mipmaps/generate=true
+process/fix_alpha_border=true

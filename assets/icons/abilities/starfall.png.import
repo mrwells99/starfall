@@ -1,0 +1,19 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+path="res://.godot/imported/starfall.png-03c21e08071c92c7579a50ababbc99e2.ctex"
+metadata={
+"vram_texture": false
+}
+
+[deps]
+
+source_file="res://assets/icons/abilities/starfall.png"
+dest_files=["res://.godot/imported/starfall.png-03c21e08071c92c7579a50ababbc99e2.ctex"]
+
+[params]
+
+compress/mode=0
+mipmaps/generate=true
+process/fix_alpha_border=true

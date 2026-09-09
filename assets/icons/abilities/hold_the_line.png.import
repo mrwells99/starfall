@@ -1,0 +1,19 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+path="res://.godot/imported/hold_the_line.png-8c8148f55aa0e6bf9623b0da1cb091c9.ctex"
+metadata={
+"vram_texture": false
+}
+
+[deps]
+
+source_file="res://assets/icons/abilities/hold_the_line.png"
+dest_files=["res://.godot/imported/hold_the_line.png-8c8148f55aa0e6bf9623b0da1cb091c9.ctex"]
+
+[params]
+
+compress/mode=0
+mipmaps/generate=true
+process/fix_alpha_border=true

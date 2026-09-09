@@ -117,6 +117,7 @@ static func resolve(game, a, spell: Dictionary, b) -> bool:
 				control(game, a, other, 1 if spell.kind == "earth" else 3, spell.name, false, spell.kind == "flare_cc")
 				if spell.kind == "earth" and other.stun_from == spell.name and other.stunned > 0 and other.identity.hold <= 0:
 					other.velocity.y = 4.0
+					other.motion_revision += 1
 		"cinder", "wake":
 			s.wake_pos = a.position
 			if spell.kind == "cinder":
@@ -214,6 +215,8 @@ static func resolve(game, a, spell: Dictionary, b) -> bool:
 			var old: Vector3 = a.position
 			a.position = b.position
 			b.position = old
+			a.motion_revision += 1
+			b.motion_revision += 1
 		"collapse":
 			for other in enemies(game, a, s.anchor_pos, 6):
 				game.damage(a, other, 22)

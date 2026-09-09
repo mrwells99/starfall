@@ -107,3 +107,11 @@ Three traps hit during the first live deploys, all fixed, all worth knowing:
 - Extracting subsystems from `scripts/arena.gd` (1524 lines).
 - Audio and a full skeletal animation pipeline.
 - Authentication, host migration, anti-cheat, ranked/skill-based matchmaking.
+
+## Movement and keybinds — work in progress
+
+Immediate local movement prediction and shared collision movement are implemented in `movement_prediction.gd` / `arena.gd`, with authoritative reconciliation, movement acknowledgments and displacement revisions. Version 0.7.0. Settings → Keybinds adds search, primary/secondary bindings, movement/targeting/bar rows, persistence and conflict swapping shared with Edit HUD. Locomotion start/stop/direction animation blending is removed. Baseline combat 81/81, movement/keybind checks 23/23, existing UI 192/192, team/latency network passed before final polish. A new 150ms movement-direction test initially used world axes for a reversed-facing client; corrected to local axes, but its rerun was blocked by automatic approval review reporting workspace credits exhausted. Final rendered header/search polish and that network retest remain pending. Do not claim final movement validation complete.
+
+## Unique icons — 2026-09-08
+
+Seventeen generated replacements remove every icon collision between distinct active abilities. 45 distinct abilities / 48 slots; only the same Mend ability shares art across classes. File/content audit passes, all new PNGs are 256px, both full and 55px contact sheets inspected. `UNIQUE_PROMPTS.md` records prompts and output files. Godot import/render remains pending under the approval-credit block; no deployment performed.

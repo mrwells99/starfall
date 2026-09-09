@@ -20,6 +20,7 @@ var disconnected_bot := false
 var peer_target := 2
 var host_attacked := false
 var identity_seen := false
+var movement_stages := [false, false, false, false]
 var extended_sent := false
 var extended_seen := false
 var finishing := false
@@ -33,7 +34,7 @@ func _initialize() -> void:
 func setup() -> void:
 	arena = load("res://arena.tscn").instantiate()
 	root.add_child(arena)
-	arena.latency_ms = 75 if "--test-latency" in args else 0
+	arena.latency_ms = (150 if "--test-movement" in args else 75) if "--test-latency" in args else 0
 	if team_mode:
 		arena.mode_choice.select(1)
 	if is_host:
@@ -63,10 +64,27 @@ func _process(delta: float) -> bool:
 					peer_target = actor.actor_id
 		match_clock += delta
 		if not is_host and not phase_two:
-			var key := InputEventKey.new()
-			key.physical_keycode = KEY_W
-			key.pressed = match_clock < 0.6
-			Input.parse_input_event(key)
+			if "--test-movement" in args:
+				for binding in [KEY_W, KEY_S, KEY_D]:
+					var event := InputEventKey.new()
+					event.physical_keycode = binding
+					event.pressed = (binding == KEY_W and match_clock < 0.2) or (binding == KEY_S and match_clock >= 0.2 and match_clock < 0.4) or (binding == KEY_D and match_clock >= 0.4 and match_clock < 0.6)
+					Input.parse_input_event(event)
+				var body = arena.actors[arena.local_id]
+				var local_velocity: Vector3 = body.basis.inverse() * body.velocity
+				if match_clock > 0.04 and match_clock < 0.15:
+					movement_stages[0] = movement_stages[0] or local_velocity.z < -6
+				if match_clock > 0.24 and match_clock < 0.35:
+					movement_stages[1] = movement_stages[1] or local_velocity.z > 3
+				if match_clock > 0.44 and match_clock < 0.55:
+					movement_stages[2] = movement_stages[2] or local_velocity.x > 6
+				if match_clock > 0.64 and match_clock < 0.75:
+					movement_stages[3] = movement_stages[3] or Vector2(body.velocity.x, body.velocity.z).length() < 0.01
+			else:
+				var key := InputEventKey.new()
+				key.physical_keycode = KEY_W
+				key.pressed = match_clock < 0.6
+				Input.parse_input_event(key)
 			arena.selected_id = peer_target
 			action_timer -= delta
 			if action_timer <= 0 and match_clock > 1:
@@ -102,7 +120,9 @@ func _process(delta: float) -> bool:
 			finish()
 	if not is_host and started and arena.epoch > initial_epoch and not phase_two:
 		phase_two = true
-		verify(moved, "Client received server movement")
+		verify(moved, "Client moved during the match")
+		if "--test-movement" in args:
+			verify(not movement_stages.has(false), "Start, reverse, strafe and stop respond before the 150ms input delay")
 		verify(cast_seen, "Client received authoritative casting state")
 		verify(damaged, "Client received damage state")
 		verify(identity_seen, "Client received authoritative Heat state")

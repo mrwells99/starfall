@@ -57,6 +57,13 @@ func run() -> void:
 	actor.kit = arena.Kits.get_kit("Vanguard")
 	arena.update_visuals(0)
 	check(arena.ability_images[5].texture == arena.AbilityArt.texture_for("Mend"), "Vanguard shares Mend")
+	var unique_art := {}
+	for champion in arena.Kits.NAMES:
+		for ability in arena.Kits.get_kit(champion):
+			var path: String = arena.AbilityArt.PATHS.get(ability.name, "")
+			check(not unique_art.has(path) or unique_art[path] == ability.name,
+				"Different abilities must have different icons: " + ability.name)
+			unique_art[path] = ability.name
 	for champion in arena.Kits.NAMES:
 		actor.champion = champion
 		actor.kit = arena.Kits.get_kit(champion)
