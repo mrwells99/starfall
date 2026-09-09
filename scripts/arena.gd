@@ -204,6 +204,8 @@ var claimed := false
 var requeue_button: Button
 var offline_rematch_button: Button
 var quit_button: Button
+var menu_presentation = preload("res://scripts/menu_presentation.gd").new()
+var spectator = preload("res://scripts/spectator_presentation.gd").new()
 var round_summary: Label
 var result_info: Dictionary = {}
 var rematch_deadline := 0
@@ -800,6 +802,8 @@ func build_ui() -> void:
 	match_settings = add_button(stack, "Settings", func(): menu_state = "settings"; refresh_menu())
 	exit_button = add_button(stack, "Leave match", func(): leave_session(""))
 	quit_button = add_button(stack, "Quit game", func(): save_layout(); get_tree().quit())
+	menu_presentation.install(self)
+	spectator.install(self)
 	ability_tooltip = preload("res://scripts/ability_tooltip.gd").new()
 	ui.add_child(ability_tooltip)
 	# Follows the cursor while an ability is being dragged, so the gesture has
@@ -854,6 +858,7 @@ func spawn_actor(id: int, peer: int, side: int, choice: String, pos: Vector3) ->
 	actor.reset_physics_interpolation()
 
 func clear_actors() -> void:
+	spectator.reset()
 	result_info.clear()
 	rematch_deadline = 0
 	ability_reasons.clear()
@@ -1279,7 +1284,7 @@ func refresh_menu() -> void:
 	window_mode_choice.visible = settings
 	resolution_choice.visible = settings
 	resolution_choice.disabled = window_mode_choice.get_selected_id() != UserConfig.WINDOW_WINDOWED
-	champion_choice.visible = choosing
+	champion_choice.visible = choosing and menu_state in ["online", "offline", "queue", "host", "join"]
 	mode_choice.visible = choosing and menu_state in ["queue", "host", "offline"]
 	opponent_choice.visible = choosing and menu_state == "offline"
 	match_settings.visible = phase != "menu" and not settings
@@ -1325,6 +1330,8 @@ func refresh_menu() -> void:
 				lobby_text.text = "Spar against bots.\nEmpty team slots are filled automatically."
 			_:
 				lobby_text.text = status if not status.is_empty() else "Online plays against people.\nOffline is local sparring against bots."
+
+	menu_presentation.refresh()
 
 func refresh_result_status() -> void:
 	if phase != "results" or menu_state == "settings":
@@ -2784,6 +2791,7 @@ func show_event(round_epoch: int, source: int, victim: int, text: String, color:
 	if not actors.has(victim):
 		say(text)
 		return
+	spectator.record(source, victim, text)
 	var actor = actors[victim]
 	actor.flash = 0.16
 	var label := Label3D.new()
@@ -2908,8 +2916,9 @@ func update_frame(frame: VBoxContainer, id: int, prefix: String) -> void:
 func _process(_delta: float) -> void:
 	if dedicated:
 		return
-	if actors.has(local_id):
-		pivot.global_position = actors[local_id].get_global_transform_interpolated().origin + Vector3(0, 1.6, 0)
+	var follow_id: int = spectator.follow_id()
+	if actors.has(follow_id):
+		pivot.global_position = actors[follow_id].get_global_transform_interpolated().origin + Vector3(0, 1.6, 0)
 	update_proc_flash()
 
 func proc_ready(actor, spell: Dictionary) -> bool:
@@ -3051,6 +3060,7 @@ func update_visuals(delta: float) -> void:
 	update_ability_tooltip()
 
 func sync_hud_visibility() -> void:
+	spectator.refresh()
 	var show_hud := actors.has(local_id) and not panel.visible
 	scoreboard.visible = show_hud
 	notice.visible = show_hud
@@ -3060,7 +3070,12 @@ func sync_hud_visibility() -> void:
 	enemy_box.visible = (show_hud and not enemy_ids().is_empty()) or edit_mode
 	self_auras.visible = (show_hud and self_auras.visible) or edit_mode
 	for bar in bar_roots:
-		bar.visible = show_hud or edit_mode
+		bar.visible = (show_hud and not spectator.active) or edit_mode
+	if spectator.active and not edit_mode:
+		player_frame.hide()
+		self_auras.hide()
+		cc_tracker.hide()
+		ability_tooltip.hide()
 	if not show_hud and not edit_mode:
 		cc_tracker.hide()
 	if not actors.has(local_id) and not menu_camera.current:
@@ -3207,6 +3222,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			capture_mouse()
 	if event is InputEventKey and event.pressed and not event.echo:
 		var pressed_binding := event_binding(event)
+		if spectator.eliminated():
+			if controls.matches("target_next", pressed_binding): spectator.cycle(1)
+			if controls.matches("target_previous", pressed_binding): spectator.cycle(-1)
+			return
 		# C challenges whoever you have targeted; Y accepts an offer. Both route
 		# through the server, which owns the pairing.
 		if world_mode and controls.matches("challenge", pressed_binding) and selected_id != -1:
@@ -3368,9 +3387,7 @@ func update_ability_tooltip() -> void:
 			var actor = actors[local_id]
 			var text: String = Kits.description(actor.kit[ability], actor.champion)
 			var reason := ability_block_reason(actor, ability, selected_id) if not edit_mode else ""
-			if not reason.is_empty():
-				text = text.replace("\n\n", "\n") + "\n" + reason
-			ability_tooltip.present_text(text, pointer, ui.size)
+			ability_tooltip.present_availability(text, reason, pointer, ui.size)
 			return
 	ability_tooltip.hide()
 
