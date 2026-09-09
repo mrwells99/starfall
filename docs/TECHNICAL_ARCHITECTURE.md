@@ -399,7 +399,7 @@ Physics interpolation is enabled for combatants and the target ring. The camera 
 Regression coverage: `social_test.gd`, `run_social.py` (two actual ENet clients: invitation, acceptance, chat, late join without rebuild, disconnect despawn), `camera_interpolation_test.gd` (render updates between deliberately slow physics ticks), and the CC drag/save checks in `ui_test.gd`. Existing movement/latency, combat and class tests remain relevant.
 
 
-### Fulcrum Meditation and DoTs (0.9.0)
+### Fulcrum Meditation and DoTs (historical 0.9.0 baseline)
 
 Combatant identity now replicates `meditation`, `instant_graviton` and victim-owned `dots`, keyed by source actor. Graviton refreshes its own eight-second effect while preserving the next one-second tick; each valid tick deals 2 damage and grants 5 Meditation, capped at 100. DoTs stop on source loss, death, expiry, invalid world pairing or a completed DPS Mend. Periodic resource credit happens before damage so duel-end identity resets win. Ground hazards are not attached DoTs and remain active after Mend. Mend always restores up to 28 missing HP, bypassing time-based dampening. Other healing only dampens in arena matches, never in persistent worlds.
 
