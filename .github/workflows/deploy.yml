@@ -112,26 +112,26 @@ jobs:
         run: |
           ./tests/check_suite.sh "UI checks" \
             xvfb-run -a --server-args="-screen 0 1280x800x24" \
-            godot --path . --script tests/ui_test.gd
+            godot --path . --rendering-method gl_compatibility --audio-driver Dummy --script tests/ui_test.gd
 
       # Icons and champion models also need a real window.
       - name: Ability art suite (Xvfb)
         run: |
           ./tests/check_suite.sh "Ability art checks" \
             xvfb-run -a --server-args="-screen 0 1280x800x24" \
-            godot --path . --script tests/ability_art_test.gd
+            godot --path . --rendering-method gl_compatibility --audio-driver Dummy --script tests/ability_art_test.gd
 
       - name: Map suite (Xvfb)
         run: |
           ./tests/check_suite.sh "Map checks" \
             xvfb-run -a --server-args="-screen 0 1280x800x24" \
-            godot --path . --script tests/map_test.gd
+            godot --path . --rendering-method gl_compatibility --audio-driver Dummy --script tests/map_test.gd
 
       - name: Vanguard presentation suite (Xvfb)
         run: |
           ./tests/check_suite.sh "Vanguard presentation" \
             xvfb-run -a --server-args="-screen 0 1280x800x24" \
-            godot --path . --script tests/vanguard_presentation_test.gd
+            godot --path . --rendering-method gl_compatibility --audio-driver Dummy --script tests/vanguard_presentation_test.gd
 
       # The server hard-rejects clients whose Config.VERSION differs. Shipping a
       # protocol change without bumping it lets stale clients connect and

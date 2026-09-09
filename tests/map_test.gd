@@ -111,6 +111,12 @@ func test_bot_terrace(side: int, start: Vector3) -> void:
 	var target = arena.actors[1]
 	var bot = arena.actors[2]
 	bot.champion = "Vanguard"
+	# Navigation approaches to the primary ability's actual range. Changing only
+	# the class name leaves Ember's ranged kit and never exercises the ramp.
+	bot.kit = arena.Kits.get_kit(bot.champion)
+	bot.cooldowns.resize(bot.kit.size())
+	bot.cooldowns.fill(0.0)
+	bot.reset_identity()
 	bot.owner_peer = 0
 	# Keep this a movement integration test: no Charge, damage, or stun can
 	# substitute for walking up the physical ramp using the actual bot logic.
