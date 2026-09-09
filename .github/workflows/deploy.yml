@@ -93,6 +93,18 @@ jobs:
       - name: Eliminated player and spectator checks
         run: ./tests/check_suite.sh "Spectator checks" godot --headless --path . --script tests/spectator_test.gd
 
+      - name: Personal resource HUD checks
+        run: ./tests/check_suite.sh "Resource meter checks" godot --headless --path . --script tests/resource_meter_test.gd
+
+      - name: Minimal nameplates and thin resource bars
+        run: ./tests/check_suite.sh "Nameplate checks" godot --headless --path . --script tests/nameplate_test.gd
+
+      - name: Independent crowd control diminishing returns
+        run: ./tests/check_suite.sh "Diminishing returns checks" godot --headless --path . --script tests/diminishing_returns_test.gd
+
+      - name: Team frames and combat text checks
+        run: ./tests/check_suite.sh "Team HUD checks" godot --headless --path . --script tests/team_hud_test.gd
+
       - name: Champion introduction and practice checks
         run: ./tests/check_suite.sh "Champion introduction checks" godot --headless --path . --script tests/champion_introduction_test.gd
 

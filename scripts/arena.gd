@@ -1,4 +1,5 @@
 extends "res://scripts/arena_world.gd"
+const CC = preload("res://scripts/crowd_control.gd")
 
 const Fighter = preload("res://scripts/combatant.gd")
 const Kits = preload("res://scripts/kits.gd")
@@ -206,6 +207,7 @@ var requeue_button: Button
 var offline_rematch_button: Button
 var quit_button: Button
 var menu_presentation = preload("res://scripts/menu_presentation.gd").new()
+var combat_text = preload("res://scripts/combat_text.gd").new()
 var spectator = preload("res://scripts/spectator_presentation.gd").new()
 var round_summary: Label
 var result_info: Dictionary = {}
@@ -371,7 +373,7 @@ func styled_bar(color: Color, height: float) -> ProgressBar:
 	bar.add_theme_stylebox_override("background", ui_box(UI_VOID, UI_EDGE, 4))
 	var fill := StyleBoxFlat.new()
 	fill.bg_color = color
-	fill.set_corner_radius_all(4)
+	fill.set_corner_radius_all(2)
 	bar.add_theme_stylebox_override("fill", fill)
 	var amount := Label.new()
 	bar.add_child(amount)
@@ -379,11 +381,13 @@ func styled_bar(color: Color, height: float) -> ProgressBar:
 	amount.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	amount.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	amount.add_theme_color_override("font_shadow_color", Color.BLACK)
+	amount.add_theme_color_override("font_color", UI_TEXT)
 	amount.add_theme_constant_override("shadow_offset_x", 1)
 	amount.add_theme_constant_override("shadow_offset_y", 1)
 	amount.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var edge := Panel.new()
 	edge.name = "Edge"
+	edge.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	edge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	edge.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	bar.add_child(edge)
@@ -397,7 +401,10 @@ func bar_edge(bar: ProgressBar) -> Panel:
 # A hotter, more saturated red than the damage colour: this is a persistent
 # "that is an enemy" marker, not a one-frame hit flash, so it has to hold its own
 # against a bright class-coloured fill underneath it.
-const ENEMY_EDGE := Color("ff2d4e")
+const ENEMY_EDGE := Color("df7385")
+
+func hud_health_color(champion: String) -> Color:
+	return Kits.color(champion).lerp(Color("131b2b"), 0.48)
 
 func paint_bar_edge(bar: ProgressBar, color: Color, width: int) -> void:
 	var edge := bar_edge(bar)
@@ -422,9 +429,28 @@ func paint_bar_edge(bar: ProgressBar, color: Color, width: int) -> void:
 # a real bar rather than a number. The bar is a child so the button keeps its
 # rect for click-to-target; the button's own text is left empty and the label
 # inside the bar carries the words, or the button would draw underneath it.
+func install_dr_column(button: Button, left: bool) -> void:
+	button.custom_minimum_size.x = 330
+	var health := roster_bar(button)
+	health.anchor_right = 0
+	health.offset_left = 114 if left else 4
+	health.offset_right = 326 if left else 216
+	var details = button.get_node("Details")
+	details.anchor_right = 0
+	details.offset_left = health.offset_left
+	details.offset_right = health.offset_right
+	var diminishing = preload("res://scripts/dr_icons.gd").new()
+	diminishing.name = "DiminishingReturns"
+	button.add_child(diminishing)
+	diminishing.install(self)
+	diminishing.left_side = left
+	diminishing.position.x = 4 if left else 224
+
 func roster_row(parent: Node, callback: Callable) -> Button:
 	var button := add_button(parent, "", callback)
-	button.custom_minimum_size = Vector2(220, 34)
+	button.custom_minimum_size = Vector2(220, 40)
+	for state_name in ["normal", "hover", "pressed", "disabled", "focus", "hover_pressed"]:
+		button.add_theme_stylebox_override(state_name, StyleBoxEmpty.new())
 	var bar := styled_bar(UI_EDGE, 26)
 	bar.custom_minimum_size = Vector2(0, 26)
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -432,8 +458,19 @@ func roster_row(parent: Node, callback: Callable) -> Button:
 	bar.offset_left = 4
 	bar.offset_right = -4
 	bar.offset_top = 4
-	bar.offset_bottom = -4
+	bar.anchor_bottom = 0
+	bar.offset_bottom = 30
 	button.add_child(bar)
+	var resource = preload("res://scripts/thin_resource_bar.gd").new()
+	resource.name = "ThinResource"
+	bar.add_child(resource)
+	resource.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	resource.offset_top = 2
+	resource.offset_bottom = 8
+	var details = preload("res://scripts/arena_frame_details.gd").new()
+	details.name = "Details"
+	button.add_child(details)
+	details.install(self)
 	return button
 
 # The bar inside a roster row, or null.
@@ -447,10 +484,14 @@ func unit_frame(pos: Vector2, color: Color) -> VBoxContainer:
 	frame.mouse_filter = Control.MOUSE_FILTER_STOP
 	frame.gui_input.connect(on_unit_frame_input.bind(frame))
 	ui.add_child(frame)
-	add_label(frame, "", 18)
+	add_label(frame, "", 15).hide()
 	frame.add_child(styled_bar(color, 27))
 	frame.add_child(styled_bar(GOLD, 22))
-	add_label(frame, "", 14)
+	var state = add_label(frame, "", 14)
+	var meter = preload("res://scripts/resource_meter.gd").new()
+	meter.name = "ResourceMeter"
+	state.add_child(meter)
+	meter.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var auras := HBoxContainer.new()
 	auras.add_theme_constant_override("separation", 3)
 	auras.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -465,14 +506,13 @@ func unit_frame(pos: Vector2, color: Color) -> VBoxContainer:
 func aura_widget() -> PanelContainer:
 	var chip := PanelContainer.new()
 	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	chip.custom_minimum_size = Vector2(0, 26)
+	chip.custom_minimum_size = Vector2(30, 30)
 	chip.hide()
-	# PanelContainer sizes itself to a single child, so icon and text share a
-	# row rather than being parented directly and overlapping.
-	var row := HBoxContainer.new()
+	# A fixed tile overlays the countdown on its icon without widening the strip.
+	var row := Control.new()
+	row.custom_minimum_size = Vector2(28, 28)
 	row.name = "Row"
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_theme_constant_override("separation", 4)
 	chip.add_child(row)
 	var art := TextureRect.new()
 	art.name = "Icon"
@@ -482,6 +522,7 @@ func aura_widget() -> PanelContainer:
 	art.custom_minimum_size = Vector2(22, 22)
 	art.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	row.add_child(art)
+	art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var label := Label.new()
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.add_theme_font_size_override("font_size", 13)
@@ -489,6 +530,11 @@ func aura_widget() -> PanelContainer:
 	label.add_theme_constant_override("shadow_offset_x", 1)
 	label.add_theme_constant_override("shadow_offset_y", 1)
 	row.add_child(label)
+	label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	label.add_theme_color_override("font_outline_color", Color.BLACK)
+	label.add_theme_constant_override("outline_size", 4)
 	return chip
 
 func paint_aura(chip: PanelContainer, aura: Dictionary) -> void:
@@ -499,24 +545,29 @@ func paint_aura(chip: PanelContainer, aura: Dictionary) -> void:
 	# resource for every visible aura at 60 Hz creates avoidable render churn.
 	if chip.get_meta("aura_tint", Color.TRANSPARENT) != tint:
 		var box := ui_box(Color(tint.r * 0.22, tint.g * 0.22, tint.b * 0.22, 0.92), tint, 4)
-		box.content_margin_left = 6
-		box.content_margin_right = 6
-		box.content_margin_top = 2
-		box.content_margin_bottom = 2
+		box.content_margin_left = 1
+		box.content_margin_right = 1
+		box.content_margin_top = 1
+		box.content_margin_bottom = 1
 		chip.add_theme_stylebox_override("panel", box)
 		chip.set_meta("aura_tint", tint)
 	# Show the icon of the ability that caused the effect, the way WoW does —
 	# an Ember stun and a Vanguard stun should be distinguishable at a glance.
 	# Effects with no illustrated source (diminishing returns, or an older
 	# snapshot) fall back to the name, so a chip is never blank.
-	var row := chip.get_child(0) as HBoxContainer
+	var row := chip.get_child(0) as Control
 	var art := row.get_child(0) as TextureRect
 	var icon: Texture2D = AbilityArt.texture_for(aura.get("source", ""))
+	if icon == null: icon = AbilityArt.texture_for(aura.name)
+	if icon == null and aura.key == "lockout": icon = AbilityArt.texture_for("Disrupt")
+	if icon == null and aura.key == "stun": icon = AbilityArt.texture_for("Stasis")
 	art.texture = icon
 	art.visible = icon != null
 	var label := row.get_child(1) as Label
-	label.add_theme_color_override("font_color", tint)
-	label.text = format_aura_time(aura.remaining) if icon != null else "%s %s" % [aura.name, format_aura_time(aura.remaining)]
+	label.add_theme_color_override("font_color", Color.WHITE)
+	row.custom_minimum_size.x = 28 if icon != null else 112
+	label.add_theme_font_size_override("font_size", 12 if icon != null else 10)
+	label.text = str(ceili(aura.remaining)) if icon != null else "%s %s" % [aura.name, format_aura_time(aura.remaining)]
 
 # Long effects do not need tenths; the last few seconds do, because that is when
 # you are deciding whether to wait it out.
@@ -524,6 +575,7 @@ static func format_aura_time(t: float) -> String:
 	return "%.0fs" % ceil(t) if t >= 10.0 else "%.1fs" % t
 
 func build_ui() -> void:
+	combat_text.setup(self)
 	var layer := CanvasLayer.new()
 	add_child(layer)
 	ui = Control.new()
@@ -542,22 +594,48 @@ func build_ui() -> void:
 	player_frame = unit_frame(Vector2(24, 56), BLUE)
 	target_frame = unit_frame(Vector2(330, 56), RED)
 	focus_frame = unit_frame(Vector2(636, 56), GOLD)
+	# Equal widths and mirrored offsets center the pair at every aspect ratio.
+	# The 220px middle gap also fits both six-category DR groups in 1v1.
+	for entry in [[player_frame, -331, 221], [target_frame, 110, 221], [focus_frame, 371, 180]]:
+		var frame: VBoxContainer = entry[0]
+		frame.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+		frame.offset_left = entry[1]
+		frame.offset_right = entry[1] + entry[2]
+		frame.offset_top = -285
+		frame.offset_bottom = -180
+		for index in [1, 2]:
+			frame.get_child(index).custom_minimum_size.x = entry[2]
+		frame.get_child(1).custom_minimum_size.y = 22 if frame == focus_frame else 32
+		if frame == focus_frame:
+			frame.get_child(2).custom_minimum_size.y = 18
+		for chip in frame.get_child(4).get_children():
+			chip.custom_minimum_size.x = 30
+	for frame in [player_frame, target_frame]:
+		var dr = preload("res://scripts/dr_icons.gd").new()
+		dr.name = "DiminishingReturns"
+		frame.get_child(1).add_child(dr)
+		dr.install(self)
+		dr.position = Vector2(229 if frame == player_frame else -106, 0)
 	party_box = VBoxContainer.new()
+	party_box.add_theme_constant_override("separation", 2)
 	party_box.position = Vector2(24, 220)
 	ui.add_child(party_box)
-	add_label(party_box, "PARTY · select by key or frame")
 	for i in range(3):
 		party_buttons.append(roster_row(party_box, select_party.bind(i)))
+		install_dr_column(party_buttons[i], false)
 	enemy_box = VBoxContainer.new()
+	enemy_box.add_theme_constant_override("separation", 2)
 	ui.add_child(enemy_box)
 	enemy_box.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	enemy_box.offset_left = -244
+	enemy_box.offset_left = -354
 	enemy_box.offset_top = 220
 	enemy_box.offset_right = -24
 	enemy_box.offset_bottom = 360
-	add_label(enemy_box, "ENEMIES · select by key or frame")
 	for i in range(3):
 		enemy_buttons.append(roster_row(enemy_box, select_enemy.bind(i)))
+		install_dr_column(enemy_buttons[i], true)
+		enemy_buttons[i].gui_input.connect(on_enemy_frame_input.bind(i))
+		enemy_buttons[i].tooltip_text = "Left-click to target · Right-click to set focus"
 	# Twelve abilities fill the first two bars; the third holds alternate bindings.
 	for bar in range(BAR_COUNT):
 		var row := HBoxContainer.new()
@@ -861,6 +939,7 @@ func spawn_actor(id: int, peer: int, side: int, choice: String, pos: Vector3) ->
 	actor.reset_physics_interpolation()
 
 func clear_actors() -> void:
+	combat_text.clear()
 	spectator.reset()
 	result_info.clear()
 	rematch_deadline = 0
@@ -929,6 +1008,7 @@ func join_session() -> void:
 	refresh_lobby()
 
 func connect_to(port: int) -> bool:
+	menu_presentation.show_error("")
 	close_peer()
 	current_port = port
 	var peer := ENetMultiplayerPeer.new()
@@ -1099,7 +1179,9 @@ func leave_session(message: String) -> void:
 	release_mouse()
 	refresh_lobby()
 	if not message.is_empty():
-		say(message)
+		menu_presentation.show_error(message)
+	else:
+		menu_presentation.show_error("")
 
 func on_connected() -> void:
 	match intent:
@@ -1491,6 +1573,7 @@ func build_cc_tracker() -> void:
 # already applies — Vanguard ignores it, and defensive or movement abilities
 # still work through it.
 func cc_block_remaining(actor, spell: Dictionary) -> float:
+	if CC.spell_block(actor) > 0: return maxf(actor.stunned, CC.spell_block(actor))
 	if actor.stunned > 0.0:
 		return actor.stunned
 	if actor.locked > 0.0 and actor.champion != "Vanguard" and spell.kind not in ["shield", "blink", "sprint"]:
@@ -1816,7 +1899,11 @@ func load_layout() -> void:
 	if places is Dictionary:
 		for frame in movable_frames:
 			if frame != null and places.has(frame.name):
+				if frame in [player_frame, target_frame, focus_frame, party_box, enemy_box] and not moved_frames.has(str(frame.name)):
+					continue # Adopt new defaults while preserving explicitly moved frames.
 				frame.position = places[frame.name]
+				if frame == enemy_box:
+					frame.position.x = clampf(frame.position.x, 0, maxf(0, ui.size.x - frame.size.x))
 	refresh_binds()
 
 # Two populated bars: keys 1-7 and Shift+1-7. Shorter kits hide unused slots.
@@ -2192,10 +2279,9 @@ func tick_actor(actor, delta: float) -> void:
 		return
 	for i in range(actor.cooldowns.size()):
 		actor.cooldowns[i] = maxf(0, actor.cooldowns[i] - delta)
-	for field in ["gcd", "stunned", "locked", "shield", "sprint", "dr_timer"]:
+	for field in ["gcd", "stunned", "locked", "shield", "sprint"]:
 		actor.set(field, maxf(0, actor.get(field) - delta))
-	if actor.dr_timer == 0:
-		actor.dr_count = 0
+	CC.tick(actor, delta)
 	if actor.training_dummy:
 		actor.move_input = Vector2.ZERO
 		actor.velocity = Vector3.ZERO
@@ -2365,7 +2451,9 @@ func ability_block_reason(actor, slot: int, requested: int) -> String:
 	if actor.hp <= 0:
 		return "You are defeated"
 	if actor.stunned > 0:
-		return "Stunned"
+		return "Controlled"
+	if CC.spell_block(actor) > 0:
+		return "Disarmed" if actor.champion == "Vanguard" else "Silenced"
 	var spell: Dictionary = actor.kit[slot]
 	if actor.casting >= 0:
 		return "Already casting"
@@ -2438,25 +2526,16 @@ func resolve_spell(actor, slot: int, victim) -> void:
 			else:
 				feedback(actor, "Interrupt missed — target was not casting")
 		"control":
-			var factor: float = [1.0, 0.5, 0.25, 0.0][mini(victim.dr_count, 3)]
-			if factor == 0:
-				combat_event(actor.actor_id, victim.actor_id, "IMMUNE", GOLD)
-			else:
-				victim.identity.disorient = false
-				victim.stunned = spell.power * factor
-				victim.stun_from = spell.name
-				victim.casting = -1
-				victim.dr_count += 1
-				victim.dr_timer = 18 + victim.stunned
-				combat_event(actor.actor_id, victim.actor_id, "STUN %.1fs" % victim.stunned, GOLD)
+			var duration := CC.apply(victim, "stun", spell.power, spell.name)
+			combat_event(actor.actor_id, victim.actor_id, "STUN %.1fs" % duration if duration > 0 else "IMMUNE", GOLD)
 		"shield", "ally_shield":
 			victim.shield = spell.power
 			victim.shield_from = spell.name
 			combat_event(actor.actor_id, victim.actor_id, "WARD", BLUE)
 		"dispel":
+			CC.clear(victim, ["stun", "incapacitate", "disorient"])
 			victim.stunned = 0
 			victim.stun_from = ""
-			victim.dr_timer = minf(victim.dr_timer, 18)
 			combat_event(actor.actor_id, victim.actor_id, "DISPELLED", Color("97edb1"))
 		"blink":
 			move_ability(actor, -actor.basis.z * float(spell.power))
@@ -2509,6 +2588,7 @@ func damage(source, victim, amount: float) -> void:
 		actual = maxf(0, victim.hp - 1)
 		victim.identity.last = 0.0
 		combat_event(source.actor_id, victim.actor_id, "LAST LIGHT", GOLD)
+	CC.on_damage(victim, actual)
 	victim.hp = maxf(1 if victim.training_dummy else 0, victim.hp - actual)
 	combat_event(source.actor_id, victim.actor_id, "−%d" % ceili(actual), RED)
 	if victim.hp == 0:
@@ -2805,18 +2885,7 @@ func show_event(round_epoch: int, source: int, victim: int, text: String, color:
 	spectator.record(source, victim, text)
 	var actor = actors[victim]
 	actor.flash = 0.16
-	var label := Label3D.new()
-	label.text = text
-	label.font_size = 40
-	label.modulate = color
-	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	label.no_depth_test = true
-	add_child(label)
-	label.position = actor.position + Vector3(randf_range(-0.3, 0.3), 3, 0)
-	var tween := create_tween().set_parallel(true)
-	tween.tween_property(label, "position:y", label.position.y + 1.5, 1.1)
-	tween.tween_property(label, "modulate:a", 0.0, 1.1)
-	tween.chain().tween_callback(label.queue_free)
+	combat_text.emit(actor, text, color)
 	if source != victim and actors.has(source):
 		if actors[source].champion == "Vanguard" and text.begins_with("−"):
 			actors[source].champion_model.present_strike()
@@ -2854,21 +2923,39 @@ func show_edit_previews() -> void:
 	for entry in [[player_frame, "YOU", champion], [target_frame, "TARGET", "Luminary"], [focus_frame, "FOCUS", "Vanguard"]]:
 		var frame: VBoxContainer = entry[0]
 		frame.visible = true
-		(frame.get_child(0) as Label).text = "%s · %s" % [entry[1], entry[2]]
+		frame.get_child(0).hide()
 		var bar := frame.get_child(1) as ProgressBar
 		bar.value = 100
-		(bar.get_child(0) as Label).text = "100 / 100 HP"
+		(bar.get_child(0) as Label).text = "100%"
 		(frame.get_child(2) as ProgressBar).visible = false
 		(frame.get_child(3) as Label).text = ""
+		var meter = frame.get_child(3).get_node("ResourceMeter")
+		meter.show()
+		frame.get_child(3).custom_minimum_size.y = 16
+		meter.sync({"champion": entry[2], "identity": {"heat": 60, "resolve": 60, "meditation": 75, "stars": [{}, {}], "instant_graviton": false, "instant_collapse": false}}, frame == player_frame)
 		for chip in (frame.get_child(4) as HBoxContainer).get_children():
 			(chip as PanelContainer).hide()
 	party_box.visible = true
 	enemy_box.visible = true
 	for i in range(3):
-		party_buttons[i].visible = true
-		party_buttons[i].text = "%s  %s   100 HP" % [control_label("party_%d" % (i + 1)), Kits.NAMES[i]]
+		party_buttons[i].visible = i > 0
 		enemy_buttons[i].visible = true
-		enemy_buttons[i].text = "%s  100 HP" % Kits.NAMES[i]
+		for row in [party_buttons[i], enemy_buttons[i]]:
+			row.text = ""
+			row.custom_minimum_size.y = 40
+			var health := roster_bar(row)
+			health.value = 100
+			var thin = health.get_node("ThinResource")
+			thin.show()
+			thin.fraction = 0.65
+			thin.tint = thin.COLORS.get(Kits.NAMES[i], Color.WHITE)
+			thin.queue_redraw()
+			(health.get_child(0) as Label).text = "100%"
+			var details = row.get_node("Details")
+			details.cast.hide()
+			for chip in details.strip.get_children(): chip.hide()
+			if row.has_node("DiminishingReturns"):
+				for chip in row.get_node("DiminishingReturns").get_children(): chip.hide()
 	for slot in range(ability_buttons.size()):
 		var button := ability_buttons[slot]
 		button.visible = true
@@ -2893,29 +2980,45 @@ func update_frame(frame: VBoxContainer, id: int, prefix: String) -> void:
 	if not frame.visible:
 		return
 	var actor = actors[id]
-	(frame.get_child(0) as Label).text = "%s · %s" % [prefix, "Training Dummy" if actor.training_dummy else actor.champion]
+	var friendly: bool = actors.has(local_id) and actor.team == actors[local_id].team
+	frame.get_child(0).hide()
 	var health := frame.get_child(1) as ProgressBar
 	health.value = actor.hp
-	var friendly: bool = actors.has(local_id) and actor.team == actors[local_id].team
 	var fill := health.get_theme_stylebox("fill") as StyleBoxFlat
-	fill.bg_color = Kits.color(actor.champion)
+	fill.bg_color = hud_health_color(actor.champion)
 	# Class colour fills the bar, so the border is the only thing left saying
 	# which side someone is on. It has to be bold and it has to be there at full
 	# health, which means drawing it over the fill rather than behind it.
-	paint_bar_edge(health, BLUE if friendly else ENEMY_EDGE, 1 if friendly else 3)
-	(health.get_child(0) as Label).text = "%d / 100 HP" % ceili(actor.hp)
+	paint_bar_edge(health, GOLD if frame == focus_frame else (BLUE if friendly else ENEMY_EDGE), 1 if frame == focus_frame else 2)
+	(health.get_child(0) as Label).text = "%d%%" % ceili(actor.hp)
+	if health.has_node("DiminishingReturns"):
+		var dr = health.get_node("DiminishingReturns")
+		dr.visible = frame == player_frame or (mode == 1 and not world_mode and not friendly)
+		if dr.visible: dr.sync(actor)
 	var cast := frame.get_child(2) as ProgressBar
-	cast.visible = actor.casting >= 0
-	if actor.casting >= 0:
+	var interrupted: bool = actor.hp > 0 and Time.get_ticks_msec() < int(combat_text.interrupts.get(id, 0))
+	cast.visible = actor.casting >= 0 or interrupted
+	var cast_fill: StyleBoxFlat = cast.get_theme_stylebox("fill")
+	var cast_tint := Color("854657") if interrupted else Color("8b713e")
+	if cast_fill.bg_color != cast_tint: cast_fill.bg_color = cast_tint
+	if interrupted:
+		cast.value = 100
+		(cast.get_child(0) as Label).text = "INTERRUPTED"
+	elif actor.casting >= 0:
 		var total: float = actor.kit[actor.casting].cast
 		cast.value = 100 * (1 - actor.cast_left / maxf(0.01, total))
 		(cast.get_child(0) as Label).text = "%s · %.1fs" % [actor.kit[actor.casting].name, actor.cast_left]
 	(frame.get_child(3) as Label).text = "DEFEATED" if actor.hp <= 0 else ""
+	var state := frame.get_child(3) as Label
+	var meter = state.get_node("ResourceMeter")
+	meter.visible = actor.hp > 0 and not actor.training_dummy
+	state.custom_minimum_size.y = 16 if meter.visible else 18
+	if meter.visible: meter.sync(actor, prefix == "YOU")
 	var strip := frame.get_child(4) as HBoxContainer
 	var auras := Auras.active(actor)
 	for i in range(AURA_SLOTS):
 		var chip := strip.get_child(i) as PanelContainer
-		if i < auras.size():
+		if i < auras.size() and (frame != focus_frame or i < 5):
 			paint_aura(chip, auras[i])
 		else:
 			chip.hide()
@@ -2927,6 +3030,7 @@ func update_frame(frame: VBoxContainer, id: int, prefix: String) -> void:
 func _process(_delta: float) -> void:
 	if dedicated:
 		return
+	combat_text.tick()
 	var follow_id: int = spectator.follow_id()
 	if actors.has(follow_id):
 		pivot.global_position = actors[follow_id].get_global_transform_interpolated().origin + Vector3(0, 1.6, 0)
@@ -2963,7 +3067,7 @@ func update_visuals(delta: float) -> void:
 	if phase == "countdown":
 		notice.text = "Arena opens in %d" % ceili(countdown)
 	for actor in actors.values():
-		actor.visual_tick(delta, camera)
+		actor.visual_tick(delta, camera, actor.actor_id != local_id)
 	ring.visible = actors.has(selected_id) and actors[selected_id].hp > 0
 	if ring.visible:
 		ring.position = actors[selected_id].position + Vector3(0, 0.08, 0)
@@ -2978,25 +3082,25 @@ func update_visuals(delta: float) -> void:
 	update_frame(target_frame, selected_id, "TARGET")
 	update_frame(focus_frame, focus_id, "FOCUS")
 	var connection := "LOCAL" if not network else ("HOST" if multiplayer.is_server() else "%dms RTT" % round_trip_ms)
-	scoreboard.text = "STARFALL   /   %dv%d   /   %s                                      %02d:%02d" % [mode, mode, connection, int(elapsed) / 60, int(elapsed) % 60]
+	scoreboard.text = "STARFALL   /   %dv%d   /   %s     ·     %02d:%02d" % [mode, mode, connection, int(elapsed) / 60, int(elapsed) % 60]
 	if world_mode:
 		scoreboard.text = "STARFALL   /   WORLD   /   %s" % connection
 	if elapsed > 60 and not world_mode:
 		scoreboard.text += "  Healing (except Mend) −%d%%" % int(clampf((elapsed - 60) / 180.0, 0, 0.7) * 100)
 	var party := party_ids()
-	party_box.visible = not party.is_empty()
+	party_box.visible = party.size() > 1
 	for i in range(3):
-		party_buttons[i].visible = i < party.size()
+		party_buttons[i].visible = i > 0 and i < party.size()
 		if i < party.size():
 			var member = actors[party[i]]
 			paint_roster_row(party_buttons[i], member, "%s  %s" % [control_label("party_%d" % (i + 1)), member.champion], true)
 	var enemies := enemy_ids()
-	enemy_box.visible = not enemies.is_empty()
+	enemy_box.visible = not enemies.is_empty() and (mode != 1 or world_mode)
 	for i in range(3):
 		enemy_buttons[i].visible = i < enemies.size()
 		if i < enemies.size():
 			var foe = actors[enemies[i]]
-			paint_roster_row(enemy_buttons[i], foe, "Training Dummy" if foe.training_dummy else foe.champion, false)
+			paint_roster_row(enemy_buttons[i], foe, "%d · %s" % [i + 1, "Dummy" if foe.training_dummy else foe.champion], false)
 	for actor in actors.values():
 		var hostile: bool = actors.has(local_id) and actor.team != actors[local_id].team
 		actor.mark_hostile(hostile)
@@ -3077,8 +3181,8 @@ func sync_hud_visibility() -> void:
 	notice.visible = show_hud
 	for entry in [[player_frame, local_id], [target_frame, selected_id], [focus_frame, focus_id]]:
 		entry[0].visible = (show_hud and actors.has(entry[1])) or edit_mode
-	party_box.visible = (show_hud and not party_ids().is_empty()) or edit_mode
-	enemy_box.visible = (show_hud and not enemy_ids().is_empty()) or edit_mode
+	party_box.visible = (show_hud and party_ids().size() > 1) or edit_mode
+	enemy_box.visible = (show_hud and not enemy_ids().is_empty() and (mode != 1 or world_mode)) or edit_mode
 	self_auras.visible = (show_hud and self_auras.visible) or edit_mode
 	for bar in bar_roots:
 		bar.visible = (show_hud and not spectator.active) or edit_mode
@@ -3094,7 +3198,7 @@ func sync_hud_visibility() -> void:
 
 # Aura strips live at child index 4 of a unit frame. Party and enemy rows are
 # plain buttons with no strip, so they are skipped rather than special-cased.
-func chip_in_strip(strip: HBoxContainer, pointer: Vector2) -> PanelContainer:
+func chip_in_strip(strip: Control, pointer: Vector2) -> PanelContainer:
 	if strip == null or not strip.is_visible_in_tree():
 		return null
 	for child in strip.get_children():
@@ -3104,10 +3208,18 @@ func chip_in_strip(strip: HBoxContainer, pointer: Vector2) -> PanelContainer:
 	return null
 
 func aura_chip_at(frame: Node, pointer: Vector2) -> PanelContainer:
+	if frame is Button and frame.has_node("Details"):
+		if frame.has_node("DiminishingReturns"):
+			var dr_chip := chip_in_strip(frame.get_node("DiminishingReturns"), pointer)
+			if dr_chip != null: return dr_chip
+		return chip_in_strip(frame.get_node("Details").strip, pointer)
 	if frame == null or not (frame is VBoxContainer) or frame.get_child_count() < 5:
 		return null
 	if not (frame as Control).is_visible_in_tree():
 		return null
+	if frame.get_child(1).has_node("DiminishingReturns"):
+		var dr_chip := chip_in_strip(frame.get_child(1).get_node("DiminishingReturns"), pointer)
+		if dr_chip != null: return dr_chip
 	for chip in (frame.get_child(4) as HBoxContainer).get_children():
 		var panel := chip as PanelContainer
 		if panel.visible and panel.has_meta("aura") and panel.get_global_rect().has_point(pointer):
@@ -3129,15 +3241,35 @@ func paint_self_auras() -> void:
 			if chip.has_meta("aura"):
 				chip.remove_meta("aura")
 
-func paint_roster_row(button: Button, actor, title: String, friendly: bool) -> void:
+func paint_roster_row(button: Button, actor, _title: String, friendly: bool) -> void:
 	var bar := roster_bar(button)
 	if bar == null:
 		return
 	bar.value = actor.hp
 	var fill := bar.get_theme_stylebox("fill") as StyleBoxFlat
-	fill.bg_color = Kits.color(actor.champion)
-	paint_bar_edge(bar, BLUE if friendly else ENEMY_EDGE, 1 if friendly else 3)
-	(bar.get_child(0) as Label).text = "%s   %d HP%s" % [title, ceili(actor.hp), "  STUN" if actor.stunned > 0 else ""]
+	fill.bg_color = hud_health_color(actor.champion)
+	paint_bar_edge(bar, BLUE if friendly else ENEMY_EDGE, 2 if actor.actor_id == selected_id else 1)
+	(bar.get_child(0) as Label).text = "%d%%" % ceili(actor.hp)
+	bar.get_node("ThinResource").sync(actor)
+	button.get_node("Details").sync(actor)
+	if button.has_node("DiminishingReturns"): button.get_node("DiminishingReturns").sync(actor)
+	# Fit only currently visible information, including a second DR row.
+	var details = button.get_node("Details")
+	var bottom := 38.0 # Health plus the full six-pixel resource bar.
+	if details.cast.visible:
+		bottom = maxf(bottom, details.offset_top + 17)
+	for chip in details.strip.get_children():
+		if chip.visible:
+			bottom = maxf(bottom, details.offset_top + details.strip.position.y + 28)
+	if button.has_node("DiminishingReturns"):
+		var dr = button.get_node("DiminishingReturns")
+		var count := 0
+		for chip in dr.get_children():
+			if chip.visible: count += 1
+		if count > 0:
+			bottom = maxf(bottom, 4 + ceilf(count / 3.0) * 34 - 4)
+	button.custom_minimum_size.y = bottom + 2
+
 
 func party_ids() -> Array[int]:
 	var ids: Array[int] = []
@@ -3267,6 +3399,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		for i in range(3):
 			if controls.matches("party_%d" % (i + 1), pressed_binding):
 				select_party(i)
+			if controls.matches("target_arena_%d" % (i + 1), pressed_binding):
+				select_enemy(i)
+			if controls.matches("focus_arena_%d" % (i + 1), pressed_binding):
+				focus_enemy(i)
 		if controls.matches("set_focus", pressed_binding):
 			focus_id = selected_id
 		if controls.matches("target_focus", pressed_binding) and actors.has(focus_id):
@@ -3370,6 +3506,18 @@ func select_enemy(index: int) -> void:
 	var ids := enemy_ids()
 	if index >= 0 and index < ids.size():
 		selected_id = ids[index]
+
+func focus_enemy(index: int) -> void:
+	var ids := enemy_ids()
+	if index >= 0 and index < ids.size():
+		focus_id = ids[index]
+
+func on_enemy_frame_input(event: InputEvent, index: int) -> void:
+	if edit_mode or panel.visible or Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+		return
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
+		focus_enemy(index)
+		enemy_buttons[index].accept_event()
 
 func update_ability_tooltip() -> void:
 	if panel.visible or Input.mouse_mode != Input.MOUSE_MODE_VISIBLE or not actors.has(local_id):

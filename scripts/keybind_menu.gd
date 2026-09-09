@@ -81,6 +81,8 @@ func rebuild() -> void:
 	for action in game.controls.rows(game):
 		var title: String
 		var group := "Movement" if action in ["forward", "backward", "strafe_left", "strafe_right", "turn_left", "turn_right", "jump"] else "Chat, targeting and duels"
+		if action.begins_with("target_arena_") or action.begins_with("focus_arena_"):
+			group = "Arena targeting"
 		if action.begins_with("bar_"):
 			var slot := int(action.trim_prefix("bar_"))
 			group = "Action bar %d" % (slot / game.BAR_SLOTS + 1)

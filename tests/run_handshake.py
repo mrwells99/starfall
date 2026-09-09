@@ -11,7 +11,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 GODOT = os.environ.get("GODOT", "godot")
 with tempfile.TemporaryDirectory(prefix="starfall-handshake-") as directory:
     base = pathlib.Path(directory)
-    for scenario in ("version", "schema", "legacy"):
+    for scenario in ("version", "schema", "protocol", "legacy"):
         fixture = base / scenario
         fixture.mkdir()
         for item in ROOT.iterdir():
@@ -34,6 +34,9 @@ with tempfile.TemporaryDirectory(prefix="starfall-handshake-") as directory:
             config.write_text(re.sub(r'const VERSION := "[^"]+"', 'const VERSION := "0.0.0"', config.read_text()))
         elif scenario == "schema":
             script.write_text(script.read_text() + '\n@rpc("authority", "call_remote", "reliable")\nfunc aaa_incompatible_test_rpc() -> void:\n\tpass\n')
+        elif scenario == "protocol":
+            handshake = fixture / "scripts/network_handshake.gd"
+            handshake.write_text(handshake.read_text().replace("const PROTOCOL := 2", "const PROTOCOL := 1"))
         else:
             script.write_text(script.read_text().replace('\tnetwork_handshake.setup(self)\n', ''))
         env = dict(os.environ, XDG_DATA_HOME=str(base / "userdata"))

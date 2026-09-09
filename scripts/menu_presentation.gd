@@ -10,6 +10,8 @@ var status_card: PanelContainer
 var preview: TextureRect
 var hero: HBoxContainer
 var introduction: VBoxContainer
+var error_card: PanelContainer
+var error_text: Label
 
 func install(arena) -> void:
 	game = arena
@@ -27,6 +29,20 @@ func install(arena) -> void:
 	shell.shadow_size = 24
 	shell.shadow_color = Color(0, 0, 0, 0.5)
 	game.panel.add_theme_stylebox_override("panel", shell)
+	error_card = PanelContainer.new()
+	error_card.add_theme_stylebox_override("panel", game.ui_box(Color("302032"), Color("bd7e91"), 8))
+	stack.add_child(error_card)
+	stack.move_child(error_card, 3)
+	var error_column := VBoxContainer.new()
+	error_card.add_child(error_column)
+	var error_title = game.add_label(error_column, "CONNECTION NOTICE", 15)
+	error_title.add_theme_color_override("font_color", Color("ffc0c5"))
+	error_text = game.add_label(error_column, "", 15)
+	error_text.custom_minimum_size.x = 560
+	error_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	error_text.add_theme_color_override("font_color", Color("ffe5eb"))
+	game.add_button(error_column, "Dismiss", func(): game.status = ""; show_error(""))
+	error_card.hide()
 	for i in range(game.main_row.get_child_count()):
 		var button: Button = game.main_row.get_child(i)
 		var titles := ["ONLINE", "OFFLINE", "SETTINGS"]
@@ -92,11 +108,12 @@ func install(arena) -> void:
 	game.ui.resized.connect(layout)
 
 func refresh() -> void:
+	error_card.visible = not error_text.text.is_empty() and game.phase == "menu" and game.menu_state == "main"
 	var results: bool = game.phase == "results" and game.menu_state != "settings"
 	metrics.visible = results
 	var selecting: bool = game.phase == "menu" and game.menu_state in ["online", "offline", "queue", "host", "join", "abilities"]
 	preview.show_champion(game.Kits.NAMES[game.champion_choice.selected], selecting)
-	status_card.visible = game.menu_state != "abilities"
+	status_card.visible = game.menu_state != "abilities" and not error_card.visible
 	hero.visible = selecting
 	introduction.show_champion(game.Kits.NAMES[game.champion_choice.selected], selecting and game.menu_state in ["online", "offline", "abilities"])
 	wordmark.add_theme_font_size_override("font_size", 28 if selecting else 42)
@@ -135,3 +152,8 @@ func layout() -> void:
 		preview.custom_minimum_size = Vector2(portrait_height * 0.75, portrait_height)
 	game.panel.reset_size()
 	game.panel.position = (game.ui.size - game.panel.size) * 0.5
+
+func show_error(message: String) -> void:
+	if error_card == null: return
+	error_text.text = message
+	game.refresh_menu()

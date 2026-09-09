@@ -87,9 +87,7 @@ func run() -> void:
 		fighter.position = Vector3((i - 1) * 4.2, 0, 0)
 		fighter.champion_model.scale = Vector3.ONE * 1.35
 		fighter.rotation.y = PI + 0.3
-		fighter.nameplate.hide()
 		fighter.health_pivot.hide()
-		fighter.cast_pivot.hide()
 		fighters.append(fighter)
 		var x := 48 + i * 410
 		label(Kits.NAMES[i].to_upper(), Vector2(x, 567), 25)

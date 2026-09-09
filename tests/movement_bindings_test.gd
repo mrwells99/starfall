@@ -88,6 +88,8 @@ func run() -> void:
 	arena.controls.assign(arena, "bar_0", 0, KEY_ESCAPE)
 	check(arena.binds[0] == old, "Reserved menu key cannot be stolen")
 	var cfg = load("res://scripts/user_config.gd").new()
+	arena.controls.assign(arena, "target_arena_2", 0, KEY_F8)
+	arena.controls.assign(arena, "focus_arena_3", 1, KEY_F9)
 	arena.controls.save(cfg)
 	var loaded = load("res://scripts/key_bindings.gd").new()
 	loaded.setup(arena.TOTAL_SLOTS)

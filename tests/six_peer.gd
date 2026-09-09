@@ -45,6 +45,10 @@ func _process(delta: float) -> bool:
 				sides[actor.team] += 1
 				verify(actor.owner_peer != 0, "All six slots belong to human peers")
 			verify(sides == [3, 3], "Three players assigned to each team")
+			if hosting:
+				arena.CC.apply(arena.actors[1], "stun", 0.1, "DR network check")
+				arena.CC.apply(arena.actors[1], "root", 0.1, "DR network check")
+				arena.CC.clear(arena.actors[1], ["stun", "root"])
 		match_seconds += delta
 		if not hosting:
 			var key := InputEventKey.new()
@@ -74,6 +78,7 @@ func _process(delta: float) -> bool:
 			verify(moved, "Client received own movement")
 			verify(arena.winner == 0, "Client received reliable team result")
 			verify(arena.packets_received > 20, "Client received six-actor snapshots")
+			verify(arena.actors[1].dr_states.has("stun") and arena.actors[1].dr_states.has("root"), "Client receives independent DR categories over ENet")
 			print("SIX-PEER CLIENT PASS")
 			finish()
 	return false

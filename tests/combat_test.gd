@@ -74,6 +74,7 @@ func run() -> void:
 		enemy.stunned = 0
 		arena.resolve_spell(player, 3, enemy)
 		check(enemy.stunned == expected, "Control diminishing returns: %s" % expected)
+	arena.CC.clear(enemy, ["stun"])
 	enemy.dr_timer = 0.001
 	arena.tick_actor(enemy, 0.01)
 	check(enemy.dr_count == 0, "Diminishing returns reset")
@@ -243,8 +244,8 @@ func run() -> void:
 	subject.dr_count = 2
 	subject.dr_timer = 9.0
 	var dr_list: Array = Auras.active(subject)
-	check(dr_list.size() == 1 and dr_list[0].key == "dr" and dr_list[0].description.contains("25%"),
-		"Diminishing returns is surfaced with what the next stun will do")
+	check(dr_list.is_empty(),
+		"Diminishing returns is absent from unit-frame aura text")
 
 	# An effect must remember which ability applied it, so the HUD can show that
 	# ability's icon rather than a word.
