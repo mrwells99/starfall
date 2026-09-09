@@ -106,7 +106,6 @@ func build_arena() -> void:
 	_geo = Geometry.new()
 	_stone = _rock_material("555062")
 	_dark_stone = _rock_material("302c42", 0.8, 4)
-	_dark_stone.set_shader_parameter("vein_intensity", 3.2)
 	_floor_stone = _rock_material("77717e", 1.15, 1)
 	_terrace_stone = _rock_material("546e88", 1.1, 2)
 	_trim = _rock_material("91818a", 1.0, 3)
@@ -140,6 +139,8 @@ func build_arena() -> void:
 	var atmosphere = load("res://scripts/arena_atmosphere.gd").new()
 	_art.add_child(atmosphere)
 	atmosphere.build()
+	if not OS.get_cmdline_user_args().has("--sanctum-base") and not OS.get_cmdline_user_args().has("--sanctum-original"):
+		load("res://scripts/sanctum_graphics.gd").apply(_art, true)
 
 func _build_floor() -> void:
 	_geo.block(_dark_stone, Vector3(0, -0.23, 0), Vector3(36, 0.4, 36))

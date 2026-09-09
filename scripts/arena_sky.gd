@@ -70,6 +70,9 @@ func build_sky() -> void:
 	sun.directional_shadow_max_distance = 95.0
 	sun.shadow_bias = 0.03
 	add_child(sun)
+	# Directional lights shine down local -Z; their visible source lies along +Z.
+	# Derive the sky position from the actual shadow-casting light, never a second angle.
+	sky_material.set_shader_parameter("sun_direction", sun.global_basis.z.normalized())
 	var fill := DirectionalLight3D.new()
 	fill.name = "VioletNebulaFill"
 	Lighting.apply_directional(fill, 1)

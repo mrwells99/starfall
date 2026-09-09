@@ -2,7 +2,7 @@ extends RefCounted
 
 const SELF_KINDS := ["shield", "self_heal", "blink", "sprint", "cinder", "stoke", "wake", "hold", "unbroken", "anchor", "orbit", "collapse"]
 const ALLY_KINDS := ["heal", "ally_shield", "dispel", "falling", "absolution", "stitch", "star", "pilgrim", "last", "intercede", "swap"]
-const KIT_SIZE := 12
+const KIT_SIZE := 13 # Maximum; Fulcrum has thirteen, other kits have twelve.
 
 const NAMES = ["Ember", "Vanguard", "Luminary", "Fulcrum"]
 
@@ -83,14 +83,15 @@ static func get_kit(champion: String) -> Array:
 			spell("Mend", "self_heal", 28, 0, 2, 16),
 			spell("Starfall", "starfall", 16, 28, 1.5, 12)])
 	else:
-		kit[0] = spell("Graviton", "damage", 14, 24, 1.3, 0)
+		kit[0] = spell("Graviton", "graviton", 6, 24, 1.3, 0)
 		kit[1] = spell("Inward", "inward", 8, 24, 0, 9)
 		kit.append_array([
 			spell("Gravity Anchor", "anchor", 20, 0, 0.6, 4),
 			spell("Outward", "outward", 8, 24, 0, 9),
 			spell("Heavy Orbit", "orbit", 6, 0, 0, 16),
 			spell("Counterweight", "swap", 0, 22, 0, 22, true),
-			spell("Collapse", "collapse", 22, 0, 1.5, 18)])
+			spell("Collapse", "collapse", 22, 0, 1.5, 18),
+			spell("Starfall", "gravity_starfall", 20, 28, 2.0, 12)])
 	return kit
 
 # These are player-facing explanations of the actual prototype rules, not lore.
@@ -119,11 +120,13 @@ static func summary(ability: Dictionary) -> String:
 		"last": "For 4s, the first lethal hit leaves the ally at 1 HP and consumes this protection. Further damage can kill.",
 		"starfall": "Deal 16 damage and heal each of your starred allies for 8 per star within 28m and line of sight.",
 		"anchor": "Place a visible gravity anchor on the ground up to 10m ahead, stopping before walls. Lasts 20s. Replacing it ends its orbit.",
-		"inward": "Pull an enemy up to 8m toward your anchor. Requires an active anchor within 28m and line of sight from it to the enemy.",
-		"outward": "Push an enemy up to 8m away from your anchor. Requires an active anchor within 28m and line of sight from it to the enemy.",
-		"orbit": "Your anchor creates a 6m slowing field for 6s. Enemies inside move 45% slower.",
+		"inward": "Pull an enemy up to 8m toward your anchor. Requires an active anchor within 28m. Works through line-of-sight blockers; movement still stops at solid terrain.",
+		"outward": "Push an enemy up to 8m away from your anchor. Requires an active anchor within 28m. Works through line-of-sight blockers; movement still stops at solid terrain.",
+		"orbit": "Your anchor creates a 6m slowing field for 6s, even through line-of-sight blockers. Enemies inside move 45% slower.",
 		"swap": "Exchange positions with another ally. Both routes must be clear; cannot cross terrain.",
-		"collapse": "After a 1.5s cast, consume your anchor to deal 22 damage and root enemies within 6m for up to 2s. Roots share diminishing returns."
+		"graviton": "Deal 6 damage and apply an 8s DoT: 2 damage and 5 Meditation each second. Refreshes your own DoT without stacking. Collapse hits make your next Graviton instant.",
+		"gravity_starfall": "Requires at least 50 Meditation. After a 2s cast, spend all Meditation to deal 20 + 0.4 damage per Meditation (40–60). Interrupted casts spend nothing.",
+		"collapse": "Consume your anchor: deal 22 damage within 6m and root for up to 2s. At 75+ Meditation, stun for up to 3s instead; Meditation is not spent. Hitting any enemy makes your next Graviton instant. Works through line-of-sight blockers. Control shares diminishing returns."
 	}
 	if concepts.has(ability.kind):
 		return concepts[ability.kind]
@@ -133,7 +136,7 @@ static func summary(ability: Dictionary) -> String:
 		"heal":
 			return "Restore up to %s health to an ally or yourself." % ability.power
 		"self_heal":
-			return "Restore up to %s of your own health." % ability.power
+			return "Restore up to %s of your own health. For DPS classes, completing the cast also removes attached damage-over-time effects. Ground hazards can still hurt you." % ability.power
 		"interrupt":
 			return "Interrupt an enemy's cast and lock out their spells for %s seconds." % ability.power
 		"control":

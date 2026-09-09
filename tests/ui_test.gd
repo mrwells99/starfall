@@ -490,5 +490,24 @@ func run() -> void:
 	arena.begin_round()
 	check(arena.actors.size() == 2, "Random still fills the opposing side")
 
+	# The personal CC readout must be draggable even with no active effect.
+	arena.clear_actors()
+	arena.toggle_edit_mode(true)
+	arena.update_visuals(0)
+	await process_frame
+	var cc_start: Vector2 = arena.cc_tracker.position
+	var cc_point: Vector2 = arena.cc_tracker.get_global_rect().get_center()
+	point_mouse(cc_point)
+	mouse_button(cc_point, MOUSE_BUTTON_LEFT, true)
+	point_mouse(cc_point + Vector2(-150, -100))
+	mouse_button(cc_point + Vector2(-150, -100), MOUSE_BUTTON_LEFT, false)
+	await process_frame
+	check(arena.cc_tracker.position.distance_to(cc_start) > 50, "CC preview moves with a real mouse drag")
+	var cc_saved: Vector2 = arena.cc_tracker.position
+	arena.toggle_edit_mode(false)
+	arena.cc_tracker.position = cc_start
+	arena.load_layout()
+	check(arena.cc_tracker.position.is_equal_approx(cc_saved), "CC position reloads from the saved HUD layout")
+
 	print("UI checks: %d passed / %d total" % [checks - failures, checks])
 	quit(1 if failures else 0)

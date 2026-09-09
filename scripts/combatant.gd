@@ -210,9 +210,12 @@ func receive(data: Dictionary, instant: bool = false) -> void:
 	identity = data.get("identity", {}).duplicate(true)
 	net_position = data.pos
 	net_yaw = data.yaw
-	if instant:
+	var teleported: bool = data.get("motion_revision", 0) != motion_revision
+	motion_revision = data.get("motion_revision", 0)
+	if instant or teleported:
 		position = net_position
 		rotation.y = net_yaw
+		reset_physics_interpolation()
 	owner_peer = data.peer
 	hp = data.hp
 	cooldowns = data.cd
@@ -234,4 +237,4 @@ func receive(data: Dictionary, instant: bool = false) -> void:
 	target_id = data.target
 
 func reset_identity() -> void:
-	identity = {"heat": 0.0, "resolve": 0.0, "brands": {}, "stars": [], "anchor_left": 0.0, "anchor_pos": Vector3.ZERO, "orbit": 0.0, "root": 0.0, "slow": 0.0, "immune": 0.0, "last": 0.0, "hold": 0.0, "disorient": false, "guard": -1, "guard_left": 0.0, "guard_budget": 0.0, "challenge": -1, "challenge_left": 0.0, "challenge_tick": 0.0, "exposed": -1, "exposed_left": 0.0, "wake": 0.0, "wake_pos": Vector3.ZERO, "wake_end": Vector3.ZERO, "wake_tick": 0.0}
+	identity = {"meditation": 0.0, "instant_graviton": false, "dots": {}, "heat": 0.0, "resolve": 0.0, "brands": {}, "stars": [], "anchor_left": 0.0, "anchor_pos": Vector3.ZERO, "orbit": 0.0, "root": 0.0, "slow": 0.0, "immune": 0.0, "last": 0.0, "hold": 0.0, "disorient": false, "guard": -1, "guard_left": 0.0, "guard_budget": 0.0, "challenge": -1, "challenge_left": 0.0, "challenge_tick": 0.0, "exposed": -1, "exposed_left": 0.0, "wake": 0.0, "wake_pos": Vector3.ZERO, "wake_end": Vector3.ZERO, "wake_tick": 0.0}

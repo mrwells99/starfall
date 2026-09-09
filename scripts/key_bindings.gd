@@ -7,7 +7,7 @@ const DEFAULTS := {
 	"target_next": [KEY_TAB, 0], "target_previous": [KEY_TAB | KEY_MASK_SHIFT, 0],
 	"party_1": [KEY_F1, 0], "party_2": [KEY_F2, 0], "party_3": [KEY_F3, 0],
 	"set_focus": [KEY_F, 0], "target_focus": [KEY_G, 0],
-	"challenge": [KEY_C, 0], "accept_duel": [KEY_Y, 0],
+	"chat": [KEY_ENTER, KEY_KP_ENTER], "challenge": [KEY_C, 0], "accept_duel": [KEY_Y, 0],
 }
 const LABELS := {
 	"forward": "Move forward", "backward": "Move backward",
@@ -15,7 +15,7 @@ const LABELS := {
 	"turn_left": "Turn left / strafe with right mouse", "turn_right": "Turn right / strafe with right mouse",
 	"jump": "Jump", "target_next": "Target next enemy", "target_previous": "Target previous enemy",
 	"party_1": "Target party member 1 (self)", "party_2": "Target party member 2", "party_3": "Target party member 3",
-	"set_focus": "Set focus", "target_focus": "Target focus", "challenge": "Challenge to duel", "accept_duel": "Accept duel",
+	"chat": "Open chat", "set_focus": "Set focus", "target_focus": "Target focus", "challenge": "Challenge to duel", "accept_duel": "Accept duel",
 }
 var actions: Dictionary = DEFAULTS.duplicate(true)
 var secondary: Array = []

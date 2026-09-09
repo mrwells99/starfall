@@ -4,6 +4,14 @@ _Short-term memory. Keep concise. Historical decisions live in [`DECISIONS.md`](
 
 Last updated: **2026-09-08**.
 
+Latest connection fix: **0.9.1** negotiates version and RPC schema before allowing any scene RPC, preventing old snapshots from being dispatched to `ping_host`. Matching builds still need to be restarted on both sides; no deployment performed. Regression cases cover version mismatch, same-version RPC mismatch and legacy servers.
+
+Latest class work: **0.9.0** adds Fulcrum Meditation from Graviton DoT ticks, empowered Collapse at 75+, an instant Graviton proc on Collapse hits, and a thirteenth ability, Starfall (Shift+6), with its own generated icon. Starfall requires 50+ and spends all Meditation for scaling damage. Inward/Outward/Collapse/Heavy Orbit ignore LOS while retaining range and collision constraints. Completed DPS Mend cleanses attached DoTs. Mend heals its full 28 (capped by missing HP) even in long matches; other healing is only dampened in arena matches, never in the world. Current numbers: `CLASS_ABILITIES.md`. Graviton now grants 5 Meditation per DoT tick; its instant proc has no expiry timer and flashes its action-bar icon. Matching client/server builds required; not deployed.
+
+Previous gameplay work: **0.8.0** adds world-only duel buttons and replicated invitations, session chat (Enter; rebindable), world disconnect despawning, and a draggable CC edit preview. Late arrivals no longer rebuild existing characters/cameras. Combatants interpolate between physics ticks and the camera follows the same rendered position; instantaneous simulation inputs remain. Network changes require matching client/server builds; no deployment performed. Implementation and tests: `TECHNICAL_ARCHITECTURE.md`, “World social UI and presentation timing”.
+
+Latest environment work: the owner approved the corner treatment across the entire map, with the original glowing artwork restored on all four pillars. All 27 authored modules now share the upgraded materials; the covering plaque was removed, opposing wall shrines added, and Forward+ High lighting made the default on restart. Existing physics and baked-light assignments are preserved. `--sanctum-base` disables High effects; `--rendering-method gl_compatibility` selects Compatibility. The latest palette pass slightly reduces bronze warmth/shine and removes random purple emission from stone and floating debris while retaining the intentional runes. High remains the default. The comparison viewer remains available. Current workflow: `ART_SLICE_HANDOFF.md`; prior renderer study and its concurrent-host timing caveat: `FORWARD_PLUS_ASSESSMENT.md`.
+
 Next character handoff: the owner requested this workflow be logged before asking for another class. Read [`CHARACTER_PIPELINE.md`](CHARACTER_PIPELINE.md) first: it preserves the references, exact files, local tool paths, rig/clip settings, build commands, verified results, implementation lessons and outstanding quality issues.
 
 Latest Luminary work (2026-09-08, hood revision): the owner explicitly requested an Ember-like hood in Luminary's style, with no facial features or protruding hair. The exposed face, scalp, ears, neck, hair geometry and two hair controls have been removed, not hidden. `art_source/luminary.blend` and `assets/characters/luminary.glb` now contain an ivory/gold lined hood, featureless recessed dark veil, cowl and halo. The seven clips, staff grip and cape motion remain. Current source: 79,301 vertices / 150,476 triangles / 59 bones / 13 surfaces. `scripts/luminary_art.gd` dispatches from `champion_model.gd` alongside Ember and Vanguard. Post-revision verification: Luminary 865/865, combat 81/81, rendered art 91/91; Blender verified skin weights, no hair controls/facial materials, stance height and 392 core-gait samples identical to Ember. See the current hood revision in `CHARACTER_PIPELINE.md`; its older open-face section is historical.
@@ -31,6 +39,8 @@ Close the "push to `main` → buddies play the new build" loop:
 Until all three exist, buddies play by manually launching Godot from a checkout.
 
 ## Recently completed (this batch)
+
+- **Instant movement and full keybinds menu (2026-09-08):** movement inputs now register the same physics tick they arrive on. `Input.use_accumulated_input = false`, the 30 Hz client input gate is gone, and `scripts/movement_prediction.gd` predicts local motion each tick and reconciles against snapshots (`move_ack`, `velocity`, `motion_revision`). Non-movement state stays server-authoritative. A new **Settings → Keybinds** menu (`scripts/keybind_menu.gd` + `scripts/key_bindings.gd`) rebinds movement, targeting, duel keys and all 21 action-bar slots with primary + secondary bindings, conflict-swap, search, per-row clear and reset-all; Esc/F11/Alt+Enter are reserved. Ember and Vanguard locomotion clips blend in ~0 s so animation matches the new input responsiveness. `Config.VERSION` bumped to **0.7.0** — snapshot payload grew, mismatched clients are rejected. Coverage: `tests/movement_bindings_test.gd` 23/23, `run_network.py --test-movement --test-latency` verifies start/reverse/strafe/stop respond under 150 ms simulated latency, combat 81/81, screenshots at `artifacts/keybind-menu.png` and `artifacts/keybind-bars.png` via `tools/keybind_review.gd`.
 
 - **Sanctum lighting and landscape:** shared live/baked lighting profile, lower ambient/fill, warm shrine lighting and a new indirect bake; large exterior cliffs, hanging foundations, broken approaches, distant sanctuaries and subtle non-volumetric mist. Landscape6batches/19,116triangles, no colliders/shadow passes. Map57/57, combat81/81, world13/13. Assets remain just under8MiB. Current complete handoff: `ART_SLICE_HANDOFF.md`.
 
@@ -105,8 +115,7 @@ Three traps hit during the first live deploys, all fixed, all worth knowing:
 
 ## Explicitly not in progress
 
-- Client movement prediction / reconciliation (still real past ~80 ms RTT, deferred until buddies can actually play regularly).
-- Extracting subsystems from `scripts/arena.gd` (1524 lines).
+- Extracting subsystems from `scripts/arena.gd` (~3070 lines).
 - Audio and a full skeletal animation pipeline.
 - Authentication, host migration, anti-cheat, ranked/skill-based matchmaking.
 

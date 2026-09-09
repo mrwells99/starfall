@@ -15,7 +15,7 @@ Design values (GCD, DR factors, healing formula, controls speeds) live in [`GAME
 | Main project | `project.godot` |
 | Main scene | `arena.tscn` |
 | Root node | `Arena` (`Node3D`) with `scripts/arena.gd` attached |
-| Renderer | OpenGL compatibility (`gl_compatibility`) |
+| Renderer | Forward+ High default; Compatibility available (`docs/FORWARD_PLUS_ASSESSMENT.md`) |
 | Reference viewport | 1280 × 800 base; canvas-items stretch, **expand** aspect |
 | Window | Launches borderless fullscreen (`window/size/mode=3`) at the monitor's resolution |
 | Networking | ENet. Queues on UDP 27840 (duel) / 27841 (3v3); private lobby pool on 27850–27853. Ports live in `scripts/config.gd`. |
@@ -31,6 +31,10 @@ Recommended reading order for a new developer: `kits.gd` → `combatant.gd` → 
 | `arena.tscn` | Minimal root scene; most content built at runtime |
 | `scripts/arena.gd` | Match lifecycle, local input, camera, GUI, target selection, authoritative combat, bots, networking, dedicated mode. **~1,300 lines — flagged for extraction in [`ROADMAP.md`](ROADMAP.md).** |
 | `scripts/arena_world.gd` | Floor, grid, pillars, walls, lighting. Parent of `arena.gd`. |
+| `scripts/sanctum_corner.gd` | Arena-wide reversible material overrides, opposing wall shrines, warm lights and one reflection probe. No collision. |
+| `scripts/sanctum_graphics.gd` | Default High environment profile, gated on the actual Forward+ renderer after fallback; `--sanctum-base` opts out. |
+| `scenes/sanctum_corner_preview.tscn` | Interactive corner/lighting A/B viewer with four cameras, orbit and zoom. |
+| `tools/sanctum_corner_review.gd`, `tools/renderer_probe.gd` | Real-rendered art checks and native-GPU static/active-combat measurements. Headless is rejected for renderer validation. |
 | `scripts/combatant.gd` | `CharacterBody3D` fighter — state, generated appearance, snapshot pack/apply. |
 | `scripts/champion_model.gd` | Dispatches Ember, Vanguard and Luminary to their imported Blender models and preserves procedural art for the fallback. Collision stays on the parent fighter. |
 | `scripts/vanguard_authored.gd` | Imported hammer warrior, directional clips, confirmed-hit Strike, shield/recoil presentation; see `VANGUARD_REBUILD_BRIEF.md`. |
@@ -42,7 +46,12 @@ Recommended reading order for a new developer: `kits.gd` → `combatant.gd` → 
 | `scripts/ability_tooltip.gd` | Passive tooltip panel — wrapping text, cached content, viewport placement. |
 | `scripts/arena_navigation.gd` | Inflated-obstacle AStarGrid2D pathfinding. |
 | `scripts/config.gd` | Deploy-time constants — `SERVER_ADDRESS`, `SERVER_PORT`, `VERSION`, defaults. Deploy pipeline rewrites this per release. |
+| `scripts/key_bindings.gd` | Rebindable primary/secondary keys for movement, targeting, duels and every action-bar slot; conflict-swap, reserved-key guard, save/load. |
+| `scripts/keybind_menu.gd` | Modal panel reached from Settings → Keybinds. Search, per-row clear, reset-all, capture-then-press key rebinding. |
+| `scripts/movement_prediction.gd` | Client-side movement prediction and reconciliation against snapshots. Movement-only; combat stays server-authoritative. |
 | `tests/combat_test.gd` | Deterministic combat, navigation, snapshot checks. |
+| `tests/movement_bindings_test.gd` | Prediction, reconciliation, and full keybind menu (search, conflict swap, reserved keys, round-trip save). |
+| `tools/keybind_review.gd` | Renders `artifacts/keybind-menu.png` / `keybind-bars.png` for the keybind UI. |
 | `tests/ui_test.gd` | Real-window mouse/key routing, frame clicks, tooltip content and bounds. |
 | `tests/network_peer.gd` + `run_network.py` | Two-process ENet duel. |
 | `tests/six_peer.gd` + `run_six.py` | Host + 5 clients (3v3). |
@@ -178,12 +187,13 @@ A lobby process runs `--dedicated --lobby --port=N` and idles with `private_lobb
 ### Input and snapshots
 
 - Host-owned input applied every physics tick.
-- Remote input at 30 Hz; snapshots at 20 Hz.
+- Remote input every physics tick; snapshots at 20 Hz. `Input.use_accumulated_input = false` so a keydown is visible the same tick it arrived.
 - Input older than 0.3 s zeros intent — prevents endless movement if a client stops sending.
 - Jump is a one-packet bool on the unreliable stream (loss can miss a jump; not hardened).
 - Snapshots: `var_to_bytes()` + `FileAccess.COMPRESSION_DEFLATE`, decoded with matching dynamic decompression capped at 65536 bytes. **Do not switch to FASTLZ** — see [`DECISIONS.md`](DECISIONS.md).
 - Clients ignore mismatched epoch, older-or-equal sequence, and periodic snapshots after results.
-- Client bodies interpolate `net_position` / `net_yaw` with `delta * 22` capped at 1. **No prediction, no reconciliation, no lag compensation.** See [`ROADMAP.md`](ROADMAP.md).
+- Remote actors (everyone except the local player) interpolate `net_position` / `net_yaw` with `delta * 22` capped at 1.
+- **Local movement is client-predicted.** `scripts/movement_prediction.gd` runs `apply_input` + `simulate_movement` on the local actor the same tick the key is pressed, then buffers the command. Each snapshot carries `move_ack` (last simulated input seq), `velocity`, and `motion_revision` (bumped by teleport / knockback / swap). Reconcile snaps to server state, replays unacknowledged history, and skips the correction when sub-frame error is under 0.12 m and no collision separates old and new positions. `motion_revision` mismatch forces a hard resync so ability displacements are never overwritten. Prediction is scoped to movement only — HP, cooldowns, casts, CC and abilities remain server-authoritative; combat still resolves on the host.
 
 ### Client validation (server-side)
 
@@ -365,3 +375,29 @@ The UI test **rejects `--headless`** — cursor APIs are not faithfully emulated
 ## Class mechanics (0.6.0)
 
 `class_mechanics.gd` owns class-specific validation, resolution, timed effects, damage interception, bot priorities, and state-driven field visuals. It is called by the authoritative arena pipeline. `Combatant.identity` holds bounded resources, per-caster brands/stars, anchor state, ground fields and defensive timers; snapshots deep-copy it and include cast targets for telegraphs. `auras.gd` derives status icons from these values. `tests/class_identity_test.gd` validates mechanics, terrain/duel restrictions, icons, second-bar access and snapshot round-trips. `tools/class_reference.gd` regenerates the current ability reference.
+
+
+### World social UI and presentation timing (0.8.0)
+
+`session_social.gd` builds the session chat and world-only challenge/accept/decline controls. Arena RPCs own validated chat relay, duel-state replication, and reliable epoch-checked world despawning. Chat uses channel 4, literal text, 240-character messages, a 750ms per-peer interval, and 100 client-side lines. The opening key uses the shared keybind system. Input polling and hotkeys are blocked while the entry has focus.
+
+World actor IDs increase throughout the world epoch, and actors use individual combat sides. Departures delete their actor, offers, pairing, respawn entry and dangling selections. Arena matches retain bot takeover. Late joins add missing actors instead of rebuilding everyone; existing prediction and camera state survive. Version 0.8.0 requires matching client/server builds because the RPC surface changed.
+
+Physics interpolation is enabled for combatants and the target ring. The camera pivot opts out and follows the actor's interpolated global position each rendered frame; mouse rotation stays immediate. Simulation and prediction remain on physics ticks. Spawn, forced movement, swap and respawn reset interpolation to prevent streaks. This follows [Godot's camera interpolation guidance](https://docs.godotengine.org/en/4.5/tutorials/physics/interpolation/advanced_physics_interpolation.html). Frame-animated scenery opts out via the arena root.
+
+Regression coverage: `social_test.gd`, `run_social.py` (two actual ENet clients: invitation, acceptance, chat, late join without rebuild, disconnect despawn), `camera_interpolation_test.gd` (render updates between deliberately slow physics ticks), and the CC drag/save checks in `ui_test.gd`. Existing movement/latency, combat and class tests remain relevant.
+
+
+### Fulcrum Meditation and DoTs (0.9.0)
+
+Combatant identity now replicates `meditation`, `instant_graviton` and victim-owned `dots`, keyed by source actor. Graviton refreshes its own eight-second effect while preserving the next one-second tick; each valid tick deals 2 damage and grants 5 Meditation, capped at 100. DoTs stop on source loss, death, expiry, invalid world pairing or a completed DPS Mend. Periodic resource credit happens before damage so duel-end identity resets win. Ground hazards are not attached DoTs and remain active after Mend. Mend always restores up to 28 missing HP, bypassing time-based dampening. Other healing only dampens in arena matches, never in persistent worlds.
+
+Collapse samples Meditation on resolution: at 75+ it applies a three-second stun, otherwise its existing root; it consumes the anchor, not Meditation. Any hit grants one non-stacking instant Graviton with a flashing icon and no expiry timer, consumed on successful resolution through the normal GCD/validation path. Starfall requires 50+, casts for two seconds and spends all Meditation on resolution for 20 + 0.4 per point; cancelled or invalid casts retain the resource.
+
+`Kits.KIT_SIZE` is now the maximum thirteen. Other kits remain twelve; `kit_slot` masks unavailable indices while retaining the shared saved assignment, enabling class switching. Fulcrum's new default is Shift+6. Ability art lookup accepts optional champion context to distinguish the two Starfalls. Anchor LOS exemptions cover caster-to-anchor, caster-to-target and anchor-to-target/area checks, while placement, travel collision, range, facing and world permissions still apply. `fulcrum_meditation_test.gd` covers the combo, DoT cadence, cleanse timing, LOS and collision, replication and the extra illustrated slot.
+
+### Compatibility gate before RPC dispatch (0.9.1)
+
+`network_handshake.gd` configures SceneMultiplayer authentication before connecting or hosting. The server sends a bounded JSON hello; the client replies only after checking game ID, handshake protocol, version and an RPC schema fingerprint. The fingerprint uses compiled script RPC metadata and argument/return types, including inherited scripts, so it works in tokenized exports and catches same-version RPC table changes. Gameplay RPCs are not admitted until both peers complete authentication. Legacy servers time out with an update/restart message without being sent an unfamiliar auth payload. The old version argument remains a secondary check after authentication.
+
+This fixes a specific failure in the earlier build: its six-argument `receive_snapshot` occupied RPC slot 11, which became the new build's one-argument `ping_host`. A version check implemented as an ordinary scene RPC could itself be misrouted. Both running processes still need to restart onto matching builds; this gate cannot upgrade an already running server. See [Godot SceneMultiplayer authentication](https://docs.godotengine.org/en/4.5/classes/class_scenemultiplayer.html). `tests/run_handshake.py` verifies different versions, different RPC tables at the same version, and a server without the gate; existing world, network and lobby suites cover compatible connections.
