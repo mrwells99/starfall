@@ -77,7 +77,9 @@ jobs:
         run: python3 tests/check_references.py
 
       - name: Parse check
-        run: godot --headless --path . --check-only --script scripts/arena.gd
+        run: |
+          godot --headless --path . --check-only --script scripts/arena.gd
+          godot --headless --path . --check-only --script tests/network_peer.gd
 
       - name: Combat integration
         run: ./tests/check_suite.sh "Combat checks" godot --headless --path . --script tests/combat_test.gd
@@ -89,6 +91,7 @@ jobs:
           python3 tests/run_network.py
           python3 tests/run_network.py --test-team
           python3 tests/run_network.py --test-latency
+          python3 tests/run_network.py --test-movement --test-latency
           python3 tests/run_six.py
           python3 tests/run_dedicated.py
           python3 tests/run_lobby.py
