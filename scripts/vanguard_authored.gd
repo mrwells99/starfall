@@ -1,6 +1,7 @@
 extends RefCounted
 # Blender-authored Vanguard presentation. Combat and collision remain on the actor.
 const ASSET = preload("res://assets/characters/vanguard.glb")
+const StrikeFX = preload("res://scripts/vanguard_strike.gd")
 var model: Node3D
 var player: AnimationPlayer
 var skeleton: Skeleton3D
@@ -44,12 +45,16 @@ func build(host: Node3D, team_color: Color) -> void:
      material.cull_mode = BaseMaterial3D.CULL_DISABLED
      if "TeamInlay" in material.resource_name:
       material.albedo_color = team_color.darkened(.58)
-     child.set_surface_override_material(surface, material)
      materials.append(material)
      base_colors.append(material.albedo_color)
      base_emissions.append(material.emission)
-     base_emission_energy.append(material.emission_energy_multiplier)
+     base_emission_energy.append(material.emission_energy_multiplier if material.emission_enabled else 0.0)
      base_emission_enabled.append(material.emission_enabled)
+     # Keep shader features fixed. Toggling emission on impacts recompiles
+     # pipelines; zero energy preserves the appearance of non-emissive armour.
+     material.emission_enabled = true
+     material.emission_energy_multiplier = base_emission_energy[-1]
+     child.set_surface_override_material(surface, material)
  assert(player != null and skeleton != null, "Vanguard requires its imported skeleton and animations")
  for animation_name in player.get_animation_list():
   var short_name: String = String(animation_name).get_slice("/", String(animation_name).count("/"))
@@ -63,6 +68,7 @@ func build(host: Node3D, team_color: Color) -> void:
  pulse = make_ring(host, team_color, .55)
  ward.visible = false
  pulse.visible = false
+ StrikeFX.prewarm(host)
 
 func make_ring(host: Node3D, color: Color, radius: float) -> MeshInstance3D:
  var ring := MeshInstance3D.new()
@@ -136,7 +142,6 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
   for i in materials.size():
    materials[i].albedo_color = Color.WHITE if actor.flash > 0 else (base_colors[i] if alive else base_colors[i].lerp(Color("333744"), 0.7))
    # Texture-backed albedo is already white; add light so impact flashes remain visible.
-   materials[i].emission_enabled = actor.flash > 0 or base_emission_enabled[i]
    materials[i].emission = Color.WHITE if actor.flash > 0 else base_emissions[i]
    materials[i].emission_energy_multiplier = 2.0 if actor.flash > 0 else base_emission_energy[i] * (1.0 if alive else .15)
 
