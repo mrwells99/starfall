@@ -17,6 +17,10 @@ func build() -> bool:
 			var lights := visuals.get_node_or_null("BakeLights")
 			if lights != null:
 				lights.free()
+			# These authored resources carry index-only LODs generated offline.
+			# Select cheaper distant detail without changing collision or the bake.
+			for mesh in visuals.find_children("*", "MeshInstance3D", true, false):
+				mesh.lod_bias = 0.5
 			add_child(visuals)
 			var corner = load("res://scripts/sanctum_corner.gd").new()
 			add_child(corner)

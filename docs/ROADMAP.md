@@ -1,5 +1,12 @@
 # Roadmap — development priorities
 
+- [x] Further arena rendering optimization: offline detail levels and zero-contribution shader work removed; native six-player before/after GPU samples recorded (2026-09-09). Lower-end hardware testing remains open.
+
+## Immediate owner priority — 2026-09-09
+
+Retest the reported RTX 5060 Ti lag with 0.11.0's Balanced graphics, explicit frame limit, resolution controls, and FPS readout. Record actual resolution, FPS, mode and whether stutter remains before claiming a performance fix. No uncontended local GPU benchmark was possible. Menu/ability-availability/rematch items 1/3/5 in `POLISH_CHECKLIST.md` are now implemented and locally validated. Audio is assigned to the owner's sound-engineer friend, not agent work. The older deployment/feature priorities below contain historical entries; current source and `CONTEXT.md` supersede their completed-feature descriptions.
+
+
 _Practical, current, and small. This is not a speculative feature list — new items need a real motivation. Last updated 2026-09-07._
 
 ## Current milestone

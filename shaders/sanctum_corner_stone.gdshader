@@ -69,8 +69,13 @@ void fragment() {
 	float mineral = smoothstep(0.34, 0.75, broad * 0.76 + broken * 0.24);
 
 	// Long, interrupted vertical mineral streaks; never a black crack network.
-	float channels = mineral_noise(world_position * vec3(3.7, 0.16, 3.7) + vec3(5.6, 1.1, 8.3));
-	float runoff = smoothstep(0.52, 0.81, channels) * mix(0.4, 1.0, broad) * vertical_face;
+	// Flat floor faces have no runoff. Skip the third 3D noise evaluation
+	// there; this branch preserves the exact zero used by the original formula.
+	float runoff = 0.0;
+	if (vertical_face > 0.0) {
+		float channels = mineral_noise(world_position * vec3(3.7, 0.16, 3.7) + vec3(5.6, 1.1, 8.3));
+		runoff = smoothstep(0.52, 0.81, channels) * mix(0.4, 1.0, broad) * vertical_face;
+	}
 	float lower_band = (1.0 - smoothstep(0.08, 1.05, world_position.y - weather_base_height))
 		* smoothstep(0.20, 0.66, broken) * vertical_face;
 	float settled_dust = upper_face * smoothstep(0.26, 0.76, broad);

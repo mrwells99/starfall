@@ -1,0 +1,138 @@
+{
+	"Cover/Basalt_geometry.res": {
+		"base_sha256": "cb217c03eb0b9645dfb2555853e6bdb6413bac9ffbb252c3d340c982832232ef",
+		"lightmap_hint": [
+			128,
+			128
+		],
+		"lod_count": 3
+	},
+	"Cover/Bronze_geometry.res": {
+		"base_sha256": "b928ed67f9ec9018734534313ca0df70e4e58b8e75f4f0eb0771d3472c8cd215",
+		"lightmap_hint": [
+			48,
+			48
+		],
+		"lod_count": 3
+	},
+	"Cover/EdgeStone_geometry.res": {
+		"base_sha256": "8c42b5f908d4586a3c6ba2b33a1775db92d4e87c516f8bb5ee13f773dea2209f",
+		"lightmap_hint": [
+			128,
+			128
+		],
+		"lod_count": 3
+	},
+	"Cover/Inlay_geometry.res": {
+		"base_sha256": "85a001fd7524a9641f29163ddef7c2e006606c4369c9b88e20acdb38ea8ac421",
+		"lightmap_hint": [
+			32,
+			32
+		],
+		"lod_count": 4
+	},
+	"Cover/Recess_geometry.res": {
+		"base_sha256": "485ca09812fdeb38e78cf72cf91eb5dcff6a2ecdadf4fd59f8bb58ff333c343e",
+		"lightmap_hint": [
+			32,
+			32
+		],
+		"lod_count": 3
+	},
+	"Floor/Bronze_geometry.res": {
+		"base_sha256": "3d9e4a4957f9006bfc1e4bf9d4d1ec4863150bf175cde88eb22b1f291fd4d6de",
+		"lightmap_hint": [
+			48,
+			48
+		],
+		"lod_count": 3
+	},
+	"Floor/Floor_geometry.res": {
+		"base_sha256": "7d3c899a77b0410906b4e21229ae438d790b2c647ca005eacdd9f594f7ea6925",
+		"lightmap_hint": [
+			128,
+			128
+		],
+		"lod_count": 3
+	},
+	"Floor/Recess_geometry.res": {
+		"base_sha256": "eb0a6f58adcac0541292ebf7d19445ac88f2c2bc6711601b499d6ad289ff38ac",
+		"lightmap_hint": [
+			32,
+			32
+		],
+		"lod_count": 0
+	},
+	"Perimeter/Basalt_geometry.res": {
+		"base_sha256": "1a80994a2e810cad78746701015db91a3c1125cbd02c0dd0a0fc8d305d4f9c79",
+		"lightmap_hint": [
+			64,
+			64
+		],
+		"lod_count": 3
+	},
+	"Perimeter/Bronze_geometry_001.res": {
+		"base_sha256": "32a593fe21e7307f24ae79e6d2e1270ed1d6a7a7ed1aeaea92f7d28ecc353626",
+		"lightmap_hint": [
+			48,
+			48
+		],
+		"lod_count": 3
+	},
+	"Perimeter/EdgeStone_geometry.res": {
+		"base_sha256": "b098a32c0a742fb975db2329fbcaefe1bbf0cbf085f12f6fa13a8c1b51b923b5",
+		"lightmap_hint": [
+			64,
+			64
+		],
+		"lod_count": 3
+	},
+	"Perimeter/Inlay_geometry.res": {
+		"base_sha256": "8dfca273ab34fd1dabf16801ed6ea8577e914af716a49e4489628315d6e5b1dd",
+		"lightmap_hint": [
+			32,
+			32
+		],
+		"lod_count": 3
+	},
+	"Perimeter/Recess_geometry_001.res": {
+		"base_sha256": "57f55b885d4fcebebb224f1cf19db4ec19bd97a222f25d4710441805d86e8e79",
+		"lightmap_hint": [
+			32,
+			32
+		],
+		"lod_count": 2
+	},
+	"Terrace/Basalt_geometry_001.res": {
+		"base_sha256": "5cac7070b67bbedc8fd7da1c65593db4743586f531218b7af6bc684b7058f126",
+		"lightmap_hint": [
+			128,
+			128
+		],
+		"lod_count": 3
+	},
+	"Terrace/Bronze_geometry_002.res": {
+		"base_sha256": "cb9a537b04f430adc95e23192442c5130f1a47b13662d6e3a43f708fe7467e74",
+		"lightmap_hint": [
+			48,
+			48
+		],
+		"lod_count": 3
+	},
+	"Terrace/EdgeStone_geometry_001.res": {
+		"base_sha256": "15b61f6c5b98186917801f99d476b17356bfcce9b012a6b34614e3e4fddabe74",
+		"lightmap_hint": [
+			128,
+			128
+		],
+		"lod_count": 3
+	},
+	"Terrace/Terrace_geometry.res": {
+		"base_sha256": "889a633c6143311264c1aacd52d5da3c7c295cba601249bd1fc423350fff74bb",
+		"lightmap_hint": [
+			128,
+			128
+		],
+		"lod_count": 3
+	}
+}

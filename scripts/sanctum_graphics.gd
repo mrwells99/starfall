@@ -34,3 +34,21 @@ static func apply(root: Node, high: bool) -> bool:
 	sky_material.set_shader_parameter("backdrop_saturation", 0.78 if enabled else 1.0)
 	root.get_viewport().msaa_3d = Viewport.MSAA_2X if enabled else Viewport.MSAA_DISABLED
 	return enabled
+
+# Balanced retains the authored map, palette, bloom, contact shading and 2x AA.
+# Static baked lighting already supplies indirect light: the extra screen-space
+# bounce and volumetric pass are optional High effects, not gameplay lighting.
+static func apply_profile(root: Node, preset: String) -> void:
+	var forward := apply(root, true)
+	var world := root.find_child("CosmicEnvironment", true, false) as WorldEnvironment
+	if world == null:
+		return
+	var high := preset == "High"
+	var lean := preset == "Performance"
+	world.environment.ssil_enabled = forward and high
+	world.environment.volumetric_fog_enabled = forward and high
+	world.environment.ssao_enabled = forward and not lean
+	root.get_viewport().msaa_3d = Viewport.MSAA_DISABLED if lean else Viewport.MSAA_2X
+	root.get_viewport().screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA if lean else Viewport.SCREEN_SPACE_AA_DISABLED
+	for node in root.find_children("ShrineVotives", "OmniLight3D", true, false):
+		node.shadow_enabled = high

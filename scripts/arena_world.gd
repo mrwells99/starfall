@@ -140,7 +140,9 @@ func build_arena() -> void:
 	_art.add_child(atmosphere)
 	atmosphere.build()
 	if not OS.get_cmdline_user_args().has("--sanctum-base") and not OS.get_cmdline_user_args().has("--sanctum-original"):
-		load("res://scripts/sanctum_graphics.gd").apply(_art, true)
+		var preferences = load("res://scripts/user_config.gd").new()
+		preferences.load_config()
+		preferences.apply_graphics(_art)
 
 func _build_floor() -> void:
 	_geo.block(_dark_stone, Vector3(0, -0.23, 0), Vector3(36, 0.4, 36))

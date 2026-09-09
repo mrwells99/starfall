@@ -77,3 +77,31 @@ static func available_resolutions() -> Array:
 	if out.is_empty():
 		out.append(Vector2i(1280, 720))
 	return out
+
+# Explicit client budgets; server physics/snapshot rates are independent.
+const FRAME_LIMITS := [60, 90, 120, 144, 165, 240]
+const GRAPHICS_PRESETS := ["Balanced", "High", "Performance"]
+const RENDER_SCALES := [1.0, 0.85, 0.75, 0.67]
+
+func graphics_preset() -> String:
+	var preset := str(get_value("graphics", "preset", "Balanced"))
+	return preset if preset in GRAPHICS_PRESETS else "Balanced"
+
+func frame_limit() -> int:
+	var limit := int(get_value("graphics", "frame_limit", 60))
+	return limit if limit in FRAME_LIMITS else 60
+
+func render_scale() -> float:
+	var scale := float(get_value("graphics", "render_scale", 1.0))
+	return scale if scale in RENDER_SCALES else 1.0
+
+func frame_budget(phase: String, focused: bool) -> int:
+	if not focused:
+		return 15
+	return frame_limit() if phase in ["match", "countdown"] else 30
+
+func apply_graphics(root: Node) -> void:
+	var flags := OS.get_cmdline_user_args()
+	if not flags.has("--sanctum-base") and not flags.has("--sanctum-original"):
+		preload("res://scripts/sanctum_graphics.gd").apply_profile(root, "High" if flags.has("--sanctum-high") else graphics_preset())
+	root.get_viewport().scaling_3d_scale = render_scale()

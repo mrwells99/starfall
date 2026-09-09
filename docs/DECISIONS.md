@@ -1,5 +1,14 @@
 # Decisions — long-term reasoning memory
 
+## 2026-09-09 — Reduce rendering work without lowering native resolution
+
+Keep the owner’s 60 FPS/100% 3D defaults and audio exclusion. Generate arena LODs offline while retaining packed base geometry and baked-lighting UVs. Skip floor noise only when its multiplier is exactly zero. Reject position-only shadow meshes after native visual review found changed shadows. Isolated short six-player tests measured ~3.5% less GPU time on the RX 7800 XT at 1080p; this is an incremental saving, not a utilization target or minimum-spec guarantee. See `FORWARD_PLUS_ASSESSMENT.md`.
+
+## 2026-09-09 — Performance budgets before further polish; audio owner
+
+The owner prioritized a friend's RTX 5060 Ti lag report over menu/ability/rematch polish. Use a 60 FPS gameplay default (player-selectable), 30 FPS outside rounds, and 15 FPS while unfocused. Keep 60 Hz simulation independent. Balanced graphics replaces automatic High: keep the approved assets and primary visual treatment, make SSIL/volumetric fog/shrine shadows optional, and expose the previous treatment as High. Render scale defaults to native; players may reduce 3D resolution without reducing HUD resolution. This supersedes the previous High-by-default decision. These mitigations do not establish the cause of the friend's lag or certify target-hardware performance. Audio belongs to the owner's sound-engineer friend and is outside agent implementation scope.
+
+
 _Meaningful decisions that future agents should not silently reverse. Trivial implementation choices don't belong here. Each entry: what was decided, why, alternatives considered, consequences._
 
 Newest first.

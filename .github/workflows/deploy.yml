@@ -81,8 +81,14 @@ jobs:
           godot --headless --path . --check-only --script scripts/arena.gd
           godot --headless --path . --check-only --script tests/network_peer.gd
 
+      - name: Arena mesh integrity
+        run: ./tests/check_suite.sh "Arena LOD checks" godot --headless --path . --script tests/arena_lod_test.gd
+
       - name: Combat integration
         run: ./tests/check_suite.sh "Combat checks" godot --headless --path . --script tests/combat_test.gd
+
+      - name: Menu, availability, rematch and frame-budget checks
+        run: ./tests/check_suite.sh "Polish checks" godot --headless --path . --script tests/polish_test.gd
 
       # These bind fixed UDP ports and must not overlap — hence one step, in order.
       - name: Networked suites (sequential)
@@ -94,6 +100,7 @@ jobs:
           python3 tests/run_network.py --test-movement --test-latency
           python3 tests/run_six.py
           python3 tests/run_dedicated.py
+          python3 tests/run_polish.py
           python3 tests/run_lobby.py
           python3 tests/run_world.py
           ./tests/check_suite.sh "World checks" godot --headless --path . --script tests/world_test.gd
