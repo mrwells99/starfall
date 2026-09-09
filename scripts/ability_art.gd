@@ -26,6 +26,7 @@ const PATHS := {
 	"Starfall": "res://assets/icons/abilities/starfall.png",
 	"Fulcrum/Starfall": "res://assets/icons/abilities/fulcrum_starfall.png",
 	"Graviton": "res://assets/icons/abilities/graviton.png",
+	"Entropy": "res://assets/icons/abilities/entropy.png",
 	"Inward": "res://assets/icons/abilities/inward.png",
 	"Horizon": "res://assets/icons/abilities/horizon.png",
 	"Anchor": "res://assets/icons/abilities/anchor.png",

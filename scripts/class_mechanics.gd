@@ -47,9 +47,9 @@ static func validate(game, a, spell: Dictionary, b) -> String:
 	if spell.kind in ["inward", "outward", "orbit", "collapse"]:
 		if s.anchor_left <= 0:
 			return "Place a Gravity Anchor first (Shift+1)"
-		if a.position.distance_to(s.anchor_pos) > 28:
+		if a.position.distance_to(s.anchor_pos) > a.Kits.MAX_CAST_RANGE:
 			return "Anchor out of range"
-		if spell.kind in ["inward", "outward"] and b.position.distance_to(s.anchor_pos) > 28:
+		if spell.kind in ["inward", "outward"] and b.position.distance_to(s.anchor_pos) > a.Kits.MAX_CAST_RANGE:
 			return "Target out of anchor range"
 	return ""
 
@@ -95,11 +95,16 @@ static func resolve(game, a, spell: Dictionary, b) -> bool:
 			game.damage(a, b, spell.power)
 			if b.hp > 0 and game.may_harm(a, b):
 				var previous: Dictionary = b.identity.dots.get(a.actor_id, {})
-				b.identity.dots[a.actor_id] = {"left": 8.0, "tick": previous.get("tick", 1.0)}
+				b.identity.dots[a.actor_id] = {"left": 11.0, "tick": previous.get("tick", 1.0), "stacks": mini(2, int(previous.get("stacks", 0)) + 1)}
+		"entropy":
+			if b.hp > 0 and game.may_harm(a, b):
+				var previous: Dictionary = b.identity.entropy_dots.get(a.actor_id, {})
+				b.identity.entropy_dots[a.actor_id] = {"left": 15.0, "tick": previous.get("tick", 1.0)}
 		"gravity_starfall":
 			var power: float = spell.power + s.meditation * 0.4
 			s.meditation = 0.0
-			game.damage(a, b, power)
+			for other in enemies(game, a, b.position, a.Kits.STARFALL_RADIUS):
+				game.damage(a, other, power)
 		"kindle":
 			game.damage(a, b, spell.power)
 			s.heat = minf(100, s.heat + 20)
@@ -176,7 +181,7 @@ static func resolve(game, a, spell: Dictionary, b) -> bool:
 			heal(game, a, b, 27)
 			if star_count(a, b.actor_id) > 0:
 				for other in game.actors.values():
-					if other != b and other.team == a.team and star_count(a, other.actor_id) > 0 and a.position.distance_to(other.position) <= 28 and game.has_los(a, other):
+					if other != b and other.team == a.team and star_count(a, other.actor_id) > 0 and a.position.distance_to(other.position) <= a.Kits.MAX_CAST_RANGE and game.has_los(a, other):
 						heal(game, a, other, 9)
 						break
 		"absolution":
@@ -197,7 +202,7 @@ static func resolve(game, a, spell: Dictionary, b) -> bool:
 		"starfall":
 			game.damage(a, b, 16)
 			for other in game.actors.values():
-				if other.team == a.team and star_count(a, other.actor_id) > 0 and a.position.distance_to(other.position) <= 28 and game.has_los(a, other):
+				if other.team == a.team and star_count(a, other.actor_id) > 0 and a.position.distance_to(other.position) <= a.Kits.MAX_CAST_RANGE and game.has_los(a, other):
 					heal(game, a, other, 8 * star_count(a, other.actor_id))
 		"anchor":
 			# Sweep a sphere at foot height, then project onto actual ground.
@@ -217,6 +222,10 @@ static func resolve(game, a, spell: Dictionary, b) -> bool:
 			s.anchor_left = 20.0
 			s.orbit = 0.0
 		"inward", "outward":
+			if not game.may_harm(a, b):
+				return true
+			if spell.kind == "inward":
+				s.instant_collapse = true
 			var offset: Vector3 = s.anchor_pos - b.position
 			offset.y = 0
 			if spell.kind == "outward":
@@ -235,6 +244,7 @@ static func resolve(game, a, spell: Dictionary, b) -> bool:
 			a.reset_physics_interpolation()
 			b.reset_physics_interpolation()
 		"collapse":
+			s.instant_collapse = false
 			var empowered: bool = s.meditation >= 75
 			var targets := enemies(game, a, s.anchor_pos, 6, false)
 			if not targets.is_empty():
@@ -254,23 +264,12 @@ static func tick(game, a, delta: float) -> void:
 	if a.hp <= 0:
 		a.reset_identity()
 		return
-	# Attached DoTs live on their victim, so Mend removes every caster's effect.
-	for source_id in s.dots.keys():
-		var source = game.actors.get(source_id)
-		if source == null or source.hp <= 0 or not game.may_harm(source, a):
-			s.dots.erase(source_id)
-			continue
-		var dot: Dictionary = s.dots[source_id]
-		var active_delta := minf(delta, dot.left)
-		dot.left -= delta
-		dot.tick -= active_delta
-		while dot.tick <= 0.00001 and a.hp > 0 and game.may_harm(source, a):
-			dot.tick += 1.0
-			source.identity.meditation = minf(100, source.identity.meditation + 5)
-			game.damage(source, a, 2.0)
-		# Lethal damage can reset identity when a world duel ends.
-		if a.hp <= 0 or dot.left <= 0:
-			s.dots.erase(source_id)
+	# Each family is attached to the victim; both can coexist and Mend clears both.
+	tick_dots(game, a, s.dots, delta, 3.0, 0.0)
+	tick_dots(game, a, a.identity.entropy_dots, delta, 2.0, 5.0)
+	s = a.identity
+	if a.hp <= 0:
+		return
 	for field in ["anchor_left", "orbit", "root", "slow", "immune", "last", "hold", "guard_left", "challenge_left", "challenge_tick", "exposed_left", "wake", "wake_tick"]:
 		s[field] = maxf(0, s[field] - delta)
 	for id in s.brands.keys():
@@ -300,6 +299,24 @@ static func tick(game, a, delta: float) -> void:
 				if pulse:
 					game.damage(a, b, 4)
 
+static func tick_dots(game, a, dots: Dictionary, delta: float, tick_damage: float, meditation: float) -> void:
+	for source_id in dots.keys():
+		var source = game.actors.get(source_id)
+		if source == null or source.hp <= 0 or not game.may_harm(source, a):
+			dots.erase(source_id)
+			continue
+		var dot: Dictionary = dots[source_id]
+		var active_delta := minf(delta, dot.left)
+		dot.left -= delta
+		dot.tick -= active_delta
+		while dot.tick <= 0.00001 and a.hp > 0 and game.may_harm(source, a):
+			dot.tick += 1.0
+			source.identity.meditation = minf(100, source.identity.meditation + meditation)
+			game.damage(source, a, tick_damage * int(dot.get("stacks", 1)))
+		# Lethal damage can reset identity when a world duel ends.
+		if a.hp <= 0 or dot.left <= 0:
+			dots.erase(source_id)
+
 static func before_damage(game, source, victim, amount: float) -> float:
 	if victim.identity.disorient:
 		victim.stunned = 0.0
@@ -311,7 +328,7 @@ static func before_damage(game, source, victim, amount: float) -> float:
 		if s.challenge_left > 0 and s.challenge == source.actor_id and a != victim and s.challenge_tick <= 0:
 			s.resolve = minf(100, s.resolve + 15)
 			s.challenge_tick = 1.0
-		if a != victim and s.guard_left > 0 and s.guard == victim.actor_id and s.guard_budget > 0 and a.position.distance_to(victim.position) <= 28 and game.has_los(a, victim) and can_help(game, a, victim):
+		if a != victim and s.guard_left > 0 and s.guard == victim.actor_id and s.guard_budget > 0 and a.position.distance_to(victim.position) <= a.Kits.MAX_CAST_RANGE and game.has_los(a, victim) and can_help(game, a, victim):
 			var redirected: float = minf(s.guard_budget, amount * 0.3)
 			s.guard_budget -= redirected
 			s.resolve = minf(100, s.resolve + redirected)
@@ -331,6 +348,10 @@ static func before_damage(game, source, victim, amount: float) -> float:
 static func bot(game, a, foe, ally) -> bool:
 	var s: Dictionary = a.identity
 	if a.champion == "Fulcrum":
+		if not foe.identity.entropy_dots.has(a.actor_id) and game.try_spell(a.actor_id, 13, foe.actor_id):
+			return true
+		if s.instant_collapse and s.anchor_left > 0 and game.try_spell(a.actor_id, 11, a.actor_id):
+			return true
 		if s.meditation >= 50 and (foe.stunned > 0 or s.meditation >= 95):
 			a.move_input = Vector2.ZERO
 			if game.try_spell(a.actor_id, 12, foe.actor_id):
@@ -408,6 +429,11 @@ static func paint(game) -> void:
 		if nova.visible:
 			nova.global_position = game.actors[a.cast_target].position + Vector3.UP * 0.1
 			nova.scale = Vector3(5, 0.15, 5)
+		var starfall := field_marker(a, "StarfallWarning", Color("bb88ff"))
+		starfall.visible = a.hp > 0 and a.casting >= 0 and a.kit[a.casting].kind == "gravity_starfall" and game.actors.has(a.cast_target)
+		if starfall.visible:
+			starfall.global_position = game.actors[a.cast_target].position + Vector3.UP * 0.1
+			starfall.scale = Vector3(a.Kits.STARFALL_RADIUS, 0.15, a.Kits.STARFALL_RADIUS)
 		var star_total := 0
 		var brand_total := 0
 		for owner in game.actors.values():
@@ -430,6 +456,8 @@ static func paint(game) -> void:
 				resource += "\nCOLLAPSE STUN READY"
 			if s.instant_graviton:
 				resource += "\nINSTANT GRAVITON"
+			if s.instant_collapse:
+				resource += "\nINSTANT COLLAPSE"
 		elif a.champion == "Luminary":
 			resource = "STARS %d/3" % s.stars.size()
 		if not resource.is_empty():

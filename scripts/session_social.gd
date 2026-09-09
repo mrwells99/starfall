@@ -22,14 +22,14 @@ func setup(arena) -> void:
 	chat.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
 	chat.offset_left = 18
 	chat.offset_right = 338
-	chat.offset_top = -460
-	chat.offset_bottom = -220
+	chat.offset_top = -178
+	chat.offset_bottom = -18
 	chat.add_theme_stylebox_override("panel", game.ui_box(Color(0.025, 0.035, 0.06, 0.78), game.UI_EDGE, 8))
 	var column := VBoxContainer.new()
 	chat.add_child(column)
 	chat_heading = game.add_label(column, "CHAT", 14)
 	log_view = RichTextLabel.new()
-	log_view.custom_minimum_size = Vector2(300, 142)
+	log_view.custom_minimum_size = Vector2(300, 76)
 	log_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	log_view.bbcode_enabled = false
 	log_view.scroll_following = true

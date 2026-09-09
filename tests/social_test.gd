@@ -27,7 +27,29 @@ func run() -> void:
 	arena.panel.hide()
 	arena.selected_id = 2
 	arena.social.refresh()
+	await process_frame
+	await process_frame
 	ck(arena.social.chat.get_global_rect().intersection(arena.ui.get_global_rect()).size == arena.social.chat.size, "Chat stays inside the viewport")
+	var chat_rect: Rect2 = arena.social.chat.get_global_rect()
+	ck(is_equal_approx(chat_rect.position.x, 18.0) and is_equal_approx(arena.ui.size.y - chat_rect.end.y, 18.0), "Chat occupies the bottom-left corner")
+	ck(chat_rect.size.y <= 160.0, "Chat leaves more vertical room for the arena")
+	ck(chat_rect.encloses(arena.social.entry.get_global_rect()) and chat_rect.encloses(arena.social.log_view.get_global_rect()), "Compact chat contains the message entry and scrolling history")
+	var original_ui_size: Vector2 = arena.ui.size
+	arena.ui.size = Vector2(1600, 1000)
+	await process_frame
+	ck(is_equal_approx(arena.ui.size.y - arena.social.chat.get_global_rect().end.y, 18.0), "Chat stays in its corner when the viewport grows")
+	arena.ui.size = original_ui_size
+	await process_frame
+	var enter := InputEventKey.new()
+	enter.keycode = KEY_ENTER
+	enter.physical_keycode = KEY_ENTER
+	enter.pressed = true
+	ck(arena.social.handle_input(enter) and arena.social.typing(), "Enter opens compact chat")
+	arena.social.entry.text = "unfinished message"
+	var escape := InputEventKey.new()
+	escape.keycode = KEY_ESCAPE
+	escape.pressed = true
+	ck(arena.social.handle_input(escape) and not arena.social.typing() and arena.social.entry.text.is_empty(), "Escape dismisses chat without sending a draft")
 	ck(arena.social.duel_panel.visible and not arena.social.challenge.disabled, "World target has an enabled duel button")
 	arena.social.challenge.pressed.emit()
 	ck(arena.duel_offers.get(2) == 1, "UI challenge reaches authority")

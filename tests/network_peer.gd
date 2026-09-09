@@ -39,6 +39,8 @@ func setup() -> void:
 		arena.mode_choice.select(1)
 	if is_host:
 		arena.host_session()
+		if arena.network and arena.phase == "lobby":
+			print("NETWORK TEST HOST READY: UDP %d" % arena.current_port)
 	else:
 		arena.address.text = "127.0.0.1"
 		arena.join_session()
@@ -48,7 +50,7 @@ func _process(delta: float) -> bool:
 		return false
 	clock += delta
 	if clock > 24:
-		push_error("Network test timeout: %s" % arena.phase)
+		push_error("Network test timeout: %s (%s)" % [arena.phase, arena.status])
 		quit(1)
 		return false
 	if is_host and arena.phase == "lobby" and arena.roster.size() == 2:
@@ -68,7 +70,11 @@ func _process(delta: float) -> bool:
 				for binding in [KEY_W, KEY_S, KEY_D]:
 					var event := InputEventKey.new()
 					event.physical_keycode = binding
-					event.pressed = (binding == KEY_W and match_clock < 0.2) or (binding == KEY_S and match_clock >= 0.2 and match_clock < 0.4) or (binding == KEY_D and match_clock >= 0.4 and match_clock < 0.6)
+					# Preserve the original immediate-response windows, then approach
+					# within the new spell range and jump before testing real combat.
+					var forward := match_clock < 0.2 or (match_clock >= 0.9 and match_clock < 1.68)
+					var backward := (match_clock >= 0.2 and match_clock < 0.4) or (match_clock >= 1.8 and match_clock < 2.0)
+					event.pressed = (binding == KEY_W and forward) or (binding == KEY_S and backward) or (binding == KEY_D and match_clock >= 0.4 and match_clock < 0.6)
 					Input.parse_input_event(event)
 				var body = arena.actors[arena.local_id]
 				var local_velocity: Vector3 = body.basis.inverse() * body.velocity
@@ -80,6 +86,24 @@ func _process(delta: float) -> bool:
 					movement_stages[2] = movement_stages[2] or local_velocity.x > 6
 				if match_clock > 0.64 and match_clock < 0.75:
 					movement_stages[3] = movement_stages[3] or Vector2(body.velocity.x, body.velocity.z).length() < 0.01
+				if match_clock >= 1.6 and not jump_sent:
+					takeoff_velocity = Vector2(body.velocity.x, body.velocity.z)
+					var jump := InputEventKey.new()
+					jump.physical_keycode = KEY_SPACE
+					jump.pressed = true
+					Input.parse_input_event(jump)
+					jump_sent = true
+				if jump_sent and match_clock > 1.68:
+					var release_jump := InputEventKey.new()
+					release_jump.physical_keycode = KEY_SPACE
+					Input.parse_input_event(release_jump)
+				var preserves_momentum: bool = not body.is_on_floor() and body.position.y > 0.3 and takeoff_velocity.length() > 6 and Vector2(body.velocity.x, body.velocity.z).distance_to(takeoff_velocity) < 0.05
+				if match_clock > 1.72 and match_clock < 1.79:
+					airborne_release_seen = airborne_release_seen or preserves_momentum
+				if match_clock > 1.85 and match_clock < 1.98:
+					airborne_reverse_seen = airborne_reverse_seen or preserves_momentum
+				if match_clock > 2.5 and match_clock < 2.9:
+					landed_stop_seen = landed_stop_seen or (body.is_on_floor() and Vector2(body.velocity.x, body.velocity.z).length() < 0.01)
 			else:
 				var key := InputEventKey.new()
 				key.physical_keycode = KEY_W
@@ -87,7 +111,8 @@ func _process(delta: float) -> bool:
 				Input.parse_input_event(key)
 			arena.selected_id = peer_target
 			action_timer -= delta
-			if action_timer <= 0 and match_clock > 1:
+			var combat_start := 2.6 if "--test-movement" in args else 1.0
+			if action_timer <= 0 and match_clock > combat_start:
 				action_timer = 2.0
 				if not extended_seen:
 					arena.send_action(10) # Shift+4: Stoke, beyond the original seven slots.
@@ -100,6 +125,8 @@ func _process(delta: float) -> bool:
 			damaged = damaged or arena.actors[peer_target].hp < 100
 		if is_host:
 			host_attacked = host_attacked or arena.actors[1].hp < 100 or arena.actors[peer_target].identity.brands.has(1)
+			var remote_body = arena.actors[peer_target]
+			host_airborne_reverse_seen = host_airborne_reverse_seen or (not remote_body.is_on_floor() and remote_body.position.y > 0.3 and remote_body.move_input.y > 0 and Vector2(remote_body.velocity.x, remote_body.velocity.z).length() > 6)
 		else:
 			identity_seen = identity_seen or actor.identity.heat > 0
 			extended_seen = extended_seen or actor.cooldowns[10] > 0
@@ -107,6 +134,8 @@ func _process(delta: float) -> bool:
 			var remote = arena.actors[peer_target]
 			verify(remote.position.distance_to(arena.spawn_position(remote.team, 0)) > 1, "Host simulated client movement")
 			verify(host_attacked, "Host applied client attack damage before healing")
+			if "--test-movement" in args:
+				verify(host_airborne_reverse_seen, "Host preserved takeoff speed despite airborne reverse input")
 			verify(arena.actors.size() == (6 if team_mode else 2), "Expected match size")
 			phase_two = true
 			arena.hold_bot_decisions = false
@@ -124,6 +153,9 @@ func _process(delta: float) -> bool:
 		verify(moved, "Client moved during the match")
 		if "--test-movement" in args:
 			verify(not movement_stages.has(false), "Start, reverse, strafe and stop respond before the 150ms input delay")
+			verify(airborne_release_seen, "Predicted jump preserves takeoff velocity after releasing movement")
+			verify(airborne_reverse_seen, "Predicted jump preserves takeoff velocity despite reverse input")
+			verify(landed_stop_seen, "Predicted movement stops on landing with released input")
 		verify(cast_seen, "Client received authoritative casting state")
 		verify(damaged, "Client received damage state")
 		verify(identity_seen, "Client received authoritative Heat state")
