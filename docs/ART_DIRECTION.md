@@ -23,15 +23,15 @@ Space + fantasy. The arena is an ancient structure floating in space, not a buil
 - Extremely bright magical accent colors on top of that base.
 - Lots of stars, glowing weapons, cosmic effects.
 
-**Current authorization:** The owner requested ability art and player models on 2026-09-07, superseding the earlier blanket art deferral for these areas. The owner subsequently requested the Cosmic Sanctum environment and its material/atmosphere upgrade. Audio remains separate work. The owner authorized a Blender skeletal pipeline for Ember on 2026-09-08; see below.
+**Current authorization:** The owner requested ability art and player models on 2026-09-07, superseding the earlier blanket art deferral for these areas. The owner subsequently requested the Cosmic Sanctum environment and its material/atmosphere upgrade. Audio remains separate work. The owner authorized the Blender skeletal pipeline for Ember and then Luminary on 2026-09-08; see below.
 
 ## Current implementation — first roster art pass
 
 - **20 original painted icons cover all 21 ability slots.** Mend is shared between Ember and Vanguard. Assets and full generation prompts live in `assets/icons/abilities/`. The built-in image generation tool produced the illustrations, using Firebolt as the style anchor. Source PNGs are preserved; Godot imports at a maximum of 256 pixels with mipmaps.
 - **Ember:** replaced by the Blender-authored hooded celestial mage described below. The old staff and faceted robe construction have been removed.
 - **Vanguard:** broad faceted plate, helmet crest, team-colored cape/tabard and kite shield, luminous astral sword.
-- **Luminary:** ivory floating vestments, team-colored sashes, halo, six celestial feather ornaments, mint focus crystal and scepter.
-- **Vanguard, Luminary and the fallback remain original in-engine meshes**, constructed through `scripts/champion_model.gd`. Ember uses an imported skinned Blender model. Procedural joint poses cover idle/walking, casting, stun and defeat; hit flashes affect the complete model. Ember uses an original Blender rig and AnimationPlayer; the other models keep their procedural joints.
+- **Luminary:** now a Blender-authored hooded healer in ivory/gold armor and navy/ivory vestments, with a featureless dark opening, lunar cape, halo and carried celestial staff. No human face or hair geometry remains; see below.
+- **Vanguard and the fallback remain original in-engine meshes**, constructed through `scripts/champion_model.gd`. Ember and Luminary use imported skinned Blender models. Procedural joint poses cover idle/walking, casting, stun and defeat; hit flashes affect the complete model. Ember and Luminary use original Blender rigs and AnimationPlayer; Vanguard and the fallback keep their procedural joints.
 - Every champion retains the same radius 0.42 / height 1.8 collision capsule. Weapons, robes and ornaments are visual only. They never become clickable target surfaces.
 - Hotbar artwork sits below the existing radial cooldown overlay. Keybinds, borders, focus/hover states and countdowns are rendered by Godot, not baked into textures. Tooltips retain ability names and mechanics.
 - Billboard names/health/cast bars sit above the new silhouettes. The arena still uses its existing floor/pillars, beam cues and floating combat text. Audio remains absent.
@@ -61,6 +61,18 @@ The owner explicitly rejected Ember's faceted construction and rigid limb swings
 Validation: Blender verified all 69,923 vertices have normalized skin weights and sampled stance ankles remain within 0.000001 m of their authored target height. Godot passed 761/761 Ember presentation checks, 81/81 combat checks and 91/91 rendered ability/art checks. Blender motion samples and a real Godot render were visually inspected. These checks validate deformation and integration, not a claim of reference-quality artistry.
 
 This is a complete original rigged model and authored movement implementation, but remains a stylized interpretation below the supplied image's production surface detail. Armor is smoother and simpler, cloth uses bone animation rather than cloth collision simulation, and there is no terrain foot IK. Extreme backward/sideways travel can slide because cadence is capped; future stride warping should preserve gameplay speed. The reference's spell-effect illustrations are not new ability implementations. Further visual approval and multi-character GPU profiling remain open.
+
+## Luminary — hooded Blender model and shared locomotion (2026-09-08)
+
+The owner requested Ember's workflow and mostly unchanged animation with Luminary's ivory/gold reference, then explicitly replaced the exposed face and hair with a hood similar to Ember's. The current model has an ivory silk hood with gold binding and lunar embroidery, a dark lining, featureless recessed veil, layered cowl and halo. The actual face, eyes, eyebrows, nose, mouth, ears, exposed neck, scalp, hair meshes and hair controls have been removed. There are no concealed human facial features beneath the hood.
+
+The remaining model retains layered ivory armor, gloves, lunar tabard, navy/ivory cape, relics and carried celestial staff. Source: `art_source/luminary.blend`; runtime: `assets/characters/luminary.glb`; viewer: `scenes/luminary_preview.tscn`. The saved source plays Walk at 30 fps, frames 1–37. Current source counts: 79,301 vertices, 150,476 triangles, 13 material surfaces and 59 bones. The lined hood has actual shell thickness and moves with the head; the cowl conceals the neck opening.
+
+Idle, Walk, Run, WalkBackward, StrafeLeft, StrafeRight and Cast keep the original durations and core gait. The staff-side arm and cape still have their class-specific motion. `tools/build_luminary.py` requires `tools/luminary_details.py`; `tools/verify_luminary.py` verifies weights, ankle targets, absence of hair controls/facial materials and gait parity against the Ember source.
+
+Post-hood verification: all 79,301 vertices have normalized weights; sampled stance ankle-height error below 0.000001m; 392 sampled core matrices identical to Ember. Godot passed Luminary 865/865, combat 81/81 and rendered art 91/91. Corrected front/back studio, walk/run samples and a final Godot viewer capture were inspected. The first shell attempt exposed its dark lining outward; reversing surface winding before solidification corrected that in the current asset.
+
+The hood supersedes earlier exposed-face/hair notes. Fine ornament and fabric detail remain simpler than the reference; cape motion is bone-driven without collision simulation, there is no terrain foot IK, and fast backward/sideways movement retains the inherited cadence limitation. No new spell effects were implemented. See `CHARACTER_PIPELINE.md` for the durable workflow and historical versions.
 
 ## Cosmic Sanctum — environment implementation (2026-09-08)
 

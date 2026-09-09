@@ -1,6 +1,6 @@
 extends Node3D
 
-# Original faceted character art, built in engine. Visual-only joints never
+# Authored Ember/Luminary rigs and procedural fallback art. Visual-only joints never
 # move the CharacterBody or its shared 0.42 m collision capsule.
 var torso: MeshInstance3D
 var left_arm: Node3D
@@ -22,6 +22,8 @@ var vanguard: Dictionary = {}
 const VanguardArt = preload("res://scripts/vanguard_art.gd")
 const EmberArt = preload("res://scripts/ember_art.gd")
 var ember_art: RefCounted
+const LuminaryArt = preload("res://scripts/luminary_art.gd")
+var luminary_art: RefCounted
 
 func paint(hex: String, luminous: bool = false, metal: float = 0.0) -> StandardMaterial3D:
 	var mat := StandardMaterial3D.new()
@@ -104,6 +106,10 @@ func ring(parent: Node3D, at: Vector3, radius: float, width: float, mat: Materia
 func build(champion: String, team_color: Color) -> void:
 	archetype = champion
 	name = "ChampionModel"
+	if champion == "Luminary":
+		luminary_art = LuminaryArt.new()
+		luminary_art.build(self, team_color)
+		return
 	if champion == "Ember":
 		ember_art = EmberArt.new()
 		ember_art.build(self, team_color)
@@ -168,6 +174,9 @@ func build(champion: String, team_color: Color) -> void:
 		gem(scepter, Vector3(0, 0.75, 0), Vector3(0.12, 0.24, 0.12), glow)
 
 func animate(delta: float, actor: CharacterBody3D) -> void:
+	if luminary_art != null:
+		luminary_art.animate(self, delta, actor)
+		return
 	if ember_art != null:
 		ember_art.animate(self, delta, actor)
 		return

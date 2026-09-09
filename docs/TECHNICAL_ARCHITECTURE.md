@@ -32,8 +32,9 @@ Recommended reading order for a new developer: `kits.gd` → `combatant.gd` → 
 | `scripts/arena.gd` | Match lifecycle, local input, camera, GUI, target selection, authoritative combat, bots, networking, dedicated mode. **~1,300 lines — flagged for extraction in [`ROADMAP.md`](ROADMAP.md).** |
 | `scripts/arena_world.gd` | Floor, grid, pillars, walls, lighting. Parent of `arena.gd`. |
 | `scripts/combatant.gd` | `CharacterBody3D` fighter — state, generated appearance, snapshot pack/apply. |
-| `scripts/champion_model.gd` | Dispatches Ember to its imported Blender model and preserves procedural art for the other champions. Collision stays on the parent fighter. |
+| `scripts/champion_model.gd` | Dispatches Ember and Luminary to imported Blender models and preserves procedural art for Vanguard and the fallback. Collision stays on the parent fighter. |
 | `scripts/ember_art.gd` | Imports the skinned Ember GLB and blends authored movement/cast clips; updates presentation only. |
+| `scripts/luminary_art.gd` | Luminary skinned GLB and seven authored clips; same runtime blend/cadence logic as Ember, with staff/cape controls and head-weighted hood baked into the asset. |
 | `scripts/ability_art.gd` | Cached name-to-texture presentation mapping for 20 icons; hotbar art layer and engine-rendered frames. |
 | `tools/art_review.gd` | Renders front/back character lineup and full icon atlas to `artifacts/` in a game window. |
 | `scripts/kits.gd` | Champion names, ability dictionaries, short + expanded descriptions. |

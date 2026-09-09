@@ -4,6 +4,18 @@ _Meaningful decisions that future agents should not silently reverse. Trivial im
 
 Newest first.
 
+## 2026-09-08 — Blender-authored Ember and Luminary with shared core locomotion
+
+**Decision:** The owner explicitly requested replacing Ember's faceted model and rigid movement with a complete Blender-authored skinned character, then requested the same process and mostly the same animations for Luminary with a distinct supplied reference and creative liberty. This authorizes the skeletal asset pipeline for these two classes and supersedes older statements deferring all rig/animation work.
+
+**Implementation:** Separately named editable Blender sources and GLB assets, class-specific presentation modules, seven matching clip durations, shared core gait, Blender verification and rendered Godot regression checks. Luminary adapts the staff-side arm and adds hair/cape controls. Animation remains presentation-only; collision, targeting, gameplay and network authority are unchanged.
+
+**Scope:** These requests authorize local project integration, not automatic production-quality approval, remote publication or unrelated class redesigns. See `CHARACTER_PIPELINE.md` for exact files, workflow and known limitations.
+
+---
+
+
+
 
 ## 2026-09-07 — Begin ability icons and original player models
 
