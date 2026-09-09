@@ -10,7 +10,9 @@ var filtered_speed := 0.0
 var clip := "Idle"
 var clip_names: Dictionary = {}
 var materials: Array[StandardMaterial3D] = []
-var forged_materials: Array[ShaderMaterial] = []
+var base_emissions: Array[Color] = []
+var base_emission_energy: Array[float] = []
+var base_emission_enabled: Array[bool] = []
 var attack_left := 0.0
 var shield_left := 0.0
 var pulse_left := 0.0
@@ -44,21 +46,9 @@ func build(host: Node3D, team_color: Color) -> void:
      child.set_surface_override_material(surface, material)
      materials.append(material)
      base_colors.append(material.albedo_color)
-     if "ForgedSteel" in material.resource_name or "WornEdges" in material.resource_name or "VioletCrystal" in material.resource_name:
-      var shader_material := ShaderMaterial.new()
-      shader_material.shader = load("res://shaders/vanguard_crystal.gdshader" if "VioletCrystal" in material.resource_name else "res://shaders/vanguard_forged.gdshader")
-      if "VioletCrystal" in material.resource_name:
-       shader_material.set_shader_parameter("cell_scale", 9.0)
-       shader_material.set_shader_parameter("emission_boost", .70)
-       shader_material.set_shader_parameter("fissure_softness", .019)
-      else:
-       shader_material.set_shader_parameter("base_color", material.albedo_color)
-       shader_material.set_shader_parameter("metalness", material.metallic)
-       shader_material.set_shader_parameter("pit_frequency", 65.0)
-       shader_material.set_shader_parameter("mottle_frequency", 11.0)
-       shader_material.set_shader_parameter("wear_strength", .23)
-      child.set_surface_override_material(surface, shader_material)
-      forged_materials.append(shader_material)
+     base_emissions.append(material.emission)
+     base_emission_energy.append(material.emission_energy_multiplier)
+     base_emission_enabled.append(material.emission_enabled)
  assert(player != null and skeleton != null, "Vanguard requires its imported skeleton and animations")
  for animation_name in player.get_animation_list():
   var short_name: String = String(animation_name).get_slice("/", String(animation_name).count("/"))
@@ -139,6 +129,10 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
  host.rotation.z = sin(Time.get_ticks_msec() * 0.015) * 0.025 if stunned and alive else 0.0
  for i in materials.size():
   materials[i].albedo_color = Color.WHITE if actor.flash > 0 else (base_colors[i] if alive else base_colors[i].lerp(Color("333744"), 0.7))
+  # Texture-backed albedo is already white; add light so impact flashes remain visible.
+  materials[i].emission_enabled = actor.flash > 0 or base_emission_enabled[i]
+  materials[i].emission = Color.WHITE if actor.flash > 0 else base_emissions[i]
+  materials[i].emission_energy_multiplier = 2.0 if actor.flash > 0 else base_emission_energy[i] * (1.0 if alive else .15)
 
  if not alive:
   attack_left = 0.0
@@ -156,6 +150,3 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
  last_hp = actor.hp
  recoil_left = maxf(0.0, recoil_left - delta)
  model.position.z = .025 * sin(recoil_left / .18 * PI)
- for material in forged_materials:
-  material.set_shader_parameter("damage_flash", 1.0 if actor.flash > 0 else 0.0)
-  material.set_shader_parameter("defeated", 0.0 if alive else 1.0)

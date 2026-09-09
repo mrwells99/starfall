@@ -4,7 +4,7 @@ var player: AnimationPlayer
 var camera: Camera3D
 var yaw := -0.35
 var pitch := 0.14
-var distance := 4.7
+var distance := 5.2
 var paused := false
 var capture_frames := 0
 var capture_mode := false
@@ -30,9 +30,9 @@ func _ready() -> void:
  env.environment.glow_enabled=true
  env.environment.glow_hdr_threshold=1.35
  add_child(env)
- add_light(Vector3(-2,4,-3),Color("ffe0bf"),.95)
- add_light(Vector3(3,2,-1),Color("abc9ff"),.45)
- add_light(Vector3(0,3,3),Color("ff9050"),.6)
+ add_light(Vector3(-2,4,-3),Color("efedf4"),.65)
+ add_light(Vector3(3,2,-1),Color("bacbff"),.28)
+ add_light(Vector3(0,3,3),Color("a685dc"),.22)
  var floor_mesh:=MeshInstance3D.new()
  var plane:=PlaneMesh.new();plane.size=Vector2(200,200);floor_mesh.mesh=plane
  var floor_mat:=StandardMaterial3D.new();floor_mat.albedo_color=Color("232a38");floor_mat.roughness=.9;floor_mat.albedo_color=Color(.035,.045,.06)
@@ -58,8 +58,8 @@ func _ready() -> void:
 func add_light(at:Vector3,color:Color,energy:float)->void:
  var light:=DirectionalLight3D.new();add_child(light);light.position=at;light.look_at(Vector3(0,1,0));light.light_color=color;light.light_energy=energy;light.shadow_enabled=true
 func update_camera()->void:
- camera.position=Vector3(sin(yaw)*distance,1.1+sin(pitch)*distance,-cos(yaw)*distance)
- camera.look_at(Vector3(0,1.1,0))
+ camera.position=Vector3(sin(yaw)*distance,1.2+sin(pitch)*distance,-cos(yaw)*distance)
+ camera.look_at(Vector3(0,1.2,0))
 func _unhandled_input(event:InputEvent)->void:
  if event is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
   yaw-=event.relative.x*.008;pitch=clampf(pitch+event.relative.y*.006,-.12,.6);update_camera()
@@ -77,5 +77,5 @@ func _process(_delta:float)->void:
   if capture_frames==40:
    player.pause();player.seek(.3,true)
   if capture_frames==44:
-   get_viewport().get_texture().get_image().save_png("res://artifacts/vanguard_new/godot-idle.png")
+   get_viewport().get_texture().get_image().save_png("res://artifacts/vanguard_rebuild_20260908/godot-idle.png")
    get_tree().quit()

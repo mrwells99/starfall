@@ -80,7 +80,9 @@ func run() -> void:
 		var before: Transform3D = fighter.transform
 		fighter.casting = 0
 		fighter.visual_tick(0.1, arena.camera)
-		var authored_art = fighter.champion_model.vanguard_art if fighter.champion_model.vanguard_art != null else (fighter.champion_model.luminary_art if fighter.champion_model.luminary_art != null else fighter.champion_model.ember_art)
+		var authored_art = fighter.champion_model.fulcrum_art
+		if authored_art == null:
+			authored_art = fighter.champion_model.vanguard_art if fighter.champion_model.vanguard_art != null else (fighter.champion_model.luminary_art if fighter.champion_model.luminary_art != null else fighter.champion_model.ember_art)
 		check(authored_art.clip == "Cast" if authored_art != null else fighter.champion_model.left_arm.rotation.x < -0.5, "Casting poses the arm")
 		fighter.casting = -1
 		fighter.hp = 0

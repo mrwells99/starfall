@@ -15,7 +15,7 @@ func run() -> void:
  var visual = actor.champion_model
  var art = visual.vanguard_art
  check(art != null, "Vanguard uses the authored presentation")
- check(art.skeleton.get_bone_count() >= 35, "Full deformation skeleton imported")
+ check(art.skeleton.get_bone_count() == 45, "Full skeleton with six cape controls imported")
  check(visual.torso != null and visual.torso.skin != null, "The model is skinned")
  print("Imported clips: ", art.player.get_animation_list())
  for clip in ["Idle","Walk","Run","WalkBackward","StrafeLeft","StrafeRight","Cast","Strike"]:
@@ -83,7 +83,26 @@ func run() -> void:
  var other=load("res://scripts/combatant.gd").new()
  root.add_child(other);other.setup(2,2,1,"Vanguard")
  check(art.materials[0] != other.champion_model.vanguard_art.materials[0], "Material state is isolated between actors")
- check(art.forged_materials[0] != other.champion_model.vanguard_art.forged_materials[0], "Shader state is isolated between actors")
+ var textured := 0
+ var names: Array[String] = []
+ for material in art.materials:
+  names.append(material.resource_name)
+  if material.albedo_texture != null:textured += 1
+  check(not ("Skin" in material.resource_name or "Hair" in material.resource_name), "Sealed armor has no facial or hair material")
+ check(textured >= 4, "Steel, alloy, cloth and crystal textures survive import")
+ check("Vanguard_SealedVisorShadow" in names, "Sealed visor is imported")
+ for bone_name in ["cape0","cape1","cape2","cape_tip0","cape_tip1","cape_tip2"]:
+  var bone_index: int = art.skeleton.find_bone(bone_name)
+  check(bone_index >= 0, "Cape control imported: " + bone_name)
+  art.player.play(art.clip_names["Walk"]);art.player.seek(0,true)
+  var start: Quaternion = art.skeleton.get_bone_pose_rotation(bone_index)
+  art.player.seek(.6,true)
+  check(start.angle_to(art.skeleton.get_bone_pose_rotation(bone_index)) > .003, "Cape moves during walk: " + bone_name)
+ actor.flash = .1;visual.animate(.01,actor)
+ check(art.materials[0].emission_enabled and art.materials[0].emission == Color.WHITE, "Textured armor has a visible impact flash")
+ check(other.champion_model.vanguard_art.materials[0].emission == other.champion_model.vanguard_art.base_emissions[0], "Impact flash does not leak to another actor")
+ actor.flash = 0;visual.animate(.01,actor)
+ check(art.materials[0].emission == art.base_emissions[0], "Impact flash restores authored emission")
  var triangles := 0
  for child in visual.find_children("*", "MeshInstance3D",true,false):
   for surface in child.mesh.get_surface_count():

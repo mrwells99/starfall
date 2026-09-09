@@ -12,7 +12,7 @@ func capture(filename: String) -> void:
 	await process_frame
 	await process_frame
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://artifacts/vanguard_new/" + filename + ".png")
+	root.get_texture().get_image().save_png("res://artifacts/vanguard_rebuild_20260908/godot-" + filename + ".png")
 
 func run() -> void:
 	if DisplayServer.get_name() == "headless":
@@ -21,7 +21,7 @@ func run() -> void:
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 	DisplayServer.window_set_size(Vector2i(1400, 900))
 	root.size = Vector2i(1400, 900)
-	DirAccess.make_dir_recursive_absolute("res://artifacts/vanguard_new")
+	DirAccess.make_dir_recursive_absolute("res://artifacts/vanguard_rebuild_20260908")
 	stage = Node3D.new()
 	root.add_child(stage)
 	var world := WorldEnvironment.new()
