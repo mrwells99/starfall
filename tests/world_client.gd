@@ -24,6 +24,11 @@ func _process(delta: float) -> bool:
 	# countdown, and the world has none — the next snapshot corrects it. Waiting
 	# for the corrected phase proves the client is actually playing.
 	if arena.phase == "match" and clock > 2.0:
+		for id in arena.TrainingDummies.IDS:
+			if not arena.actors.has(id) or not arena.actors[id].training_dummy or arena.actors[id].hp < 1:
+				push_error("World client missing a replicated training dummy")
+				quit(1)
+				return false
 		print("WORLD CLIENT IN: phase=%s actors=%d local=%d" % [arena.phase, arena.actors.size(), arena.local_id])
 		done = true
 		arena.leave_session("done")

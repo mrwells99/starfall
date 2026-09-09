@@ -29,9 +29,9 @@ func _process(delta: float) -> bool:
 		quit(1)
 	for line in arena.social.lines:
 		if "hello from peer" in line: saw_chat = true
-	if observer and arena.actors.size() == 2 and not sent:
+	if observer and arena.actors.size() == 5 and not sent:
 		for id in arena.actors:
-			if id != arena.local_id: arena.selected_id = id
+			if id != arena.local_id and not arena.actors[id].training_dummy: arena.selected_id = id
 		arena.social.refresh()
 		arena.social.challenge.pressed.emit()
 		sent = true
@@ -46,7 +46,7 @@ func _process(delta: float) -> bool:
 		arena.leave_session("done")
 		print("SOCIAL GUEST PASS")
 		quit(0)
-	if observer and saw_chat and saw_duel and arena.actors.size() == 1 and arena.duels.is_empty():
+	if observer and saw_chat and saw_duel and arena.actors.size() == 4 and arena.duels.is_empty():
 		print("SOCIAL OBSERVER PASS: duel, chat, despawn, stable body")
 		arena.leave_session("")
 		quit(0)

@@ -168,6 +168,7 @@ var social
 var network_handshake
 var chat_last_sent := {}
 var next_world_actor_id := 1
+const TrainingDummies = preload("res://scripts/training_dummies.gd")
 var world_mode := false
 var duels := {}          # actor_id -> actor_id, server-authoritative pairing
 var duel_offers := {}    # target_id -> challenger_id, pending invitations
@@ -847,6 +848,8 @@ func spawn_actor(id: int, peer: int, side: int, choice: String, pos: Vector3) ->
 	actor.setup(id, peer, id if world_mode else side, choice, not dedicated)
 	actor.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
 	add_child(actor)
+	actor.training_dummy = world_mode and id in TrainingDummies.IDS
+	if actor.training_dummy and not dedicated: TrainingDummies.decorate(actor)
 	actor.position = pos
 	actor.rotation.y = 0 if side == 0 else PI
 	actor.net_position = pos
@@ -1284,7 +1287,7 @@ func refresh_menu() -> void:
 	window_mode_choice.visible = settings
 	resolution_choice.visible = settings
 	resolution_choice.disabled = window_mode_choice.get_selected_id() != UserConfig.WINDOW_WINDOWED
-	champion_choice.visible = choosing and menu_state in ["online", "offline", "queue", "host", "join"]
+	champion_choice.visible = choosing and menu_state in ["online", "offline", "queue", "host", "join", "abilities"]
 	mode_choice.visible = choosing and menu_state in ["queue", "host", "offline"]
 	opponent_choice.visible = choosing and menu_state == "offline"
 	match_settings.visible = phase != "menu" and not settings
@@ -1904,6 +1907,7 @@ func begin_round() -> void:
 		counts[entry.team] += 1
 		id += 1
 	if world_mode:
+		TrainingDummies.spawn(self)
 		# No bots, and no teams that mean anything — everyone stands alone until
 		# they agree to a duel.
 		assign_local()
@@ -2192,6 +2196,11 @@ func tick_actor(actor, delta: float) -> void:
 		actor.set(field, maxf(0, actor.get(field) - delta))
 	if actor.dr_timer == 0:
 		actor.dr_count = 0
+	if actor.training_dummy:
+		actor.move_input = Vector2.ZERO
+		actor.velocity = Vector3.ZERO
+		actor.casting = -1
+		return
 	if actor.owner_peer == 0:
 		bot_think(actor, delta)
 	elif actor.input_age > 0.3:
@@ -2473,6 +2482,7 @@ func resolve_spell(actor, slot: int, victim) -> void:
 			combat_event(actor.actor_id, victim.actor_id, "TETHER", Color("c9a0ff"))
 
 func move_ability(actor, motion: Vector3) -> void:
+	if actor.training_dummy: return
 	# Sweep the character capsule: mobility cannot cross pillars or walls.
 	if actor.identity.hold <= 0:
 		actor.move_and_collide(motion)
@@ -2483,6 +2493,7 @@ func move_ability(actor, motion: Vector3) -> void:
 func may_harm(source, victim) -> bool:
 	if not world_mode:
 		return true
+	if victim.training_dummy: return not source.training_dummy
 	return duels.get(source.actor_id, -1) == victim.actor_id
 
 func damage(source, victim, amount: float) -> void:
@@ -2493,12 +2504,12 @@ func damage(source, victim, amount: float) -> void:
 		return
 	amount = ClassMechanics.before_damage(self, source, victim, amount)
 	var reduction := ClassMechanics.damage_multiplier(source, victim)
-	var actual := minf(victim.hp, amount * reduction)
+	var actual := amount * reduction if victim.training_dummy else minf(victim.hp, amount * reduction)
 	if victim.identity.last > 0 and actual >= victim.hp:
 		actual = maxf(0, victim.hp - 1)
 		victim.identity.last = 0.0
 		combat_event(source.actor_id, victim.actor_id, "LAST LIGHT", GOLD)
-	victim.hp = maxf(0, victim.hp - actual)
+	victim.hp = maxf(1 if victim.training_dummy else 0, victim.hp - actual)
 	combat_event(source.actor_id, victim.actor_id, "−%d" % ceili(actual), RED)
 	if victim.hp == 0:
 		victim.casting = -1
@@ -2882,7 +2893,7 @@ func update_frame(frame: VBoxContainer, id: int, prefix: String) -> void:
 	if not frame.visible:
 		return
 	var actor = actors[id]
-	(frame.get_child(0) as Label).text = "%s · %s" % [prefix, actor.champion]
+	(frame.get_child(0) as Label).text = "%s · %s" % [prefix, "Training Dummy" if actor.training_dummy else actor.champion]
 	var health := frame.get_child(1) as ProgressBar
 	health.value = actor.hp
 	var friendly: bool = actors.has(local_id) and actor.team == actors[local_id].team
@@ -2985,7 +2996,7 @@ func update_visuals(delta: float) -> void:
 		enemy_buttons[i].visible = i < enemies.size()
 		if i < enemies.size():
 			var foe = actors[enemies[i]]
-			paint_roster_row(enemy_buttons[i], foe, foe.champion, false)
+			paint_roster_row(enemy_buttons[i], foe, "Training Dummy" if foe.training_dummy else foe.champion, false)
 	for actor in actors.values():
 		var hostile: bool = actors.has(local_id) and actor.team != actors[local_id].team
 		actor.mark_hostile(hostile)
@@ -3189,7 +3200,10 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
-		if panel.visible and menu_state != "main":
+		if panel.visible and menu_state == "abilities":
+			menu_state = menu_presentation.introduction.return_state
+			refresh_menu()
+		elif panel.visible and menu_state != "main":
 			menu_state = "main"
 			refresh_lobby()
 		elif panel.visible and phase in ["match", "countdown"]:

@@ -112,9 +112,9 @@ func refresh() -> void:
 	elif outgoing:
 		duel_label.text = "Waiting for their answer…"
 	elif target != null and target.actor_id != game.local_id:
-		duel_label.text = target.champion
-	challenge.visible = offered < 0 and opponent < 0 and not outgoing
-	challenge.disabled = target == null or target.actor_id == game.local_id or target.hp <= 0 or game.actors[game.local_id].hp <= 0 or game.duels.has(game.selected_id)
+		duel_label.text = "Training dummy · attack freely" if target.training_dummy else target.champion
+	challenge.visible = offered < 0 and opponent < 0 and not outgoing and (target == null or not target.training_dummy)
+	challenge.disabled = target == null or target.training_dummy or target.actor_id == game.local_id or target.hp <= 0 or game.actors[game.local_id].hp <= 0 or game.duels.has(game.selected_id)
 	accept.visible = offered >= 0 and opponent < 0
 	decline.visible = offered >= 0 or outgoing
 	decline.text = "Decline" if offered >= 0 else "Cancel challenge"

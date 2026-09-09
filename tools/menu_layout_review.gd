@@ -14,7 +14,7 @@ func run() -> void:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		DisplayServer.window_set_size(dimensions)
 		await process_frame
-		for state in ["main", "online", "offline", "queue", "host", "join", "settings", "pause", "victory", "defeat"]:
+		for state in ["main", "abilities", "online", "offline", "queue", "host", "join", "settings", "pause", "victory", "defeat"]:
 			game.phase = "menu"
 			game.menu_state = state
 			if state in ["pause", "victory", "defeat"]:

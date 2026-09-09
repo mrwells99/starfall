@@ -93,6 +93,9 @@ jobs:
       - name: Eliminated player and spectator checks
         run: ./tests/check_suite.sh "Spectator checks" godot --headless --path . --script tests/spectator_test.gd
 
+      - name: Champion introduction and practice checks
+        run: ./tests/check_suite.sh "Champion introduction checks" godot --headless --path . --script tests/champion_introduction_test.gd
+
       # These bind fixed UDP ports and must not overlap — hence one step, in order.
       - name: Networked suites (sequential)
         run: |
