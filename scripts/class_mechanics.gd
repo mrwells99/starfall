@@ -440,10 +440,11 @@ static func paint(game) -> void:
 			if owner.hp > 0:
 				star_total += star_count(owner, a.actor_id)
 				brand_total += int(owner.identity.brands.get(a.actor_id, {}).get("count", 0))
+		var plate_text: String = a.nameplate_base_text()
 		if star_total > 0:
-			a.nameplate.text += "\n" + "✦".repeat(star_total)
+			plate_text += "\n" + "✦".repeat(star_total)
 		if brand_total > 0:
-			a.nameplate.text += "\nBRANDS %d" % brand_total
+			plate_text += "\nBRANDS %d" % brand_total
 		var resource := ""
 		if a.champion == "Ember":
 			resource = "HEAT %d/100" % s.heat
@@ -460,7 +461,9 @@ static func paint(game) -> void:
 		elif a.champion == "Luminary":
 			resource = "STARS %d/3" % s.stars.size()
 		if not resource.is_empty():
-			a.nameplate.text += "\n" + resource
+			plate_text += "\n" + resource
+		if a.nameplate.text != plate_text:
+			a.nameplate.text = plate_text
 		if a.actor_id == game.local_id and not resource.is_empty():
 			(game.player_frame.get_child(3) as Label).text = resource
 

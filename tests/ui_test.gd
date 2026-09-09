@@ -509,5 +509,15 @@ func run() -> void:
 	arena.load_layout()
 	check(arena.cc_tracker.position.is_equal_approx(cc_saved), "CC position reloads from the saved HUD layout")
 
+	# Repeated HUD refresh must reuse the border resource instead of allocating
+	# a new theme every tick for every party/enemy row.
+	var row_bar = arena.roster_bar(arena.party_buttons[0])
+	arena.paint_bar_edge(row_bar, Color.RED, 2)
+	var border = arena.bar_edge(row_bar).get_theme_stylebox("panel")
+	arena.paint_bar_edge(row_bar, Color.RED, 2)
+	check(arena.bar_edge(row_bar).get_theme_stylebox("panel") == border, "Unchanged bar border reuses its resource")
+	arena.paint_bar_edge(row_bar, Color.BLUE, 3)
+	check(border.border_color == Color.BLUE and border.border_width_left == 3, "Reused border still responds to style changes")
+
 	print("UI checks: %d passed / %d total" % [checks - failures, checks])
 	quit(1 if failures else 0)

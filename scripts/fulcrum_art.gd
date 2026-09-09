@@ -10,6 +10,7 @@ var filtered_speed := 0.0
 var clip := "Idle"
 var clip_names: Dictionary = {}
 var materials: Array[StandardMaterial3D] = []
+var material_state := -1
 var base_colors: Array[Color] = []
 
 func build(host: Node3D, team_color: Color) -> void:
@@ -83,5 +84,10 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
   player.advance(delta)
  host.rotation.x = move_toward(host.rotation.x, 0.0 if alive else -PI * 0.5, delta * 5.0)
  host.rotation.z = sin(Time.get_ticks_msec() * 0.015) * 0.025 if stunned and alive else 0.0
- for i in materials.size():
-  materials[i].albedo_color = Color.WHITE if actor.flash > 0 else (base_colors[i] if alive else base_colors[i].lerp(Color("333744"), 0.7))
+ # Upload material parameters only when impact/death appearance changes.
+ # Rewriting every surface every physics tick scales poorly in team fights.
+ var next_material_state := (1 if actor.flash > 0 else 0) + (2 if not alive else 0)
+ if next_material_state != material_state:
+  material_state = next_material_state
+  for i in materials.size():
+   materials[i].albedo_color = Color.WHITE if actor.flash > 0 else (base_colors[i] if alive else base_colors[i].lerp(Color("333744"), 0.7))
