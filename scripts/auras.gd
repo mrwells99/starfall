@@ -34,7 +34,11 @@ static func active(actor) -> Array:
 	if actor == null or actor.hp <= 0:
 		return out
 	for source_id in actor.identity.dots:
-		out.append({"key": "graviton_%s" % source_id, "name": "Graviton", "kind": DEBUFF, "remaining": actor.identity.dots[source_id].left, "color": Color("b98cff"), "source": "Graviton", "description": "2 damage each second; generates Meditation for its caster. DPS Mend removes this DoT."})
+		var dot: Dictionary = actor.identity.dots[source_id]
+		var stacks := int(dot.get("stacks", 1))
+		out.append({"key": "graviton_%s" % source_id, "name": "Graviton ×%d" % stacks, "kind": DEBUFF, "remaining": dot.left, "color": Color("b98cff"), "source": "Graviton", "description": "%d damage each second (%d/2 stacks). Generates no Meditation. DPS Mend removes this DoT." % [3 * stacks, stacks]})
+	for source_id in actor.identity.entropy_dots:
+		out.append({"key": "entropy_%s" % source_id, "name": "Entropy", "kind": DEBUFF, "remaining": actor.identity.entropy_dots[source_id].left, "color": Color("d395ff"), "source": "Entropy", "description": "2 damage and 5 Meditation for its caster each second. Cannot stack per caster. DPS Mend removes this DoT."})
 	if actor.stunned > 0:
 		out.append({
 			"key": "stun", "name": "Stunned", "kind": DEBUFF,

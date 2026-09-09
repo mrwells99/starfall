@@ -2,7 +2,10 @@ extends RefCounted
 
 const SELF_KINDS := ["shield", "self_heal", "blink", "sprint", "cinder", "stoke", "wake", "hold", "unbroken", "anchor", "orbit", "collapse"]
 const ALLY_KINDS := ["heal", "ally_shield", "dispel", "falling", "absolution", "stitch", "star", "pilgrim", "last", "intercede", "swap"]
-const KIT_SIZE := 13 # Maximum; Fulcrum has thirteen, other kits have twelve.
+const KIT_SIZE := 14 # Fulcrum includes Entropy; other kits have twelve.
+const MAX_CAST_RANGE := 18.0
+const RANGE_SCALE := 0.75
+const STARFALL_RADIUS := 5.0
 
 const NAMES = ["Ember", "Vanguard", "Luminary", "Fulcrum"]
 
@@ -20,7 +23,8 @@ static func color(champion: String) -> Color:
 	return COLORS.get(champion, Color("9fb0c2"))
 
 static func spell(title: String, kind: String, power: float, reach: float, cast: float, cd: float, off: bool = false) -> Dictionary:
-	return {"name": title, "kind": kind, "power": power, "range": reach, "cast": cast, "cd": cd, "off": off}
+	var cast_range := minf(MAX_CAST_RANGE, snappedf(reach * RANGE_SCALE, 0.5)) if reach > 0 else 0.0
+	return {"name": title, "kind": kind, "power": power, "range": cast_range, "cast": cast, "cd": cd, "off": off}
 
 static func get_kit(champion: String) -> Array:
 	var kit := [
@@ -91,7 +95,8 @@ static func get_kit(champion: String) -> Array:
 			spell("Heavy Orbit", "orbit", 6, 0, 0, 16),
 			spell("Counterweight", "swap", 0, 22, 0, 22, true),
 			spell("Collapse", "collapse", 22, 0, 1.5, 18),
-			spell("Starfall", "gravity_starfall", 20, 28, 2.0, 12)])
+			spell("Starfall", "gravity_starfall", 20, 28, 2.0, 12),
+			spell("Entropy", "entropy", 2, 24, 0, 0)])
 	return kit
 
 # These are player-facing explanations of the actual prototype rules, not lore.
@@ -107,26 +112,27 @@ static func summary(ability: Dictionary) -> String:
 		"wake": "Create a 5m burning field at your feet for 5s. It slows enemies by 45% and deals 4 damage each second.",
 		"sunder": "Deal 13 damage and gain 20 Resolve (maximum 100). Expose this enemy to your next Oathbreaker for 6s.",
 		"oath": "Spend all Resolve: deal 15 + 0.3 damage per Resolve, plus 8 against your exposed target.",
-		"intercede": "Rush to another ally. For 5s redirect 30% of their damage to yourself, up to 30 total, while within 28m and line of sight. Redirected damage grants Resolve.",
+		"intercede": "Rush to another ally. For 5s redirect 30% of their damage to yourself, up to 30 total, while within 18m and line of sight. Redirected damage grants Resolve.",
 		"hold": "For 4s, stand still and take 70% less frontal damage; resist displacement. Turning is allowed. Attacking ends this stance. Does not stack with stronger reduction.",
 		"challenge": "For 6s, this enemy attacking your allies grants you 15 Resolve per hit, at most once per second.",
 		"earth": "Deal 12 damage and stun enemies in a narrow 8m forward line for up to 1s. Shares stun diminishing returns.",
 		"unbroken": "Spend 40 Resolve to gain 4s of 60% damage reduction.",
 		"falling": "Heal 18. Consume one of your stars on the target to heal 16 more.",
 		"absolution": "Remove stun, root and slow. Consume one of your stars to grant 3s immunity to roots and slows.",
-		"stitch": "Heal 27. A starred target echoes 9 healing to one other starred ally within 28m and line of sight.",
+		"stitch": "Heal 27. A starred target echoes 9 healing to one other starred ally within 18m and line of sight.",
 		"star": "Place a star on an ally or yourself for 30s. Maximum 3 total per Luminary; placing a fourth moves your oldest star.",
 		"pilgrim": "Consume your star on another ally to rush toward them. Stops at terrain.",
 		"last": "For 4s, the first lethal hit leaves the ally at 1 HP and consumes this protection. Further damage can kill.",
-		"starfall": "Deal 16 damage and heal each of your starred allies for 8 per star within 28m and line of sight.",
+		"starfall": "Deal 16 damage and heal each of your starred allies for 8 per star within 18m and line of sight.",
 		"anchor": "Place a visible gravity anchor on the ground up to 10m ahead, stopping before walls. Lasts 20s. Replacing it ends its orbit.",
-		"inward": "Pull an enemy up to 8m toward your anchor. Requires an active anchor within 28m. Works through line-of-sight blockers; movement still stops at solid terrain.",
-		"outward": "Push an enemy up to 8m away from your anchor. Requires an active anchor within 28m. Works through line-of-sight blockers; movement still stops at solid terrain.",
+		"inward": "Pull an enemy up to 8m toward your anchor. Requires an active anchor within 18m. Grants one instant, off-global-cooldown Collapse; its own cooldown still applies. Works through line-of-sight blockers; movement stops at solid terrain.",
+		"outward": "Push an enemy up to 8m away from your anchor. Requires an active anchor within 18m. Works through line-of-sight blockers; movement still stops at solid terrain.",
 		"orbit": "Your anchor creates a 6m slowing field for 6s, even through line-of-sight blockers. Enemies inside move 45% slower.",
 		"swap": "Exchange positions with another ally. Both routes must be clear; cannot cross terrain.",
-		"graviton": "Deal 6 damage and apply an 8s DoT: 2 damage and 5 Meditation each second. Refreshes your own DoT without stacking. Collapse hits make your next Graviton instant.",
-		"gravity_starfall": "Requires at least 50 Meditation. After a 2s cast, spend all Meditation to deal 20 + 0.4 damage per Meditation (40–60). Interrupted casts spend nothing.",
-		"collapse": "Consume your anchor: deal 22 damage within 6m and root for up to 2s. At 75+ Meditation, stun for up to 3s instead; Meditation is not spent. Hitting any enemy makes your next Graviton instant. Works through line-of-sight blockers. Control shares diminishing returns."
+		"graviton": "Deal 6 damage and apply an 11s DoT: 3 damage each second per stack, up to 2 stacks per caster. Reapplying refreshes both stacks without delaying the next tick. Generates no Meditation. Collapse hits make your next Graviton instant.",
+		"entropy": "Instantly apply a 15s DoT: 2 damage and 5 Meditation each second. One stack per caster; reapplying refreshes without delaying the next tick. Meditation caps at 100.",
+		"gravity_starfall": "Requires at least 50 Meditation. After a 2s cast, spend all Meditation to deal 20 + 0.4 damage per Meditation (40–60) to enemies within 5m of the target. Interrupted casts spend nothing.",
+		"collapse": "Consume your anchor: deal 22 damage within 6m and root for up to 2s. At 75+ Meditation, stun for up to 3s instead; Meditation is not spent. Inward makes your next Collapse instant and off the global cooldown. Its own cooldown still applies. Hitting an enemy makes your next Graviton instant. Works through line-of-sight blockers. Control shares diminishing returns."
 	}
 	if concepts.has(ability.kind):
 		return concepts[ability.kind]

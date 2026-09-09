@@ -5,12 +5,14 @@ extends RefCounted
 var history: Array = []
 var pending: Dictionary = {}
 var revision := -1
+var grounded_override: Variant = null
 const HISTORY_LIMIT := 180
 
 func reset() -> void:
 	history.clear()
 	pending.clear()
 	revision = -1
+	grounded_override = null
 
 func reconcile(game, actor) -> void:
 	if pending.is_empty():
@@ -26,13 +28,18 @@ func reconcile(game, actor) -> void:
 	actor.position = state.pos
 	actor.velocity = state.get("velocity", Vector3.ZERO)
 	actor.rotation.y = state.yaw
+	# A position rewind does not update CharacterBody3D's cached floor contact.
+	# Use the server contact for the first replay/prediction step; subsequent
+	# move_and_slide calls provide fresh contact at the replayed position.
+	grounded_override = state.get("grounded", null)
 	if forced:
 		history.clear()
 		actor.reset_physics_interpolation()
 	else:
 		for command in history:
 			game.apply_input(actor.actor_id, command.move, command.yaw, command.jump, game.selected_id)
-			game.simulate_movement(actor, command.delta)
+			game.simulate_movement(actor, command.delta, grounded_override)
+			grounded_override = null
 	# Ignore sub-frame correction noise on clear ground; large errors, collision,
 	# knockbacks and teleports always reconcile against the server.
 	if not forced and actor.position.distance_to(old_position) < 0.12 and not actor.test_move(actor.transform, old_position - actor.position):
@@ -43,4 +50,5 @@ func predict(game, actor, command: Dictionary) -> void:
 	if history.size() > HISTORY_LIMIT:
 		history.pop_front()
 	game.apply_input(actor.actor_id, command.move, command.yaw, command.jump, game.selected_id)
-	game.simulate_movement(actor, command.delta)
+	game.simulate_movement(actor, command.delta, grounded_override)
+	grounded_override = null
