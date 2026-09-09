@@ -153,8 +153,12 @@ waits for approval rather than failing — check the run page.
 
 ## Deploying
 
-Push to `main`. The workflow runs tests → builds and pushes the image → SSHes in
-and restarts the stack.
+Merge into `main`. The workflow runs tests → builds and pushes the image → SSHes in
+and restarts the stack. Direct pushes to `main` also trigger this workflow.
+Updates to pull requests targeting `main` run tests only; they never build or
+deploy an image. Branch pushes without an open pull request do not run it.
+Manual deployments must select `main`; other refs cannot build or deploy. A manual run without
+a rollback tag must pass tests and build successfully before deploying.
 
 On the server, each deploy:
 
@@ -229,7 +233,7 @@ Every build is an immutable tag, so rollback is a redeploy of an older one.
 same path as a normal deploy, including the health gate:
 
 ```bash
-gh workflow run deploy.yml -f tag=sha-1a2b3c4
+gh workflow run deploy.yml --ref main -f tag=sha-1a2b3c4
 ```
 
 Find candidate tags in the GHCR package page, or:

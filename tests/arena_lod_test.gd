@@ -45,5 +45,5 @@ func _initialize() -> void:
 		total_levels += levels
 	check(total_levels > 0, "Arena ships distance detail levels")
 	scene.free()
-	print("Arena LOD checks: %d/%d passed" % [checks - failures, checks])
+	print("Arena LOD checks: %d passed / %d total" % [checks - failures, checks])
 	quit(1 if failures else 0)
