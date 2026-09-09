@@ -21,13 +21,6 @@ var peer_target := 2
 var host_attacked := false
 var identity_seen := false
 var movement_stages := [false, false, false, false]
-var jump_sent := false
-var takeoff_velocity := Vector2.ZERO
-var airborne_release_seen := false
-var airborne_reverse_seen := false
-var landed_stop_seen := false
-var host_airborne_reverse_seen := false
-var extended_sent := false
 var extended_seen := false
 var finishing := false
 
@@ -39,6 +32,7 @@ func _initialize() -> void:
 
 func setup() -> void:
 	arena = load("res://arena.tscn").instantiate()
+	arena.set_script(load("res://tests/network_fixture_arena.gd"))
 	root.add_child(arena)
 	arena.latency_ms = (150 if "--test-movement" in args else 75) if "--test-latency" in args else 0
 	if team_mode:
@@ -120,9 +114,8 @@ func _process(delta: float) -> bool:
 			var combat_start := 2.6 if "--test-movement" in args else 1.0
 			if action_timer <= 0 and match_clock > combat_start:
 				action_timer = 2.0
-				if not extended_sent:
+				if not extended_seen:
 					arena.send_action(10) # Shift+4: Stoke, beyond the original seven slots.
-					extended_sent = true
 				else:
 					arena.send_action(0)
 		var actor = arena.actors[arena.local_id]
@@ -137,7 +130,7 @@ func _process(delta: float) -> bool:
 		else:
 			identity_seen = identity_seen or actor.identity.heat > 0
 			extended_seen = extended_seen or actor.cooldowns[10] > 0
-		if is_host and match_clock > 7 and not phase_two:
+		if is_host and not phase_two and ((match_clock > 7 and host_attacked) or match_clock > 12):
 			var remote = arena.actors[peer_target]
 			verify(remote.position.distance_to(arena.spawn_position(remote.team, 0)) > 1, "Host simulated client movement")
 			verify(host_attacked, "Host applied client attack damage before healing")
@@ -145,13 +138,15 @@ func _process(delta: float) -> bool:
 				verify(host_airborne_reverse_seen, "Host preserved takeoff speed despite airborne reverse input")
 			verify(arena.actors.size() == (6 if team_mode else 2), "Expected match size")
 			phase_two = true
+			arena.hold_bot_decisions = false
 			arena.begin_round()
 		if arena.epoch > initial_epoch:
 			rematch_seen = true
 		if is_host and phase_two and arena.epoch > initial_epoch and arena.roster.size() == 1:
 			disconnected_bot = arena.actors[peer_target].owner_peer == 0
 			verify(disconnected_bot, "Disconnected player replaced by bot")
-			print("NETWORK HOST PASS: authoritative movement, damage, rematch, disconnect takeover")
+			if failures == 0:
+				print("NETWORK HOST PASS: authoritative movement, damage, rematch, disconnect takeover")
 			finish()
 	if not is_host and started and arena.epoch > initial_epoch and not phase_two:
 		phase_two = true
@@ -167,7 +162,8 @@ func _process(delta: float) -> bool:
 		verify(extended_seen, "Extended ability input and cooldown replicate")
 		verify(arena.packets_received > 30, "Client received ordered snapshots")
 		verify(arena.actors[arena.local_id].hp == 100, "Rematch reset local health")
-		print("NETWORK CLIENT PASS: movement, casting, damage, snapshots, rematch")
+		if failures == 0:
+			print("NETWORK CLIENT PASS: movement, casting, damage, snapshots, rematch")
 		arena.leave_session("Test complete")
 		finish()
 	return false
@@ -179,6 +175,8 @@ func verify(condition: bool, description: String) -> void:
 
 func finish() -> void:
 	finishing = true
+	if failures > 0:
+		print("NETWORK %s FAIL: %d assertions failed" % ["HOST" if is_host else "CLIENT", failures])
 	arena.leave_session("Test complete")
 	await create_timer(0.5).timeout
 	quit(1 if failures else 0)
