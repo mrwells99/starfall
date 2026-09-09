@@ -56,10 +56,10 @@ func _init() -> void:
 	availability_label = Label.new()
 	availability_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	availability_label.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	availability_label.offset_top = -13
+	availability_label.offset_top = -15
 	availability_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	availability_label.clip_text = true
-	availability_label.add_theme_font_size_override("font_size", 9)
+	availability_label.add_theme_font_size_override("font_size", 10)
 	availability_label.hide()
 	add_child(availability_label)
 	resized.connect(refresh_availability)
@@ -135,7 +135,10 @@ static func format_time(t: float) -> String:
 
 func _draw() -> void:
 	if availability_label.visible:
-		draw_rect(Rect2(0, size.y - 13, size.x, 13), Color(0.025, 0.025, 0.055, 0.96))
+		# A quiet inset frame and status strip preserve the ability illustration.
+		draw_rect(Rect2(Vector2(1, 1), size - Vector2(2, 2)), Color(availability_color, 0.6), false, 1.0)
+		draw_rect(Rect2(0, size.y - 15, size.x, 15), Color(0.025, 0.025, 0.055, 0.96))
+		draw_line(Vector2(0, size.y - 15), Vector2(size.x, size.y - 15), Color(availability_color, 0.65), 1.0)
 	if remaining <= 0.0 or duration <= 0.0:
 		return
 	var fraction := clampf(remaining / duration, 0.0, 1.0)

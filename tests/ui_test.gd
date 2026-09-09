@@ -9,6 +9,8 @@ func _initialize() -> void:
 
 func check(condition: bool, message: String) -> void:
 	checks += 1
+	if checks % 25 == 0:
+		print("UI progress: %d checks completed" % checks)
 	if not condition:
 		failures += 1
 		push_error(message)
@@ -65,8 +67,13 @@ func run() -> void:
 	DisplayServer.window_set_size(Vector2i(1280, 800))
 	DirAccess.make_dir_recursive_absolute("res://artifacts")
 	Input.use_accumulated_input = false
-	arena = load("res://arena.tscn").instantiate()
+	print("UI progress: creating interaction fixture")
+	# Keep the real window and full-resolution CanvasLayer UI. The separate art
+	# suites render 3D; drawing six detailed fighters on llvmpipe adds no UI coverage.
+	root.disable_3d = true
+	arena = preload("res://tests/ui_test_arena.gd").new()
 	root.add_child(arena)
+	print("UI progress: controls ready")
 	# HUD positions persist in user://, so a previous run — or a real player's
 	# saved layout on a dev machine — could move frames out from under this
 	# suite's click coordinates. Start from the shipped layout every time.
@@ -523,4 +530,7 @@ func run() -> void:
 	check(border.border_color == Color.BLUE and border.border_width_left == 3, "Reused border still responds to style changes")
 
 	print("UI checks: %d passed / %d total" % [checks - failures, checks])
+	arena.queue_free()
+	await process_frame
+	await process_frame
 	quit(1 if failures else 0)

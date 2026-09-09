@@ -2,6 +2,10 @@
 
 - [x] Further arena rendering optimization: offline detail levels and zero-contribution shader work removed; native six-player before/after GPU samples recorded (2026-09-09). Lower-end hardware testing remains open.
 
+## Visual polish follow-up — 2026-09-09
+
+Items 1/3/5 now include the requested visual repass (launch cards, cleaner settings/pause, outcome/statistic cards and clearer ability restriction treatment). Validated UI interactions, online rematch/waiting and three layout sizes. The owner paused further Windows/NVIDIA hitch investigation while the buddy gathers local evidence; audio stays with the sound engineer.
+
 ## Immediate owner priority — 2026-09-09
 
 Retest the reported RTX 5060 Ti lag with 0.11.0's Balanced graphics, explicit frame limit, resolution controls, and FPS readout. Record actual resolution, FPS, mode and whether stutter remains before claiming a performance fix. No uncontended local GPU benchmark was possible. Menu/ability-availability/rematch items 1/3/5 in `POLISH_CHECKLIST.md` are now implemented and locally validated. Audio is assigned to the owner's sound-engineer friend, not agent work. The older deployment/feature priorities below contain historical entries; current source and `CONTEXT.md` supersede their completed-feature descriptions.
