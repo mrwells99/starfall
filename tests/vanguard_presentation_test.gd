@@ -103,6 +103,46 @@ func run() -> void:
  check(other.champion_model.vanguard_art.materials[0].emission == other.champion_model.vanguard_art.base_emissions[0], "Impact flash does not leak to another actor")
  actor.flash = 0;visual.animate(.01,actor)
  check(art.materials[0].emission == art.base_emissions[0], "Impact flash restores authored emission")
+ # A hit must change uniform values without toggling shader features.
+ for i in art.materials.size():
+  var material: StandardMaterial3D = art.materials[i]
+  check(material.emission_enabled, "Emission feature remains stable between hits")
+  check(is_equal_approx(material.emission_energy_multiplier, art.base_emission_energy[i]), "Original glow energy is restored")
+  if not art.base_emission_enabled[i]:
+   check(is_zero_approx(material.emission_energy_multiplier), "Non-emissive armour stays dark between hits")
+ actor.flash = .1;visual.animate(.01,actor)
+ for material in art.materials:
+  check(material.emission_enabled and is_equal_approx(material.emission_energy_multiplier, 2.0), "All surfaces flash without changing shader features")
+ actor.flash = 0;actor.hp = 0;visual.animate(.01,actor)
+ for i in art.materials.size():
+  check(art.materials[i].emission_enabled and is_equal_approx(art.materials[i].emission_energy_multiplier, art.base_emission_energy[i] * .15), "Defeat dims energy without changing shader features")
+ actor.hp = 100;visual.animate(.01,actor)
+ var strike_fx = load("res://scripts/vanguard_strike.gd")
+ var warmup: Node3D = visual.get_node("VanguardStrikeWarmup")
+ var children_before: int = visual.get_child_count()
+ strike_fx.prewarm(visual)
+ check(not warmup.visible and visual.get_child_count() == children_before, "Character loading prewarms hidden impact resources only once")
+ var effects := Node3D.new()
+ root.add_child(effects)
+ strike_fx.spawn(effects, Vector3.ZERO, Vector3.ZERO, Color.RED)
+ check(effects.get_child_count() == 0, "Zero-length impacts remain suppressed")
+ strike_fx.spawn(effects, Vector3.ZERO, Vector3.FORWARD, Color.RED)
+ strike_fx.spawn(effects, Vector3.RIGHT, Vector3.RIGHT + Vector3.FORWARD, Color.BLUE)
+ var first: Node3D = effects.get_child(0)
+ var second: Node3D = effects.get_child(1)
+ var first_arc: MeshInstance3D = first.get_node("Arc")
+ var second_arc: MeshInstance3D = second.get_node("Arc")
+ check(first_arc.mesh == second_arc.mesh, "Concurrent strikes reuse arc geometry")
+ check(first.get_node("Impact").get_child(0).mesh == second.get_node("Impact").get_child(0).mesh, "Concurrent strikes reuse spark geometry")
+ check(first_arc.material_override != second_arc.material_override, "Concurrent strikes own independent fade materials")
+ check(first_arc.material_override.emission == Color.RED.lightened(.4) and second_arc.material_override.emission == Color.BLUE.lightened(.4), "Concurrent strike team colours stay independent")
+ first_arc.material_override.albedo_color.a = .25
+ check(is_equal_approx(second_arc.material_override.albedo_color.a, 1.0), "Fading one strike does not fade another")
+ await create_timer(.35).timeout
+ await process_frame
+ check(effects.get_child_count() == 0, "Both transient strike effects clean up after their animations")
+ check(is_instance_valid(warmup), "Prewarmed resources survive transient effect cleanup")
+ effects.queue_free()
  var triangles := 0
  for child in visual.find_children("*", "MeshInstance3D",true,false):
   for surface in child.mesh.get_surface_count():
