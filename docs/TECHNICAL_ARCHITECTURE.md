@@ -1,5 +1,20 @@
 # Technical Architecture
 
+## Offline arena detail levels
+
+`tools/arena_mesh_lods.gd` uses ImporterMesh offline to generate index-only LODs with zero normal-merge angle. It copies generated LOD indices into the original ArrayMesh serialized surfaces to avoid requantizing base normals/UV2. This depends on Godot 4.5 storage; SHA256 and save/reload guards verify the unchanged packed base mesh. No runtime simplification or position-only shadow mesh is used. `sanctum_slice.gd` selects detail with bias 0.5 for authored architecture only.
+
+`tools/generate_arena_lods.gd` writes a dry-run trial under ignored artifacts; `-- --apply` saves it to runtime mesh paths plus `lod_manifest.json`. After any architecture regeneration/light bake, rerun this tool to refresh LODs and provenance. `prepare_sanctum_slice.gd` also generates LODs during initial import. Inspect the trial using `tools/arena_lod_review.gd -- --trial`, then run `tests/arena_lod_test.gd` (CI) after applying. The test validates manifest coverage, packed geometry/UV hashes, lightmap sizes, reduced complete triangles and valid vertex indices. Benchmark results and limits live in `FORWARD_PLUS_ASSESSMENT.md`.
+
+## Client polish and rendering budgets — 0.11.0
+
+- `UserConfig` persists graphics preset, frame limit, 3D scale, and FPS visibility. `frame_budget()` limits focused matches/countdowns to the selected 60–240 FPS (default 60), other phases to 30, and unfocused clients to 15. `arena._physics_process` applies the render budget without changing simulation frequency. Dedicated runtime retains its existing 60 Hz policy. `project.godot` also supplies a 60 FPS startup ceiling.
+- `SanctumGraphics.apply_profile` exposes Balanced (default), High, and Performance. Balanced keeps SSAO, bloom/palette and 2× MSAA; removes SSIL, volumetric fog, and shrine omni shadows. Performance additionally drops SSAO/MSAA and uses FXAA. High retains the former presentation. Models, geometry, collision and authored textures are unchanged. `--sanctum-high`, `--sanctum-base`, and `--sanctum-original` remain explicit review overrides.
+- `ability_block_reason` is a read-only shared gate for authoritative `try_spell` and advisory UI. It retains spell-target fallback, resource/anchor prerequisites, LOS, range, facing, casting, lockout, root and movement rules. Availability is cached per kit index at 10 Hz for hotbar badges; hover gets the current exact reason. Buttons continue submitting to the server. Cooldown/CC sweeps remain separate. `CooldownOverlay` adds text/color badges, including abbreviated text for small slots.
+- Menu controls are state-specific; a separate overview camera never replaces the player's saved gameplay zoom. `finish_round(epoch, winner, states, info={})` adds server-provided duration, automatic-rematch flag, delay, and minimum players. Clients show a local visual countdown and wait for the server to actually start. Roster broadcasts update current results population without changing active fighters to lobby mid-round; the eventual server lobby broadcast opens the waiting screen. Auto-rematch callbacks are epoch-guarded. Protocol/version bumped together to 0.11.0.
+- `tests/polish_test.gd` covers UI state, real cast restrictions, rematch activation and frame-budget policy. `tests/run_polish.py` / `polish_peer.gd` exercise countdown, automatic rematch, disconnect and waiting with a dedicated host and two real ENet clients. `tools/polish_review.gd` verifies Forward+ presets and writes four `artifacts/polish-*.png` captures; it is not a performance benchmark. Native review captured 1920×1080 despite a requested 1280×800 because of compositor/display behavior.
+
+
 _Reference for developers and AI agents making code changes. If a value here diverges from the code, **the code is authoritative** — update this file to match._
 
 Design values (GCD, DR factors, healing formula, controls speeds) live in [`GAME_DESIGN.md`](GAME_DESIGN.md). This file covers implementation.

@@ -69,6 +69,7 @@ var nav = preload("res://scripts/arena_navigation.gd").new()
 var pivot: Node3D
 var arm: SpringArm3D
 var camera: Camera3D
+var menu_camera: Camera3D
 var ring: MeshInstance3D
 var ui: Control
 var panel: PanelContainer
@@ -201,6 +202,20 @@ var pending_code := ""
 var private_lobby := false
 var claimed := false
 var requeue_button: Button
+var offline_rematch_button: Button
+var quit_button: Button
+var round_summary: Label
+var result_info: Dictionary = {}
+var rematch_deadline := 0
+var graphics_choice: OptionButton
+var frame_limit_choice: OptionButton
+var render_scale_choice: OptionButton
+var fps_toggle: CheckButton
+var performance_label: Label
+var application_focused := true
+var performance_timer := 0.0
+var availability_timer := 0.0
+var ability_reasons: Dictionary = {}
 var searching := false
 
 func _ready() -> void:
@@ -261,6 +276,12 @@ func build_camera() -> void:
 	camera = Camera3D.new()
 	camera.current = true
 	arm.add_child(camera)
+	menu_camera = Camera3D.new()
+	add_child(menu_camera)
+	menu_camera.position = Vector3(24, 23, 30)
+	menu_camera.look_at(Vector3(0, 0, 0))
+	menu_camera.fov = 58
+	menu_camera.make_current()
 	ring = MeshInstance3D.new()
 	ring.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
 	var torus := TorusMesh.new()
@@ -468,12 +489,16 @@ func paint_aura(chip: PanelContainer, aura: Dictionary) -> void:
 	chip.show()
 	chip.set_meta("aura", aura)
 	var tint: Color = aura.color
-	var box := ui_box(Color(tint.r * 0.22, tint.g * 0.22, tint.b * 0.22, 0.92), tint, 4)
-	box.content_margin_left = 6
-	box.content_margin_right = 6
-	box.content_margin_top = 2
-	box.content_margin_bottom = 2
-	chip.add_theme_stylebox_override("panel", box)
+	# Reuse the chip's style. Allocating and registering a new material-like UI
+	# resource for every visible aura at 60 Hz creates avoidable render churn.
+	if chip.get_meta("aura_tint", Color.TRANSPARENT) != tint:
+		var box := ui_box(Color(tint.r * 0.22, tint.g * 0.22, tint.b * 0.22, 0.92), tint, 4)
+		box.content_margin_left = 6
+		box.content_margin_right = 6
+		box.content_margin_top = 2
+		box.content_margin_bottom = 2
+		chip.add_theme_stylebox_override("panel", box)
+		chip.set_meta("aura_tint", tint)
 	# Show the icon of the ability that caused the effect, the way WoW does —
 	# an Ember stun and a Vanguard stun should be distinguishable at a glance.
 	# Effects with no illustrated source (diminishing returns, or an older
@@ -501,6 +526,13 @@ func build_ui() -> void:
 	ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	scoreboard = add_label(ui, "STARFALL", 22)
 	scoreboard.position = Vector2(24, 16)
+	performance_label = add_label(ui, "", 14)
+	performance_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	performance_label.offset_left = -205
+	performance_label.offset_right = -16
+	performance_label.offset_top = 16
+	performance_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	performance_label.hide()
 	player_frame = unit_frame(Vector2(24, 56), BLUE)
 	target_frame = unit_frame(Vector2(330, 56), RED)
 	focus_frame = unit_frame(Vector2(636, 56), GOLD)
@@ -658,10 +690,36 @@ func build_ui() -> void:
 	slot_size_field.add_theme_color_override("font_color", UI_ACCENT)
 	size_row.add_child(slot_size_field)
 	settings_extra.append(size_row)
+	var graphics_row := HBoxContainer.new()
+	graphics_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	stack.add_child(graphics_row)
+	settings_extra.append(graphics_row)
+	graphics_choice = OptionButton.new()
+	for preset in UserConfig.GRAPHICS_PRESETS:
+		graphics_choice.add_item("Graphics: " + preset)
+	style_picker(graphics_choice)
+	graphics_row.add_child(graphics_choice)
+	render_scale_choice = OptionButton.new()
+	for scale in UserConfig.RENDER_SCALES:
+		render_scale_choice.add_item("3D resolution: %d%%" % roundi(scale * 100))
+	style_picker(render_scale_choice)
+	graphics_row.add_child(render_scale_choice)
+	var pacing_row := HBoxContainer.new()
+	pacing_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	stack.add_child(pacing_row)
+	settings_extra.append(pacing_row)
+	frame_limit_choice = OptionButton.new()
+	for limit in UserConfig.FRAME_LIMITS:
+		frame_limit_choice.add_item("Frame limit: %d FPS" % limit, limit)
+	style_picker(frame_limit_choice)
+	pacing_row.add_child(frame_limit_choice)
+	fps_toggle = CheckButton.new()
+	fps_toggle.text = "Show FPS"
+	pacing_row.add_child(fps_toggle)
 	style_button(add_button(settings_row, "Apply", apply_settings), true)
 	add_button(settings_row, "Keybinds", func(): keybind_menu.open())
 	add_button(settings_row, "Edit HUD", func(): toggle_edit_mode(true))
-	add_button(settings_row, "Back", func(): menu_state = "main"; refresh_menu())
+	add_button(settings_row, "Back", func(): menu_state = "main"; refresh_lobby())
 	queue_row = HBoxContainer.new()
 	queue_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	queue_row.add_theme_constant_override("separation", 10)
@@ -713,8 +771,13 @@ func build_ui() -> void:
 	address.text = Config.SERVER_ADDRESS
 	address.hide()
 	stack.add_child(address)
+	round_summary = add_label(stack, "", 16)
+	round_summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	round_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	round_summary.hide()
 	lobby_text = add_label(stack, "Choose Online to matchmake into a duel or 3v3. Offline is local sparring vs bots.", 16)
-	lobby_text.custom_minimum_size.y = 96
+	lobby_text.custom_minimum_size.y = 72
+	lobby_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	lobby_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lobby_text.add_theme_color_override("font_color", UI_TEXT_DIM)
 	var spacer := Control.new()
@@ -724,13 +787,16 @@ func build_ui() -> void:
 	stack.add_child(ui_rule())
 	start_button = add_button(stack, "Start round / Rematch", host_start)
 	start_button.hide()
-	resume_button = add_button(stack, "Resume / Close panel", func():
+	offline_rematch_button = add_button(stack, "Play again", host_start)
+	style_button(offline_rematch_button, true)
+	resume_button = add_button(stack, "Resume", func():
 		if phase in ["match", "countdown"]:
 			panel.hide())
 	requeue_button = add_button(stack, "Requeue", requeue)
 	requeue_button.hide()
 	match_settings = add_button(stack, "Settings", func(): menu_state = "settings"; refresh_menu())
-	exit_button = add_button(stack, "Return to menu", func(): leave_session("Returned to menu."))
+	exit_button = add_button(stack, "Leave match", func(): leave_session(""))
+	quit_button = add_button(stack, "Quit game", func(): save_layout(); get_tree().quit())
 	ability_tooltip = preload("res://scripts/ability_tooltip.gd").new()
 	ui.add_child(ability_tooltip)
 	# Follows the cursor while an ability is being dragged, so the gesture has
@@ -785,6 +851,10 @@ func spawn_actor(id: int, peer: int, side: int, choice: String, pos: Vector3) ->
 	actor.reset_physics_interpolation()
 
 func clear_actors() -> void:
+	result_info.clear()
+	rematch_deadline = 0
+	ability_reasons.clear()
+	availability_timer = 0.0
 	prediction.reset()
 	for actor in actors.values():
 		remove_child(actor)
@@ -1012,6 +1082,7 @@ func leave_session(message: String) -> void:
 	phase = "menu"
 	epoch += 1
 	winner = -1
+	menu_camera.make_current()
 	status = message
 	panel.show()
 	release_mouse()
@@ -1146,7 +1217,13 @@ func lobby_state(players: Dictionary, size_per_team: int, message: String, neede
 	remote_min_players = maxi(1, needed)
 	remote_in_round = in_round
 	mode_choice.select(1 if mode == 3 else 0)
+	# Roster broadcasts also reach fighters still playing or reading results.
+	# Only a waiting client should enter the lobby while that round continues.
+	if in_round and actors.has(local_id) and phase in ["match", "countdown", "results"]:
+		refresh_menu()
+		return
 	phase = "lobby"
+	menu_state = "main"
 	status = message
 	panel.show()
 	refresh_lobby()
@@ -1183,42 +1260,55 @@ func refresh_lobby() -> void:
 	refresh_menu()
 
 func refresh_menu() -> void:
-	var in_menu: bool = phase == "menu" or menu_state == "settings"
-	if match_settings:
-		match_settings.visible = phase != "menu" and menu_state != "settings"
-	if main_row:
-		main_row.visible = in_menu and menu_state == "main"
-	if offline_row:
-		offline_row.visible = in_menu and menu_state == "offline"
-	if online_row:
-		online_row.visible = in_menu and menu_state == "online"
-	if settings_row:
-		settings_row.visible = in_menu and menu_state == "settings"
+	var settings := menu_state == "settings"
+	var choosing := phase == "menu" and not settings
+	var playing := phase in ["match", "countdown"]
+	var results := phase == "results" and not settings
+	main_row.visible = choosing and menu_state == "main"
+	offline_row.visible = choosing and menu_state == "offline"
+	online_row.visible = choosing and menu_state == "online"
+	queue_row.visible = choosing and menu_state == "queue"
+	host_row.visible = choosing and menu_state == "host"
+	join_row.visible = choosing and menu_state == "join"
+	settings_row.visible = settings
 	for extra in settings_extra:
-		extra.visible = in_menu and menu_state == "settings"
-	if opponent_choice:
-		opponent_choice.visible = in_menu and menu_state == "offline"
-	if window_mode_choice:
-		window_mode_choice.visible = in_menu and menu_state == "settings"
-	if resolution_choice:
-		# Resolution only means anything in windowed mode; fullscreen adopts the
-		# monitor. Showing a disabled picker is clearer than hiding it, because
-		# it explains why the setting is unavailable.
-		resolution_choice.visible = in_menu and menu_state == "settings"
-		resolution_choice.disabled = window_mode_choice != null and window_mode_choice.get_selected_id() != UserConfig.WINDOW_WINDOWED
-	if queue_row:
-		queue_row.visible = in_menu and menu_state == "queue"
-	if host_row:
-		host_row.visible = in_menu and menu_state == "host"
-	if join_row:
-		join_row.visible = in_menu and menu_state == "join"
-	if mode_choice:
-		mode_choice.visible = not in_menu or menu_state in ["queue", "host", "offline"]
-	if requeue_button:
-		requeue_button.visible = phase == "results" and network and not multiplayer.is_server()
-	# refresh_lobby() writes the session status into this label, so only speak
-	# for it while sitting in the menu with nothing to report.
-	if lobby_text and phase == "menu":
+		extra.visible = settings
+	window_mode_choice.visible = settings
+	resolution_choice.visible = settings
+	resolution_choice.disabled = window_mode_choice.get_selected_id() != UserConfig.WINDOW_WINDOWED
+	champion_choice.visible = choosing
+	mode_choice.visible = choosing and menu_state in ["queue", "host", "offline"]
+	opponent_choice.visible = choosing and menu_state == "offline"
+	match_settings.visible = phase != "menu" and not settings
+	resume_button.visible = playing and not settings
+	resume_button.disabled = not playing
+	start_button.visible = network and multiplayer.is_server() and not dedicated and phase in ["lobby", "results"] and not settings
+	start_button.text = "Rematch" if results else "Start round"
+	offline_rematch_button.visible = results and not network
+	# Requeue is an explicit way to leave a public queue. Private players stay
+	# together for their automatic rematch instead of being sent to strangers.
+	requeue_button.visible = results and network and not multiplayer.is_server() and searching
+	requeue_button.text = "Find another match"
+	exit_button.visible = phase != "menu" and not settings
+	exit_button.text = "Cancel" if phase == "connecting" else ("Leave lobby" if phase == "lobby" else "Return to menu")
+	quit_button.visible = choosing and menu_state == "main"
+	round_summary.visible = results
+	if settings:
+		result_text.text = "Settings"
+		lobby_text.text = "Display and controls are remembered.\nCombat continues while settings are open." if playing else "Display and controls are remembered.\nArrange your layout with Edit HUD."
+	elif results:
+		var victory: bool = actors.has(local_id) and actors[local_id].team == winner
+		result_text.text = "%s — %s team wins" % ["VICTORY" if victory else "DEFEAT", "Blue" if winner == 0 else "Red"]
+		refresh_result_status()
+	elif playing:
+		result_text.text = "Round in progress"
+		lobby_text.text = "Combat continues while this menu is open."
+	elif phase == "connecting":
+		result_text.text = "Connecting"
+	elif phase == "lobby":
+		result_text.text = "Waiting for players"
+	elif choosing:
+		result_text.text = "Choose a champion. Your full kit is ready."
 		match menu_state:
 			"online":
 				lobby_text.text = "Queue for a public match, or use a private code to play with friends."
@@ -1230,10 +1320,25 @@ func refresh_menu() -> void:
 				lobby_text.text = "Enter the %d-character code a friend gave you." % Config.CODE_LENGTH
 			"offline":
 				lobby_text.text = "Spar against bots.\nEmpty team slots are filled automatically."
-			"settings":
-				lobby_text.text = "Display settings apply immediately and are remembered.\nKeybinds configures controls and bars. Edit HUD arranges your layout."
 			_:
-				lobby_text.text = "Online plays against people.\nOffline is local sparring against bots."
+				lobby_text.text = status if not status.is_empty() else "Online plays against people.\nOffline is local sparring against bots."
+
+func refresh_result_status() -> void:
+	if phase != "results" or menu_state == "settings":
+		return
+	if not network:
+		lobby_text.text = "Play again with the same champion and matchup."
+	elif result_info.get("automatic", false):
+		var needed := int(result_info.get("needed", 2))
+		if roster.size() < needed:
+			lobby_text.text = "Waiting for players (%d/%d).\nYou will stay in this lobby for the next round." % [roster.size(), needed]
+		else:
+			var seconds := maxi(0, ceili((rematch_deadline - Time.get_ticks_msec()) / 1000.0))
+			lobby_text.text = "Next round in %ds\nYou are staying with this lobby." % seconds if seconds > 0 else "Starting the next round…"
+	elif multiplayer.is_server():
+		lobby_text.text = "Start a rematch when everyone is ready."
+	else:
+		lobby_text.text = "Waiting for the host to start a rematch."
 
 # --- edit mode ----------------------------------------------------------------
 # WoW's Edit Mode in miniature: drag frames where you want them, click a hotbar
@@ -1735,13 +1840,23 @@ func apply_settings() -> void:
 	var index: int = clampi(resolution_choice.selected, 0, options.size() - 1)
 	if index >= 0 and index < options.size():
 		config.set_value("display", "resolution", options[index])
+	config.set_value("graphics", "preset", UserConfig.GRAPHICS_PRESETS[graphics_choice.selected])
+	config.set_value("graphics", "frame_limit", frame_limit_choice.get_selected_id())
+	config.set_value("graphics", "render_scale", UserConfig.RENDER_SCALES[render_scale_choice.selected])
+	config.set_value("graphics", "show_fps", fps_toggle.button_pressed)
 	config.save_config()
 	save_layout()
+	config.apply_graphics(self)
 	config.apply_display()
 	refresh_menu()
 
 func load_settings() -> void:
 	config.load_config()
+	graphics_choice.select(UserConfig.GRAPHICS_PRESETS.find(config.graphics_preset()))
+	frame_limit_choice.select(UserConfig.FRAME_LIMITS.find(config.frame_limit()))
+	render_scale_choice.select(UserConfig.RENDER_SCALES.find(config.render_scale()))
+	fps_toggle.button_pressed = bool(config.get_value("graphics", "show_fps", false))
+	config.apply_graphics(self)
 	if window_mode_choice:
 		for i in range(window_mode_choice.item_count):
 			if window_mode_choice.get_item_id(i) == config.window_mode():
@@ -1759,6 +1874,7 @@ func host_start() -> void:
 		begin_round()
 
 func begin_round() -> void:
+	menu_state = "main"
 	next_world_actor_id = 1
 	clear_actors()
 	epoch += 1
@@ -1809,6 +1925,7 @@ func begin_round() -> void:
 	assign_local()
 	result_text.text = "Round in progress — combat continues with this panel open."
 	panel.hide()
+	refresh_menu()
 	broadcast_round()
 
 func broadcast_round() -> void:
@@ -1830,6 +1947,7 @@ func assign_local() -> void:
 	if actors.has(local_id):
 		local_yaw = actors[local_id].rotation.y
 		pivot.rotation.y = local_yaw
+		camera.make_current()
 		cycle_target()
 
 @rpc("authority", "call_remote", "reliable")
@@ -1841,6 +1959,7 @@ func round_started(round_epoch: int, size_per_team: int, states: Array) -> void:
 				actors[data.id].receive(data, true)
 		return
 	clear_actors()
+	menu_state = "main"
 	epoch = round_epoch
 	last_snapshot = -1
 	mode = size_per_team
@@ -1854,6 +1973,7 @@ func round_started(round_epoch: int, size_per_team: int, states: Array) -> void:
 	assign_local()
 	result_text.text = "Round in progress — combat continues with this panel open."
 	panel.hide()
+	refresh_menu()
 
 func on_peer_left(peer: int) -> void:
 	if not network or not multiplayer.is_server():
@@ -1881,6 +2001,8 @@ func on_peer_left(peer: int) -> void:
 		broadcast_lobby()
 	elif phase in ["match", "countdown"]:
 		call_deferred("announce_disconnect")
+	elif phase == "results":
+		broadcast_lobby()
 
 func announce_disconnect() -> void:
 	if network and multiplayer.is_server() and phase in ["match", "countdown"]:
@@ -1901,6 +2023,9 @@ func _physics_process(delta: float) -> void:
 			else:
 				leave_session("Could not reach the server. Try again in a moment.")
 	if not dedicated:
+		var budget := config.frame_budget(phase, application_focused)
+		if Engine.max_fps != budget:
+			Engine.max_fps = budget
 		tick_camera_save(delta)
 	if phase in ["countdown", "match"]:
 		if not authoritative() and actors.has(local_id):
@@ -2213,43 +2338,55 @@ func cancel_own_cast(actor, message: String) -> void:
 	if not message.is_empty():
 		feedback(actor, message)
 
+# Shared by authoritative casting and advisory UI. This never spends resources,
+# starts cooldowns, or mutates combat; clients still submit every action normally.
+func ability_block_reason(actor, slot: int, requested: int) -> String:
+	if phase != "match":
+		return "Round has not started" if phase == "countdown" else "Round is over"
+	if actor.hp <= 0:
+		return "You are defeated"
+	if actor.stunned > 0:
+		return "Stunned"
+	var spell: Dictionary = actor.kit[slot]
+	if actor.casting >= 0:
+		return "Already casting"
+	var instant_collapse: bool = spell.kind == "collapse" and actor.identity.instant_collapse
+	if actor.cooldowns[slot] > 0 or (actor.gcd > 0 and not (spell.off or instant_collapse)):
+		return "Ability is not ready"
+	if actor.locked > 0 and actor.champion != "Vanguard" and spell.kind not in ["shield", "blink", "sprint"]:
+		return "Spell school locked out"
+	if actor.identity.root > 0 and spell.kind in ["blink", "charge", "cinder", "pilgrim", "intercede", "swap"]:
+		return "Rooted"
+	var reason := validate_spell(actor, slot, spell_target(actor, slot, requested))
+	if not reason.is_empty():
+		return reason
+	var instant_graviton: bool = spell.kind == "graviton" and actor.identity.instant_graviton
+	if float(spell.cast) > 0 and not instant_graviton and not instant_collapse:
+		if actor.move_input.length() > 0.01 or not actor.is_on_floor():
+			return "Stand still to cast"
+	return ""
+
 func try_spell(id: int, slot: int, requested: int) -> bool:
 	if not authoritative() or phase != "match" or not actors.has(id) or slot < 0 or slot >= actors[id].kit.size():
 		return false
 	var actor = actors[id]
 	if actor.hp <= 0 or actor.stunned > 0:
 		return false
-	var spell: Dictionary = actor.kit[slot]
-	if actor.casting >= 0:
-		feedback(actor, "Already casting")
-		return false
-	var instant_collapse: bool = spell.kind == "collapse" and actor.identity.instant_collapse
-	var off_global: bool = spell.off or instant_collapse
-	if actor.cooldowns[slot] > 0 or (actor.gcd > 0 and not off_global):
-		feedback(actor, "Ability is not ready")
-		return false
-	if actor.locked > 0 and actor.champion != "Vanguard" and spell.kind not in ["shield", "blink", "sprint"]:
-		feedback(actor, "Spell school locked out")
-		return false
-	if actor.identity.root > 0 and spell.kind in ["blink", "charge", "cinder", "pilgrim", "intercede", "swap"]:
-		feedback(actor, "Rooted")
-		return false
-	var victim_id := spell_target(actor, slot, requested)
-	var reason := validate_spell(actor, slot, victim_id)
+	var reason := ability_block_reason(actor, slot, requested)
 	if not reason.is_empty():
 		feedback(actor, reason)
 		return false
+	var spell: Dictionary = actor.kit[slot]
+	var victim_id := spell_target(actor, slot, requested)
+	var instant_collapse: bool = spell.kind == "collapse" and actor.identity.instant_collapse
 	var instant_graviton: bool = spell.kind == "graviton" and actor.identity.instant_graviton
 	if float(spell.cast) > 0 and not instant_graviton and not instant_collapse:
-		if actor.move_input.length() > 0.01 or not actor.is_on_floor():
-			feedback(actor, "Stand still to cast")
-			return false
 		actor.casting = slot
 		actor.cast_left = spell.cast
 		actor.cast_target = victim_id
 	else:
 		resolve_spell(actor, slot, actors[victim_id])
-	if not off_global:
+	if not (spell.off or instant_collapse):
 		actor.gcd = GCD_DURATION
 	return true
 
@@ -2484,16 +2621,21 @@ func check_winner() -> void:
 			alive[actor.team] += 1
 	if alive[0] == 0 or alive[1] == 0:
 		winner = 0 if alive[1] == 0 else 1
-		finish_round(epoch, winner, make_snapshot())
+		var info := {"duration": elapsed, "automatic": dedicated, "delay": rematch_delay, "needed": min_players}
+		var states := make_snapshot()
+		finish_round(epoch, winner, states, info)
 		if network:
-			finish_round.rpc(epoch, winner, make_snapshot())
+			finish_round.rpc(epoch, winner, states, info)
 
 @rpc("authority", "call_remote", "reliable")
-func finish_round(round_epoch: int, winning_team: int, states: Array) -> void:
+func finish_round(round_epoch: int, winning_team: int, states: Array, info: Dictionary = {}) -> void:
 	if epoch != round_epoch:
 		return
 	winner = winning_team
 	phase = "results"
+	menu_state = "main"
+	result_info = info.duplicate()
+	rematch_deadline = Time.get_ticks_msec() + int(float(info.get("delay", 0)) * 1000)
 	for data in states:
 		if actors.has(data.id):
 			actors[data.id].receive(data, authoritative())
@@ -2501,16 +2643,19 @@ func finish_round(round_epoch: int, winning_team: int, states: Array) -> void:
 		actor.casting = -1
 	panel.show()
 	release_mouse()
-	var victory: bool = actors.has(local_id) and actors[local_id].team == winner
-	result_text.text = "%s — %s team wins" % ["VICTORY" if victory else "DEFEAT", "Blue" if winner == 0 else "Red"]
-	status = "Host can start a rematch. Leave and host again to change the roster." if network else "Choose Local sparring for another round."
-	refresh_lobby()
+	var survivors := [0, 0]
+	for actor in actors.values():
+		if actor.hp > 0:
+			survivors[actor.team] += 1
+	var seconds := int(info.get("duration", elapsed))
+	round_summary.text = "%dv%d  ·  %02d:%02d\nSurvivors — Blue %d/%d  ·  Red %d/%d" % [mode, mode, seconds / 60, seconds % 60, survivors[0], mode, survivors[1], mode]
+	refresh_menu()
 	if dedicated and authoritative():
 		print("DEDICATED ROUND END winner=team%d elapsed=%.1fs" % [winner, elapsed])
-		get_tree().create_timer(rematch_delay).timeout.connect(_dedicated_rematch)
+		get_tree().create_timer(rematch_delay).timeout.connect(_dedicated_rematch.bind(epoch))
 
-func _dedicated_rematch() -> void:
-	if not dedicated or not authoritative() or phase != "results":
+func _dedicated_rematch(finished_epoch: int = -1) -> void:
+	if not dedicated or not authoritative() or phase != "results" or (finished_epoch >= 0 and epoch != finished_epoch):
 		return
 	if roster.size() >= min_players:
 		print("DEDICATED REMATCH epoch=%d humans=%d/%d" % [epoch + 1, roster.size(), mode * 2])
@@ -2706,6 +2851,7 @@ func show_edit_previews() -> void:
 		var button := ability_buttons[slot]
 		button.visible = true
 		cooldown_overlays[slot].sync(0.0, 0.0, false)
+		cooldown_overlays[slot].set_availability("")
 		var ability := kit_slot(slot)
 		if ability < 0:
 			button.modulate = Color(1, 1, 1, 0.45)
@@ -2777,12 +2923,17 @@ func update_proc_flash() -> void:
 func update_visuals(delta: float) -> void:
 	if dedicated:
 		return
+	performance_timer -= delta
+	performance_label.visible = fps_toggle.button_pressed
+	if performance_label.visible and performance_timer <= 0.0:
+		performance_timer = 0.5
+		performance_label.text = "%d FPS  ·  %.1f ms" % [Engine.get_frames_per_second(), 1000.0 / maxf(1, Engine.get_frames_per_second())]
 	if social != null:
 		social.refresh()
 	champion_choice.disabled = network
 	mode_choice.disabled = network
 	resume_button.disabled = phase not in ["match", "countdown"]
-	start_button.visible = network and multiplayer.is_server() and phase in ["lobby", "results"]
+	start_button.visible = network and multiplayer.is_server() and not dedicated and phase in ["lobby", "results"] and menu_state != "settings"
 	notice_time -= delta
 	if notice_time <= 0:
 		notice.text = ""
@@ -2796,7 +2947,9 @@ func update_visuals(delta: float) -> void:
 	if edit_mode and not actors.has(local_id):
 		# Editing from the menu, with no match running. WoW shows dummy frames
 		# for exactly this reason: otherwise there is nothing on screen to drag.
+		sync_hud_visibility()
 		show_edit_previews()
+		scoreboard.hide()
 		return
 	update_frame(player_frame, local_id, "YOU")
 	update_frame(target_frame, selected_id, "TARGET")
@@ -2833,6 +2986,13 @@ func update_visuals(delta: float) -> void:
 	# denominator.
 	update_cc_tracker()
 	ClassMechanics.paint(self)
+	availability_timer -= delta
+	if actors.has(local_id) and (availability_timer <= 0.0 or delta == 0.0):
+		availability_timer = 0.1
+		var local_actor = actors[local_id]
+		ability_reasons.clear()
+		for ability in range(local_actor.kit.size()):
+			ability_reasons[ability] = ability_block_reason(local_actor, ability, selected_id)
 	for slot in range(TOTAL_SLOTS):
 		var button := ability_buttons[slot]
 		var ability := kit_slot(slot)
@@ -2845,6 +3005,7 @@ func update_visuals(delta: float) -> void:
 			button.text = ""
 			ability_images[slot].visible = false
 			cooldown_overlays[slot].sync(0.0, 0.0, false)
+			cooldown_overlays[slot].set_availability("")
 			button.modulate = Color(1, 1, 1, 0.45)
 			continue
 		var actor = actors[local_id]
@@ -2876,9 +3037,31 @@ func update_visuals(delta: float) -> void:
 			cooldown_overlays[slot].sync(global_cd, GCD_DURATION, true)
 		else:
 			cooldown_overlays[slot].sync(0.0, 0.0, false)
+		var reason: String = ability_reasons.get(ability, "")
+		cooldown_overlays[slot].set_availability("" if edit_mode or drag_slot >= 0 else reason)
+		if not reason.is_empty() and held <= 0 and own <= 0 and global_cd <= 0 and not edit_mode:
+			ability_images[slot].modulate = Color("a0a0b5")
 		if actor.hp <= 0:
 			button.modulate = Color("83919e")
+	refresh_result_status()
+	sync_hud_visibility()
 	update_ability_tooltip()
+
+func sync_hud_visibility() -> void:
+	var show_hud := actors.has(local_id) and not panel.visible
+	scoreboard.visible = show_hud
+	notice.visible = show_hud
+	for entry in [[player_frame, local_id], [target_frame, selected_id], [focus_frame, focus_id]]:
+		entry[0].visible = (show_hud and actors.has(entry[1])) or edit_mode
+	party_box.visible = (show_hud and not party_ids().is_empty()) or edit_mode
+	enemy_box.visible = (show_hud and not enemy_ids().is_empty()) or edit_mode
+	self_auras.visible = (show_hud and self_auras.visible) or edit_mode
+	for bar in bar_roots:
+		bar.visible = show_hud or edit_mode
+	if not show_hud and not edit_mode:
+		cc_tracker.hide()
+	if not actors.has(local_id) and not menu_camera.current:
+		menu_camera.make_current()
 
 # Aura strips live at child index 4 of a unit frame. Party and enemy rows are
 # plain buttons with no strip, so they are skipped rather than special-cased.
@@ -2988,7 +3171,10 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
-		if panel.visible and phase in ["match", "countdown"]:
+		if panel.visible and menu_state != "main":
+			menu_state = "main"
+			refresh_lobby()
+		elif panel.visible and phase in ["match", "countdown"]:
 			panel.hide()
 		elif actors.has(local_id) and actors[local_id].casting >= 0:
 			if authoritative():
@@ -3000,6 +3186,7 @@ func _input(event: InputEvent) -> void:
 			selected_id = -1
 		else:
 			panel.show()
+			refresh_lobby()
 			release_mouse()
 		get_viewport().set_input_as_handled()
 
@@ -3052,7 +3239,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			queued_jump = true
 
 func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_IN:
+		application_focused = true
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		application_focused = false
 		release_mouse(false)
 		queued_jump = false
 	# Flush on quit: anything changed since the last explicit save — a camera
@@ -3173,7 +3363,11 @@ func update_ability_tooltip() -> void:
 			if ability < 0:
 				break
 			var actor = actors[local_id]
-			ability_tooltip.present(actor.kit[ability], actor.champion, pointer, ui.size)
+			var text: String = Kits.description(actor.kit[ability], actor.champion)
+			var reason := ability_block_reason(actor, ability, selected_id) if not edit_mode else ""
+			if not reason.is_empty():
+				text = text.replace("\n\n", "\n") + "\n" + reason
+			ability_tooltip.present_text(text, pointer, ui.size)
 			return
 	ability_tooltip.hide()
 

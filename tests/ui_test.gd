@@ -317,6 +317,9 @@ func run() -> void:
 		"The enemy border is still there at full health")
 
 	# --- shift-drag rearranges bars outside edit mode --------------------------
+	# Editing returns to the menu; resume before exercising a gameplay gesture.
+	arena.panel.hide()
+	arena.update_visuals(0)
 	arena.reset_layout()
 	check(not arena.edit_mode, "Shift-drag does not require edit mode")
 	var far: int = arena.BAR_SLOTS * 2

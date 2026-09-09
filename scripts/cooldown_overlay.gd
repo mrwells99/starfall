@@ -24,6 +24,9 @@ var duration := 0.0
 var is_gcd := false
 var label: Label
 var key_label: Label
+var availability_label: Label
+var availability_reason := ""
+var availability_color := Color.WHITE
 
 func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -50,9 +53,56 @@ func _init() -> void:
 	key_label.add_theme_constant_override("shadow_offset_x", 1)
 	key_label.add_theme_constant_override("shadow_offset_y", 1)
 	add_child(key_label)
+	availability_label = Label.new()
+	availability_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	availability_label.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	availability_label.offset_top = -13
+	availability_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	availability_label.clip_text = true
+	availability_label.add_theme_font_size_override("font_size", 9)
+	availability_label.hide()
+	add_child(availability_label)
+	resized.connect(refresh_availability)
 
 func set_key(text: String) -> void:
 	key_label.text = text
+
+# Short text plus color, never color alone. Cooldowns/CC keep their existing
+# sweeps; their full reason remains available in the shared tooltip.
+func set_availability(reason: String) -> void:
+	if availability_reason == reason:
+		return
+	availability_reason = reason
+	refresh_availability()
+
+func refresh_availability() -> void:
+	var title := ""
+	availability_color = Color("ffb4bc")
+	if "range" in availability_reason.to_lower():
+		title = "RANGE"
+	elif availability_reason.begins_with("Requires"):
+		title = availability_reason.get_slice(" ", 2).to_upper()
+		availability_color = Color("8fdfff")
+	elif "Anchor" in availability_reason:
+		title = "ANCHOR"
+		availability_color = Color("e2b6ff")
+	elif availability_reason == "Target is out of line of sight" or "path is blocked" in availability_reason:
+		title = "BLOCKED"
+	elif availability_reason == "Face your target":
+		title = "FACE"
+	elif availability_reason == "Stand still to cast":
+		title = "MOVE"
+		availability_color = Color("ffe2a2")
+	elif availability_reason.begins_with("Select") or "ally" in availability_reason or "duel" in availability_reason or "exchange" in availability_reason:
+		title = "TARGET"
+	if size.x < 45:
+		title = {"RANGE": "RNG", "TARGET": "TGT", "BLOCKED": "LOS", "MEDITATION": "MED", "RESOLVE": "RES", "ANCHOR": "ANC"}.get(title, title)
+	elif title == "MEDITATION":
+		title = "MEDIT."
+	availability_label.text = title
+	availability_label.visible = not title.is_empty()
+	availability_label.add_theme_color_override("font_color", availability_color)
+	queue_redraw()
 
 # Authoritative state from the server snapshot.
 func sync(new_remaining: float, new_duration: float, gcd: bool) -> void:
@@ -84,6 +134,8 @@ static func format_time(t: float) -> String:
 	return "%.1f" % t
 
 func _draw() -> void:
+	if availability_label.visible:
+		draw_rect(Rect2(0, size.y - 13, size.x, 13), Color(0.025, 0.025, 0.055, 0.96))
 	if remaining <= 0.0 or duration <= 0.0:
 		return
 	var fraction := clampf(remaining / duration, 0.0, 1.0)

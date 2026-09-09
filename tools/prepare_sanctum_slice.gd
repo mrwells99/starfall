@@ -54,7 +54,7 @@ func copy_meshes(source: Node, parent: Node3D, owner_node: Node3D, hint: int) ->
 		if child is MeshInstance3D:
 			var instance := MeshInstance3D.new()
 			instance.name = child.name
-			instance.mesh = child.mesh.duplicate()
+			instance.mesh = preload("res://tools/arena_mesh_lods.gd").with_lods(child.mesh)
 			var size := hint
 			if "Recess" in str(child.name) or "Inlay" in str(child.name):
 				size = 32

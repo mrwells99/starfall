@@ -6,6 +6,37 @@ Verified on 2026-09-08 with Godot 4.5.1 stable (`f62fdbde1`).
 
 **Forward+ is technically viable on this host and worth an optional High graphics path.** It successfully renders the existing arena on a physical AMD Radeon RX 7800 XT. Keep Compatibility as the default during the corner trial: a trustworthy full-combat frame budget still needs an uncontended host run before a default switch.
 
+## 2026-09-09 follow-up: isolated arena optimization
+
+The owner reports smooth gameplay at the defaults (60 FPS, 100% 3D resolution), with RX 7800 XT utilization reduced from roughly 75% to 30% by the earlier settings changes. Those percentages are owner observations, not measurements from this test. The owner closed the editor/game for this follow-up. Native process checks found no other Godot instances and GPU busy was 4–5% before testing. Desktop/compositor activity remains; clocks were not locked. This is a short test on one GPU, not a minimum-hardware certification.
+
+Shipped 48 index-only LOD levels across 16 of the 17 authored arena mesh resources; the remaining 12-triangle recess needs none. Full-detail packed vertices, normals, indices, UVs/UV2 and lightmap sizes are preserved. Runtime architecture uses `lod_bias = 0.5`; collision, character assets, textures, effects and 100% rendering scale remain intact. Compressed meshes grow by about 0.36 MiB. The stone shader also skips a third noise calculation on horizontal surfaces where its runoff contribution is exactly zero. Experimental position-only shadow meshes caused a visible shadow regression and were discarded.
+
+Godot 4.5.1 / native Wayland / Forward+ / RX 7800 XT / actual **1920×1080**, Balanced, scale 1.0, focused 60 FPS. Four serialized six-player local match samples ran in **before / after / after / before** order. Baseline strips only the new arena LOD indices and restores the previous stone shader. Each run warms for 60 physics ticks and samples the next 360; HP is held full. This includes animation, effects, UI and combat, but short seeded runs do not cover every combat state or shader compilation path.
+
+| Six-player sample | GPU mean | GPU p95 | Frame mean | Frame p95 |
+| --- | ---: | ---: | ---: | ---: |
+| Before 1 | 3.696 ms | 3.720 ms | 16.758 ms | 16.789 ms |
+| After 1 | 3.565 ms | 3.589 ms | 16.666 ms | 16.682 ms |
+| After 2 | 3.567 ms | 3.591 ms | 16.666 ms | 16.673 ms |
+| Before 2 | 3.696 ms | 3.720 ms | 16.666 ms | 16.672 ms |
+
+Mean GPU time fell **3.5%** in these samples. This is not a prediction that utilization will fall from 30% to a particular number. Maximum frame times ranged from 21.9 to 66.1 ms across runs, so this is also not a claim of hitch-free play in every state. Raw local output: `artifacts/arena-match-timing.log`. The fourth process printed its complete sample but needed the outer timeout during shutdown; no test processes remained afterward. The benchmark now explicitly frees its game scene before quitting.
+
+A separate fixed-camera LOD-only comparison, with 90 warmup frames and 120 samples per variant in before/after/after/before order, measured:
+
+| View | Before GPU mean (pair average) | After GPU mean (pair average) | Rendered primitives before → after |
+| --- | ---: | ---: | ---: |
+| Gameplay | 2.736 ms | 2.661 ms | 3,224,631 → 2,863,171 |
+| Close | 2.764 ms | 2.760 ms | 3,328,199 → 3,174,479 |
+| Overview | 2.057 ms | 1.908 ms | 2,252,325 → 1,605,081 |
+
+Counts include renderer passes, not just unique model triangles. LOD splitting increases draw calls slightly, so triangle reductions must not be advertised as equivalent speedups. The floor shader alone saved about 1% in the gameplay view; other views showed negligible changes. Native close/gameplay/overview image pairs are under `artifacts/arena-lod-*.png`; timing records are `artifacts/arena-lod-timing.json` and `artifacts/arena-shader-timing.json`.
+
+Validation: mesh integrity **248/248**, map **57/57**, combat **81/81**, and native close/gameplay/overview visual comparisons passed.
+
+Reproduce fixed-camera LOD timing using `godot --path . --display-driver wayland --audio-driver Dummy --script tools/arena_lod_review.gd -- --timing`. For active samples use `tools/local_match_benchmark.gd`; `--bench-no-arena-lods` removes the new indices in memory, and `--bench-shader-before=/absolute/path/to/baseline.gdshader` optionally restores a saved baseline shader. The review accepts `--shader-before=/absolute/path` to isolate shader changes. Always inspect actual resolution/focus/cap and verify no competing game/editor before interpreting results.
+
 ## Performance evidence correction: concurrent host workload
 
 **The active-match timings below were collected while an independent editor and game were running on the same host. They cannot establish the game's intrinsic frame rate or identify a CPU/renderer bottleneck.** Late native host inspection at approximately 21:10 found `godot project.godot` (PID 664913, elapsed about 23 minutes) and a separately running game launched with `--remote-debug tcp://127.0.0.1:6007 --editor-pid 664913 --scene res://arena.tscn` (PID 668106, elapsed about 19 minutes, roughly 80% CPU). The latter started around 20:51, before the active samples from roughly 20:53 onward. No unrelated process was stopped.
