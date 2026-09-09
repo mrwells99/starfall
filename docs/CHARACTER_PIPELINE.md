@@ -1,12 +1,12 @@
 # Character production handoff
 
-Recorded 2026-09-08 after the Ember replacement. Read this before repeating the work for another class, alongside `CONTEXT.md`, the character's art notes, and `ART_DIRECTION.md`. This is the Ember workflow and factual handoff. Vanguard was subsequently authorized; its current helmet/hammer implementation and local tool paths are in `VANGUARD_REBUILD_BRIEF.md`.
+Recorded 2026-09-08 after the Ember replacement. Read this before repeating the work for another class, alongside `CONTEXT.md`, the character's art notes, and `ART_DIRECTION.md`. This is the project workflow and factual handoff. Vanguard's current helmet/hammer implementation and local tool paths are in `VANGUARD_REBUILD_BRIEF.md`. Luminary was subsequently implemented with the same process, then revised to a faceless ivory hood — see the current hood revision below; the original exposed-face section is historical.
 
 ## Owner's requested outcome
 
 Use the installed Blender application and code to make a complete editable 3D character, with a deformation skeleton and complete walking animations, directly in `C:/projects/starfall`. The owner explicitly rejected blocky/voxel-looking models and rigid, janky movement. A generated picture is not the deliverable. Reference images guide the actual geometry, materials and silhouette; the animation must work in the game. "Scrap everything" was applied to the old Ember model and its presentation path, not to unrelated champions, arena work, gameplay or user edits.
 
-The owner now wants the same process for another class. Preserve the approach and deliverable types, but adapt the silhouette, equipment, rig and animation to that class's supplied reference. Do not silently reuse Ember's mage costume for another class. Do not treat the request to log this work as approval of the current visual quality or as permission to start a guessed next class.
+The owner subsequently requested the same process for Luminary, with mostly unchanged animation and creative liberty on reference-based appearance. Preserve the approach and deliverable types, but adapt the silhouette, equipment, rig and animation to that class's supplied reference. Do not silently reuse Ember's mage costume for another class. The logging request was not visual approval. The later explicit Luminary request authorized that class; future classes still require their own request.
 
 ## References and local environment
 
@@ -118,3 +118,65 @@ The working tree already had user changes to `project.godot` and numerous existi
 4. Integrate the new class through a dedicated presentation module and remove only its superseded model branch. Retain actor/collision/UI contracts and gameplay/network behavior.
 5. Inspect geometry and several animation phases in Blender and the actual game renderer. Check skin weights, loop closure, movement transitions and combat/art regressions after the final import.
 6. Record limitations honestly, update current context and art notes, and open the real editable/animated result for the owner. Do not require a remote Git push or deployment merely because the user requested changes in the project folder.
+
+## Luminary current hood revision — 2026-09-08
+
+**Current authority:** after the initial Luminary delivery, the owner asked for an Ember-like hood in Luminary's style, no facial features, no protruding hair, and removal of hair if needed. The current files implement that request. Do not recreate the historical face/hair when rebuilding.
+
+The face/head surface, eyeballs, lids, brows, lashes, nose/nostrils, lips, ears, scalp, exposed neck and all silver hair locks were removed from `tools/luminary_details.py`. Two hair bones and their animation channels were removed from the main builder. This is geometry removal, not visibility toggling or covering an existing human head. The remaining 59-bone rig preserves the other animation channels.
+
+The replacement is an ivory outer hood with 6mm shell thickness, dark lining, double gold binding, lunar embroidery, ivory cowl, repositioned celestial halo and a recessed dark cloth veil shaped to the opening. The veil has no eyes or other facial relief. The whole hood is weighted to the head. Initial inward surface winding caused the lining to face outward; the final builder reverses winding before adding thickness and sizes the veil from the hood opening, preventing it from covering the border.
+
+All existing Luminary source/runtime paths and build commands remain applicable. The source now has **79,301 vertices / 150,476 triangles / 13 surfaces / 59 bones**. Historical source counts, byte sizes and hair-control descriptions below are obsolete for the current asset. Rebuild still requires both `build_luminary.py` and `luminary_details.py`; verifier still uses Ember for parity. The staff grip, cape motion, seven clip durations and gameplay integration are unchanged.
+
+Final post-revision checks: **865/865 Luminary**, **81/81 combat**, **91/91 rendered art**. Fewer per-bone loop assertions reflect the removed hair bones, not dropped animation coverage. Blender verified normalized weights on all 79,301 vertices, absent hair controls/facial materials, stance ankle errors below 0.000001m and zero difference across 392 sampled core-gait matrices. Front/back, walk/run side samples and the final Godot capture were visually inspected after correcting the shell. Review outputs in `artifacts/luminary/` now show the hooded version.
+
+Remaining limitations concern ornament/fabric fidelity, non-simulated cape motion, high-speed backward/sideways foot sliding and pending GPU/LOD profiling. Facial or hair refinement is no longer a pending task: their removal was requested. No new spell VFX, gameplay changes, Git commit or remote push were part of this revision.
+
+## Luminary initial exposed-face version — historical, superseded by hood revision
+
+The user supplied `C:/Users/aidan/Downloads/f4d5374a-7a27-4216-95e6-eb923ad93a90.png` and explicitly asked for the exact same workflow/process, mostly the same animations, and a Luminary-specific appearance with creative liberty. The reference is preserved at `art_source/references/luminary.png`. It informed a new exposed female face, silver hair, ivory/gold plate, lunar tabard and cape, celestial halo and carried staff. The character geometry is original and the result remains stylized rather than matching the reference's production detail.
+
+### Files and source dependencies
+
+- `art_source/luminary.blend`: editable source, Walk active, 30 fps, frames 1–37, inspection studio in `REVIEW_ONLY`.
+- `assets/characters/luminary.glb`: imported game asset, 8,846,492 bytes at final verification.
+- `assets/characters/luminary_silk.png` and `luminary_celestial.png`: packed 1024px textures. Godot also extracts `luminary_luminary_silk.png` and `luminary_luminary_celestial.png`; preserve relevant import metadata.
+- `tools/build_luminary.py`: full class build orchestration, inherited gait generation, export and studio rendering. It executes the required companion `tools/luminary_details.py`, which builds the face, hair, cape, tabard, lunar ornaments, relics and staff in the builder context. Both files are required to reproduce the source. This is not an instruction to rerun the intermediate preparation scripts.
+- `scripts/luminary_art.gd`: dedicated runtime presentation, copied from Ember with its own asset path; same displacement-based clip selection, 0.20-second blending and cadence limits.
+- `scripts/champion_model.gd`: early Luminary build/animation dispatch. The older generic geometry remains for the fallback champion, but Luminary no longer uses it. Ember's asset, builder and presentation module were not modified.
+- `tools/verify_luminary.py`: verifies its source rig/weights/stance, compares sampled core gait to `art_source/ember.blend`, and renders side-view walk/run samples. Requires both source files for the parity comparison.
+- `tests/luminary_presentation_test.gd`: imported skeleton/skin/clips/loop endpoints, attachment-bone presence, runtime transitions and preserved collision/transform.
+- `tests/ability_art_test.gd`: accepts either Luminary's or Ember's authored Cast clip when checking a skinned champion; other champions retain the procedural arm check.
+- `scenes/luminary_preview.tscn` / `tools/luminary_preview.gd`: orbit viewer and clip controls. Default distance 4.6m and target height 1.22m keep the staff in view; the studio uses lower, cooler lighting for ivory armor.
+
+### What stayed the same and what changed
+
+The final source has 114,991 vertices, 216,098 triangles, 19 material surfaces, one joined skinned mesh and 61 bones. The 52-bone Ember hierarchy is retained and nine controls are added: staff, hair.L/R, cape0/1/2 and cape_tip0/1/2. The original core leg/root/body animation code and all seven clip durations remain the same. The gait comparison samples root, pelvis, spine, chest, neck, head and both thigh/shin/foot/toe chains at four frames per clip (392 bone-frame matrices), with zero local matrix difference.
+
+Luminary's staff-side arm uses an additional two-bone solve to keep the hand and pole clear of the shoulder, and the staff bone counter-rotates to remain mostly upright. The grip is baked into every clip; it is not a runtime attachment script or collider. The free arm retains the shared gesture/swing pattern. Hair and cape use small delayed oscillations. These differences are intentional adaptations permitted by the user's instruction that animations stay mostly the same.
+
+Design refinements during inspection narrowed the initially broad cape, added pointed cape ends and a central navy lunar strip, closed more of the scalp, smoothed hair-lock paths, narrowed the eye aperture, subdued fabric color variation and added staff-lens tracery. The final Godot preview was recaptured after fixing its initially cropped staff and overly bright ivory lighting. Do not characterize the exposed face or hair as final production-quality art.
+
+### Commands and verified results
+
+Run from `C:/projects/starfall`, using the same local executables listed above:
+
+```powershell
+& 'C:/Program Files/Blender Foundation/Blender 5.2/blender.exe' --background --python tools/build_luminary.py
+& 'C:/Program Files/Blender Foundation/Blender 5.2/blender.exe' --background --python tools/verify_luminary.py
+& 'C:/Users/aidan/Desktop/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe' --headless --path . --editor --import --quit
+& 'C:/Users/aidan/Desktop/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script tests/luminary_presentation_test.gd
+& 'C:/Users/aidan/Desktop/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script tests/ember_presentation_test.gd
+& 'C:/Users/aidan/Desktop/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script tests/combat_test.gd
+& 'C:/Users/aidan/Desktop/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe' --path . --script tests/ability_art_test.gd
+& 'C:/Users/aidan/Desktop/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe' --path . res://scenes/luminary_preview.tscn
+```
+
+Append `-- --luminary-capture` to the viewer command to save its rendered walk frame and quit. Controls match Ember: animation buttons, drag to orbit, scroll to zoom, Space to pause and a playback slider. Godot and Blender visual outputs are inspection evidence; the real source and animated runtime asset are the deliverables.
+
+Final verified results: normalized skin weights on all 114,991 source vertices; maximum sampled stance ankle-height error below 0.000001m; 392 core-gait matrices identical to Ember; Luminary 893/893, Ember 761/761, combat 81/81, rendered art 91/91. The 1,826 game checks include many per-bone loop assertions and do not measure artistry. The Blender stance check does not establish ground-relative foot-slip elimination.
+
+`artifacts/luminary/` contains build/motion reports, front/back renders, Walk 10/28 and Run 7/18 side views, and the final `godot-walk.png`. Preparation/integration/refinement scripts there are historical and ignored; the durable builder and companion already contain their changes. The working tree was clean at the start of the Luminary request. No Git commit, remote push or deployment was performed.
+
+Remaining limitations: face/hair and ornaments are simpler than the reference, no facial animation, bone-driven cloth/hair without collision simulation, no terrain foot IK, inherited high-speed backward/sideways foot sliding, and no new spell VFX from the concept sheet. The 216k-triangle source also needs deliberate performance/LOD profiling before calling it optimized for multiple characters. Preserve the collision, targeting and server-authoritative gameplay contracts when refining any of these.

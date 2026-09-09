@@ -8,6 +8,16 @@ Newest first.
 
 The owner authorized Ember Heat, Vanguard Resolve, Luminary Guiding Stars, and Fulcrum Gravity Anchor mechanics, with baseline mobility, damage reduction and sustain preserved. Kits expand to twelve slots over two action bars rather than replacing those tools. Anchor placement follows facing, stops at terrain and projects to ground, retaining keyboard/target combat. All abilities have painted icons; existing art is reused where appropriate. Version 0.6.0 separates these state/kit changes from older clients. Full implemented rules are in `CLASS_ABILITIES.md`; numbers need human playtesting.
 
+---
+
+## 2026-09-08 — Blender-authored Ember and Luminary with shared core locomotion
+
+**Decision:** The owner explicitly requested replacing Ember's faceted model and rigid movement with a complete Blender-authored skinned character, then requested the same process and mostly the same animations for Luminary with a distinct supplied reference and creative liberty. This authorizes the skeletal asset pipeline for these two classes and supersedes older statements deferring all rig/animation work. Vanguard was subsequently authored via the same pipeline — see `VANGUARD_REBUILD_BRIEF.md`.
+
+**Implementation:** Separately named editable Blender sources and GLB assets, class-specific presentation modules, seven matching clip durations, shared core gait, Blender verification and rendered Godot regression checks. Luminary adapts the staff-side arm and adds hair/cape controls. Animation remains presentation-only; collision, targeting, gameplay and network authority are unchanged.
+
+**Scope:** These requests authorize local project integration, not automatic production-quality approval, remote publication or unrelated class redesigns. See `CHARACTER_PIPELINE.md` for exact files, workflow and known limitations.
+
 
 
 ## 2026-09-07 — Begin ability icons and original player models
