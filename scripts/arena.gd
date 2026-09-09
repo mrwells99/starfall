@@ -230,7 +230,10 @@ func _ready() -> void:
 	multiplayer.connected_to_server.connect(on_connected)
 	multiplayer.connection_failed.connect(on_connection_failed)
 	multiplayer.server_disconnected.connect(func(): leave_session("Host disconnected."))
-	multiplayer.peer_disconnected.connect(on_peer_left)
+	# ENet emits this signal before removing the departing peer from its send
+	# list. Process departures after polling so lobby/world RPCs cannot target
+	# the connection whose channels have already been torn down.
+	multiplayer.peer_disconnected.connect(on_peer_left, CONNECT_DEFERRED)
 	# Rows are shown and hidden by refresh_menu(). Without a first call, the
 	# launch screen displayed every submenu at once — Online, Offline, the lobby
 	# rows and the code field all stacked on top of each other.

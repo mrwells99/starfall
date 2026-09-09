@@ -226,7 +226,7 @@ Remote input / action handlers obtain `multiplayer.get_remote_sender_id()` and r
 ### Delay testing and disconnects
 
 - `--latency-ms=N` (0–500) delays outgoing client input and outgoing host snapshots by N ms. Not jitter, not loss. Displayed RTT excludes injected delay.
-- Client leaves during a match → its fighter's `owner_peer` becomes 0 (bot takes over). In-round disconnect notice is deferred rather than broadcast synchronously inside peer-disconnection processing.
+- Client leaves during a match → its fighter's `owner_peer` becomes 0 (bot takes over). The entire `peer_disconnected` handler uses `CONNECT_DEFERRED`, so roster/result/world RPCs run after ENet polling removes departing transport peers. The in-round notice is also deferred. This prevents sends to zero-channel connections during simultaneous departures. Godot 4.5.1 emits the server signal before erasing its peer entry ([engine source](https://github.com/godotengine/godot/blob/4.5.1-stable/modules/enet/enet_multiplayer_peer.cpp#L206-L207)).
 - Host leaves → clients return to menu. No host migration.
 - Rejected joins get an explanation and return to menu. Connection failure and ~10 s timeout also return to menu.
 
@@ -393,7 +393,7 @@ The UI test **rejects `--headless`** — cursor APIs are not faithfully emulated
 | Hotbar / panel off-screen | Check anchor offsets, not absolute `.position` after preset. |
 | FASTLZ decompression errors | Snapshots use DEFLATE with dynamic decompression. Don't mix. See [`DECISIONS.md`](DECISIONS.md). |
 | ENet oversized unreliable packet | Compressed payload exceeds MTU. Don't remove compression. |
-| Errors when many peers quit | Preserve `server_relay = false` and deferred in-match disconnect announcements. |
+| Errors when many peers quit | Preserve `server_relay = false`, the deferred `peer_disconnected` connection, and deferred in-match disconnect announcements. |
 | RPC checksum / path errors | Both sides need same scripts, RPC declarations, `/root/Arena` root path. |
 | Version mismatch on join | Client and server disagree on `Config.VERSION`. Rebuild both from the same commit. |
 | Game reads old code | Stop and relaunch after edits. New script files may need editor import. |
