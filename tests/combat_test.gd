@@ -25,6 +25,10 @@ func reset(choice: String = "Ember", team_size: int = 1) -> void:
 	arena.roster = {1: {"champion": choice, "team": 0}}
 	arena.begin_round()
 	arena.phase = "match"
+	# Spell behavior fixtures start inside the shorter combat range. Spawn-range
+	# denial is tested separately in spell_range_test.gd.
+	for actor in arena.actors.values():
+		actor.position.z = 6.0 if actor.team == 0 else -6.0
 	await settle()
 
 func run() -> void:

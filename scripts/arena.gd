@@ -131,7 +131,6 @@ var controls = preload("res://scripts/key_bindings.gd").new()
 var prediction = preload("res://scripts/movement_prediction.gd").new()
 var keybind_menu
 var match_settings: Button
-var controls_help: Label
 var settings_row: HBoxContainer
 var window_mode_choice: OptionButton
 var resolution_choice: OptionButton
@@ -513,14 +512,6 @@ func build_ui() -> void:
 	add_label(enemy_box, "ENEMIES · select by key or frame")
 	for i in range(3):
 		enemy_buttons.append(roster_row(enemy_box, select_enemy.bind(i)))
-	var help := add_label(ui, "W/S move · A/D strafe · Q/E turn · Space jump\nRMB steer · LMB orbit · Both run · Wheel zoom\nTab / frames target · F1–F3 allies · F / G focus\n1–7 / Shift+1–5 abilities · Hover for details · Esc menu", 14)
-	help.add_theme_color_override("font_color", UI_TEXT_DIM)
-	help.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
-	help.offset_left = 24
-	controls_help = help
-	help.offset_top = -185
-	help.offset_right = 400
-	help.offset_bottom = -100
 	# Twelve abilities fill the first two bars; the third holds alternate bindings.
 	for bar in range(BAR_COUNT):
 		var row := HBoxContainer.new()
@@ -1584,8 +1575,6 @@ func apply_slot_size(size: int) -> void:
 			row.offset_bottom = -(25 + bar * step)
 
 func refresh_binds() -> void:
-	if controls_help != null:
-		controls_help.text = "%s/%s move · %s/%s strafe · %s jump\nRMB steer · LMB orbit · Both run · Wheel zoom\n%s enemies · %s/%s/%s allies\nKeys shown on bars · Settings → Keybinds · Esc menu" % [control_label("forward"), control_label("backward"), control_label("strafe_left"), control_label("strafe_right"), control_label("jump"), control_label("target_next"), control_label("party_1"), control_label("party_2"), control_label("party_3")]
 	for slot in range(cooldown_overlays.size()):
 		# An unbound slot shows nothing rather than a stray "0".
 		var binding: int = binds[slot] if binds[slot] != 0 else controls.secondary[slot]
@@ -1676,8 +1665,17 @@ func load_layout() -> void:
 						break
 			if empty >= 0:
 				assignment[empty] = ability
-				if binds[empty] == 0:
-					binds[empty] = (KEY_1 + ability % BAR_SLOTS) | KEY_MASK_SHIFT
+				if binds[empty] == 0 and controls.secondary[empty] == 0:
+					var preferred := (KEY_1 + ability % BAR_SLOTS) | KEY_MASK_SHIFT
+					var available := true
+					for action in controls.rows(self):
+						for column in range(2):
+							if controls.value(self, action, column) == preferred:
+								available = false
+					# A new ability may be clicked/rebound; existing player bindings
+					# must never be duplicated or stolen during automatic migration.
+					if available:
+						binds[empty] = preferred
 	var moved = config.get_value("hud", "moved", [])
 	if moved is Array:
 		for name in moved:
@@ -1695,7 +1693,7 @@ func load_layout() -> void:
 				frame.position = places[frame.name]
 	refresh_binds()
 
-# Two populated bars: keys 1-7 and Shift+1-5. Third bar remains available.
+# Two populated bars: keys 1-7 and Shift+1-7. Shorter kits hide unused slots.
 func default_bindings() -> void:
 	binds.resize(TOTAL_SLOTS)
 	assignment.resize(TOTAL_SLOTS)
@@ -2074,24 +2072,27 @@ func tick_actor(actor, delta: float) -> void:
 				else:
 					feedback(actor, reason)
 
-func simulate_movement(actor, delta: float) -> Vector3:
+func simulate_movement(actor, delta: float, grounded_override: Variant = null) -> Vector3:
 	if actor.hp <= 0:
 		actor.velocity = Vector3.ZERO
 		actor.jump_queued = false
 		return Vector3.ZERO
+	var grounded: bool = actor.is_on_floor() if grounded_override == null else bool(grounded_override)
+	var immobilized: bool = actor.stunned > 0 or actor.identity.root > 0 or actor.identity.hold > 0
 	var direction: Vector3 = actor.basis * Vector3(actor.move_input.x, 0, actor.move_input.y)
-	if actor.identity.root > 0 or actor.identity.hold > 0:
-		direction = Vector3.ZERO
-	if actor.stunned > 0:
+	if immobilized:
 		direction = Vector3.ZERO
 	var speed := 6.5 if actor.move_input.y <= 0 else 3.8
 	if actor.sprint > 0:
 		speed *= 1.65
 	if actor.identity.slow > 0 and actor.identity.immune <= 0:
 		speed *= 0.55
-	actor.velocity.x = direction.x * speed
-	actor.velocity.z = direction.z * speed
-	if actor.jump_queued and actor.is_on_floor() and actor.stunned <= 0 and actor.identity.root <= 0 and actor.identity.hold <= 0:
+	# Airborne movement carries world-space takeoff momentum, including when the
+	# player releases movement or turns. Collisions and control effects still stop it.
+	if grounded or immobilized:
+		actor.velocity.x = direction.x * speed
+		actor.velocity.z = direction.z * speed
+	if actor.jump_queued and grounded and not immobilized:
 		actor.velocity.y = 7
 	actor.jump_queued = false
 	actor.velocity.y -= 20 * delta
@@ -2214,7 +2215,9 @@ func try_spell(id: int, slot: int, requested: int) -> bool:
 	if actor.casting >= 0:
 		feedback(actor, "Already casting")
 		return false
-	if actor.cooldowns[slot] > 0 or (actor.gcd > 0 and not spell.off):
+	var instant_collapse: bool = spell.kind == "collapse" and actor.identity.instant_collapse
+	var off_global: bool = spell.off or instant_collapse
+	if actor.cooldowns[slot] > 0 or (actor.gcd > 0 and not off_global):
 		feedback(actor, "Ability is not ready")
 		return false
 	if actor.locked > 0 and actor.champion != "Vanguard" and spell.kind not in ["shield", "blink", "sprint"]:
@@ -2229,7 +2232,7 @@ func try_spell(id: int, slot: int, requested: int) -> bool:
 		feedback(actor, reason)
 		return false
 	var instant_graviton: bool = spell.kind == "graviton" and actor.identity.instant_graviton
-	if float(spell.cast) > 0 and not instant_graviton:
+	if float(spell.cast) > 0 and not instant_graviton and not instant_collapse:
 		if actor.move_input.length() > 0.01 or not actor.is_on_floor():
 			feedback(actor, "Stand still to cast")
 			return false
@@ -2238,7 +2241,7 @@ func try_spell(id: int, slot: int, requested: int) -> bool:
 		actor.cast_target = victim_id
 	else:
 		resolve_spell(actor, slot, actors[victim_id])
-	if not spell.off:
+	if not off_global:
 		actor.gcd = GCD_DURATION
 	return true
 
@@ -2255,6 +2258,7 @@ func resolve_spell(actor, slot: int, victim) -> void:
 		"heal", "self_heal":
 			if spell.kind == "self_heal" and actor.champion != "Luminary":
 				victim.identity.dots.clear()
+				victim.identity.entropy_dots.clear()
 			# Mend always restores its listed amount. Match-only dampening still
 			# prevents healer stalemates; persistent worlds never inherit it.
 			var dampening := 0.0 if world_mode or spell.kind == "self_heal" else clampf((elapsed - 60) / 180.0, 0, 0.7)
@@ -2537,7 +2541,7 @@ func bot_think(actor, delta: float) -> void:
 	if offset.length() > 0.1:
 		actor.look_at(actor.position + offset, Vector3.UP)
 	var visible := has_los(actor, destination)
-	var desired_range := 2.8 if actor.champion == "Vanguard" else 20.0
+	var desired_range: float = float(actor.kit[0].range) * 0.85
 	if actor.casting < 0 and (not visible or offset.length() > desired_range):
 		if actor.path_timer <= 0:
 			actor.path_timer = 0.45
@@ -2571,7 +2575,7 @@ func bot_think(actor, delta: float) -> void:
 		if ally.hp < 76:
 			if try_spell(actor.actor_id, 1, ally.actor_id):
 				return
-			if visible and offset.length() < 27:
+			if visible and offset.length() <= float(actor.kit[5].range):
 				actor.move_input = Vector2.ZERO
 				if try_spell(actor.actor_id, 5, ally.actor_id):
 					return
@@ -2751,12 +2755,15 @@ func _process(_delta: float) -> void:
 		pivot.global_position = actors[local_id].get_global_transform_interpolated().origin + Vector3(0, 1.6, 0)
 	update_proc_flash()
 
+func proc_ready(actor, spell: Dictionary) -> bool:
+	return (spell.kind == "graviton" and actor.identity.instant_graviton) or (spell.kind == "collapse" and actor.identity.instant_collapse)
+
 func update_proc_flash() -> void:
 	var actor = actors.get(local_id)
 	var pulse := (sin(Time.get_ticks_msec() * 0.012) + 1.0) * 0.5
 	for slot in range(ability_images.size()):
 		var ability := kit_slot(slot) if actor != null else -1
-		var ready: bool = actor != null and actor.hp > 0 and ability >= 0 and actor.kit[ability].kind == "graviton" and actor.identity.instant_graviton
+		var ready: bool = actor != null and actor.hp > 0 and ability >= 0 and proc_ready(actor, actor.kit[ability])
 		ability_images[slot].self_modulate = Color(0.5, 0.4, 0.65).lerp(Color(1.5, 1.3, 0.85), pulse) if ready else Color.WHITE
 
 func update_visuals(delta: float) -> void:
@@ -2844,7 +2851,7 @@ func update_visuals(delta: float) -> void:
 		# one worth a number. The global cooldown only shows where nothing else is
 		# running, and never on an off-GCD ability.
 		var own: float = actor.cooldowns[ability]
-		var global_cd: float = 0.0 if spell.off else actor.gcd
+		var global_cd: float = 0.0 if spell.off or (spell.kind == "collapse" and actor.identity.instant_collapse) else actor.gcd
 		# Crowd control is a real reason the slot is unusable, so it sweeps too.
 		# Whichever wait is LONGER wins the slot, because that is the honest
 		# answer to "when can I press this" — a 16s cooldown outlives a 2s stun,
@@ -2852,7 +2859,7 @@ func update_visuals(delta: float) -> void:
 		var held: float = cc_block_remaining(actor, spell)
 		# A slot you cannot press because you are held reads as unusable, not just
 		# as counting down.
-		button.modulate = Color(0.55, 0.58, 0.72) if held > 0.0 else (Color("ffe699") if spell.kind == "graviton" and actor.identity.instant_graviton else Color.WHITE)
+		button.modulate = Color(0.55, 0.58, 0.72) if held > 0.0 else (Color("ffe699") if proc_ready(actor, spell) else Color.WHITE)
 		if held > own and held > 0.0:
 			cooldown_overlays[slot].sync(held, maxf(cc_total, held), false)
 		elif own > 0.0:
