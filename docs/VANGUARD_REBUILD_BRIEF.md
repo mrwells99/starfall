@@ -1,5 +1,7 @@
 # Vanguard — current implementation and handoff
 
+**Historical checkpoint, superseded by the owner's new reference rebuild:** see [`VANGUARD_REFERENCE_REBUILD.md`](VANGUARD_REFERENCE_REBUILD.md) for the current 45-bone model, crystal-frame hammer, cape, Windows commands, verification and rollback files. All counts, appearance notes, tool paths and usage readings below describe the preceding revision.
+
 Updated 2026-09-08. This is the authoritative Vanguard continuation note. Read `CHARACTER_PIPELINE.md` for Ember's workflow, but use the local tools below.
 
 ## Owner direction and current result

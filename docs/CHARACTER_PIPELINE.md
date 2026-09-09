@@ -1,12 +1,14 @@
 # Character production handoff
 
-Recorded 2026-09-08 after the Ember replacement. Read this before repeating the work for another class, alongside `CONTEXT.md`, the character's art notes, and `ART_DIRECTION.md`. This is the project workflow and factual handoff. Vanguard's current helmet/hammer implementation and local tool paths are in `VANGUARD_REBUILD_BRIEF.md`. Luminary was subsequently implemented with the same process, then revised to a faceless ivory hood — see the current hood revision below; the original exposed-face section is historical.
+Latest Vanguard revision (2026-09-08): the owner supplied a new heavy crystal-armored knight reference and requested this same workflow. The live model now has a sealed T-visor crystal-crown helm, forged armor, navy embroidered tabard/cape and newly forged inset-crystal hammer. Original eight clips and 39-bone animation are preserved; six cape bones bring the total to 45. Source 123,044 triangles, six packed maps; game presentation 799/799, combat 81/81, rendered art 179/179. See [`VANGUARD_REFERENCE_REBUILD.md`](VANGUARD_REFERENCE_REBUILD.md) for current files, commands, limits and reversible backup. The older Vanguard brief is historical.
+
+Recorded 2026-09-08 after the Ember replacement. Read this before repeating the work for another class, alongside `CONTEXT.md`, the character's art notes, and `ART_DIRECTION.md`. This is the project workflow and factual handoff. Vanguard's current helmet/hammer implementation and local tool paths are in `VANGUARD_REBUILD_BRIEF.md`. Luminary was subsequently implemented with the same process, then revised to a faceless ivory hood; its original exposed-face section is historical. Fulcrum now follows the same authored workflow; see its current section below.
 
 ## Owner's requested outcome
 
 Use the installed Blender application and code to make a complete editable 3D character, with a deformation skeleton and complete walking animations, directly in `C:/projects/starfall`. The owner explicitly rejected blocky/voxel-looking models and rigid, janky movement. A generated picture is not the deliverable. Reference images guide the actual geometry, materials and silhouette; the animation must work in the game. "Scrap everything" was applied to the old Ember model and its presentation path, not to unrelated champions, arena work, gameplay or user edits.
 
-The owner subsequently requested the same process for Luminary, with mostly unchanged animation and creative liberty on reference-based appearance. Preserve the approach and deliverable types, but adapt the silhouette, equipment, rig and animation to that class's supplied reference. Do not silently reuse Ember's mage costume for another class. The logging request was not visual approval. The later explicit Luminary request authorized that class; future classes still require their own request.
+The owner subsequently requested the same process for Luminary and then Fulcrum, with mostly unchanged animation and creative liberty on reference-based appearance. Preserve the approach and deliverable types, but adapt the silhouette, equipment, rig and animation to that class's supplied reference. Do not silently reuse Ember's mage costume for another class. The logging request was not visual approval. The later explicit Luminary and Fulcrum requests authorized those classes; future classes still require their own request.
 
 ## References and local environment
 
@@ -118,6 +120,83 @@ The working tree already had user changes to `project.godot` and numerous existi
 4. Integrate the new class through a dedicated presentation module and remove only its superseded model branch. Retain actor/collision/UI contracts and gameplay/network behavior.
 5. Inspect geometry and several animation phases in Blender and the actual game renderer. Check skin weights, loop closure, movement transitions and combat/art regressions after the final import.
 6. Record limitations honestly, update current context and art notes, and open the real editable/animated result for the owner. Do not require a remote Git push or deployment merely because the user requested changes in the project folder.
+
+## Fulcrum — authored gravity heretic (2026-09-08)
+
+**Current status:** the refined editable source and integrated game asset have passed final verification. The actual `art_source/fulcrum.blend` was opened in the installed Blender application. The owner explicitly approved the model, colors and textures, then approved integration of the separately previewed gravity weapon. The pre-weapon version is backed up for restoration.
+
+The owner supplied `C:/Users/aidan/Downloads/Fulcrum__The_Gravity_Heretic.png` and requested the same Blender workflow, creative liberty for the appearance and mostly unchanged animation. The exact reference is preserved at `art_source/references/fulcrum.png`. The character is original geometry built in local Blender, with a sealed angular obsidian mask, pointed dark hood, black articulated armor, jagged layered pauldrons, violet hanging stoles, a split long coat, torn three-part mantle, articulated gloves and boots, orbit-shaped relics, and a floating singularity weapon above the left palm. Its broken bronze orbital rails counterrotate around a black core with violet light and suspended fragments. There is no human facial anatomy, scalp or hair hidden beneath the hood. Narrow violet seams and black cores supply the gravity motif without adopting Ember's fire or Luminary's ivory costume.
+
+### Files and source dependencies
+
+| File | Purpose |
+| --- | --- |
+| `art_source/fulcrum.blend` | Editable mesh, rig, materials, packed textures, seven actions/NLA tracks and inspection studio. Walk is active at 30 fps, frames 1–37. |
+| `art_source/references/fulcrum.png` | Preserved user reference. |
+| `assets/characters/fulcrum.glb` | Skinned runtime model and animation clips. |
+| `assets/characters/fulcrum_weave.png` | Violet woven cloth color texture. |
+| `assets/characters/fulcrum_ash.png` | Ashen dark cloth color texture. |
+| `assets/characters/fulcrum_fabric_normal.png` | Woven material microdetail shared by cloth and leather. |
+| `assets/characters/fulcrum_steel.png` | Rubbed black steel color texture. |
+| `assets/characters/fulcrum_steel_roughness.png` | Steel roughness texture. |
+| `tools/build_fulcrum.py` | Main builder: skeleton, material/texture authoring, shared gait, export and review rendering. |
+| `tools/fulcrum_details.py` | Required companion executed inside the builder context; authors Fulcrum's costume, mask, armor, mantle and relic geometry. |
+| `tools/fulcrum_weapon.py` | Required second build stage: reads the staged base, adds the weapon and carrying-arm pose, then exports the final source and GLB. |
+| `tools/verify_fulcrum.py` | Source weights, stance height, all-clip loop closure, moving mantle controls and inherited gait parity checks; renders side-view motion samples. |
+| `scripts/fulcrum_art.gd` | Dedicated runtime presentation with immediate displacement-based locomotion/idle transitions, 0.12-second entry to Cast and independent actor materials. |
+| `scripts/champion_model.gd` | Dispatches Fulcrum to its imported presentation alongside Ember, Luminary and Vanguard. |
+| `tests/fulcrum_presentation_test.gd` | Imported mesh, skin, rig and clips; loop endpoints, movement/cast transitions, secondary controls, material instances and collision/transform contracts. |
+| `scenes/fulcrum_preview.tscn` | Interactive animation viewer. |
+| `tools/fulcrum_preview.gd` | Viewer controls, lighting and `--fulcrum-capture` support. |
+
+All five original textures are 1024px, packed in Blender and embedded in the GLB. Keep Godot's extracted `fulcrum_*` textures and relevant `.import` metadata beside the asset; the importer may combine channels. The `REVIEW_ONLY` studio is excluded from export by selection. Final source: **83,958 vertices / 157,160 triangles / 17 material surfaces across two skinned meshes / 62 bones**. Twelve unique materials are shared across the meshes. The approved body retains 76,126 vertices and 11 surfaces; the weapon adds 7,832 vertices and six surfaces. The `.blend` is 9,480,337 bytes and the GLB is 10,530,164 bytes at verification. Import may split source vertices at UV or surface boundaries. Rebuilding overwrites this class's `.blend` and `.glb`: integrate manual edits into all three durable source scripts before rerunning them.
+
+### Rig, motion and integration
+
+The skeleton has **62 bones**: Ember's 52 shared controls plus `mantle0`, `mantle1`, `mantle2` and `mantle_tip0`, `mantle_tip1`, `mantle_tip2`, plus `gravity.focus`, `gravity.outer`, `gravity.inner` and `gravity.debris`. The mask and hood follow the head. Three mantle roots and their tips add delayed motion; the front coat and stoles follow shared robe weights. Armor and attached details follow their relevant body or cloth controls. There are no hair controls or carried staff.
+
+The seven clips and durations match the table in this handoff: Idle, Walk, Run, WalkBackward, StrafeLeft, StrafeRight and Cast. The core two-bone leg solve, stance targets, torso rhythm, arm motion and directional cadence are inherited from Ember. The mantle controls extend the shared motion. The equipped version adapts the left upper arm, forearm, hand and fingers into an open, upward-cupped carrying pose; the other approved body channels are preserved to floating-point precision. The focus follows the palm while the rails and fragments orbit independently in every clip. The verifier compares 392 shared body/gait matrices against `art_source/ember.blend`; do not remove that source dependency when reproducing parity checks.
+
+`fulcrum_art.gd` follows the current Ember responsiveness: measured displacement speed selects locomotion directly, and transitions into locomotion/Idle have zero crossfade. Entering Cast uses 0.12 seconds. Cadence remains smoothed and bounded, and displacement corrections over one metre per frame are discarded. This preserves the later movement work recorded in `CONTEXT.md`; the old shared 0.20-second transition description is historical for Ember and still applies to Luminary, not this Fulcrum module.
+
+The runtime explicitly selects `Fulcrum_SkinnedModel` for the existing torso contract even when the weapon imports first. It retains the established import-facing correction, team inlays, Cast override, stun pause, damage flash, defeat tilt and revive reset. Animation advances manually from the visual tick. Actor collision, targeting, movement speeds, mechanics, network state and existing spell VFX are unchanged. The reference sheet's ability illustrations guide this character's visual identity; they are not new ability implementations.
+
+### Rebuild and review
+
+Run sequentially from `C:/projects/starfall` so import and tests use the completed asset:
+
+```powershell
+& 'C:/Program Files/Blender Foundation/Blender 5.2/blender.exe' --background --python tools/build_fulcrum.py
+& 'C:/Program Files/Blender Foundation/Blender 5.2/blender.exe' --background --python tools/verify_fulcrum.py
+& 'C:/Users/aidan/Desktop/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe' --headless --path . --editor --import --quit
+& 'C:/Users/aidan/Desktop/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script tests/fulcrum_presentation_test.gd
+& 'C:/Users/aidan/Desktop/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script tests/combat_test.gd
+& 'C:/Users/aidan/Desktop/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe' --path . --script tests/ability_art_test.gd
+& 'C:/Users/aidan/Desktop/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe' --path . res://scenes/fulcrum_preview.tscn
+```
+
+The viewer provides clip buttons, drag orbit, scroll zoom, Space pause and playback speed. Add `-- --fulcrum-capture` to capture and quit. Review outputs belong in ignored `artifacts/fulcrum/`: `build_report.json`, `motion_report.json`, `front.png`, `back.png`, `walk-10.png`, `walk-28.png`, `run-07.png`, `run-18.png` and `godot-walk.png`. These are inspection aids; the editable animated Blender source and integrated game asset remain the deliverables.
+
+Final verification after approved weapon integration:
+
+- Blender verified normalized skin weights on all **83,958 vertices**, **62 bones**, seven closing clip poses with maximum matrix error below **1.75e-7**, and stance ankle-height error below **2.83e-7 m**.
+- **392 inherited core-gait matrices match Ember within 1.79e-7** after pose rebaking. All six weighted mantle controls move during Walk, with sampled maxima approximately 0.067–0.199 radians.
+- Final Godot import exited successfully; **Fulcrum presentation 1,068/1,068**, **combat 81/81**, and **rendered ability/art 179/179** passed on the final runtime module. Total: **1,328 game checks**. Fourteen added assertions check one-frame starts, stops and direction changes plus immediate imported-pose equality, detecting unintended locomotion crossfades. The art suite now covers the expanded class kits, so its count differs from the older Ember and Luminary runs.
+- Front/back studio renders, Walk frames 10/28, Run frames 7/18 and a real Godot viewer capture were inspected from the same final asset. Final refinements closed the mask shell into the hood, corrected hood-binding placement and replaced rectangular mantle cutouts with irregular tear contours.
+
+The source stance check measures authored ankle targets, not world-space foot slip or terrain contact. Many game assertions are per-bone loop checks; they are not independent assessments of visual quality.
+
+The owner approved this stylized interpretation of the reference. Bone-driven cloth has no live collision simulation; terrain foot IK, dedicated jump/death clips, high-speed backward/sideways stride correction and multi-character GPU/LOD profiling remain open. Test counts establish functional checks, not reference-quality artistry. Changes are saved directly into the project folder; this request does not require a Git commit, remote push or deployment.
+
+### Weapon preview, preservation and undo
+
+The owner initially requested review before integration or a way to revert, and subsequently explicitly authorized merging the weapon. The separate study remains at `artifacts/fulcrum_weapon_review/fulcrum_weapon_preview.blend`, with a standalone comparison viewer. Live integration occurred only after that authorization. No Git merge, commit or remote push was performed.
+
+`artifacts/fulcrum_before_weapon/` preserves the approved pre-weapon `.blend`, `.glb`, import metadata, build files, presentation/verifier/tests and documentation, at their original relative paths. `original_manifest.json` records their SHA-256 values; `installed_manifest.json` records the equipped state for safe comparison before a future restore. Newer unrelated edits must be preserved when restoring.
+
+The complete command `build_fulcrum.py` first writes the base to `artifacts/fulcrum/base_fulcrum.blend`, then invokes `fulcrum_weapon.py` to produce the live equipped outputs. Do not run the weapon stage against an already equipped source; it asserts the absence of the new controls. All three source scripts are required. Hand-maintained changes should be folded into the appropriate stage before rebuilding.
+
+`approved_body_preservation.json` records exact equality of the body vertex coordinates, topology, material assignments, surface settings and packed texture images against the backup. Rebuilding introduced only a maximum UV rounding difference of 1.1921e-7, below 0.00013 texel at 1024px. Existing locomotion/robe/other-arm channels differ by at most 2.683e-7 from the approved base; only the left carrying arm and new weapon controls are intentionally changed. Weapon skin weights, exported orbit motion and all clip loops pass. This is a cosmetic weapon, with no new collider, damage rules or ability behavior.
 
 ## Luminary current hood revision — 2026-09-08
 

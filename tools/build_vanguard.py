@@ -6,7 +6,7 @@ import numpy as np
 from mathutils import Vector, Matrix, Euler
 from math import sin, cos, pi, sqrt
 ROOT=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT=os.path.join(ROOT,'assets','characters'); SOURCE=os.path.join(ROOT,'art_source'); REVIEW=os.path.join(ROOT,'artifacts','vanguard_new')
+OUT=os.path.join(ROOT,'assets','characters'); SOURCE=os.path.join(ROOT,'art_source'); REVIEW=os.path.join(ROOT,'artifacts','vanguard_rebuild_20260908')
 for p in (OUT,SOURCE,REVIEW): os.makedirs(p,exist_ok=True)
 bpy.ops.object.select_all(action='SELECT'); bpy.ops.object.delete(use_global=False)
 random.seed(91)
@@ -16,16 +16,15 @@ def mat(name,col,metal=0,rough=.5,emit=0):
  p.inputs['Metallic'].default_value=metal; p.inputs['Roughness'].default_value=rough
  if emit: p.inputs['Emission Color'].default_value=(*col,1); p.inputs['Emission Strength'].default_value=emit
  return m
-steel=mat('Vanguard_ForgedSteel',(.070,.078,.096),.62,.46)
-edge=mat('Vanguard_WornEdges',(.155,.145,.13),.76,.42)
-leather=mat('Vanguard_JointLeather',(.017,.019,.026),.08,.74)
-crystal=mat('Vanguard_VioletCrystal',(.14,.009,.43),.28,.25,2.8)
-skin=mat('Vanguard_Skin',(.39,.235,.165),0,.62)
-hair=mat('Vanguard_Hair',(.034,.022,.016),0,.75)
-eye=mat('Vanguard_Eye',(.17,.16,.14),0,.38)
-iris=mat('Vanguard_Iris',(.018,.03,.025),0,.3)
+steel=mat('Vanguard_VoidSteelPBR',(.038,.044,.057),.76,.44)
+edge=mat('Vanguard_CelestialAlloyPBR',(.25,.205,.145),.8,.46)
+leather=mat('Vanguard_JointLeather',(.015,.018,.024),.08,.74)
+crystal=mat('Vanguard_AmethystPBR',(.16,.012,.42),.30,.27,1.6)
 team=mat('Vanguard_TeamInlay',(.13,.35,.6),.3,.55)
-visor=mat('Vanguard_Visor',(.20,.025,.75),.05,.35,4.0)
+visor=mat('Vanguard_Visor',(.35,.025,.84),.05,.35,2.6)
+cloth=mat('Vanguard_AstralCloth',(.02,.025,.052),0,.88)
+void=mat('Vanguard_SealedVisorShadow',(.001,.001,.003),0,1)
+exec(compile(open(os.path.join(ROOT,'tools','vanguard_materials.py'),encoding='utf-8').read(),'vanguard_materials.py','exec'))
 parts=[]
 ad=bpy.data.armatures.new('Vanguard_Skeleton');rig=bpy.data.objects.new('Vanguard_Rig',ad);bpy.context.collection.objects.link(rig)
 bpy.context.view_layer.objects.active=rig;rig.select_set(True);bpy.ops.object.mode_set(mode='EDIT')
@@ -57,8 +56,15 @@ bone('weapon',WH,WH+WD*.4,'root')
 for i in range(3):
  bone('tabard%d'%i,((i-1)*.095,-.16,1.05),((i-1)*.10,-.19,.72),'pelvis')
  bone('hem%d'%i,((i-1)*.10,-.19,.72),((i-1)*.11,-.21,.48),'tabard%d'%i)
+for i in range(3):
+ x=(i-1)*.18
+ bone('cape%d'%i,(x,.205,1.72),(x*1.5,.32,1.00),'chest')
+ bone('cape_tip%d'%i,(x*1.5,.32,1.00),(x*1.9,.41,.16),'cape%d'%i)
 bpy.ops.object.mode_set(mode='OBJECT');rig.show_in_front=True
 def mesh(name,verts,faces,material,weights,uvs=None):
+ if uvs is None:
+  coords=np.array(verts);span=np.ptp(coords,axis=0);axes=np.argsort(span)[-2:]
+  uvs=[tuple((float(p[a])-float(coords[:,a].min()))/max(.0001,float(span[a])) for a in axes) for p in verts]
  me=bpy.data.meshes.new(name);me.from_pydata(verts,[],faces);me.update()
  ob=bpy.data.objects.new(name,me);bpy.context.collection.objects.link(ob);me.materials.append(material)
  for p in me.polygons:p.use_smooth=True
@@ -168,7 +174,7 @@ for side,s in [('L',1),('R',-1)]:
   bolts('Shoulder rivet',[Vector(pa(u,.93))+Vector((0,-.004,0)) for u in [.3,.4,.5,.6,.7]],'upper_arm.'+side)
  for j in range(3):
   x=s*(.33+j*.085);z=1.855-.022*j
-  shard('Crown crystal '+side+str(j),(x,.04,z),(x+s*(.025+j*.012),.025, z+[.16,.31,.22][j]),.045 if j!=1 else .060,'upper_arm.'+side)
+  shard('Crown crystal '+side+str(j),(x,.04,z),(x+s*(.025+j*.012),.025, z+[.13,.24,.18][j]),.045 if j!=1 else .060,'upper_arm.'+side)
  ring('Shoulder locking ring',(s*.445,-.222,1.765),.063,.063,edge,'upper_arm.'+side,.005)
  shard('Shoulder inset',(s*.445,-.239,1.71),(s*.445,-.249,1.82),.032,'upper_arm.'+side)
  # Sleeves and fitted armor follow actual bone axes and keep elbow gaps.
@@ -213,73 +219,32 @@ for side,s in [('L',1),('R',-1)]:
  for v in [.09,.23]:trimline('Boot sole band',[boot(u,v) for u in np.linspace(0,1,49)],'foot.'+side,.007)
  for j in range(3):
   cy=-.19+j*.066
-  plate('Sabatons articulated toe',[(x-.105,cy-.025,.13+j*.013),(x,cy-.04,.173+j*.013),(x+.105,cy-.025,.13+j*.013),(x+.10,cy+.04,.135+j*.02),(x,cy+.05,.18+j*.02),(x-.10,cy+.04,.135+j*.02)],.025,steel,'foot.'+side,.006)
+  def sabaton(u,v):return(x+.111*cos(pi*u),cy-.038+v*.086,.11+j*.015+.071*sin(pi*u)+.012*v)
+  surface('Curved articulated sabaton',sabaton,16,4,steel,{'foot.'+side:1})
+  trimline('Sabaton rolled leading edge',[sabaton(u,0) for u in np.linspace(0,1,24)],'foot.'+side,.004)
 # Sternum crystal in a recessed dark frame and gold retaining points.
 plate('Sternum setting',[(0,-.252,1.74),(.071,-.25,1.63),(0,-.259,1.46),(-.071,-.25,1.63)],.05,edge,'chest')
 shard('Sternum amethyst',(0,-.275,1.49),(0,-.28,1.71),.045,'chest')
-# Belt, two hip shields, short divided team tabard and restrained back insignia.
+# Belt, two hip shields and divided cloth tabard and restrained back insignia.
 surface('Belt',lambda u,v:(.25*sin(u*2*pi),.178*cos(u*2*pi),1.045+.08*v),48,5,leather,{'pelvis':1})
 ring('Belt lock',(0,-.20,1.09),.064,.056,edge,'pelvis',.012)
 shard('Belt core',(0,-.215,1.056),(0,-.22,1.12),.022,'pelvis')
 for s in [-1,1]:
  plate('Hip tasset',[(s*.22,-.13,1.11),(s*.35,-.08,1.01),(s*.31,-.14,.79),(s*.20,-.20,.84),(s*.15,-.19,1.03)],.04,steel,'pelvis',.01)
-for i in range(3):
- def tab(u,v,i=i):return((i-1)*.095+(u-.5)*.091*(1+.18*(1-v)),-.20-.018*sin(u*pi*3)-.03*(1-v),.50+.53*v+.025*cos(u*pi)*((1-v)**6))
- def tabw(u,v,p,i=i):
-  t=max(0,min(1,(v-.25)/.5));return {'hem%d'%i:1-t,'tabard%d'%i:t}
- surface('Split war tabard',tab,10,20,team,tabw)
 # Back plate, six lamellar sections, power reservoir and only small violet apertures.
 plate('Dorsal cuirass',[(-.28,.165,1.69),(0,.20,1.77),(.28,.165,1.69),(.25,.20,1.41),(0,.218,1.34),(-.25,.20,1.41)],-.038,steel,'chest')
 for z in [1.41,1.49,1.57,1.65]:trimline('Dorsal spine',[(0,.235,z),(0,.239,z+.054)],'chest',.018)
 for s in [-1,1]:
  trimline('Team back chevron',[(s*.065,.232,1.65),(s*.20,.205,1.58),(s*.09,.239,1.43)],'chest',.008)
  shard('Back power slit',(s*.115,.227,1.46),(s*.16,.213,1.61),.018,'chest')
-# Closed war helm: fitted neck seal, angular cheek plates, narrow inset visor.
-ellipse('Armored neck seal',(0,.008,1.845),(.10,.092,.13),leather,'neck',28,16)
-def helm_fn(u,v):
- a=u*2*pi;z=1.86+.38*v
- rx=np.interp(v,[0,.20,.55,.78,1],[.075,.135,.145,.13,.006]);ry=np.interp(v,[0,.25,.65,.85,1],[.09,.123,.14,.125,.006])
- # Squarer sides and a raised sagittal ridge create a forged shell.
- return(rx*sin(a),.017+ry*cos(a),z+.018*max(0,1-abs(sin(a))) * sin(v*pi))
-surface('Continuous war helm',helm_fn,48,24,steel,{'head':1})
-# Black recessed face cavity is enclosed by the brow and the two cheek/bevor plates.
-plate('Visor recess',[(-.131,-.12,2.105),(0,-.177,2.13),(.131,-.12,2.105),(.12,-.134,2.005),(0,-.195,1.98),(-.12,-.134,2.005)],.024,leather,'head',.004)
-for sg in [-1,1]:
- plate('Forged brow',[(0,-.19,2.17),(sg*.11,-.152,2.145),(sg*.15,-.10,2.10),(sg*.122,-.151,2.073),(sg*.018,-.194,2.088)],.025,steel,'head',.005)
- plate('Angular cheek and bevor',[(sg*.018,-.195,2.049),(sg*.13,-.139,2.046),(sg*.137,-.103,1.975),(sg*.077,-.16,1.885),(0,-.204,1.865),(0,-.219,1.978)],.032,steel,'head',.006)
- trimline('Helm cheek bevel',[(sg*.13,-.144,2.043),(sg*.076,-.167,1.89),(0,-.211,1.87)],'head',.0035)
- # Each eye is one fine inlaid opening, separated by the nasal bridge.
- plate('Violet visor aperture',[(sg*.023,-.197,2.073),(sg*.11,-.154,2.065),(sg*.102,-.157,2.058),(sg*.026,-.199,2.064)],.006,visor,'head',.001)
- bolts('Temple fastener',[(sg*.13,-.12,2.125),(sg*.117,-.137,2.019)],'head')
- for j in range(3):
-  x=sg*(.045+j*.020)
-  tube('Breathing slit',[(x,-.204+j*.013,1.964),(x+sg*.008,-.197+j*.013,1.988)],.003,leather,'head',6)
- # Segmented rear neck lames visibly nest into the gorget.
- for j in range(3):
-  trimline('Helm rear articulation',[(sg*.11,.08,1.91+j*.05),(sg*.05,.146,1.92+j*.05),(0,.156,1.922+j*.05)],'head',.006)
-trimline('Raised helmet keel',[(0,-.185,2.16),(0,-.12,2.223),(0,-.015,2.258),(0,.10,2.209),(0,.148,2.12)],'head',.010)
+exec(compile(open(os.path.join(ROOT,'tools','vanguard_details.py'),encoding='utf-8').read(),'vanguard_details.py','exec'))
 # Inset rib work across each breastplate, kept below the leading bevel.
 for sg in [-1,1]:
  for j in range(3):
   trimline('Recessed breast channels',[(sg*(.11+j*.045),-.252+j*.009,1.48),(sg*(.18+j*.036),-.236+j*.014,1.56),(sg*(.16+j*.035),-.224+j*.015,1.67)],'chest',.002)
-# Append approved weapon read-only, normalize into the authored carry transform.
-with bpy.data.libraries.load(os.path.join(SOURCE,'vanguard_hammer_weapon.blend'),link=False) as (src,dst):dst.objects=[n for n in src.objects]
-weapon_rotation=Vector((0,0,1)).rotation_difference(WD).to_matrix().to_4x4()
-for ob in dst.objects:
- if ob and ob.type=='MESH':bpy.context.collection.objects.link(ob)
-bpy.context.view_layer.update()
-depsgraph=bpy.context.evaluated_depsgraph_get()
-for ob in dst.objects:
- if ob and ob.type=='MESH':
-  evaluated=bpy.data.meshes.new_from_object(ob.evaluated_get(depsgraph));ob.modifiers.clear();ob.data=evaluated
-  ob.data.transform(Matrix.Translation(WH)@weapon_rotation@Matrix.Scale(.67,4)@ob.matrix_world)
-  ob.matrix_world=Matrix.Identity(4);ob.vertex_groups.clear();ob.vertex_groups.new(name='weapon').add(list(range(len(ob.data.vertices))),1,'REPLACE')
-  for i,ma in enumerate(ob.data.materials):
-   if 'Crystal' in ma.name:ob.data.materials[i]=crystal
-   elif 'Leather' in ma.name:ob.data.materials[i]=leather
-   elif 'Worn' in ma.name or 'Titanium' in ma.name:ob.data.materials[i]=edge
-   else:ob.data.materials[i]=steel
-  parts.append(ob)
+# Forge the reference hammer onto the existing animated haft and grip coordinates.
+# The separate, older weapon source remains untouched.
+exec(compile(open(os.path.join(ROOT,'tools','vanguard_weapon.py'),encoding='utf-8').read(),'vanguard_weapon.py','exec'))
 # Merge material surfaces and deform with the skeleton.
 bpy.ops.object.select_all(action='DESELECT')
 for ob in parts:ob.select_set(True)
@@ -346,6 +311,9 @@ for clip,frames in [('Idle',60),('Walk',36),('Run',24),('WalkBackward',40),('Str
   for i in range(3):
    rot('tabard%d'%i,.08*sin(ph-.5+i*.2) if moving else .018*sin(ph+i),0,0)
    rot('hem%d'%i,.12*sin(ph-1+i*.2) if moving else .027*sin(ph-.4+i),0,0)
+  for i in range(3):
+   rot('cape%d'%i,-.035+(.055 if moving else .016)*sin(ph-.6+i*.35),.012*sin(ph+i),.009*sin(ph+i))
+   rot('cape_tip%d'%i,-.035+(.10 if moving else .028)*sin(ph-1.2+i*.35),.018*sin(ph+i),.016*sin(ph+i))
   for p in rig.pose.bones:
    p.keyframe_insert('location',frame=frame+1,group=p.name);p.keyframe_insert('rotation_quaternion',frame=frame+1,group=p.name)
  rig.animation_data.action=None;tr=rig.animation_data.nla_tracks.new();tr.name=clip;st=tr.strips.new(clip,1,action);st.action_frame_start=1;st.action_frame_end=frames+1;tr.mute=True;clips[clip]=frames/30
@@ -353,7 +321,7 @@ for tr in rig.animation_data.nla_tracks:tr.mute=False
 bpy.ops.object.select_all(action='DESELECT');body.select_set(True);rig.select_set(True);bpy.context.view_layer.objects.active=rig
 scene.frame_start=1;scene.frame_end=37;scene.frame_set(1)
 bpy.ops.export_scene.gltf(filepath=os.path.join(OUT,'vanguard.glb'),export_format='GLB',use_selection=True,export_animations=True,export_animation_mode='NLA_TRACKS',export_skins=True,export_yup=True,export_apply=False)
-for tr in rig.animation_data.nla_tracks:tr.mute=tr.name!='Idle'
+for tr in rig.animation_data.nla_tracks:tr.mute=tr.name!='Walk'
 # Inspection studio is excluded from export. Packed source opens ready for viewing.
 world=bpy.data.worlds.new('Vanguard studio');scene.world=world;world.use_nodes=True;world.node_tree.nodes['Background'].inputs[0].default_value=(.07,.08,.12,1);world.node_tree.nodes['Background'].inputs[1].default_value=.4
 studio=bpy.data.collections.new('REVIEW_ONLY');scene.collection.children.link(studio)
@@ -363,7 +331,7 @@ def studio_obj(o):
 def light(name,loc,power,color,size):
  data=bpy.data.lights.new(name,'AREA');data.energy=power;data.color=color;data.shape='DISK';data.size=size
  o=bpy.data.objects.new(name,data);studio.objects.link(o);o.location=loc;o.rotation_euler=(Vector((0,0,1.1))-o.location).to_track_quat('-Z','Y').to_euler()
-light('Warm key',(3,-4,5),750,(1,.83,.68),4);light('Cool fill',(-3,-2,3),500,(.6,.7,1),3);light('Violet rim',(1,3,3.5),900,(.55,.25,1),2)
+light('Neutral key',(3,-4,5),780,(.94,.91,.87),4);light('Cool fill',(-3,-2,3),440,(.73,.79,1),3);light('Violet rim',(1,3,3.5),420,(.54,.33,.84),2)
 bpy.ops.mesh.primitive_plane_add(size=200);floor=bpy.context.object;floor.name='Studio floor';floor.data.materials.append(mat('Studio slate',(.022,.028,.04),.1,.6));studio_obj(floor)
 bpy.ops.object.camera_add(location=(3,-6,2.6));cam=bpy.context.object;studio_obj(cam);cam.rotation_euler=(Vector((0,0,1.16))-cam.location).to_track_quat('-Z','Y').to_euler();cam.data.type='ORTHO';cam.data.ortho_scale=3.10;scene.camera=cam
 scene.render.engine='CYCLES';scene.cycles.samples=24;scene.cycles.use_denoising=True;scene.render.resolution_x=900;scene.render.resolution_y=1000;scene.render.resolution_percentage=100;scene.view_settings.view_transform='AgX'
@@ -376,6 +344,6 @@ bpy.context.preferences.filepaths.save_version=0
 bpy.ops.wm.save_as_mainfile(filepath=os.path.join(SOURCE,'vanguard.blend'))
 scene.frame_set(1);scene.render.filepath=os.path.join(REVIEW,'front.png');bpy.ops.render.render(write_still=True)
 cam.location=(-3,6,2.5);cam.rotation_euler=(Vector((0,0,1.16))-cam.location).to_track_quat('-Z','Y').to_euler();scene.render.filepath=os.path.join(REVIEW,'back.png');bpy.ops.render.render(write_still=True)
-report={'vertices':len(body.data.vertices),'triangles':sum(len(p.vertices)-2 for p in body.data.polygons),'bones':len(ad.bones),'clips':clips,'max_hand_grip_error':max(grip_errors),'weight_error':max(abs(sum(g.weight for g in v.groups)-1) for v in body.data.vertices)}
+report={'material_surfaces':len(body.data.materials),'vertices':len(body.data.vertices),'triangles':sum(len(p.vertices)-2 for p in body.data.polygons),'bones':len(ad.bones),'clips':clips,'max_hand_grip_error':max(grip_errors),'weight_error':max(abs(sum(g.weight for g in v.groups)-1) for v in body.data.vertices)}
 with open(os.path.join(REVIEW,'build_report.json'),'w') as f:json.dump(report,f,indent=2)
 print('VANGUARD_BUILD_COMPLETE',json.dumps(report))

@@ -36,10 +36,11 @@ Recommended reading order for a new developer: `kits.gd` → `combatant.gd` → 
 | `scenes/sanctum_corner_preview.tscn` | Interactive corner/lighting A/B viewer with four cameras, orbit and zoom. |
 | `tools/sanctum_corner_review.gd`, `tools/renderer_probe.gd` | Real-rendered art checks and native-GPU static/active-combat measurements. Headless is rejected for renderer validation. |
 | `scripts/combatant.gd` | `CharacterBody3D` fighter — state, generated appearance, snapshot pack/apply. |
-| `scripts/champion_model.gd` | Dispatches Ember, Vanguard and Luminary to their imported Blender models and preserves procedural art for the fallback. Collision stays on the parent fighter. |
-| `scripts/vanguard_authored.gd` | Imported hammer warrior, directional clips, confirmed-hit Strike, shield/recoil presentation; see `VANGUARD_REBUILD_BRIEF.md`. |
-| `scripts/ember_art.gd` | Imports the skinned Ember GLB and blends authored movement/cast clips; updates presentation only. |
-| `scripts/luminary_art.gd` | Luminary skinned GLB and seven authored clips; same runtime blend/cadence logic as Ember, with staff/cape controls and head-weighted hood baked into the asset. |
+| `scripts/champion_model.gd` | Dispatches all four champions to their imported Blender models and preserves procedural art for unknown entries. Collision stays on the parent fighter. |
+| `scripts/vanguard_authored.gd` | Imported 45-bone crystal hammer warrior, eight clips, animated cape, per-actor textured PBR and impact flash, confirmed-hit Strike and shield/recoil; see `VANGUARD_REFERENCE_REBUILD.md`. |
+| `scripts/ember_art.gd` | Imports the skinned Ember GLB; current movement responsiveness uses measured speed and immediate locomotion/idle transitions, with 0.12-second entry to Cast. Updates presentation only. |
+| `scripts/luminary_art.gd` | Luminary skinned GLB and seven authored clips; retains the original 0.20-second transition and smoothed-speed logic, with staff/cape controls and head-weighted hood baked into the asset. |
+| `scripts/fulcrum_art.gd` | Fulcrum skinned GLB and seven inherited movement/cast clips, plus six mantle controls and four gravity-weapon controls baked into the asset. Matches current Ember measured-speed responsiveness: immediate locomotion/idle transitions, 0.12-second entry to Cast, smoothed cadence. Mask, hood, armor, relics and the orbiting weapon are visual geometry, with no gameplay or VFX changes. |
 | `scripts/ability_art.gd` | Cached name-to-texture presentation mapping covering all twelve-slot kits; hotbar art layer and engine-rendered frames. |
 | `tools/art_review.gd` | Renders front/back character lineup and full icon atlas to `artifacts/` in a game window. |
 | `scripts/kits.gd` | Champion names, ability dictionaries, short + expanded descriptions. |
