@@ -21,6 +21,13 @@ var peer_target := 2
 var host_attacked := false
 var identity_seen := false
 var movement_stages := [false, false, false, false]
+# Persist observations across frames during the jump-momentum sequence.
+var jump_sent := false
+var takeoff_velocity := Vector2.ZERO
+var airborne_release_seen := false
+var airborne_reverse_seen := false
+var landed_stop_seen := false
+var host_airborne_reverse_seen := false
 var extended_seen := false
 var finishing := false
 
