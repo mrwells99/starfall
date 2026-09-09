@@ -402,3 +402,25 @@ Collapse samples Meditation on resolution: at 75+ it applies a three-second stun
 `network_handshake.gd` configures SceneMultiplayer authentication before connecting or hosting. The server sends a bounded JSON hello; the client replies only after checking game ID, handshake protocol, version and an RPC schema fingerprint. The fingerprint uses compiled script RPC metadata and argument/return types, including inherited scripts, so it works in tokenized exports and catches same-version RPC table changes. Gameplay RPCs are not admitted until both peers complete authentication. Legacy servers time out with an update/restart message without being sent an unfamiliar auth payload. The old version argument remains a secondary check after authentication.
 
 This fixes a specific failure in the earlier build: its six-argument `receive_snapshot` occupied RPC slot 11, which became the new build's one-argument `ping_host`. A version check implemented as an ordinary scene RPC could itself be misrouted. Both running processes still need to restart onto matching builds; this gate cannot upgrade an already running server. See [Godot SceneMultiplayer authentication](https://docs.godotengine.org/en/4.5/classes/class_scenemultiplayer.html). `tests/run_handshake.py` verifies different versions, different RPC tables at the same version, and a server without the gate; existing world, network and lobby suites cover compatible connections.
+
+## Dedicated presentation boundary (2026-09-09)
+
+`Combatant.setup(..., presentation = true)` always creates the same simulation
+state and collision capsule. Dedicated arena spawns pass `false`, so the model
+script and its GLBs are never loaded. Keep presentation references out of shared
+combat logic. `update_visuals`, `_process` camera/proc painting, and local
+`show_event` rendering return early in dedicated mode; `combat_event` continues
+to broadcast visual events to clients. Dedicated physics also skips local input
+and camera-setting saves. Client and listen-host presentation stays enabled.
+
+Dedicated hosting bounds `Engine.max_fps` to `Engine.physics_ticks_per_second`
+and restores the previous cap on leaving the session. Physics stays at 60 Hz,
+snapshots at 20 Hz. Menu controls still initialize once for shared lifecycle
+code; removing that startup allocation is separate work. Headless map collision
+was already built without map art. No RPC declarations changed.
+
+`tests/server_runtime_test.gd` requires `-- --dedicated --port=<free UDP port>`
+and checks model resources are absent, actors retain collision, effects create
+no presentation nodes, simulation frequency remains unchanged, and frame-cap
+restoration. `tools/measure_server.py` provides repeatable Linux idle/six-bot
+CPU/RSS samples; methodology and deployment profiles are in DEPLOYMENT.md.

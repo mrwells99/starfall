@@ -1,9 +1,8 @@
 # Starfall dedicated servers.
 #
-# Six processes, one image. Two public matchmaking queues (duel, team) and a
-# four-slot private-lobby pool. The pool size here MUST match
-# Config.LOBBY_PORTS in scripts/config.gd — a client probes those ports by
-# number, so a missing container shows up as a connection timeout, not an error.
+# Three default processes: duel queue, team queue, and persistent world.
+# Enable the four private-lobby slots with COMPOSE_PROFILES=private-lobbies.
+# Their ports must still match Config.LOBBY_PORTS in scripts/config.gd.
 #
 # Usage:  cp .env.example .env  &&  docker compose up -d
 
@@ -82,6 +81,7 @@ services:
   # --- private lobby pool ---------------------------------------------------
   # Mode is chosen by whoever claims the slot, so these take no --mode.
   lobby1:
+    profiles: ["private-lobbies"]
     <<: *starfall-common
     container_name: starfall-lobby1
     environment:
@@ -91,6 +91,7 @@ services:
       - "${BIND_ADDRESS:-0.0.0.0}:${LOBBY1_PORT:-27850}:${LOBBY1_PORT:-27850}/udp"
 
   lobby2:
+    profiles: ["private-lobbies"]
     <<: *starfall-common
     container_name: starfall-lobby2
     environment:
@@ -100,6 +101,7 @@ services:
       - "${BIND_ADDRESS:-0.0.0.0}:${LOBBY2_PORT:-27851}:${LOBBY2_PORT:-27851}/udp"
 
   lobby3:
+    profiles: ["private-lobbies"]
     <<: *starfall-common
     container_name: starfall-lobby3
     environment:
@@ -109,6 +111,7 @@ services:
       - "${BIND_ADDRESS:-0.0.0.0}:${LOBBY3_PORT:-27852}:${LOBBY3_PORT:-27852}/udp"
 
   lobby4:
+    profiles: ["private-lobbies"]
     <<: *starfall-common
     container_name: starfall-lobby4
     environment:
