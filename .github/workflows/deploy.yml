@@ -31,7 +31,7 @@ jobs:
   # ---------------------------------------------------------------- tests ---
   test:
     name: Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: github.event.inputs.tag == ''
     timeout-minutes: 25
     steps:
@@ -110,8 +110,17 @@ jobs:
       # software GL that the gl_compatibility renderer needs.
       - name: Install virtual display for the UI suite
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
+          set -euo pipefail
+          # All dependencies below come from Ubuntu. Do not refresh unrelated
+          # runner repositories (e.g. Chrome), whose metadata can be out of sync.
+          test -s /etc/apt/sources.list.d/ubuntu.sources
+          apt_sources=(
+            -o Dir::Etc::sourcelist=/etc/apt/sources.list.d/ubuntu.sources
+            -o Dir::Etc::sourceparts=-
+            -o Acquire::Retries=3
+          )
+          sudo apt-get "${apt_sources[@]}" -o APT::Update::Error-Mode=any update
+          sudo apt-get "${apt_sources[@]}" install -y --no-install-recommends \
             xvfb libgl1 libglu1-mesa libxcursor1 libxinerama1 libxrandr2 libxi6 \
             libxkbcommon0 fontconfig
 
