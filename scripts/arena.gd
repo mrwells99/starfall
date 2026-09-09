@@ -112,6 +112,7 @@ var ability_tooltip: PanelContainer
 var mouse_capture_origin := Vector2.ZERO
 var has_capture_origin := false
 var dedicated := false
+var previous_frame_cap := -1
 var min_players := Config.DEFAULT_MIN_PLAYERS
 var current_port := Config.SERVER_PORT
 var remote_min_players := Config.DEFAULT_MIN_PLAYERS
@@ -227,6 +228,8 @@ func _ready() -> void:
 	parse_arguments()
 
 func initialise_player_config() -> void:
+	if dedicated:
+		return
 	load_settings()
 	register_movable_frames()
 	apply_slot_size(slot_size)
@@ -760,7 +763,7 @@ func spawn_actor(id: int, peer: int, side: int, choice: String, pos: Vector3) ->
 	var actor = Fighter.new()
 	actor.name = "Fighter%d" % id
 	# World players are independent, even if the lobby assigned the same side.
-	actor.setup(id, peer, id if world_mode else side, choice)
+	actor.setup(id, peer, id if world_mode else side, choice, not dedicated)
 	actor.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
 	add_child(actor)
 	actor.position = pos
@@ -794,6 +797,11 @@ func host_session(dedicated_mode: bool = false, world: bool = false) -> void:
 	leave_session("")
 	world_mode = world
 	dedicated = dedicated_mode
+	if dedicated:
+		# Headless rendering still has a frame loop. Bound it without reducing
+		# physics frequency or the 20 Hz network snapshot cadence.
+		previous_frame_cap = Engine.max_fps
+		Engine.max_fps = Engine.physics_ticks_per_second
 	mode = mode_choice.get_selected_id()
 	var peer := ENetMultiplayerPeer.new()
 	var max_peers := 6 if private_lobby else (mode * 2 if dedicated else 5)
@@ -968,6 +976,9 @@ func make_code() -> String:
 	return out
 
 func leave_session(message: String) -> void:
+	if previous_frame_cap >= 0:
+		Engine.max_fps = previous_frame_cap
+		previous_frame_cap = -1
 	if keybind_menu != null:
 		keybind_menu.close()
 	if network:
@@ -1881,11 +1892,13 @@ func _physics_process(delta: float) -> void:
 				next_probe()
 			else:
 				leave_session("Could not reach the server. Try again in a moment.")
-	tick_camera_save(delta)
+	if not dedicated:
+		tick_camera_save(delta)
 	if phase in ["countdown", "match"]:
 		if not authoritative() and actors.has(local_id):
 			prediction.reconcile(self, actors[local_id])
-		gather_input(delta)
+		if not dedicated:
+			gather_input(delta)
 		if authoritative() and world_mode:
 			tick_world(delta)
 		if authoritative():
@@ -2607,6 +2620,9 @@ func combat_event(source: int, victim: int, text: String, color: Color) -> void:
 
 @rpc("authority", "call_remote", "reliable")
 func show_event(round_epoch: int, source: int, victim: int, text: String, color: Color) -> void:
+	# combat_event still broadcasts this event to every connected client.
+	if dedicated:
+		return
 	if round_epoch != epoch:
 		return
 	if not actors.has(victim):
@@ -2733,6 +2749,8 @@ func update_frame(frame: VBoxContainer, id: int, prefix: String) -> void:
 # Follow the rendered actor pose, rather than the latest 60 Hz physics pose.
 # Mouse look remains event-driven and is not interpolated a second time.
 func _process(_delta: float) -> void:
+	if dedicated:
+		return
 	if actors.has(local_id):
 		pivot.global_position = actors[local_id].get_global_transform_interpolated().origin + Vector3(0, 1.6, 0)
 	update_proc_flash()
@@ -2749,6 +2767,8 @@ func update_proc_flash() -> void:
 		ability_images[slot].self_modulate = Color(0.5, 0.4, 0.65).lerp(Color(1.5, 1.3, 0.85), pulse) if ready else Color.WHITE
 
 func update_visuals(delta: float) -> void:
+	if dedicated:
+		return
 	if social != null:
 		social.refresh()
 	champion_choice.disabled = network
