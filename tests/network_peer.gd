@@ -142,6 +142,7 @@ func _process(delta: float) -> bool:
 			verify(remote.position.distance_to(arena.spawn_position(remote.team, 0)) > 1, "Host simulated client movement")
 			verify(host_attacked, "Host applied client attack damage before healing")
 			if "--test-movement" in args:
+				if "--test-drop-jump" in args: verify(remote.last_jump_id > 0, "Host accepted retransmitted jump after first command was dropped")
 				verify(host_airborne_reverse_seen, "Host preserved takeoff speed despite airborne reverse input")
 			verify(arena.actors.size() == (6 if team_mode else 2), "Expected match size")
 			phase_two = true
@@ -159,6 +160,7 @@ func _process(delta: float) -> bool:
 		phase_two = true
 		verify(moved, "Client moved during the match")
 		if "--test-movement" in args:
+			if "--test-drop-jump" in args: verify(arena.dropped_first_jump, "Fixture dropped the original jump command")
 			verify(not movement_stages.has(false), "Start, reverse, strafe and stop respond before the 150ms input delay")
 			verify(airborne_release_seen, "Predicted jump preserves takeoff velocity after releasing movement")
 			verify(airborne_reverse_seen, "Predicted jump preserves takeoff velocity despite reverse input")

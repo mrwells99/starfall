@@ -33,7 +33,7 @@ func setup(arena) -> void:
 	search.placeholder_text = "Search actions or abilities…"
 	search.text_changed.connect(func(_text): rebuild())
 	box.add_child(search)
-	hint = game.add_label(box, "Click a binding, then press a key. Escape cancels. Conflicts swap places.", 15)
+	hint = game.add_label(box, "Click a binding, then press a key or mouse button. Escape cancels. Conflicts swap places.", 15)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -50,6 +50,10 @@ func setup(arena) -> void:
 		pending = ""
 		hint.text = "Default keybinds restored. Your action bar layout is preserved."
 		rebuild())
+	var presets := HBoxContainer.new()
+	box.add_child(presets)
+	game.add_button(presets, "Classic movement: A/D turn", func(): hint.text = game.controls.apply_preset(game, true); rebuild())
+	game.add_button(presets, "Strafe movement: A/D strafe", func(): hint.text = game.controls.apply_preset(game, false); rebuild())
 	game.add_button(footer, "Done", close)
 	game.add_label(footer, "Escape: cancel / close • F11: fullscreen", 14)
 	hide()
@@ -80,7 +84,7 @@ func rebuild() -> void:
 	var last_group := ""
 	for action in game.controls.rows(game):
 		var title: String
-		var group := "Movement" if action in ["forward", "backward", "strafe_left", "strafe_right", "turn_left", "turn_right", "jump"] else "Chat, targeting and duels"
+		var group := "Movement" if action in game.controls.MOVEMENT else "Chat, targeting and duels"
 		if action.begins_with("target_arena_") or action.begins_with("focus_arena_"):
 			group = "Arena targeting"
 		if action.begins_with("bar_"):
@@ -112,7 +116,7 @@ func rebuild() -> void:
 		label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		for col in range(2):
 			var code: int = game.controls.value(game, action, col)
-			var button: Button = game.add_button(row, OS.get_keycode_string(code) if code != 0 else "Unbound", begin.bind(action, col))
+			var button: Button = game.add_button(row, game.controls.label(code), begin.bind(action, col))
 			button.custom_minimum_size.x = 145
 			buttons[action + ":" + str(col)] = button
 			var clear: Button = game.add_button(row, "×", clear_binding.bind(action, col))
@@ -124,8 +128,8 @@ func begin(action: String, column: int) -> void:
 		rebuild()
 	pending = action
 	pending_column = column
-	hint.text = "Press a key for this binding… Escape cancels. Modifiers may be combined with a key."
-	(buttons[action + ":" + str(column)] as Button).text = "Press key…"
+	hint.text = "Press a key or mouse button for this binding… Escape cancels. Modifiers may be combined with a key."
+	(buttons[action + ":" + str(column)] as Button).text = "Press input…"
 	get_viewport().gui_release_focus()
 
 func clear_binding(action: String, column: int) -> void:
@@ -137,8 +141,8 @@ func clear_binding(action: String, column: int) -> void:
 func handle(event: InputEvent) -> bool:
 	if not visible:
 		return false
-	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_ESCAPE:
+	if (event is InputEventKey and event.pressed and not event.echo) or (event is InputEventMouseButton and event.pressed):
+		if event is InputEventKey and event.keycode == KEY_ESCAPE:
 			if pending.is_empty():
 				close()
 			else:

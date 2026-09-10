@@ -97,10 +97,10 @@ func run() -> void:
 	check(arena.selected_id == original, "Clicking own model does not target self")
 	arena.selected_id = 1
 	await click(enemy_point)
-	check(arena.selected_id == 1, "Clicking enemy model does not change target")
+	check(arena.selected_id == 4, "Clicking enemy model selects it")
 	arena.selected_id = -1
 	await click(enemy_point)
-	check(arena.selected_id == -1, "Clicking a model does not acquire a cleared target")
+	check(arena.selected_id == 4, "Clicking a model acquires a cleared target")
 	arena.selected_id = 4
 	for attempt in range(3):
 		point_mouse(own_point)
@@ -124,6 +124,19 @@ func run() -> void:
 	mouse_button(enemy_frame_point, MOUSE_BUTTON_RIGHT, false)
 	check(arena.focus_id == 6 and arena.selected_id == 5, "Right-click enemy row sets focus without changing target")
 	check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "Right-click enemy row does not capture camera")
+	var camera_before: float = arena.pivot.rotation.y
+	point_mouse(enemy_frame_point)
+	mouse_button(enemy_frame_point, MOUSE_BUTTON_RIGHT, true)
+	var ui_drag := InputEventMouseMotion.new()
+	ui_drag.position = root.get_final_transform() * enemy_frame_point
+	ui_drag.relative = Vector2(50, 0)
+	ui_drag.screen_relative = Vector2(50, 0)
+	Input.parse_input_event(ui_drag)
+	check(arena.pivot.rotation.y == camera_before, "Dragging an enemy frame does not rotate camera")
+	mouse_button(enemy_frame_point, MOUSE_BUTTON_LEFT, true)
+	check(arena.movement_controls.sample(0) == Vector2.ZERO, "Both buttons over a frame do not move the player")
+	mouse_button(enemy_frame_point, MOUSE_BUTTON_LEFT, false)
+	mouse_button(enemy_frame_point, MOUSE_BUTTON_RIGHT, false)
 	var saved_actions: Dictionary = arena.controls.actions.duplicate(true)
 	for i in range(3):
 		arena.controls.put(arena, "target_arena_%d" % (i + 1), 0, KEY_F4 + i)
@@ -586,6 +599,16 @@ func run() -> void:
 	arena.party_box.position = party_start
 	arena.load_layout()
 	check(arena.party_box.position.is_equal_approx(party_saved), "Party frame drag reloads correctly")
+	arena.keybind_menu.open()
+	arena.keybind_menu.begin("autorun", 1)
+	mouse_button(Vector2(300, 200), MOUSE_BUTTON_XBUTTON1, true)
+	mouse_button(Vector2(300, 200), MOUSE_BUTTON_XBUTTON1, false)
+	check(arena.controls.actions.autorun[1] == (arena.controls.MOUSE_FLAG | MOUSE_BUTTON_XBUTTON1) and arena.keybind_menu.pending.is_empty(), "Native keybind menu captures side mouse button")
+	arena.keybind_menu.close()
+	arena.player_options.open()
+	await process_frame
+	check(arena.player_options.dialog.visible and arena.player_options.dialog.size.y <= 500, "Movement comfort options fit in a bounded scrollable dialog")
+	arena.player_options.dialog.hide()
 	print("UI checks: %d passed / %d total" % [checks - failures, checks])
 	arena.queue_free()
 	await process_frame

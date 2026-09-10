@@ -5,6 +5,12 @@ var sensitivity := 1.0
 var invert_y := false
 var reduced_effects := false
 var ui_scale := 1.0
+var camera_follow := false
+var jump_buffer := false
+var turn_speed := 2.5
+var follow_toggle: CheckButton
+var buffer_toggle: CheckButton
+var turn_field: SpinBox
 var difficulty := 1
 var passive := false
 var difficulty_choice: OptionButton
@@ -47,9 +53,14 @@ func install(arena) -> void:
 	dialog.theme.set_color("title_color", "Window", game.UI_TEXT)
 	game.add_child(dialog)
 	game.style_button(dialog.get_ok_button(), true)
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(520, 350)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	dialog.add_child(scroll)
 	var column := VBoxContainer.new()
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	column.add_theme_constant_override("separation", 16)
-	dialog.add_child(column)
+	scroll.add_child(column)
 	game.add_label(column, "Mouse sensitivity", 16)
 	sensitivity_field = SpinBox.new()
 	sensitivity_field.min_value = 0.25
@@ -69,6 +80,20 @@ func install(arena) -> void:
 	reduced_toggle.text = "Reduce combat flashes and decorative effects"
 	column.add_child(reduced_toggle)
 	game.add_label(column, "Ground boundaries, casts, and status indicators remain visible.", 14)
+	game.add_label(column, "Keyboard turn speed (degrees / second)", 16)
+	turn_field = SpinBox.new()
+	turn_field.min_value = 60
+	turn_field.max_value = 360
+	turn_field.step = 1
+	column.add_child(turn_field)
+	follow_toggle = CheckButton.new()
+	follow_toggle.text = "Return camera behind me while moving"
+	column.add_child(follow_toggle)
+	buffer_toggle = CheckButton.new()
+	buffer_toggle.text = "Accept jump presses just before landing (100 ms)"
+	buffer_toggle.tooltip_text = "Optional jump input buffer. Holding Space does not repeat jumps."
+	column.add_child(buffer_toggle)
+	game.add_label(column, "Autorun, walk, recenter, and mouse buttons are in Keybinds.", 14)
 	dialog.confirmed.connect(apply)
 func load_preferences() -> void:
 	sensitivity = clampf(float(game.config.get_value("comfort", "sensitivity", 1.0)), 0.25, 3)
@@ -76,18 +101,28 @@ func load_preferences() -> void:
 	reduced_effects = bool(game.config.get_value("comfort", "reduced_effects", false))
 	ui_scale = float(game.config.get_value("comfort", "ui_scale", 1.0))
 	if ui_scale not in SCALES: ui_scale = 1.0
+	camera_follow = bool(game.config.get_value("comfort", "camera_follow", false))
+	jump_buffer = bool(game.config.get_value("comfort", "jump_buffer", false))
+	turn_speed = clampf(float(game.config.get_value("comfort", "turn_speed", 2.5)), deg_to_rad(60), deg_to_rad(360))
 	difficulty = clampi(int(game.config.get_value("practice", "difficulty", 1)), 0, 2)
 	passive = bool(game.config.get_value("practice", "passive", false))
 	difficulty_choice.select(difficulty)
 	passive_toggle.set_pressed_no_signal(passive)
 	game.get_window().content_scale_factor = ui_scale
 func open() -> void:
+	game.movement_controls.cancel()
+	follow_toggle.button_pressed = camera_follow
+	buffer_toggle.button_pressed = jump_buffer
+	turn_field.value = rad_to_deg(turn_speed)
 	sensitivity_field.value = sensitivity
 	invert_toggle.button_pressed = invert_y
 	reduced_toggle.button_pressed = reduced_effects
 	scale_choice.select(SCALES.find(ui_scale))
-	dialog.popup_centered()
+	dialog.popup_centered(Vector2i(560, 440))
 func apply() -> void:
+	camera_follow = follow_toggle.button_pressed
+	jump_buffer = buffer_toggle.button_pressed
+	turn_speed = deg_to_rad(turn_field.value)
 	sensitivity = sensitivity_field.value
 	invert_y = invert_toggle.button_pressed
 	reduced_effects = reduced_toggle.button_pressed
@@ -95,7 +130,7 @@ func apply() -> void:
 	game.get_window().content_scale_factor = ui_scale
 	save()
 func save() -> void:
-	for field in ["sensitivity", "invert_y", "reduced_effects", "ui_scale"]:
+	for field in ["sensitivity", "invert_y", "reduced_effects", "ui_scale", "camera_follow", "jump_buffer", "turn_speed"]:
 		game.config.set_value("comfort", field, get(field))
 	game.config.set_value("practice", "difficulty", difficulty)
 	game.config.set_value("practice", "passive", passive)
