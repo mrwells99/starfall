@@ -212,8 +212,8 @@ A lobby process runs `--dedicated --lobby --port=N` and idles with `private_lobb
 | `rejected(reason)` | Host → client, authority | Reliable | Explain unavailable/full lobby or version mismatch |
 | `lobby_state(players, size_per_team, message)` | Host → clients | Reliable | Roster, mode, status |
 | `round_started(epoch, mode, states)` | Host → clients | Reliable | Complete initial actor setup |
-| `submit_input(...)` | Client → host, any_peer | Unreliable ordered, ch 1 | Movement, yaw, jump, target |
-| `submit_action(...)` | Client → host, any_peer | Reliable, ch 1 | Ability slot; `-1` cancels cast |
+| `submit_input(...)` | Client → host, any_peer | Unreliable ordered, ch 1 | Sequenced movement, yaw, jump event/age, target, walk, motion revision, buffer preference |
+| `submit_action(...)` | Client → host, any_peer | Reliable, ch 1 | Ability slot plus action-time movement/facing sequence; `-1` cancels cast |
 | `receive_snapshot(...)` | Host → clients | Unreliable ordered, ch 2 | DEFLATE-compressed fighter state |
 | `ping_host` / `pong` | Client ↔ host | Unreliable, ch 3 | Displayed transport RTT |
 | `private_notice(...)` | Host → owning client | Reliable | Rejection / cast feedback |
@@ -225,7 +225,10 @@ A lobby process runs `--dedicated --lobby --port=N` and idles with `private_lobb
 - Host-owned input applied every physics tick.
 - Remote input every physics tick; snapshots at 20 Hz. `Input.use_accumulated_input = false` so a keydown is visible the same tick it arrived.
 - Input older than 0.3 s zeros intent — prevents endless movement if a client stops sending.
-- Jump is a one-packet bool on the unreliable stream (loss can miss a jump; not hardened).
+- Jump presses carry monotonically increasing event IDs, retransmitted for up to 350 ms until a snapshot acknowledges them. The server deduplicates events, acknowledges rejected requests, bounds reported age, and checks phase, life, CC and motion revision. Retransmission carries the original revision, so a teleport cannot revive an old request. Round/reconnect rebuilds reset event state. This bounds client retry time; it does not claim delivery during sustained outages or perfectly synchronized packet age across machines.
+- An optional 100 ms landing buffer is shared by server simulation and prediction; it is distinct from network retries. Snapshots include jump acknowledgment, buffer remaining, and walk state. Running physics and takeoff momentum are unchanged; walking is a bounded 0.5 speed multiplier.
+- Actions carry movement/facing intent and its sequence, never a position or velocity. The local input sample precedes spell validation. A late reliable action validates against its own legal facing/intent while restoring newer movement afterward; existing spell/CC/range/LOS validation stays authoritative. Invalid numeric input is rejected before advancing movement sequences.
+- `movement_controls.gd` owns world mouse gestures. UI clicks cannot initiate steering or two-button movement. Camera rotation uses `screen_relative`; focus/menu/edit cancellation clears gestures and suppresses held movement until release. Optional camera follow changes only camera yaw. Keybindings retain their integer representation with a separate mouse-device flag for middle and side buttons.
 - Snapshots: `var_to_bytes()` + `FileAccess.COMPRESSION_DEFLATE`, decoded with matching dynamic decompression capped at 65536 bytes. **Do not switch to FASTLZ** — see [`DECISIONS.md`](DECISIONS.md).
 - Clients ignore mismatched epoch, older-or-equal sequence, and periodic snapshots after results.
 - Remote actors (everyone except the local player) interpolate `net_position` / `net_yaw` with `delta * 22` capped at 1.
@@ -515,7 +518,7 @@ Appearance refinement: `hud_health_color` blends each class color toward navy fo
 
 ## Six-category diminishing returns
 
-`crowd_control.gd` is authoritative for category application, expiry, dispel and damage break. `Combatant.cc_effects` stores active source/duration/damage-budget data and `dr_states` stores independent count/reset timers. Tick derives legacy `stunned`/`identity.root` fields for existing movement, AI and animation consumers; legacy `dr_count`/`dr_timer` are stun-only accessors. New silence/disarm validation is shared between casting and the HUD, with Vanguard as the current melee role. No new spells are assigned these effects. Interrupt `locked` remains outside the system. Actual post-mitigation positive damage drives incap/disorient breaks. Reset and snapshot paths deep-copy or clear all categories. Protocol 2 prevents old/new gameplay state mixing.
+`crowd_control.gd` is authoritative for category application, expiry, dispel and damage break. `Combatant.cc_effects` stores active source/duration/damage-budget data and `dr_states` stores independent count/reset timers. Tick derives legacy `stunned`/`identity.root` fields for existing movement, AI and animation consumers; legacy `dr_count`/`dr_timer` are stun-only accessors. New silence/disarm validation is shared between casting and the HUD, with Vanguard as the current melee role. No new spells are assigned these effects. Interrupt `locked` remains outside the system. Actual post-mitigation positive damage drives incap/disorient breaks. Reset and snapshot paths deep-copy or clear all categories. Protocol 3 now also separates the sequenced jump/action-intent schema from older builds.
 
 `dr_icons.gd` attaches a 3×2 set of persistent icon controls on the left of enemy rows and right of party rows; only active diminished tracks are shown. Category/count/reset tooltip metadata uses the existing hover mechanism. Health bars retain their width; the enemy container reserves room on its right and old saved positions are clamped. Category art uses six simple generated pictograms, imported at 128px with mipmaps. Prompt provenance is in `assets/icons/dr/PROMPTS.md`. Tests cover category tiers, cross-category independence, natural/early expiry, damage-break tuning, role restrictions, full-strength interrupts, replication/deep copying, hover and viewport containment; six-peer ENet checks verify independent category dictionaries reach clients.
 

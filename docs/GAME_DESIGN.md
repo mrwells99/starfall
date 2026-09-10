@@ -75,7 +75,8 @@ See [`CLASS_ABILITIES.md`](CLASS_ABILITIES.md). `scripts/kits.gd` and `scripts/c
 
 - Forward and strafe: 6.5 u/s.
 - Backward (positive backward component): 3.8 u/s.
-- Keyboard turn: 2.5 rad/s.
+- Keyboard turn: 2.5 rad/s by default; adjustable from 60–360 degrees/s in Comfort.
+- Walking: half of the current run/backpedal speed, with existing sprint/slow multipliers still applied.
 - Jump impulse 7; gravity 20.
 - Sprint multiplier: 1.65×.
 
@@ -124,19 +125,28 @@ Cannot revive the dead.
 
 Third-person camera. WASD movement. Mouse-turn / strafe. Tab targeting.
 
-A / D **strafe** rather than turn — a deliberate divergence from the WoW default, where A / D turn and Q / E strafe. Turning moved to Q / E, which keeps keyboard turning available; mouse steering is unchanged and remains the primary way to turn.
+A / D **strafe** rather than turn — a deliberate divergence from the WoW default, where A / D turn and Q / E strafe. Turning uses Q / E. Settings → Keybinds offers optional Classic (A/D turn, Q/E strafe) and Strafe presets. Presets preserve hotbars and unrelated bindings, and refuse conflicting spell keys. Existing custom bindings remain unchanged until a preset is applied.
 
 | Input | Action |
 | --- | --- |
 | W / S | Forward / backward |
 | A / D | Strafe |
 | Q / E | Turn; strafe while holding RMB |
-| Space | Jump |
+| Space | Jump; optional 100 ms pre-landing buffer in Comfort; no hold-to-repeat |
+| Num Lock | Toggle autorun (unless already assigned in an older custom layout) |
+| Home | Recenter camera (unless already assigned) |
+| Toggle walk / run | Unbound by default; assign in Keybinds |
+| Middle mouse / Mouse 4 / Mouse 5 | Bindable, including modifier combinations |
+| Click another character | Target it; a drag does not change targets |
 | Hold RMB | Steer character and camera |
 | Hold LMB | Orbit camera independently |
 | Hold both mouse buttons | Run forward |
 | F11 or Alt+Enter | Toggle fullscreen / windowed |
 | 1–7 / Shift+1–5 (rebindable) | Hotbar slots. Keys and slot contents are set in Edit HUD. |
+
+World mouse gestures only start outside interactive UI. Right-button steering aligns facing immediately; left-button orbit preserves it. Both-button forward movement stops when either button is released. Menus, chat, focus loss, and edit mode cancel active movement gestures and autorun. A held movement key must be released before resuming after cancellation.
+
+Comfort contains resolution-independent mouse sensitivity, invert Y, optional follow-while-moving camera behavior, keyboard turn speed, and the optional landing jump buffer. Free camera remains the default. Wheel zoom eases toward the saved distance while the existing SpringArm handles collision. Autorun stops on forward/backward input; walking resets to running when the character/session is rebuilt. Jump height, gravity, running speed, backpedal speed, and airborne takeoff momentum are unchanged.
 
 ## Buffs and debuffs
 
@@ -219,7 +229,7 @@ All of it is client-side presentation. The bar position a player chooses is tran
 Settings offers windowed, borderless fullscreen and exclusive fullscreen, plus a resolution picker filtered to what the monitor can actually show. Resolution is disabled in the fullscreen modes rather than hidden, so it is clear why it does not apply.
 | Wheel | Zoom (3–18 m); camera retracts against geometry |
 | Tab | Cycle living enemies |
-| Click a character / world | Camera control only; **never** changes target |
+| Click another character / drag world | Select the visible character / orbit without changing target |
 | F1 / F2 / F3 | Select yourself / first teammate / second teammate |
 | Click party / enemy frame | Select that teammate / enemy |
 | Click player / target / focus frame | Select the character represented by that frame |
@@ -277,7 +287,7 @@ _Considered and set aside. Recorded so they aren't relitigated without new reaso
 
 - **Top-down / click-to-move camera** (League-style). Rejected — the WoW gameplay identity requires WASD + mouse-turn + third-person.
 - **Gear or item progression during a match.** Rejected — the design premise is equal starting power.
-- **Click-to-target on character models.** Rejected — caused specific self-select bugs and undermines the intended explicit targeting framework. See [`DECISIONS.md`](DECISIONS.md).
+- **Self-selection from world camera gestures.** Rejected. World clicks now select other characters only; drags and two-button movement never select targets. This supersedes the earlier blanket rejection of model picking; see [`DECISIONS.md`](DECISIONS.md).
 
 ### Session chat and CC editing
 

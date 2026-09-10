@@ -37,9 +37,11 @@ if [[ -z "${PUBKEY}" ]]; then
 fi
 
 echo "==> [1/4] Base packages and firewall"
-dnf install -y --setopt=install_weak_deps=False firewalld policycoreutils-python-utils curl ca-certificates
+dnf install -y --setopt=install_weak_deps=False firewalld policycoreutils-python-utils curl ca-certificates python3
 systemctl enable --now firewalld
 firewall-cmd --permanent --add-service=ssh >/dev/null || true
+firewall-cmd --permanent --add-service=http >/dev/null
+firewall-cmd --permanent --add-service=https >/dev/null
 for port in "${ALL_PORTS[@]}"; do
     firewall-cmd --permanent --add-port="${port}/udp" >/dev/null || true
 done
@@ -60,6 +62,8 @@ bash "${SCRIPT_DIR}/create-deploy-user.sh" "${PUBKEY}"   # quoted: one argument
 
 echo "==> [4/4] Application directory"
 install -d -m 0755 -o "${DEPLOY_USER}" -g "${DEPLOY_USER}" "${APP_DIR}"
+install -d -m 0755 -o "${DEPLOY_USER}" -g "${DEPLOY_USER}" "${APP_DIR}/downloads" "${APP_DIR}/deploy"
+install -m 0644 -o "${DEPLOY_USER}" -g "${DEPLOY_USER}" "${SCRIPT_DIR}/Caddyfile" "${APP_DIR}/deploy/Caddyfile"
 
 # Written inline, not copied from ../.env.example: this script is normally
 # scp'd on its own as deploy/, so a relative path to the repo root would not

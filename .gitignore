@@ -10,3 +10,13 @@ artifacts/*
 
 # Historical model workflow: local compressed backup, never include in commits.
 /art_source/workflows/starfall-character-forge-v1/
+# Exported clients and launcher build output
+build/
+launcher/bin/
+
+# Python release tool caches
+__pycache__/
+
+# Local/server download staging
+downloads/
+incoming-windows/

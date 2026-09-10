@@ -3,7 +3,7 @@ extends RefCounted
 # Runs before SceneMultiplayer permits ANY scene RPC. An RPC cannot safely
 # negotiate versions because differing method tables can misroute that RPC too.
 const Config = preload("res://scripts/config.gd")
-const PROTOCOL := 2
+const PROTOCOL := 3
 var game
 var schema := ""
 var rejection := ""

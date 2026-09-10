@@ -101,6 +101,12 @@ var last_snapshot := -1
 var snapshot_seq := 0
 var local_yaw := 0.0
 var queued_jump := false
+var movement_controls = preload("res://scripts/movement_controls.gd").new()
+var jump_serial := 0
+var pending_jump_id := 0
+var jump_sent_at := 0
+var pending_jump_revision := 0
+const JUMP_RETRY_MS := 350
 var latency_ms := 0
 var packets_received := 0
 var connected_seconds := 0.0
@@ -227,6 +233,7 @@ var searching := false
 func _ready() -> void:
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	Input.use_accumulated_input = false
+	movement_controls.game = self
 	controls.setup(TOTAL_SLOTS)
 	build_arena()
 	build_camera()
@@ -959,6 +966,9 @@ func clear_actors() -> void:
 	ability_reasons.clear()
 	availability_timer = 0.0
 	prediction.reset()
+	movement_controls.cancel()
+	movement_controls.walking = false
+	jump_serial = 0
 	for actor in actors.values():
 		remove_child(actor)
 		actor.queue_free()
@@ -1499,6 +1509,9 @@ func handle_shift_drag(event: InputEvent) -> bool:
 
 # Returns true when the event belonged to edit mode and must not travel further.
 func handle_edit_input(event: InputEvent) -> bool:
+	if rebinding >= 0 and event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_MIDDLE, MOUSE_BUTTON_XBUTTON1, MOUSE_BUTTON_XBUTTON2]:
+		finish_rebind(event_binding(event))
+		return true
 	if event is InputEventKey and event.pressed and not event.echo:
 		if rebinding >= 0:
 			if event.keycode == KEY_ESCAPE:
@@ -1770,10 +1783,14 @@ func finish_rebind(code: int) -> void:
 
 # A binding is a keycode with Godot's modifier mask folded in, so 1, Shift+1,
 # Alt+1 and Ctrl+1 are four distinct values in the same table.
-# OS.get_keycode_string() already renders the mask as "Shift+1", so the label
-# needs no special handling.
-static func event_binding(event: InputEventKey) -> int:
-	var code: int = event.physical_keycode if event.physical_keycode != 0 else event.keycode
+# Mouse bindings use a separate device flag; KeyBindings.label renders both.
+static func event_binding(event: InputEvent) -> int:
+	var code := 0
+	if event is InputEventMouseButton:
+		code = preload("res://scripts/key_bindings.gd").MOUSE_FLAG | event.button_index
+	elif event is InputEventKey:
+		code = event.physical_keycode if event.physical_keycode != 0 else event.keycode
+	else: return 0
 	# A modifier pressed on its own is not a binding.
 	if code in [KEY_SHIFT, KEY_ALT, KEY_CTRL, KEY_META]:
 		return 0
@@ -1810,7 +1827,7 @@ func refresh_binds() -> void:
 	for slot in range(cooldown_overlays.size()):
 		# An unbound slot shows nothing rather than a stray "0".
 		var binding: int = binds[slot] if binds[slot] != 0 else controls.secondary[slot]
-		cooldown_overlays[slot].set_key(OS.get_keycode_string(binding) if binding != 0 else "")
+		cooldown_overlays[slot].set_key(controls.label(binding) if binding != 0 else "")
 
 # Picks the dragged icon up under the cursor, or puts it away.
 func show_drag_ghost(slot: int) -> void:
@@ -1847,12 +1864,12 @@ func tick_camera_save(delta: float) -> void:
 	if camera_save_timer <= 0.0:
 		camera_dirty = false
 		camera_save_timer = 1.0
-		config.set_value("hud", "camera_distance", arm.spring_length)
+		config.set_value("hud", "camera_distance", movement_controls.zoom_target)
 		config.save_config()
 
 func save_layout() -> void:
 	if arm != null:
-		config.set_value("hud", "camera_distance", arm.spring_length)
+		config.set_value("hud", "camera_distance", movement_controls.zoom_target)
 	controls.save(config)
 	config.set_value("hud", "binds", binds)
 	config.set_value("hud", "assignment", assignment)
@@ -1908,6 +1925,15 @@ func load_layout() -> void:
 					# must never be duplicated or stolen during automatic migration.
 					if available:
 						binds[empty] = preferred
+	var saved_actions = config.get_value("controls", "actions", {})
+	for added in ["autorun", "walk", "recenter_camera"]:
+		if saved_actions is Dictionary and saved_actions.has(added): continue
+		var preferred: int = controls.actions[added][0]
+		if preferred == 0: continue
+		for other in controls.rows(self):
+			if other == added: continue
+			for col in range(2):
+				if controls.value(self, other, col) == preferred: controls.actions[added][0] = 0
 	var moved = config.get_value("hud", "moved", [])
 	if moved is Array:
 		for name in moved:
@@ -1918,6 +1944,7 @@ func load_layout() -> void:
 	var distance = config.get_value("hud", "camera_distance", 0.0)
 	if arm != null and distance is float and distance > 0.0:
 		arm.spring_length = clampf(distance, 3.0, 18.0)
+	movement_controls.zoom_target = arm.spring_length
 	var places = config.get_value("hud", "frames", {})
 	if places is Dictionary:
 		for frame in movable_frames:
@@ -2197,32 +2224,26 @@ func gather_input(delta: float) -> void:
 	if not actors.has(local_id):
 		return
 	var actor = actors[local_id]
-	var movement := Vector2.ZERO
-	if not panel.visible and not edit_mode and not social.typing() and actor.hp > 0:
-		var right := Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
-		if not right:
-			var turn := (controls.held("turn_left") - controls.held("turn_right")) * delta * 2.5
-			local_yaw += turn
-			if not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
-				pivot.rotation.y += turn
-		movement = Vector2(controls.held("strafe_right") - controls.held("strafe_left"), controls.held("backward") - controls.held("forward"))
-		if right:
-			movement.x += controls.held("turn_right") - controls.held("turn_left")
-			if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
-				movement.y = -1
-		movement = movement.limit_length()
+	var movement: Vector2 = movement_controls.sample(delta)
+	var jump_now := queued_jump and movement_controls.active() and phase == "match"
+	if jump_now:
+		jump_serial += 1
+		pending_jump_id = jump_serial
+		jump_sent_at = Time.get_ticks_msec()
+		pending_jump_revision = actor.motion_revision
+	var jump_age := Time.get_ticks_msec() - jump_sent_at
+	if jump_age > JUMP_RETRY_MS: pending_jump_id = 0
+	actor.walking = movement_controls.walking
 	if authoritative():
-		apply_input(local_id, movement, local_yaw, queued_jump, selected_id)
-		queued_jump = false
+		apply_input(local_id, movement, local_yaw, jump_now, selected_id)
+		if jump_now: actor.jump_buffer = 0.1 if player_options.jump_buffer else 0.0
 	else:
 		input_seq += 1
-		var command := {"seq": input_seq, "move": movement, "yaw": local_yaw, "jump": queued_jump, "delta": delta}
-		if phase == "match":
-			prediction.predict(self, actor, command)
-		else:
-			apply_input(local_id, Vector2.ZERO, local_yaw, false, selected_id)
-		deliver_input(epoch, input_seq, movement, local_yaw, queued_jump, selected_id)
-		queued_jump = false
+		var command := {"seq": input_seq, "move": movement, "yaw": local_yaw, "jump": jump_now, "delta": delta, "walk": movement_controls.walking, "buffer": 0.1 if player_options.jump_buffer else 0.0}
+		if phase == "match": prediction.predict(self, actor, command)
+		else: apply_input(local_id, Vector2.ZERO, local_yaw, false, selected_id)
+		deliver_input(epoch, input_seq, movement, local_yaw, pending_jump_id, selected_id, jump_age, movement_controls.walking, pending_jump_revision, player_options.jump_buffer)
+	queued_jump = false
 
 func key(code: Key) -> float:
 	return 1.0 if Input.is_physical_key_pressed(code) else 0.0
@@ -2244,21 +2265,30 @@ func peer_actor(peer: int) -> int:
 			return actor.actor_id
 	return -1
 
-@rpc("any_peer", "call_remote", "unreliable_ordered", 1)
-func submit_input(round_epoch: int, seq: int, movement: Vector2, yaw: float, jump: bool, selected: int) -> void:
-	if not network or not multiplayer.is_server() or round_epoch != epoch or phase not in ["match", "countdown"]:
-		return
-	var id := peer_actor(multiplayer.get_remote_sender_id())
-	if not actors.has(id) or seq <= actors[id].last_input_seq:
-		return
-	actors[id].last_input_seq = seq
-	apply_input(id, movement, yaw, jump, selected)
+# Input sequence orders both movement packets and action-time movement samples.
+func accept_movement(id: int, seq: int, movement: Vector2, yaw: float, jump_id: int, selected: int, jump_age: int, walking: bool, revision: int, buffer_jump: bool) -> bool:
+	if not actors.has(id) or seq < 0 or not movement.is_finite() or not is_finite(yaw): return false
+	var actor = actors[id]
+	if seq <= actor.last_input_seq: return false
+	actor.last_input_seq = seq
+	actor.walking = walking
+	apply_input(id, movement, yaw, false, selected)
+	if jump_id > actor.last_jump_id:
+		actor.last_jump_id = jump_id # Ack rejection too: retries must never become a later jump.
+		if phase == "match" and jump_age >= 0 and jump_age <= JUMP_RETRY_MS and revision == actor.motion_revision and actor.hp > 0 and actor.stunned <= 0 and actor.identity.root <= 0 and actor.identity.hold <= 0:
+			actor.jump_queued = true
+			actor.jump_buffer = 0.1 if buffer_jump else 0.0
+	return true
 
-func deliver_input(round_epoch: int, seq: int, movement: Vector2, yaw: float, jump: bool, selected: int) -> void:
-	if latency_ms > 0:
-		await get_tree().create_timer(latency_ms / 1000.0).timeout
+@rpc("any_peer", "call_remote", "unreliable_ordered", 1)
+func submit_input(round_epoch: int, seq: int, movement: Vector2, yaw: float, jump_id: int, selected: int, jump_age: int, walking: bool, revision: int, buffer_jump: bool) -> void:
+	if not network or not multiplayer.is_server() or round_epoch != epoch or phase not in ["match", "countdown"]: return
+	accept_movement(peer_actor(multiplayer.get_remote_sender_id()), seq, movement, yaw, jump_id, selected, jump_age, walking, revision, buffer_jump)
+
+func deliver_input(round_epoch: int, seq: int, movement: Vector2, yaw: float, jump_id: int, selected: int, jump_age: int, walking: bool, revision: int, buffer_jump: bool) -> void:
+	if latency_ms > 0: await get_tree().create_timer(latency_ms / 1000.0).timeout
 	if network and not multiplayer.is_server() and epoch == round_epoch:
-		submit_input.rpc_id(1, round_epoch, seq, movement, yaw, jump, selected)
+		submit_input.rpc_id(1, round_epoch, seq, movement, yaw, jump_id, selected, jump_age, walking, revision, buffer_jump)
 
 func deliver_snapshot(round_epoch: int, seq: int, states: Array, round_phase: String, time: float, start_time: float) -> void:
 	if latency_ms > 0:
@@ -2279,8 +2309,12 @@ func receive_snapshot(round_epoch: int, seq: int, payload: PackedByteArray, roun
 	packets_received += 1
 	for data in states:
 		if actors.has(data.id):
+			if data.id == local_id and int(data.get("motion_revision", 0)) != actors[data.id].motion_revision:
+				pending_jump_id = 0
+				queued_jump = false
 			actors[data.id].receive(data)
 			if data.id == local_id:
+				if int(data.get("jump_ack", 0)) >= pending_jump_id: pending_jump_id = 0
 				prediction.pending = data.duplicate(true)
 	if phase != "results":
 		phase = round_phase
@@ -2301,6 +2335,8 @@ func tick_actor(actor, delta: float) -> void:
 	actor.action_budget = maxf(0, actor.action_budget - delta)
 	actor.input_age += delta
 	if actor.hp <= 0:
+		actor.jump_queued = false
+		actor.jump_buffer = 0
 		actor.casting = -1
 		actor.velocity = Vector3.ZERO
 		return
@@ -2342,6 +2378,7 @@ func simulate_movement(actor, delta: float, grounded_override: Variant = null) -
 	if actor.hp <= 0:
 		actor.velocity = Vector3.ZERO
 		actor.jump_queued = false
+		actor.jump_buffer = 0
 		return Vector3.ZERO
 	var grounded: bool = actor.is_on_floor() if grounded_override == null else bool(grounded_override)
 	var immobilized: bool = actor.stunned > 0 or actor.identity.root > 0 or actor.identity.hold > 0
@@ -2349,6 +2386,7 @@ func simulate_movement(actor, delta: float, grounded_override: Variant = null) -
 	if immobilized:
 		direction = Vector3.ZERO
 	var speed := 6.5 if actor.move_input.y <= 0 else 3.8
+	if actor.walking: speed *= 0.5
 	if actor.sprint > 0:
 		speed *= 1.65
 	if actor.identity.slow > 0 and actor.identity.immune <= 0:
@@ -2358,9 +2396,14 @@ func simulate_movement(actor, delta: float, grounded_override: Variant = null) -
 	if grounded or immobilized:
 		actor.velocity.x = direction.x * speed
 		actor.velocity.z = direction.z * speed
-	if actor.jump_queued and grounded and not immobilized:
+	if immobilized:
+		actor.jump_queued = false
+		actor.jump_buffer = 0
+	if (actor.jump_queued or actor.jump_buffer > 0) and grounded and not immobilized:
 		actor.velocity.y = 7
+		actor.jump_buffer = 0
 	actor.jump_queued = false
+	actor.jump_buffer = maxf(0.0, actor.jump_buffer - delta)
 	actor.velocity.y -= 20 * delta
 	actor.move_and_slide()
 	return direction
@@ -2427,34 +2470,62 @@ func send_action(slot: int) -> void:
 	var ability := kit_slot(slot)
 	if ability < 0:
 		return
+	# Sample intent now: a turn/release and cast may arrive between physics ticks.
+	var movement: Vector2 = movement_controls.sample(0)
+	var actor = actors[local_id]
+	actor.walking = movement_controls.walking
+	apply_input(local_id, movement, local_yaw, false, selected_id)
 	if authoritative():
 		try_spell(local_id, ability, selected_id)
 	else:
+		input_seq += 1
 		action_seq += 1
-		deliver_action(epoch, action_seq, ability, selected_id)
+		deliver_action(epoch, action_seq, ability, selected_id, input_seq, movement, local_yaw, movement_controls.walking)
 
-func deliver_action(round_epoch: int, seq: int, slot: int, selected: int) -> void:
+func deliver_action(round_epoch: int, seq: int, slot: int, selected: int, move_seq: int = -1, movement: Vector2 = Vector2.ZERO, yaw: float = 0.0, walking: bool = false) -> void:
 	if latency_ms > 0:
 		await get_tree().create_timer(latency_ms / 1000.0).timeout
 	if network and not multiplayer.is_server() and epoch == round_epoch:
-		submit_action.rpc_id(1, round_epoch, seq, slot, selected)
+		submit_action.rpc_id(1, round_epoch, seq, slot, selected, move_seq, movement, yaw, walking)
+
+# The action carries intent, never position or velocity. Late actions validate
+# with their own facing while preserving any newer movement already received.
+func apply_action_intent(id: int, slot: int, selected: int, move_seq: int, movement: Vector2, yaw: float, walking: bool) -> void:
+	if not actors.has(id) or not movement.is_finite() or not is_finite(yaw): return
+	var actor = actors[id]
+	var newer_motion: bool = move_seq <= actor.last_input_seq
+	var previous_yaw: float = actor.rotation.y
+	var previous_move: Vector2 = actor.move_input
+	var previous_walk: bool = actor.walking
+	var previous_target: int = actor.target_id
+	var previous_age: float = actor.input_age
+	if newer_motion:
+		apply_input(id, movement, yaw, false, selected)
+		actor.walking = walking
+	else:
+		accept_movement(id, move_seq, movement, yaw, 0, selected, 0, walking, actor.motion_revision, false)
+	try_spell(id, slot, selected)
+	if newer_motion:
+		actor.rotation.y = previous_yaw
+		actor.move_input = previous_move
+		actor.walking = previous_walk
+		actor.target_id = previous_target
+		actor.input_age = previous_age
 
 @rpc("any_peer", "call_remote", "reliable", 1)
-func submit_action(round_epoch: int, seq: int, slot: int, selected: int) -> void:
-	if not network or not multiplayer.is_server() or round_epoch != epoch or phase != "match":
-		return
+func submit_action(round_epoch: int, seq: int, slot: int, selected: int, move_seq: int, movement: Vector2, yaw: float, walking: bool) -> void:
+	if not network or not multiplayer.is_server() or round_epoch != epoch or phase != "match": return
 	var id := peer_actor(multiplayer.get_remote_sender_id())
-	if not actors.has(id) or seq <= actors[id].last_action_seq:
-		return
+	if not actors.has(id) or not movement.is_finite() or not is_finite(yaw) or seq <= actors[id].last_action_seq: return
 	var actor = actors[id]
 	actor.last_action_seq = seq
-	if actor.action_budget > 0:
-		return
+	if actor.action_budget > 0: return
 	actor.action_budget = 0.05
 	if slot == -1:
 		cancel_own_cast(actor, "")
 		return
-	try_spell(id, slot, selected)
+	if move_seq < 0: return
+	apply_action_intent(id, slot, selected, move_seq, movement, yaw, walking)
 
 # Cancelling a cast before it goes off clears the global cooldown.
 #
@@ -3080,6 +3151,7 @@ func update_frame(frame: VBoxContainer, id: int, prefix: String) -> void:
 func _process(_delta: float) -> void:
 	if dedicated:
 		return
+	movement_controls.tick(_delta)
 	combat_text.tick()
 	var follow_id: int = spectator.follow_id()
 	if actors.has(follow_id):
@@ -3317,6 +3389,9 @@ func cycle_target(direction: int = 1) -> void:
 		selected_id = candidates[(0 if direction > 0 else candidates.size() - 1) if current < 0 else posmod(current + direction, candidates.size())]
 
 func _input(event: InputEvent) -> void:
+	if movement_controls.input(event):
+		get_viewport().set_input_as_handled()
+		return
 	if player_options != null and player_options.dialog.visible: return
 	if social != null and social.handle_input(event):
 		get_viewport().set_input_as_handled()
@@ -3332,17 +3407,10 @@ func _input(event: InputEvent) -> void:
 		return
 	if handle_shift_drag(event):
 		return
-	if event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT] and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+	if event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_MIDDLE, MOUSE_BUTTON_XBUTTON1, MOUSE_BUTTON_XBUTTON2] and (movement_controls.left or movement_controls.right):
+		_unhandled_input(event)
 		get_viewport().set_input_as_handled()
-	if event is InputEventMouseButton and not event.pressed and event.button_index in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT]:
-		if not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and not Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
-			release_mouse()
-	if event is InputEventMouseMotion and not panel.visible:
-		if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) or Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
-			pivot.rotation.y -= event.relative.x * 0.004 * player_options.sensitivity
-			arm.rotation.x = clampf(arm.rotation.x - event.relative.y * 0.004 * player_options.sensitivity * (-1.0 if player_options.invert_y else 1.0), -1.15, 0.12)
-			if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
-				local_yaw = pivot.rotation.y
+		return
 	# The game launches fullscreen, so it has to offer a way back out. F11 and
 	# Alt+Enter are both what people already try.
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -3380,15 +3448,19 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			arm.spring_length = maxf(3, arm.spring_length - 0.8)
+			movement_controls.zoom_target = maxf(3, movement_controls.zoom_target - 0.8)
 			camera_dirty = true
 		if event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			arm.spring_length = minf(18, arm.spring_length + 0.8)
+			movement_controls.zoom_target = minf(18, movement_controls.zoom_target + 0.8)
 			camera_dirty = true
 		if event.button_index in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT]:
-			capture_mouse()
-	if event is InputEventKey and event.pressed and not event.echo:
+			movement_controls.begin(event)
+			get_viewport().set_input_as_handled()
+			return
+		if event.button_index in [MOUSE_BUTTON_MIDDLE, MOUSE_BUTTON_XBUTTON1, MOUSE_BUTTON_XBUTTON2]: controls.mouse_held[event.button_index] = true
+	if (event is InputEventKey and event.pressed and not event.echo) or (event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_MIDDLE, MOUSE_BUTTON_XBUTTON1, MOUSE_BUTTON_XBUTTON2]):
 		var pressed_binding := event_binding(event)
+		if movement_controls.active(): movement_controls.action(pressed_binding)
 		if spectator.eliminated():
 			if controls.matches("target_next", pressed_binding): spectator.cycle(1)
 			if controls.matches("target_previous", pressed_binding): spectator.cycle(-1)
@@ -3436,7 +3508,8 @@ func _notification(what: int) -> void:
 		application_focused = true
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
 		application_focused = false
-		release_mouse(false)
+		has_capture_origin = false
+		movement_controls.cancel()
 		queued_jump = false
 	# Flush on quit: anything changed since the last explicit save — a camera
 	# zoom in particular — was otherwise lost when the window closed.
@@ -3503,6 +3576,8 @@ func capture_mouse() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func release_mouse(restore_position: bool = true) -> void:
+	movement_controls.left = false
+	movement_controls.right = false
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	if has_capture_origin and restore_position:
 		get_viewport().warp_mouse(mouse_capture_origin)
@@ -3579,7 +3654,7 @@ func reset_all_keybinds() -> void:
 func control_label(action: String) -> String:
 	for binding in controls.actions[action]:
 		if binding != 0:
-			return OS.get_keycode_string(binding)
+			return controls.label(binding)
 	return "Unbound"
 
 # Session social actions are validated by the authority; clients only request.

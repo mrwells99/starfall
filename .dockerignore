@@ -31,3 +31,9 @@ docker-compose.yml
 .idea/
 *.swp
 .DS_Store
+
+# Windows distribution does not belong in the dedicated server image.
+launcher/
+build/
+tools/release/
+export_presets.cfg
