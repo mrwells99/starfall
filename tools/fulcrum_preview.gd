@@ -8,21 +8,36 @@ var distance := 4.6
 var paused := false
 var capture_frames := 0
 var capture_mode := false
+var review_speed := 1.0
+var skeleton: Skeleton3D
+var pose_blend = preload("res://scripts/fulcrum_pose_blend.gd").new()
 func _ready() -> void:
+ Engine.max_fps = 30
  DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
- DisplayServer.window_set_size(Vector2i(1100,900))
+ DisplayServer.window_set_current_screen(0)
+ DisplayServer.window_set_size(Vector2i(800,850))
+ DisplayServer.window_set_position(DisplayServer.screen_get_position(0) + Vector2i(1080,70))
+ DisplayServer.window_set_title("Fulcrum — Universal Animation Library review")
  model = load("res://assets/characters/fulcrum.glb").instantiate()
  add_child(model)
  model.rotation.y = PI
  for node in model.find_children("*","Node",true,false):
   if node is AnimationPlayer:player=node
+  if node is Skeleton3D:skeleton=node
   if node is MeshInstance3D:
    for i in node.mesh.get_surface_count():
     var material: StandardMaterial3D = node.mesh.surface_get_material(i).duplicate()
     material.cull_mode = BaseMaterial3D.CULL_DISABLED
     node.set_surface_override_material(i,material)
- for clip in player.get_animation_list():player.get_animation(clip).loop_mode=Animation.LOOP_LINEAR
- player.play("Walk")
+ for clip in player.get_animation_list():
+  player.get_animation(clip).loop_mode=Animation.LOOP_NONE if clip in ["CastEnter","CastRelease","CastExit","JumpStart","JumpLand"] else Animation.LOOP_LINEAR
+ var initial_clip := "WalkBackward" if "--backpedal-review" in OS.get_cmdline_user_args() else "Walk"
+ if "--side-turn-review" in OS.get_cmdline_user_args(): initial_clip = "RunLeft"
+ player.play(initial_clip)
+ player.callback_mode_process=AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
+ player.advance(0)
+ pose_blend.build(skeleton)
+ update_playback_speed()
  var env := WorldEnvironment.new()
  env.environment = Environment.new()
  env.environment.background_mode=Environment.BG_COLOR
@@ -47,17 +62,38 @@ func _ready() -> void:
  camera=Camera3D.new();camera.fov=37;add_child(camera);camera.current=true;update_camera()
  var canvas:=CanvasLayer.new();add_child(canvas)
  var column:=VBoxContainer.new();column.position=Vector2(24,20);canvas.add_child(column)
- var title:=Label.new();title.text="FULCRUM  ·  THE GRAVITY HERETIC";title.add_theme_font_size_override("font_size",28);column.add_child(title)
+ var title:=Label.new();title.text="FULCRUM  ·  UNIVERSAL RIG";title.add_theme_font_size_override("font_size",24);column.add_child(title)
  var hint:=Label.new();hint.text="Drag to orbit  ·  Scroll to zoom  ·  Space to pause";column.add_child(hint)
  var row:=HBoxContainer.new();column.add_child(row)
- for clip in ["Idle","Walk","Run","WalkBackward","StrafeLeft","StrafeRight","Cast"]:
-  var button:=Button.new();button.text=clip.replace("WalkBackward","Backstep").replace("StrafeLeft","Left").replace("StrafeRight","Right")
-  button.pressed.connect(func():player.play(clip,.2));row.add_child(button)
+ var selector:=OptionButton.new();selector.custom_minimum_size=Vector2(280,34)
+ for clip in player.get_animation_list():selector.add_item(clip)
+ selector.item_selected.connect(func(index:int):select_clip(selector.get_item_text(index)))
+ row.add_child(selector)
+ for i in selector.item_count:
+  if selector.get_item_text(i)==initial_clip:selector.select(i)
+ var replay:=Button.new();replay.text="Replay"
+ replay.pressed.connect(func():select_clip(selector.get_item_text(selector.selected),true));row.add_child(replay)
+ var note:=Label.new();note.text="Backpedal: reversed walk +15% · Run −10% · Source jumps";column.add_child(note)
  var speed:=HSlider.new();speed.min_value=.25;speed.max_value=1.75;speed.step=.05;speed.value=1;speed.custom_minimum_size=Vector2(280,25)
- speed.value_changed.connect(func(value:float):player.speed_scale=value);column.add_child(speed)
+ speed.value_changed.connect(func(value:float):review_speed=value;update_playback_speed());column.add_child(speed)
  capture_mode="--fulcrum-capture" in OS.get_cmdline_user_args()
+ print("FULCRUM_PREVIEW_READY screen=",DisplayServer.window_get_current_screen()," position=",DisplayServer.window_get_position()," clips=",player.get_animation_list().size())
 func add_light(at:Vector3,color:Color,energy:float)->void:
  var light:=DirectionalLight3D.new();add_child(light);light.position=at;light.look_at(Vector3(0,1,0));light.light_color=color;light.light_energy=energy;light.shadow_enabled=true
+func update_playback_speed()->void:
+ var running:=player.current_animation.begins_with("Run") or player.current_animation.begins_with("Sprint")
+ var backpedaling:=player.current_animation.begins_with("WalkBackward")
+ var cadence:float=preload("res://scripts/fulcrum_art.gd").BACKPEDAL_CADENCE_SCALE if backpedaling else (preload("res://scripts/fulcrum_art.gd").RUN_CADENCE_SCALE if running else 1.0)
+ player.speed_scale=review_speed*cadence
+func select_clip(next:String,replay:bool=false)->void:
+ var previous:=String(player.current_animation)
+ var phase:=player.current_animation_position/maxf(player.current_animation_length,.001)
+ pose_blend.begin(pose_blend.duration_for(previous,next))
+ paused=false;player.play(next,0.0)
+ if not replay and pose_blend.is_locomotion(previous) and pose_blend.is_locomotion(next):
+  player.seek(phase*player.get_animation(next).length,false)
+ elif replay:player.seek(0,false)
+ update_playback_speed()
 func update_camera()->void:
  camera.position=Vector3(sin(yaw)*distance,1.22+sin(pitch)*distance,-cos(yaw)*distance)
  camera.look_at(Vector3(0,1.22,0))
@@ -72,7 +108,10 @@ func _unhandled_input(event:InputEvent)->void:
   paused=not paused
   if paused:player.pause()
   else:player.play()
-func _process(_delta:float)->void:
+func _process(delta:float)->void:
+ if not paused:
+  player.advance(delta)
+  pose_blend.apply(delta)
  if capture_mode:
   capture_frames+=1
   if capture_frames==40:

@@ -2338,6 +2338,7 @@ func tick_actor(actor, delta: float) -> void:
 					feedback(actor, reason)
 
 func simulate_movement(actor, delta: float, grounded_override: Variant = null) -> Vector3:
+	actor.presentation_grounded = null
 	if actor.hp <= 0:
 		actor.velocity = Vector3.ZERO
 		actor.jump_queued = false
