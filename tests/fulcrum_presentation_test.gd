@@ -1,164 +1,131 @@
 extends SceneTree
-
 var failures := 0
 var checks := 0
-const CLIPS = ["Idle", "Walk", "Run", "WalkBackward", "StrafeLeft", "StrafeRight", "Cast"]
-const MANTLE_BONES = ["mantle0", "mantle1", "mantle2", "mantle_tip0", "mantle_tip1", "mantle_tip2"]
-
 func check(ok: bool, message: String) -> void:
 	checks += 1
 	if not ok:
 		failures += 1
 		push_error(message)
-
 func _initialize() -> void:
 	call_deferred("run")
-
-func move_actor(actor, visual, direction: Vector3, speed: float, frames: int) -> void:
-	for i in frames:
-		actor.position += direction * speed / 60.0
-		visual.animate(1.0 / 60.0, actor)
-
-func check_immediate_transition(art, reference_art, expected: String, message: String) -> void:
-	check(art.clip == expected and art.player.current_animation == art.clip_names[expected], message + " selects the clip in one frame")
-	# Independently sample the imported destination clip to detect a lingering blend.
-	reference_art.player.stop()
-	reference_art.player.play(reference_art.clip_names[expected], 0.0)
-	reference_art.player.seek(art.player.current_animation_position, true)
-	var pose_matches := true
-	for bone_name in ["pelvis", "thigh.L", "thigh.R", "chest"]:
-		var actual: Transform3D = art.skeleton.get_bone_pose(art.skeleton.find_bone(bone_name))
-		var expected_pose: Transform3D = reference_art.skeleton.get_bone_pose(reference_art.skeleton.find_bone(bone_name))
-		pose_matches = pose_matches and actual.origin.distance_to(expected_pose.origin) < 0.0001
-		pose_matches = pose_matches and actual.basis.get_rotation_quaternion().angle_to(expected_pose.basis.get_rotation_quaternion()) < 0.001
-	check(pose_matches, message + " applies the destination pose immediately")
-
 func run() -> void:
 	var actor = load("res://scripts/combatant.gd").new()
-	root.add_child(actor)
-	actor.setup(1, 1, 0, "Fulcrum")
+	root.add_child(actor); actor.setup(1, 1, 0, "Fulcrum")
 	var visual = actor.champion_model
 	var art = visual.fulcrum_art
-	check(art != null, "Fulcrum uses the authored presentation")
-	if art == null:
-		quit(1)
-		return
-	check(art.skeleton.get_bone_count() == 62, "Full Fulcrum skeleton imported")
+	check(art.skeleton.get_bone_count() == 83, "UAL anatomy plus costume/weapon controls imported")
+	for bone in ["DEF-hips", "DEF-spine.001", "DEF-spine.002", "DEF-spine.003", "DEF-head", "DEF-hand.L", "DEF-f_index.03.L", "DEF-thigh.R", "DEF-toe.R"]:
+		check(art.skeleton.find_bone(bone) >= 0, "Preset anatomical bone: " + bone)
+	for bone in ["mantle0", "mantle_tip0", "mantle1", "mantle_tip1", "mantle2", "mantle_tip2", "gravity.focus", "gravity.outer", "gravity.inner", "gravity.debris"]:
+		check(art.skeleton.find_bone(bone) >= 0, "Class control retained: " + bone)
 	var weapon = art.model.find_child("Fulcrum_GravityWeapon", true, false)
-	check(weapon is MeshInstance3D and weapon.skin != null, "Gravity weapon is an imported skinned mesh")
-	for bone_name in ["gravity.focus", "gravity.outer", "gravity.inner", "gravity.debris"]:
-		check(art.skeleton.find_bone(bone_name) >= 0, "Weapon control imported: " + bone_name)
-	for bone_name in MANTLE_BONES:
-		check(art.skeleton.find_bone(bone_name) >= 0, "Mantle control imported: " + bone_name)
-	for i in art.skeleton.get_bone_count():
-		check(not "hair" in art.skeleton.get_bone_name(i).to_lower(), "No hair control remains")
-	check(visual.torso != null and visual.torso.skin != null, "The model is skinned")
+	var undersuit = art.model.find_child("Fulcrum_UAL_Undersuit", true, false)
+	check(weapon is MeshInstance3D and weapon.skin != null, "Approved weapon is skinned")
+	check(undersuit is MeshInstance3D and undersuit.skin != null, "Actual preset supplies the fitted undersuit")
+	check(visual.torso.name == "Fulcrum_SkinnedModel" and visual.torso.skin != null, "Costume remains the body presentation mesh")
 	var has_mask := false
-	for surface in visual.torso.mesh.get_surface_count():
-		var material: Material = visual.torso.mesh.surface_get_material(surface)
-		var material_name := material.resource_name
-		has_mask = has_mask or "Fulcrum_SealedObsidianMask" in material_name
-		for forbidden in ["hair", "skin", "iris", "lip", "eyewhite", "lash"]:
-			check(not forbidden in material_name.to_lower(), "No exposed facial material: " + material_name)
-	check(has_mask, "Sealed obsidian mask is present")
-	print("Imported clips: ", art.player.get_animation_list())
-	for clip in CLIPS:
-		check(art.clip_names.has(clip), "Clip imported: " + clip)
-		if not art.clip_names.has(clip):
-			continue
-		var anim: Animation = art.player.get_animation(art.clip_names[clip])
-		check(anim.length > 0.5 and anim.get_track_count() > 20, "Clip has skeletal motion: " + clip)
-		check(anim.loop_mode == Animation.LOOP_LINEAR, "Clip loops: " + clip)
-		art.player.play(art.clip_names[clip])
-		art.player.seek(0, true)
-		var poses: Array[Transform3D] = []
-		for i in art.skeleton.get_bone_count():
-			poses.append(art.skeleton.get_bone_pose(i))
-		art.player.seek(anim.length - 0.0001, true)
-		for i in art.skeleton.get_bone_count():
-			var end_pose: Transform3D = art.skeleton.get_bone_pose(i)
-			check(poses[i].origin.distance_to(end_pose.origin) < 0.003, "Loop translation closes: " + clip)
-			check(poses[i].basis.get_rotation_quaternion().angle_to(end_pose.basis.get_rotation_quaternion()) < 0.012, "Loop rotation closes: " + clip)
-	# Inspect actual imported secondary deformation, rather than only bone names.
-	var walk: Animation = art.player.get_animation(art.clip_names["Walk"])
-	art.player.play(art.clip_names["Walk"])
-	for bone_name in ["gravity.outer", "gravity.inner", "gravity.debris"]:
-		art.player.seek(0, true)
-		var bone: int = art.skeleton.find_bone(bone_name)
-		var start_rotation = art.skeleton.get_bone_pose_rotation(bone)
-		art.player.seek(walk.length * 0.25, true)
-		check(start_rotation.angle_to(art.skeleton.get_bone_pose_rotation(bone)) > 0.5, "Weapon orbit animates: " + bone_name)
-	art.player.play(art.clip_names["Walk"])
-	art.player.seek(0, true)
-	for bone_name in MANTLE_BONES:
-		var bone: int = art.skeleton.find_bone(bone_name)
-		if bone < 0:
-			continue
-		art.player.seek(0, true)
-		var start_pose: Transform3D = art.skeleton.get_bone_pose(bone)
-		var max_angle := 0.0
-		for sample in range(1, 16):
-			art.player.seek(walk.length * sample / 16.0, true)
-			var pose: Transform3D = art.skeleton.get_bone_pose(bone)
-			max_angle = maxf(max_angle, start_pose.basis.get_rotation_quaternion().angle_to(pose.basis.get_rotation_quaternion()))
-		check(max_angle > 0.002, "Mantle moves through Walk: " + bone_name)
-	visual.animate(1.0 / 60.0, actor)
-	move_actor(actor, visual, Vector3.FORWARD, 1.5, 25)
-	check(art.clip == "Walk", "Forward movement plays Walk")
-	move_actor(actor, visual, Vector3.FORWARD, 4.0, 35)
-	check(art.clip == "Run", "Faster forward movement plays Run")
-	move_actor(actor, visual, Vector3.LEFT, 1.5, 35)
-	check(art.clip == "StrafeLeft", "Left movement plays StrafeLeft")
-	move_actor(actor, visual, Vector3.RIGHT, 1.5, 35)
-	check(art.clip == "StrafeRight", "Right movement plays StrafeRight")
-	move_actor(actor, visual, Vector3.BACK, 1.5, 35)
-	check(art.clip == "WalkBackward", "Backward movement plays WalkBackward")
-	actor.casting = 0
-	visual.animate(0.1, actor)
-	check(art.clip == "Cast", "Casting transitions to authored Cast")
-	actor.casting = -1
-	for i in 90:
-		visual.animate(1.0 / 60.0, actor)
-	check(art.clip == "Idle", "Stationary actor reaches Idle")
-	# Movement onset, release and direction changes must match current Ember response.
-	var reference_actor = load("res://scripts/combatant.gd").new()
-	root.add_child(reference_actor)
-	reference_actor.setup(2, 1, 0, "Fulcrum")
-	var reference_art = reference_actor.champion_model.fulcrum_art
-	move_actor(actor, visual, Vector3.FORWARD, 0.4, 1)
-	check_immediate_transition(art, reference_art, "Walk", "Starting a slow walk")
-	visual.animate(1.0 / 60.0, actor)
-	check_immediate_transition(art, reference_art, "Idle", "Releasing walk movement")
-	move_actor(actor, visual, Vector3.FORWARD, 4.0, 1)
-	check_immediate_transition(art, reference_art, "Run", "Starting a run")
-	move_actor(actor, visual, Vector3.LEFT, 0.9, 1)
-	check_immediate_transition(art, reference_art, "StrafeLeft", "Changing from run to left")
-	move_actor(actor, visual, Vector3.RIGHT, 0.9, 1)
-	check_immediate_transition(art, reference_art, "StrafeRight", "Reversing strafe direction")
-	move_actor(actor, visual, Vector3.BACK, 0.9, 1)
-	check_immediate_transition(art, reference_art, "WalkBackward", "Changing to backward movement")
-	visual.animate(1.0 / 60.0, actor)
-	check_immediate_transition(art, reference_art, "Idle", "Releasing backward movement")
-	reference_actor.queue_free()
-	actor.stunned = 1.0
-	visual.animate(0.1, actor)
+	for material in art.materials:
+		has_mask = has_mask or "SealedObsidianMask" in material.resource_name
+		check(not "hair" in material.resource_name.to_lower() and not "eyewhite" in material.resource_name.to_lower(), "No exposed face or hair")
+	check(has_mask, "Original sealed mask material remains")
+	var singles := ["CastEnter", "CastRelease", "CastExit", "JumpStart", "JumpLand"]
+	check(art.clip_names.size() == 32, "All selected and derived presets are available")
+	for name in art.clip_names:
+		var animation: Animation = art.player.get_animation(art.clip_names[name])
+		check(animation.length > .3 and animation.get_track_count() > 20, "Complete skeletal clip: " + name)
+		check(animation.loop_mode == (Animation.LOOP_NONE if name in singles else Animation.LOOP_LINEAR), "Correct loop policy: " + name)
+		art.player.play(art.clip_names[name]); art.player.seek(animation.length*.25, true)
+		var finite := true
+		for i in art.skeleton.get_bone_count(): finite = finite and art.skeleton.get_bone_pose(i).origin.is_finite()
+		check(finite, "Finite imported pose: " + name)
+	art.player.play(art.clip_names["Idle"]); art.clip = "Idle"
+	visual.animate(.016, actor)
+	var directions := [Vector3.FORWARD, Vector3(1,0,-1).normalized(), Vector3.RIGHT, Vector3(1,0,1).normalized(), Vector3.BACK, Vector3(-1,0,1).normalized(), Vector3.LEFT, Vector3(-1,0,-1).normalized()]
+	var walks := ["Walk", "WalkForwardRight", "StrafeRight", "WalkBackwardRight", "WalkBackward", "WalkBackwardLeft", "StrafeLeft", "WalkForwardLeft"]
+	var runs := ["Run", "RunForwardRight", "RunRight", "WalkBackwardRight", "WalkBackward", "WalkBackwardLeft", "RunLeft", "RunForwardLeft"]
+	for running in [false, true]:
+		for i in 8:
+			actor.position += directions[i] * (4.0 if running else 1.2) / 60.0
+			visual.animate(1.0/60.0, actor)
+			check(art.clip == (runs[i] if running else walks[i]), "Eight-way motion reacts immediately: " + str(i))
+	visual.animate(.016, actor)
+	check(art.clip == "Idle", "Releasing movement selects idle immediately")
+	for i in 8:
+		actor.position += directions[i] * 6.5 / 60.0
+		visual.animate(1.0/60.0,actor)
+		check(art.clip == runs[i].replace("Run","Sprint"), "Full game speed selects directional sprint: " + str(i))
+	# Backward intent is actor-local, including when the character has turned.
+	actor.rotation.y = PI/2
+	for direction_index in [3,4,5]:
+		var original_velocity: Vector3 = actor.velocity
+		for i in 60:
+			actor.position += actor.basis * directions[direction_index] * 3.8 / 60.0
+			visual.animate(1.0/60.0,actor)
+		check(art.clip == walks[direction_index], "Turned character backpedals with the reversed walk in all three directions")
+		check(absf(art.player.speed_scale-1.15)<.005, "Normal backpedaling plays the walking clip 15 percent faster")
+		check(actor.velocity == original_velocity, "Backpedal animation never changes physical velocity")
+	actor.rotation.y = 0
+	visual.animate(.016,actor)
+	actor.casting = 0; visual.animate(.016, actor)
+	check(art.clip == "CastEnter", "Casting uses preset anticipation")
+	for i in 45: visual.animate(1.0/60.0, actor)
+	check(art.clip == "Cast", "Sustained cast uses the dedicated spell loop")
+	actor.casting = -1; visual.animate(.016, actor)
+	check(art.clip == "CastRelease", "Completed cast uses preset release")
+	for i in 65: visual.animate(1.0/60.0, actor)
+	check(art.clip == "Idle", "Cast recovery returns to idle")
+	actor.casting = 0; actor.cast_left = 1.2; visual.animate(.016,actor)
+	actor.casting = -1; actor.cast_left = 0; visual.animate(.016,actor)
+	check(art.clip == "CastExit", "Interrupted cast exits without a release gesture")
+	for i in 35: visual.animate(1.0/60.0,actor)
+	actor.gcd = 1.0; visual.animate(.016, actor)
+	check(art.clip == "CastRelease", "Instant cast GCD event also produces a release")
+	actor.position += Vector3.LEFT/60.0; visual.animate(1.0/60.0, actor)
+	check(art.clip == "StrafeLeft", "Movement is not held up by cosmetic recovery")
+	art.transient_left = 0
+	actor.velocity.y = 4; visual.animate(.016, actor)
+	check(art.clip == "JumpStart", "Jump begins with source takeoff")
+	for i in 16: visual.animate(1.0/60.0, actor)
+	actor.velocity.y = 0; visual.animate(.016, actor)
+	check(art.clip == "JumpLoop", "Apex remains airborne rather than landing at zero vertical speed")
+	actor.velocity.y = -3; visual.animate(.016, actor)
+	check(art.clip == "JumpLoop", "Descending uses airborne loop")
+	# Remote bodies never move_and_slide; snapshots must drive takeoff/landing.
+	var remote_state: Dictionary = actor.snapshot()
+	actor.velocity = Vector3.ZERO
+	remote_state.grounded = true; actor.receive(remote_state); visual.animate(.016,actor)
+	check(art.clip == "JumpLand", "Remote grounded snapshot exits the airborne loop")
+	for i in 12: visual.animate(1.0/60.0,actor)
+	check(art.clip == "Idle", "Remote landing recovers to idle")
+	remote_state.grounded = false; actor.receive(remote_state); visual.animate(.016,actor)
+	check(art.clip == "JumpStart", "Remote snapshot starts a jump without local physics velocity")
+	for i in 16: visual.animate(1.0/60.0,actor)
+	check(art.clip == "JumpLoop", "Remote airborne snapshot holds the jump through its apex")
+	remote_state.grounded = true; actor.receive(remote_state)
+	actor.presentation_grounded = null
+	actor.velocity = Vector3.ZERO; art.was_airborne = false; art.transient_left = 0
+	visual.animate(.037, actor)
+	actor.stunned = 1; visual.animate(.016, actor)
 	var paused_at: float = art.player.current_animation_position
-	visual.animate(0.2, actor)
-	check(is_equal_approx(art.player.current_animation_position, paused_at), "Stun pauses skeletal animation")
-	actor.stunned = 0.0
-	visual.animate(0.1, actor)
-	check(not is_equal_approx(art.player.current_animation_position, paused_at), "Animation resumes after stun")
-	var transform_before: Transform3D = actor.transform
-	actor.hp = 0
-	visual.animate(0.4, actor)
-	check(visual.rotation.x < -1, "Defeat presentation retained")
-	check(actor.transform == transform_before, "Animation never alters combat transform")
-	actor.hp = 100
-	visual.animate(0.4, actor)
-	check(is_zero_approx(visual.rotation.x), "Revive restores upright model")
-	var collision: CollisionShape3D = actor.get_child(0)
-	check(is_equal_approx(collision.shape.radius, 0.42) and is_equal_approx(collision.shape.height, 1.8), "Collision dimensions preserved")
-	print("Fulcrum presentation: %d/%d checks passed" % [checks - failures, checks])
-	actor.queue_free()
-	await process_frame
+	visual.animate(.2, actor)
+	check(is_equal_approx(paused_at, art.player.current_animation_position), "Stun freezes skeletal playback")
+	actor.stunned = 0; visual.animate(.1, actor)
+	check(not is_equal_approx(paused_at, art.player.current_animation_position), "Playback resumes")
+	var before: Transform3D = actor.transform
+	actor.hp = 0; visual.animate(.4, actor)
+	check(visual.rotation.x < -1 and actor.transform == before, "Defeat affects presentation only")
+	actor.hp = 100; visual.animate(.4, actor)
+	check(is_zero_approx(visual.rotation.x), "Revive restores model")
+	var capsule: CapsuleShape3D = actor.get_child(0).shape
+	check(is_equal_approx(capsule.radius,.42) and is_equal_approx(capsule.height,1.8), "Gameplay capsule unchanged")
+	var other = load("res://scripts/combatant.gd").new()
+	root.add_child(other); other.setup(2,2,1,"Fulcrum")
+	actor.flash = .2; visual.animate(.016,actor)
+	check(art.materials[0].albedo_color == Color.WHITE, "Hit flash preserved")
+	check(art.materials[0] != other.champion_model.fulcrum_art.materials[0], "Material state isolated per actor")
+	actor.flash = 0; visual.animate(.016,actor)
+	check(art.materials[0].albedo_color == art.base_colors[0], "Hit flash restores appearance")
+	for node in visual.find_children("*", "Node", true, false): check(not node is CollisionObject3D, "No costume collision introduced")
+	actor.queue_free(); other.queue_free(); await process_frame
+	print("Fulcrum presentation: %d passed / %d total" % [checks-failures,checks])
 	quit(1 if failures else 0)

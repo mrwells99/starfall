@@ -22,6 +22,10 @@ func run() -> void:
 	# monitor is running the suite. Pin it.
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 	DisplayServer.window_set_size(Vector2i(1280, 800))
+	if "--secondary-screen" in OS.get_cmdline_user_args():
+		DisplayServer.window_set_current_screen(0)
+		DisplayServer.window_set_position(DisplayServer.screen_get_position(0) + Vector2i(40, 50))
+		DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS, true)
 	var arena = load("res://arena.tscn").instantiate()
 	root.add_child(arena)
 	arena.mode_choice.select(1)
@@ -93,7 +97,7 @@ func run() -> void:
 			fighter.flash = 0
 			fighter.visual_tick(0.01, arena.camera)
 			check(authored_art.materials[0].albedo_color == authored_art.base_colors[0], "Impact restores original material color")
-		check(authored_art.clip == "Cast" if authored_art != null else fighter.champion_model.left_arm.rotation.x < -0.5, "Casting poses the arm")
+		check(authored_art.clip in (["CastEnter", "Cast"] if fighter.champion == "Fulcrum" else ["Cast"]) if authored_art != null else fighter.champion_model.left_arm.rotation.x < -0.5, "Casting poses the arm")
 		fighter.casting = -1
 		fighter.hp = 0
 		fighter.visual_tick(0.4, arena.camera)

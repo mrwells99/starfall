@@ -47,6 +47,10 @@ var base_color := Color.WHITE
 var flash := 0.0
 var net_position := Vector3.ZERO
 var net_yaw := 0.0
+# Remote bodies interpolate positions without updating physics floor contact.
+# Locally simulated bodies clear this cosmetic snapshot override each step.
+var presentation_grounded: Variant = null
+var presentation_vertical_speed := 0.0
 var last_motion_seq := -1
 var motion_revision := 0
 var last_input_seq := -1
@@ -213,6 +217,8 @@ func receive(data: Dictionary, instant: bool = false) -> void:
 	identity = data.get("identity", {}).duplicate(true)
 	net_position = data.pos
 	net_yaw = data.yaw
+	presentation_grounded = data.get("grounded", null)
+	presentation_vertical_speed = Vector3(data.get("velocity", Vector3.ZERO)).y
 	var teleported: bool = data.get("motion_revision", 0) != motion_revision
 	motion_revision = data.get("motion_revision", 0)
 	if instant or teleported:
