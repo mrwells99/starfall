@@ -172,6 +172,20 @@ func paint_nameplate_auras(auras: Array, art) -> void:
 			continue
 		(holder.get_child(0) as Sprite3D).texture = texture
 		(holder.get_child(0) as Sprite3D).pixel_size = 0.70 / maxf(1, texture.get_width())
+		var stacks: int = int(aura.get("stacks", 0))
+		var stack_label := holder.get_node_or_null("Stacks") as Label3D
+		if stacks > 0 and stack_label == null:
+			stack_label = Label3D.new()
+			stack_label.name = "Stacks"
+			stack_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			stack_label.font_size = 40
+			stack_label.outline_size = 10
+			stack_label.pixel_size = 0.007
+			stack_label.position = Vector3(0.18, -0.20, 0.03)
+			holder.add_child(stack_label)
+		if stack_label != null:
+			stack_label.visible = stacks > 0
+			stack_label.text = "×%d" % stacks if stacks > 0 else ""
 		holder.position.x = (i - (mini(auras.size(), NAMEPLATE_AURAS) - 1) * 0.5) * 0.76
 
 func visual_tick(delta: float, camera: Camera3D, show_nameplate: bool = true) -> void:

@@ -66,7 +66,7 @@ func sync(actor) -> void:
 		var cast_color := Color("854657") if interrupted else Color("675183")
 		if fill.bg_color != cast_color: fill.bg_color = cast_color
 	strip.position = Vector2(3, 1)
-	var effects: Array = game.Auras.active(actor)
+	var effects: Array = game.Auras.active(actor, game.actors.values(), game.local_id)
 	effects.sort_custom(func(a, b): return priority(a) > priority(b))
 	if actor.hp > 0 and actor.hp <= 30:
 		effects.push_front({"key": "low_hp", "name": "Low health", "source": "Mend", "remaining": 0, "color": Color("ff7d92"), "description": "Health is at or below 30 HP."})
@@ -84,7 +84,7 @@ func sync(actor) -> void:
 		if texture == null: texture = game.AbilityArt.texture_for("Stasis" if aura.key == "stun" else ("Disrupt" if aura.key == "lockout" else "Ward"))
 		chip.get_child(0).texture = texture
 		chip.get_child(0).modulate = Color("ff7d92") if aura.key == "low_hp" else Color.WHITE
-		chip.get_child(1).text = "!" if aura.key == "low_hp" else str(ceili(aura.remaining))
+		chip.get_child(1).text = "!" if aura.key == "low_hp" else ("×%d" % int(aura.stacks) if aura.has("stacks") else str(ceili(aura.remaining)))
 		var edge: StyleBoxFlat = chip.get_theme_stylebox("panel")
 		if edge.border_color != aura.color: edge.border_color = aura.color
 func priority(aura: Dictionary) -> int:

@@ -597,7 +597,7 @@ func paint_aura(chip: PanelContainer, aura: Dictionary) -> void:
 	label.add_theme_color_override("font_color", Color.WHITE)
 	row.custom_minimum_size.x = 28 if icon != null else 112
 	label.add_theme_font_size_override("font_size", 12 if icon != null else 10)
-	label.text = str(ceili(aura.remaining)) if icon != null else "%s %s" % [aura.name, format_aura_time(aura.remaining)]
+	label.text = ("×%d" % int(aura.stacks) if aura.has("stacks") else str(ceili(aura.remaining))) if icon != null else "%s %s" % [aura.name, format_aura_time(aura.remaining)]
 
 # Long effects do not need tenths; the last few seconds do, because that is when
 # you are deciding whether to wait it out.
@@ -2100,7 +2100,10 @@ func assign_local() -> void:
 		local_yaw = actors[local_id].rotation.y
 		pivot.rotation.y = local_yaw
 		camera.make_current()
-		cycle_target()
+		if world_mode:
+			selected_id = -1
+		else:
+			cycle_target()
 
 @rpc("authority", "call_remote", "reliable")
 func round_started(round_epoch: int, size_per_team: int, states: Array) -> void:
@@ -3057,7 +3060,7 @@ func show_edit_previews() -> void:
 		for chip in (frame.get_child(4) as HBoxContainer).get_children():
 			(chip as PanelContainer).hide()
 	party_box.visible = true
-	enemy_box.visible = true
+	enemy_box.visible = not world_mode
 	for i in range(3):
 		party_buttons[i].visible = i > 0
 		enemy_buttons[i].visible = true
@@ -3136,7 +3139,7 @@ func update_frame(frame: VBoxContainer, id: int, prefix: String) -> void:
 	state.custom_minimum_size.y = 16 if meter.visible else 18
 	if meter.visible: meter.sync(actor, prefix == "YOU")
 	var strip := frame.get_child(4) as HBoxContainer
-	var auras := Auras.active(actor)
+	var auras := Auras.active(actor, actors.values(), local_id)
 	for i in range(AURA_SLOTS):
 		var chip := strip.get_child(i) as PanelContainer
 		if i < auras.size() and (frame != focus_frame or i < 5):
@@ -3217,7 +3220,7 @@ func update_visuals(delta: float) -> void:
 			var member = actors[party[i]]
 			paint_roster_row(party_buttons[i], member, "%s  %s" % [control_label("party_%d" % (i + 1)), member.champion], true)
 	var enemies := enemy_ids()
-	enemy_box.visible = not enemies.is_empty() and (mode != 1 or world_mode)
+	enemy_box.visible = not world_mode and mode != 1 and not enemies.is_empty()
 	for i in range(3):
 		enemy_buttons[i].visible = i < enemies.size()
 		if i < enemies.size():
@@ -3230,7 +3233,7 @@ func update_visuals(delta: float) -> void:
 			actor.team_marker.sync(hostile, actor.actor_id == local_id, actor.actor_id == selected_id)
 		# Your own effects are already on the personal strip and the centre-screen
 		# readout; repeating them over your own head is noise.
-		var overhead: Array = [] if actor.actor_id == local_id else Auras.active(actor)
+		var overhead: Array = [] if actor.actor_id == local_id else Auras.active(actor, actors.values(), local_id)
 		actor.paint_nameplate_auras(overhead, AbilityArt)
 	# Before the bar: it maintains cc_total, which the slots use as the sweep
 	# denominator.
@@ -3306,7 +3309,7 @@ func sync_hud_visibility() -> void:
 	for entry in [[player_frame, local_id], [target_frame, selected_id], [focus_frame, focus_id]]:
 		entry[0].visible = (show_hud and actors.has(entry[1])) or edit_mode
 	party_box.visible = (show_hud and party_ids().size() > 1) or edit_mode
-	enemy_box.visible = (show_hud and not enemy_ids().is_empty() and (mode != 1 or world_mode)) or edit_mode
+	enemy_box.visible = not world_mode and ((show_hud and not enemy_ids().is_empty() and mode != 1) or edit_mode)
 	for bar in bar_roots:
 		bar.visible = (show_hud and not spectator.active) or edit_mode
 	if spectator.active and not edit_mode:
@@ -3381,9 +3384,21 @@ func cycle_target(direction: int = 1) -> void:
 	if not actors.has(local_id):
 		return
 	var candidates: Array[int] = []
+	var duel_opponent: int = duels.get(local_id, -1) if world_mode else -1
 	for actor in actors.values():
-		if actor.team != actors[local_id].team and actor.hp > 0:
-			candidates.append(actor.actor_id)
+		if actor.actor_id == local_id or actor.hp <= 0:
+			continue
+		if world_mode:
+			# Training dummies are click targets, never Tab targets. During a
+			# duel only the opponent participates in keyboard target cycling.
+			if actor.training_dummy: continue
+			if duels.has(local_id):
+				if actor.actor_id != duel_opponent: continue
+			elif duels.has(actor.actor_id):
+				continue
+		elif actor.team == actors[local_id].team:
+			continue
+		candidates.append(actor.actor_id)
 	if not candidates.is_empty():
 		var current := candidates.find(selected_id)
 		selected_id = candidates[(0 if direction > 0 else candidates.size() - 1) if current < 0 else posmod(current + direction, candidates.size())]
@@ -3405,6 +3420,16 @@ func _input(event: InputEvent) -> void:
 	if edit_mode:
 		if handle_edit_input(event): get_viewport().set_input_as_handled()
 		return
+	# World chat controls participate in GUI focus navigation. Handle combat
+	# targeting before GUI dispatch so Tab cannot focus chat instead of fighting.
+	if world_mode and not panel.visible and phase in ["match", "countdown"] and event is InputEventKey and event.pressed and not event.echo:
+		var binding := event_binding(event)
+		var direction := 1 if controls.matches("target_next", binding) else (-1 if controls.matches("target_previous", binding) else 0)
+		if direction != 0:
+			if spectator.active: spectator.cycle(direction)
+			else: cycle_target(direction)
+			get_viewport().set_input_as_handled()
+			return
 	if handle_shift_drag(event):
 		return
 	if event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_MIDDLE, MOUSE_BUTTON_XBUTTON1, MOUSE_BUTTON_XBUTTON2] and (movement_controls.left or movement_controls.right):
@@ -3594,7 +3619,7 @@ func enemy_ids() -> Array[int]:
 	var ids: Array[int] = []
 	if actors.has(local_id):
 		for actor in actors.values():
-			if actor.team != actors[local_id].team:
+			if actor.team != actors[local_id].team and not actor.training_dummy:
 				ids.append(actor.actor_id)
 	return ids
 
