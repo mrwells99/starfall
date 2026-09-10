@@ -139,6 +139,8 @@ jobs:
           ./tests/check_suite.sh "Outlaw presentation checks" godot --headless --path . --script tests/outlaw_presentation_test.gd
           ./tests/check_suite.sh "Outlaw local match checks" godot --headless --path . --script tests/outlaw_local_match_test.gd
           ./tests/check_suite.sh "Outlaw aim preview checks" godot --headless --path . --script tests/outlaw_aim_test.gd
+          ./tests/check_suite.sh "Outlaw detonation checks" godot --headless --path . --script tests/outlaw_detonation_test.gd
+          ./tests/check_suite.sh "Outlaw detonation input checks" godot --headless --path . --script tests/outlaw_detonation_input_test.gd
 
       - name: Saved ability bars remain on screen
         run: ./tests/check_suite.sh "Hotbar viewport checks" godot --headless --path . --script tests/hotbar_viewport_test.gd
@@ -163,6 +165,7 @@ jobs:
           python3 tests/run_charge_network.py --test-latency
           python3 tests/run_ember_network.py --test-latency
           python3 tests/run_outlaw_network.py --test-latency
+          python3 tests/run_detonation_network.py --test-latency
           python3 tests/run_aimed_network.py --test-latency
           python3 tests/run_six.py
           python3 tests/run_dedicated.py

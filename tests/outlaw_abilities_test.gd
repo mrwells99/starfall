@@ -281,9 +281,9 @@ func detonation_foundation() -> void:
 			ck(reserved.is_empty() and a.gcd == 0, "An empty burst spends nothing")
 			continue
 		ck(reserved.shots == count and a.identity.defense_detonation == 0, "Future authoritative fire reserves every current stack atomically")
-		ck(reserved.offsets.size() == count and reserved.offsets[0] == 0 and reserved.offsets.back() <= .24, "The first shot has no windup and up to three shots form a rapid burst")
+		ck(reserved.offsets.size() == count and reserved.offsets[0] == 0 and reserved.offsets.back() <= .26, "The first shot has no windup and up to three shots form a rapid burst")
 		ck(is_equal_approx(reserved.health_fraction,.1) and a.casting == -1 and b.hp == 100, "Prepared burst keeps ten-percent shot damage without performing a channel or hit")
-		if count > 1: ck(is_equal_approx(reserved.offsets[1],.12), "Prepared shots use 120ms spacing")
+		if count > 1: ck(is_equal_approx(reserved.offsets[1],.13), "Prepared shots use 130ms spacing")
 		ck(game.Outlaw.reserve_detonation_burst(game,a).is_empty(), "A repeated request cannot reuse spent stacks")
 		a.identity.defense_detonation = 1
 		ck(reserved.shots == count and game.Outlaw.reserve_detonation_burst(game,a).is_empty() and a.identity.defense_detonation == 1, "A new combo stack is preserved for the next burst and the original firing GCD applies")

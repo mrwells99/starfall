@@ -16,7 +16,7 @@ const BACKFLIP_AIRTIME := 2.0 * BACKFLIP_SPEED / 20.0 # Matches shared movement 
 const COIN_SECONDS := 1.8
 const COIN_SPEED := 5.0
 const MAX_STACKS := 3
-const DETONATION_SHOT_INTERVAL := .12 # Provisional rapid-burst spacing, not a cast time.
+const DETONATION_SHOT_INTERVAL := .13
 const DETONATION_HEALTH_FRACTION := .1
 const SIGHT_RANGE := 18.0
 const MOBILE_KINDS := ["deadeye"]
@@ -58,7 +58,7 @@ static func detonation_burst_plan(a) -> Dictionary:
 	return {"shots": count, "offsets": offsets, "health_fraction": DETONATION_HEALTH_FRACTION}
 
 static func reserve_detonation_burst(game, a) -> Dictionary:
-	# Future validated aimed-fire handler only. No input/RPC calls this yet.
+	# Called only after the authoritative aimed-fire request passes validation.
 	# Reserve every shot together; newly earned stacks belong to the next burst.
 	if not game.authoritative() or game.phase != "match": return {}
 	if a.hp <= 0 or a.stunned > 0 or a.casting >= 0 or a.gcd > 0 or a.locked > 0: return {}

@@ -44,7 +44,7 @@ static func get_kit(champion: String) -> Array:
 			spell("Mend", "self_heal", 28, 0, 2, 16),
 			spell("Roll", "roll", 7.8, 0, 0, 10, true),
 			spell("Coin Toss", "coin_toss", 1.8, 0, 0, 14),
-			# Aiming is local; firing remains disconnected until aimed shots exist.
+			# Hotbar aiming is local; a separate validated camera-ray burst spends stacks.
 			spell("Defense Detonation", "defense_detonation", 10, 0, 0, 0, true).merged({"local_only": true}),
 			spell("Deadeye", "deadeye", 40, 0, 3, 90),
 			# Retired Aim Test slot keeps saved layouts and snapshot indices stable.
@@ -133,7 +133,7 @@ static func summary(ability: Dictionary) -> String:
 		"roll": "Roll up to 7.8m over approximately 0.48s in your movement-input direction, including diagonals; with no movement input, roll along camera heading. Stops at terrain. Completing the roll grants a 1s buff for one instant Severe. Off the global cooldown.",
 		"backflip": "Leap backward about 8.6m with a 2.8m rise on level ground, stopping at terrain. Deals no damage. While airborne, become immune to crowd control and forced movement and gain one opportunity to cast Trickshot. The combo window and immunity end when you land. Off the global cooldown.",
 		"coin_toss": "Toss a visible coin along camera heading in a 1.8s arc, adding your movement velocity at release so a forward throw stays ahead while running. While it remains airborne, Trickshot can shoot it and ricochet into an enemy behind your own line-of-sight cover. Both bullet paths must be clear; the coin stops at solid terrain. Tossing alone deals no damage or resource gain.",
-		"defense_detonation": "Raise your gun and enter over-the-shoulder aiming while moving normally. Use Defense Detonation again to leave. No cast time. Firing is not available yet; aiming does not spend stacks. Planned fire: spend all available stacks (1 to 3) together for one rapid aimed burst, one shot per stack for 10% maximum health each.",
+		"defense_detonation": "Raise your gun and aim over your right shoulder. Left-click to spend all available stacks (1 to 3) and fire an aimed burst, 0.13s between shots. Each shot traces the center crosshair for 18m and deals 10% maximum health on a body hit; misses still spend their stack. Move and adjust aim between shots with light recoil. No cast time; firing uses the global cooldown. Aiming ends after the last shot. Use this ability again to leave without firing.",
 		"deadeye": "Automatically mark every enemy without selecting a target. Wind up for 3s while limited to walking, then hit marked enemies still within 18m and clear line of sight for 40% of their maximum health. Cover is checked at completion. Kicks cannot interrupt it or apply a lockout. Cannot jump during the windup. 90s cooldown, refunded if the cast is interrupted or cancelled before completion.",
 		"kindle": "Deal 16 damage. Gain 20 Heat and add a brand (up to 3) for 10s.",
 		"flashpoint": "Consume your brands: 12 + 6 damage per brand. Three brands also deal 10 splash damage within 5m. Gain 10 Heat.",

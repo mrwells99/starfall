@@ -107,7 +107,7 @@ func run() -> void:
 	var aim_slot := 8
 	var bar_slot: int = game.assignment.find(aim_slot)
 	check(actor.kit[aim_slot].name == "Defense Detonation" and game.ability_buttons[bar_slot].visible,"Defense Detonation owns the visible aiming hotbar ability")
-	check(game.AbilityArt.texture_for("Defense Detonation","Outlaw") != null and game.Kits.description(actor.kit[aim_slot],"Outlaw").contains("Firing is not available yet"),"Detonation retains its icon and clearly describes the unfinished firing stage")
+	check(game.AbilityArt.texture_for("Defense Detonation","Outlaw") != null and game.Kits.description(actor.kit[aim_slot],"Outlaw").contains("Left-click"),"Detonation retains its icon and describes aimed burst firing")
 	check(game.binds[bar_slot] == (KEY_2 | KEY_MASK_SHIFT),"Detonation retains Shift+2 and existing saved slot assignments")
 	check(game.kit_slot(game.assignment.find(10)) == -1 and actor.kit[10].kind == "unavailable","Separate Aim Test slot is retired without shifting other abilities")
 	check(not preview.reticle.visible,"Reticle is hidden before aiming")
@@ -196,7 +196,7 @@ func run() -> void:
 		check(preview.enabled and game.proc_ready(actor,actor.kit[aim_slot]),"Detonation aiming works with %d available stack(s)" % count)
 		preview.input(mouse(MOUSE_BUTTON_LEFT,true)); preview.input(mouse(MOUSE_BUTTON_LEFT,false))
 		game.send_action(bar_slot); settle()
-		check(not preview.enabled and actor.identity.defense_detonation == count and actor.casting == -1 and game.actors[2].hp == before_health and game.action_seq == before_seq,"Aiming/clicking/exiting retains every stack and sends no shot or legacy cast")
+		check(not preview.enabled and actor.identity.defense_detonation == count and actor.casting == -1 and game.actors[2].hp == before_health and game.action_seq == before_seq,"Leaving before the queued firing tick cancels the click without spending or sending a shot")
 	actor.identity.defense_detonation = 0
 	game.send_action(game.assignment.find(10))
 	check(not preview.enabled and game.action_seq == before_seq,"Retired Aim Test action cannot toggle a duplicate ability or send a command")

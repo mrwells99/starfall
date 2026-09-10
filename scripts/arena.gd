@@ -20,6 +20,7 @@ const BAR_COUNT := 3
 const ClassMechanics = preload("res://scripts/class_mechanics.gd")
 const Outlaw = preload("res://scripts/outlaw_mechanics.gd")
 var aimed_combat = preload("res://scripts/aimed_combat.gd").new()
+var outlaw_detonation = preload("res://scripts/outlaw_detonation.gd").new()
 var hitboxes_enabled := true
 signal aimed_shot_resolved(result: Dictionary)
 var outlaw_fx
@@ -977,6 +978,7 @@ func spawn_actor(id: int, peer: int, side: int, choice: String, pos: Vector3) ->
 func clear_actors() -> void:
 	outlaw_aim_test.reset()
 	aimed_combat.reset()
+	outlaw_detonation.reset()
 	combat_text.clear()
 	spectator.reset()
 	result_info.clear()
@@ -2267,6 +2269,8 @@ func _physics_process(delta: float) -> void:
 	update_visuals(delta)
 	if hitboxes_enabled and phase in ["match", "countdown"]:
 		aimed_combat.tick(self,delta)
+		if not dedicated: outlaw_aim_test.fire_tick(delta)
+		outlaw_detonation.tick(self)
 
 func gather_input(delta: float) -> void:
 	if not actors.has(local_id):
@@ -2624,6 +2628,38 @@ func report_aimed_shot(round_epoch: int, result: Dictionary) -> void:
 	if result.get("source",-1) == local_id and result.get("damage",0) > 0 and is_instance_valid(aimed_combat.reticle):
 		aimed_combat.reticle.confirm_hit()
 	aimed_shot_resolved.emit(result)
+
+func deliver_detonation(round_epoch: int, seq: int, burst_id: int, index: int, origin: Vector3, direction: Vector3, stamp: float, revision: int) -> void:
+	if latency_ms > 0: await get_tree().create_timer(latency_ms/1000.0).timeout
+	if network and not multiplayer.is_server() and epoch == round_epoch:
+		submit_detonation.rpc_id(1,round_epoch,seq,burst_id,index,origin,direction,stamp,revision)
+
+@rpc("any_peer", "call_remote", "reliable", 1)
+func submit_detonation(round_epoch: int, seq: int, burst_id: int, index: int, origin: Vector3, direction: Vector3, stamp: float, revision: int) -> void:
+	if not network or not multiplayer.is_server() or round_epoch != epoch: return
+	var peer := multiplayer.get_remote_sender_id()
+	outlaw_detonation.enqueue(self,peer_actor(peer),peer,seq,burst_id,index,origin,direction,stamp,revision)
+
+@rpc("any_peer", "call_remote", "reliable", 1)
+func cancel_detonation(round_epoch: int, burst_id: int) -> void:
+	if not network or not multiplayer.is_server() or round_epoch != epoch: return
+	var peer := multiplayer.get_remote_sender_id()
+	outlaw_detonation.cancel(self,peer_actor(peer),peer,burst_id)
+
+func deliver_detonation_cancel(round_epoch: int, burst_id: int) -> void:
+	# Match the shot transport delay so cancellation cannot overtake its start.
+	if latency_ms > 0: await get_tree().create_timer(latency_ms/1000.0).timeout
+	if network and not multiplayer.is_server() and epoch == round_epoch:
+		cancel_detonation.rpc_id(1,round_epoch,burst_id)
+
+@rpc("authority", "call_remote", "reliable")
+func report_detonation_shot(round_epoch: int, result: Dictionary) -> void:
+	if round_epoch != epoch: return
+	var predicted := false
+	if not dedicated and result.source == local_id: predicted = outlaw_aim_test.receive_shot(result)
+	if result.get("fired",false):
+		if not predicted: show_outlaw_effect(round_epoch,result.source,result.victim,result.from,result.position,"detonation")
+		aimed_shot_resolved.emit(result)
 
 # Cancelling a cast before it goes off clears the global cooldown.
 #
@@ -3127,7 +3163,7 @@ func show_outlaw_effect(round_epoch: int, source: int, _victim: int, from: Vecto
 	var presenter = actors[source].champion_model
 	if presenter != null and presenter.outlaw_art != null:
 		presenter.outlaw_art.fire(tag)
-		if tag in ["gun", "ricochet"]: from = presenter.outlaw_art.muzzle_position()
+		if tag in ["gun", "ricochet", "detonation"]: from = presenter.outlaw_art.muzzle_position()
 	if outlaw_fx != null and not player_options.reduced_effects: outlaw_fx.shot(from, to, tag)
 
 @rpc("authority", "call_remote", "reliable")
