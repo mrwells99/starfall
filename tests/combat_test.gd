@@ -95,6 +95,11 @@ func run() -> void:
 	enemy = arena.actors[2]
 	check(not arena.try_spell(1, 0, 2), "Melee rejects distant target")
 	check(arena.try_spell(1, 6, 2), "Charge available at range")
+	check(enemy.identity.root == 3 and enemy.hp == 100, "Charge roots immediately and defers damage until arrival")
+	for frame in range(90):
+		if player.charge.is_empty(): break
+		arena.tick_actor(player, 1.0 / 60.0)
+		await physics_frame
 	check(player.position.distance_to(enemy.position) < 3.5 and enemy.hp == 94, "Charge closes distance and deals damage")
 	await reset("Luminary", 3)
 	player = arena.actors[1]

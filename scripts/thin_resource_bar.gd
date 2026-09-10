@@ -5,6 +5,7 @@ var fraction := -1.0
 var tint := Color.WHITE
 static func value(actor) -> float:
 	if actor.champion == "Luminary": return clampf(actor.identity.stars.size() / 3.0, 0, 1)
+	if actor.champion == "Outlaw": return clampf(actor.identity.defense_detonation / 3.0, 0, 1)
 	var field: String = {"Ember": "heat", "Vanguard": "resolve", "Fulcrum": "meditation"}.get(actor.champion, "")
 	return clampf(float(actor.identity.get(field, 0)) / 100.0, 0, 1)
 func _ready() -> void:

@@ -1,7 +1,7 @@
 extends Control
 ## Cached 2D resource readout. It follows replicated class state, never predicts costs.
 const RESOURCE_BLUE := Color("327ce6")
-const COLORS := {"Ember": RESOURCE_BLUE, "Vanguard": RESOURCE_BLUE, "Fulcrum": RESOURCE_BLUE, "Luminary": RESOURCE_BLUE}
+const COLORS := {"Ember": RESOURCE_BLUE, "Vanguard": RESOURCE_BLUE, "Fulcrum": RESOURCE_BLUE, "Luminary": RESOURCE_BLUE, "Outlaw": RESOURCE_BLUE}
 var champion := ""
 var amount := 0.0
 var thresholds: Array = []
@@ -18,6 +18,7 @@ func sync(actor, _is_personal: bool) -> void:
 	amount = float(state.get({"Ember":"heat", "Vanguard":"resolve", "Fulcrum":"meditation"}.get(champion, ""), 0))
 	thresholds = {"Ember":[20, 40], "Vanguard":[40], "Fulcrum":[50, 75]}.get(champion, [])
 	if champion == "Luminary": amount = state.stars.size()
+	if champion == "Outlaw": amount = state.get("defense_detonation", 0)
 	var key := "%s:%s:%s" % [champion, amount, size]
 	if key != cache:
 		cache = key
@@ -26,7 +27,7 @@ func _draw() -> void:
 	if champion.is_empty(): return
 	var tint: Color = COLORS.get(champion, Color.WHITE)
 	var track := Rect2(0, 2, size.x, 12)
-	if champion == "Luminary":
+	if champion in ["Luminary", "Outlaw"]:
 		var segment := (size.x - 12) / 3.0
 		for i in range(3):
 			var cell := Rect2(i * (segment + 6), 2, segment, 12)

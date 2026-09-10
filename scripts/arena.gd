@@ -18,6 +18,8 @@ const AURA_SLOTS := 5
 # bars hold alternate bindings for those same abilities.
 const BAR_COUNT := 3
 const ClassMechanics = preload("res://scripts/class_mechanics.gd")
+const Outlaw = preload("res://scripts/outlaw_mechanics.gd")
+var outlaw_fx
 const BAR_SLOTS := 7
 const TOTAL_SLOTS := BAR_COUNT * BAR_SLOTS
 # 40% smaller than the original 92px, and every bar now matches rather than the
@@ -43,6 +45,7 @@ const UI_ACCENT := Color("f4c778")      # gold: confirm, primary action
 const UI_VIOLET := Color("c9a0ff")      # arcane highlight
 const UI_CYAN := Color("6fe3ff")        # ally / friendly
 const UI_ROSE := Color("ff7d92")        # enemy / danger
+const UNKICKABLE_CAST_COLOR := Color("808080")
 
 # Fills a StyleBoxFlat so every surface shares one shape language.
 func ui_box(fill: Color, edge: Color, radius: int = 6, width: int = 1) -> StyleBoxFlat:
@@ -67,6 +70,8 @@ var elapsed := 0.0
 var countdown := 0.0
 var epoch := 0
 var nav = preload("res://scripts/arena_navigation.gd").new()
+const VanguardCharge = preload("res://scripts/vanguard_charge.gd")
+const BlinkCharges = preload("res://scripts/blink_charges.gd")
 var pivot: Node3D
 var arm: SpringArm3D
 var camera: Camera3D
@@ -260,6 +265,10 @@ func _ready() -> void:
 	# assignment tables are needed by the very first frame.
 	call_deferred("initialise_player_config")
 	parse_arguments()
+	if not dedicated:
+		outlaw_fx = preload("res://scripts/outlaw_effects.gd").new()
+		add_child(outlaw_fx)
+		outlaw_fx.install(self)
 
 func initialise_player_config() -> void:
 	if dedicated:
@@ -267,6 +276,7 @@ func initialise_player_config() -> void:
 	load_settings()
 	register_movable_frames()
 	apply_slot_size(slot_size)
+	ui.resized.connect(keep_action_bars_on_screen, CONNECT_DEFERRED)
 	# A test run must not inherit the machine's saved HUD. Layout, keybinds and
 	# ability assignment all live in user://, so whoever ran the game last would
 	# otherwise decide what the suites see — an emptied slot 0 silently breaks
@@ -750,7 +760,7 @@ func build_ui() -> void:
 	result_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	result_text.add_theme_color_override("font_color", UI_TEXT_DIM)
 	champion_choice = OptionButton.new()
-	for title in ["Ember — ranged damage", "Vanguard — melee damage", "Luminary — healer", "Fulcrum — control"]:
+	for title in ["Ember — ranged damage", "Vanguard — melee damage", "Luminary — healer", "Fulcrum — control", "Outlaw — melee / ranged combos"]:
 		champion_choice.add_item(title)
 	style_picker(champion_choice)
 	stack.add_child(champion_choice)
@@ -1613,7 +1623,7 @@ func cc_block_remaining(actor, spell: Dictionary) -> float:
 	if CC.spell_block(actor) > 0: return maxf(actor.stunned, CC.spell_block(actor))
 	if actor.stunned > 0.0:
 		return actor.stunned
-	if actor.locked > 0.0 and actor.champion != "Vanguard" and spell.kind not in ["shield", "blink", "sprint"]:
+	if actor.locked > 0.0 and actor.champion != "Vanguard" and spell.kind not in ["shield", "blink", "sprint", "roll", "backflip"]:
 		return actor.locked
 	return 0.0
 
@@ -1813,15 +1823,32 @@ func apply_slot_size(size: int) -> void:
 		button.size = Vector2(slot_size, slot_size)
 	for bar in range(bar_roots.size()):
 		var row := bar_roots[bar]
-		var step := slot_size + 8
 		# Only reposition rows the player has not moved themselves; a saved
 		# position is theirs and resizing should not throw it away.
 		if not moved_frames.has(row.name):
-			row.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
-			row.offset_left = -(slot_size * BAR_SLOTS + 48) / 2
-			row.offset_right = (slot_size * BAR_SLOTS + 48) / 2
-			row.offset_top = -(25 + slot_size + bar * step)
-			row.offset_bottom = -(25 + bar * step)
+			position_default_action_bar(bar)
+	keep_action_bars_on_screen.call_deferred()
+
+func position_default_action_bar(bar: int) -> void:
+	var row := bar_roots[bar]
+	var step := slot_size + 8
+	row.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+	row.offset_left = -(slot_size * BAR_SLOTS + 48) / 2
+	row.offset_right = (slot_size * BAR_SLOTS + 48) / 2
+	row.offset_top = -(25 + slot_size + bar * step)
+	row.offset_bottom = -(25 + bar * step)
+
+func keep_action_bars_on_screen() -> void:
+	if ui == null or ui.size.x <= 0 or ui.size.y <= 0: return
+	var bounds := Rect2(Vector2.ZERO, ui.size)
+	for bar in range(bar_roots.size()):
+		var row := bar_roots[bar]
+		if row == dragging: continue
+		# Saved coordinates may come from a larger monitor. Recover each lost
+		# row to its own default position; clamping them all piles bars together.
+		if not bounds.encloses(row.get_rect()):
+			moved_frames.erase(str(row.name))
+			position_default_action_bar(bar)
 
 func refresh_binds() -> void:
 	for slot in range(cooldown_overlays.size()):
@@ -1949,11 +1976,12 @@ func load_layout() -> void:
 	if places is Dictionary:
 		for frame in movable_frames:
 			if frame != null and places.has(frame.name):
-				if frame in [player_frame, target_frame, focus_frame, party_box, enemy_box] and not moved_frames.has(str(frame.name)):
+				if (frame in [player_frame, target_frame, focus_frame, party_box, enemy_box] or (frame is HBoxContainer and frame in bar_roots)) and not moved_frames.has(str(frame.name)):
 					continue # Adopt new defaults while preserving explicitly moved frames.
 				frame.position = places[frame.name]
 				if frame == enemy_box:
 					frame.position.x = clampf(frame.position.x, 0, maxf(0, ui.size.x - frame.size.x))
+	keep_action_bars_on_screen.call_deferred()
 	refresh_binds()
 
 # Two populated bars: keys 1-7 and Shift+1-7. Shorter kits hide unused slots.
@@ -2253,9 +2281,9 @@ func apply_input(id: int, movement: Vector2, yaw: float, jump: bool, selected: i
 		return
 	var actor = actors[id]
 	actor.move_input = movement.limit_length()
-	if actor.stunned <= 0 and actor.hp > 0:
+	if actor.stunned <= 0 and actor.hp > 0 and actor.charge.is_empty():
 		actor.rotation.y = wrapf(yaw, -PI, PI)
-	actor.jump_queued = actor.jump_queued or jump
+	actor.jump_queued = (actor.jump_queued or jump) and actor.charge.is_empty()
 	actor.target_id = selected if actors.has(selected) else -1
 	actor.input_age = 0
 
@@ -2341,10 +2369,17 @@ func tick_actor(actor, delta: float) -> void:
 		actor.velocity = Vector3.ZERO
 		return
 	for i in range(actor.cooldowns.size()):
-		actor.cooldowns[i] = maxf(0, actor.cooldowns[i] - delta)
+		if actor.kit[i].kind == "blink":
+			BlinkCharges.tick(actor, i, delta)
+		else:
+			actor.cooldowns[i] = maxf(0, actor.cooldowns[i] - delta)
 	for field in ["gcd", "stunned", "locked", "shield", "sprint"]:
 		actor.set(field, maxf(0, actor.get(field) - delta))
 	CC.tick(actor, delta)
+	if not actor.charge.is_empty():
+		VanguardCharge.tick(self, actor, delta)
+		actor.last_motion_seq = actor.last_input_seq
+		return
 	if actor.training_dummy:
 		actor.move_input = Vector2.ZERO
 		actor.velocity = Vector3.ZERO
@@ -2358,8 +2393,11 @@ func tick_actor(actor, delta: float) -> void:
 		actor.casting = -1
 	var direction := simulate_movement(actor, delta)
 	actor.last_motion_seq = actor.last_input_seq
+	if Outlaw.mobile_cast(actor):
+		Outlaw.tick_channel(self, actor, delta)
+		return
 	if actor.casting >= 0:
-		if direction.length() > 0.01 or not actor.is_on_floor():
+		if (direction.length() > 0.01 or not actor.is_on_floor()) and not Outlaw.can_cast_moving(actor, actor.kit[actor.casting]):
 			cancel_own_cast(actor, "Cast cancelled by movement")
 		else:
 			actor.cast_left -= delta
@@ -2380,23 +2418,30 @@ func simulate_movement(actor, delta: float, grounded_override: Variant = null) -
 		actor.jump_queued = false
 		actor.jump_buffer = 0
 		return Vector3.ZERO
+	if not actor.charge.is_empty():
+		VanguardCharge.advance(actor, delta)
+		return actor.velocity.normalized()
+	if Outlaw.roll_motion(self, actor, delta):
+		return actor.identity.roll_direction
 	var grounded: bool = actor.is_on_floor() if grounded_override == null else bool(grounded_override)
-	var immobilized: bool = actor.stunned > 0 or actor.identity.root > 0 or actor.identity.hold > 0
+	var airborne_protected: bool = CC.airborne_immune(actor)
+	if airborne_protected: grounded = false
+	var immobilized: bool = not airborne_protected and (actor.stunned > 0 or actor.identity.root > 0 or actor.identity.hold > 0)
 	var direction: Vector3 = actor.basis * Vector3(actor.move_input.x, 0, actor.move_input.y)
 	if immobilized:
 		direction = Vector3.ZERO
 	var speed := 6.5 if actor.move_input.y <= 0 else 3.8
-	if actor.walking: speed *= 0.5
-	if actor.sprint > 0:
+	if actor.walking or Outlaw.deadeye_cast(actor): speed *= 0.5
+	if actor.sprint > 0 and not Outlaw.deadeye_cast(actor):
 		speed *= 1.65
-	if actor.identity.slow > 0 and actor.identity.immune <= 0:
+	if actor.identity.slow > 0 and actor.identity.immune <= 0 and not airborne_protected:
 		speed *= 0.55
 	# Airborne movement carries world-space takeoff momentum, including when the
 	# player releases movement or turns. Collisions and control effects still stop it.
 	if grounded or immobilized:
 		actor.velocity.x = direction.x * speed
 		actor.velocity.z = direction.z * speed
-	if immobilized:
+	if immobilized or Outlaw.deadeye_cast(actor):
 		actor.jump_queued = false
 		actor.jump_buffer = 0
 	if (actor.jump_queued or actor.jump_buffer > 0) and grounded and not immobilized:
@@ -2428,6 +2473,8 @@ func validate_spell(actor, slot: int, victim_id: int) -> String:
 	var victim = actors[victim_id]
 	var spell: Dictionary = actor.kit[slot]
 	var friendly: bool = spell.kind in Kits.ALLY_KINDS or spell.kind in Kits.SELF_KINDS
+	if spell.kind == "unavailable":
+		return "Ability unavailable"
 	# A pull is aimed at whoever is selected, ally or enemy — the only ability
 	# that does not care which side the target is on. It still needs range,
 	# line of sight and facing, because it is an aimed ability either way.
@@ -2445,6 +2492,8 @@ func validate_spell(actor, slot: int, victim_id: int) -> String:
 		return ""
 	if actor.position.distance_to(victim.position) > float(spell.range):
 		return "Out of range"
+	# Trickshot was already checked against both physical ricochet segments.
+	if spell.kind == "trickshot": return ""
 	if spell.kind not in ["inward", "outward"] and not has_los(actor, victim):
 		return "Target is out of line of sight"
 	if not friendly and (-actor.basis.z).dot((victim.position - actor.position).normalized()) < 0:
@@ -2457,8 +2506,8 @@ func kit_slot(bar_slot: int) -> int:
 	if bar_slot < 0 or bar_slot >= assignment.size():
 		return -1
 	var ability: int = assignment[bar_slot]
-	var count: int = actors[local_id].kit.size() if actors.has(local_id) else Kits.get_kit(Kits.NAMES[champion_choice.selected]).size()
-	return ability if ability < count else -1
+	var kit: Array = actors[local_id].kit if actors.has(local_id) else Kits.get_kit(Kits.NAMES[champion_choice.selected])
+	return ability if ability >= 0 and ability < kit.size() and kit[ability].kind != "unavailable" else -1
 
 func send_action(slot: int) -> void:
 	# In edit mode a hotbar click means "rebind me", not "cast me".
@@ -2476,21 +2525,21 @@ func send_action(slot: int) -> void:
 	actor.walking = movement_controls.walking
 	apply_input(local_id, movement, local_yaw, false, selected_id)
 	if authoritative():
-		try_spell(local_id, ability, selected_id)
+		try_spell(local_id, ability, selected_id, pivot.rotation.y)
 	else:
 		input_seq += 1
 		action_seq += 1
-		deliver_action(epoch, action_seq, ability, selected_id, input_seq, movement, local_yaw, movement_controls.walking)
+		deliver_action(epoch, action_seq, ability, selected_id, input_seq, movement, local_yaw, movement_controls.walking, pivot.rotation.y)
 
-func deliver_action(round_epoch: int, seq: int, slot: int, selected: int, move_seq: int = -1, movement: Vector2 = Vector2.ZERO, yaw: float = 0.0, walking: bool = false) -> void:
+func deliver_action(round_epoch: int, seq: int, slot: int, selected: int, move_seq: int = -1, movement: Vector2 = Vector2.ZERO, yaw: float = 0.0, walking: bool = false, camera_yaw: float = 0.0) -> void:
 	if latency_ms > 0:
 		await get_tree().create_timer(latency_ms / 1000.0).timeout
 	if network and not multiplayer.is_server() and epoch == round_epoch:
-		submit_action.rpc_id(1, round_epoch, seq, slot, selected, move_seq, movement, yaw, walking)
+		submit_action.rpc_id(1, round_epoch, seq, slot, selected, move_seq, movement, yaw, walking, camera_yaw)
 
 # The action carries intent, never position or velocity. Late actions validate
 # with their own facing while preserving any newer movement already received.
-func apply_action_intent(id: int, slot: int, selected: int, move_seq: int, movement: Vector2, yaw: float, walking: bool) -> void:
+func apply_action_intent(id: int, slot: int, selected: int, move_seq: int, movement: Vector2, yaw: float, walking: bool, camera_yaw: Variant = null) -> void:
 	if not actors.has(id) or not movement.is_finite() or not is_finite(yaw): return
 	var actor = actors[id]
 	var newer_motion: bool = move_seq <= actor.last_input_seq
@@ -2504,7 +2553,7 @@ func apply_action_intent(id: int, slot: int, selected: int, move_seq: int, movem
 		actor.walking = walking
 	else:
 		accept_movement(id, move_seq, movement, yaw, 0, selected, 0, walking, actor.motion_revision, false)
-	try_spell(id, slot, selected)
+	try_spell(id, slot, selected, camera_yaw)
 	if newer_motion:
 		actor.rotation.y = previous_yaw
 		actor.move_input = previous_move
@@ -2513,10 +2562,10 @@ func apply_action_intent(id: int, slot: int, selected: int, move_seq: int, movem
 		actor.input_age = previous_age
 
 @rpc("any_peer", "call_remote", "reliable", 1)
-func submit_action(round_epoch: int, seq: int, slot: int, selected: int, move_seq: int, movement: Vector2, yaw: float, walking: bool) -> void:
+func submit_action(round_epoch: int, seq: int, slot: int, selected: int, move_seq: int, movement: Vector2, yaw: float, walking: bool, camera_yaw: float) -> void:
 	if not network or not multiplayer.is_server() or round_epoch != epoch or phase != "match": return
 	var id := peer_actor(multiplayer.get_remote_sender_id())
-	if not actors.has(id) or not movement.is_finite() or not is_finite(yaw) or seq <= actors[id].last_action_seq: return
+	if not actors.has(id) or not movement.is_finite() or not is_finite(yaw) or not is_finite(camera_yaw) or seq <= actors[id].last_action_seq: return
 	var actor = actors[id]
 	actor.last_action_seq = seq
 	if actor.action_budget > 0: return
@@ -2525,7 +2574,7 @@ func submit_action(round_epoch: int, seq: int, slot: int, selected: int, move_se
 		cancel_own_cast(actor, "")
 		return
 	if move_seq < 0: return
-	apply_action_intent(id, slot, selected, move_seq, movement, yaw, walking)
+	apply_action_intent(id, slot, selected, move_seq, movement, yaw, walking, camera_yaw)
 
 # Cancelling a cast before it goes off clears the global cooldown.
 #
@@ -2552,27 +2601,34 @@ func ability_block_reason(actor, slot: int, requested: int) -> String:
 	if actor.stunned > 0:
 		return "Controlled"
 	if CC.spell_block(actor) > 0:
-		return "Disarmed" if actor.champion == "Vanguard" else "Silenced"
+		return "Disarmed" if actor.cc_effects.has("disarm") else "Silenced"
 	var spell: Dictionary = actor.kit[slot]
 	if actor.casting >= 0:
 		return "Already casting"
-	var instant_collapse: bool = spell.kind == "collapse" and actor.identity.instant_collapse
-	if actor.cooldowns[slot] > 0 or (actor.gcd > 0 and not (spell.off or instant_collapse)):
+	if not actor.charge.is_empty():
+		return "Charging"
+	if actor.identity.get("roll_left", 0.0) > 0: return "Rolling"
+	var instant_collapse: bool = spell.kind == "collapse" and actor.identity.instant_collapse > 0
+	var own_unavailable: bool = actor.identity.blink_charges <= 0 if spell.kind == "blink" else actor.cooldowns[slot] > 0
+	if own_unavailable or (actor.gcd > 0 and not (spell.off or instant_collapse)):
 		return "Ability is not ready"
-	if actor.locked > 0 and actor.champion != "Vanguard" and spell.kind not in ["shield", "blink", "sprint"]:
+	if actor.locked > 0 and actor.champion != "Vanguard" and spell.kind not in ["shield", "blink", "sprint", "roll", "backflip"]:
 		return "Spell school locked out"
-	if actor.identity.root > 0 and spell.kind in ["blink", "charge", "cinder", "pilgrim", "intercede", "swap"]:
+	if actor.identity.root > 0 and spell.kind in ["blink", "charge", "cinder", "pilgrim", "intercede", "swap", "roll", "backflip"]:
 		return "Rooted"
 	var reason := validate_spell(actor, slot, spell_target(actor, slot, requested))
 	if not reason.is_empty():
 		return reason
-	var instant_graviton: bool = spell.kind == "graviton" and actor.identity.instant_graviton
-	if float(spell.cast) > 0 and not instant_graviton and not instant_collapse:
+	var instant_graviton: bool = spell.kind == "graviton" and actor.identity.instant_graviton > 0
+	var instant_severe: bool = spell.kind == "severe" and actor.identity.instant_severe > 0
+	if float(spell.cast) > 0 and not instant_graviton and not instant_collapse and not instant_severe and not Outlaw.can_cast_moving(actor, spell):
 		if actor.move_input.length() > 0.01 or not actor.is_on_floor():
 			return "Stand still to cast"
 	return ""
 
-func try_spell(id: int, slot: int, requested: int) -> bool:
+func try_spell(id: int, slot: int, requested: int, camera_yaw: Variant = null) -> bool:
+	if camera_yaw != null and (not (camera_yaw is float or camera_yaw is int) or not is_finite(float(camera_yaw))):
+		return false
 	if not authoritative() or phase != "match" or not actors.has(id) or slot < 0 or slot >= actors[id].kit.size():
 		return false
 	var actor = actors[id]
@@ -2584,24 +2640,39 @@ func try_spell(id: int, slot: int, requested: int) -> bool:
 		return false
 	var spell: Dictionary = actor.kit[slot]
 	var victim_id := spell_target(actor, slot, requested)
-	var instant_collapse: bool = spell.kind == "collapse" and actor.identity.instant_collapse
-	var instant_graviton: bool = spell.kind == "graviton" and actor.identity.instant_graviton
-	if float(spell.cast) > 0 and not instant_graviton and not instant_collapse:
+	if spell.kind == "charge":
+		var victim = actors[victim_id]
+		var route: PackedVector3Array = VanguardCharge.route_to(self, actor, victim.position)
+		if route.is_empty():
+			feedback(actor, "No safe route to target")
+			return false
+		actor.cooldowns[slot] = spell.cd
+		actor.identity.hold = 0.0
+		VanguardCharge.start(self, actor, victim, route, spell.power)
+		return true
+	var instant_collapse: bool = spell.kind == "collapse" and actor.identity.instant_collapse > 0
+	var instant_graviton: bool = spell.kind == "graviton" and actor.identity.instant_graviton > 0
+	var instant_severe: bool = spell.kind == "severe" and actor.identity.instant_severe > 0
+	if float(spell.cast) > 0 and not instant_graviton and not instant_collapse and not instant_severe:
 		actor.casting = slot
 		actor.cast_left = spell.cast
 		actor.cast_target = victim_id
+		Outlaw.begin_channel(self, actor, spell, victim_id)
 	else:
-		resolve_spell(actor, slot, actors[victim_id])
+		resolve_spell(actor, slot, actors[victim_id], camera_yaw)
 	if not (spell.off or instant_collapse):
 		actor.gcd = GCD_DURATION
 	return true
 
-func resolve_spell(actor, slot: int, victim) -> void:
+func resolve_spell(actor, slot: int, victim, camera_yaw: Variant = null) -> void:
 	var spell: Dictionary = actor.kit[slot]
-	actor.cooldowns[slot] = spell.cd
+	if spell.kind == "blink":
+		if not BlinkCharges.spend(actor, slot): return
+	else:
+		actor.cooldowns[slot] = spell.cd
 	if spell.kind not in Kits.SELF_KINDS and spell.kind not in Kits.ALLY_KINDS:
 		actor.identity.hold = 0.0
-	if ClassMechanics.resolve(self, actor, spell, victim):
+	if Outlaw.resolve(self, actor, spell, victim, camera_yaw) or ClassMechanics.resolve(self, actor, spell, victim):
 		return
 	match spell.kind:
 		"damage":
@@ -2610,6 +2681,7 @@ func resolve_spell(actor, slot: int, victim) -> void:
 			if spell.kind == "self_heal" and actor.champion != "Luminary":
 				victim.identity.dots.clear()
 				victim.identity.entropy_dots.clear()
+				victim.identity.severe_bleeds.clear()
 			# Mend always restores its listed amount. Match-only dampening still
 			# prevents healer stalemates; persistent worlds never inherit it.
 			var dampening := 0.0 if world_mode or spell.kind == "self_heal" else clampf((elapsed - 60) / 180.0, 0, 0.7)
@@ -2617,7 +2689,9 @@ func resolve_spell(actor, slot: int, victim) -> void:
 			victim.hp = minf(100, victim.hp + amount)
 			combat_event(actor.actor_id, victim.actor_id, "+%d" % ceili(amount), Color("97edb1"))
 		"interrupt":
-			if victim.casting >= 0:
+			if kick_immune(victim):
+				combat_event(actor.actor_id, victim.actor_id, "IMMUNE", GOLD)
+			elif victim.casting >= 0:
 				victim.casting = -1
 				victim.locked = spell.power
 				victim.lock_from = spell.name
@@ -2637,14 +2711,12 @@ func resolve_spell(actor, slot: int, victim) -> void:
 			victim.stun_from = ""
 			combat_event(actor.actor_id, victim.actor_id, "DISPELLED", Color("97edb1"))
 		"blink":
-			move_ability(actor, -actor.basis.z * float(spell.power))
+			move_ability(actor, BlinkCharges.direction(actor, camera_yaw) * float(spell.power))
 			combat_event(actor.actor_id, actor.actor_id, "BLINK", BLUE)
 		"charge":
-			var offset: Vector3 = victim.position - actor.position
-			offset.y = 0
-			move_ability(actor, offset.normalized() * maxf(0, offset.length() - 1.8))
-			if actor.position.distance_to(victim.position) <= 3.5:
-				damage(actor, victim, spell.power)
+			var route: PackedVector3Array = VanguardCharge.route_to(self, actor, victim.position)
+			if not route.is_empty():
+				VanguardCharge.start(self, actor, victim, route, spell.power)
 		"sprint":
 			actor.sprint = spell.power
 			actor.sprint_from = spell.name
@@ -2660,7 +2732,7 @@ func resolve_spell(actor, slot: int, victim) -> void:
 			combat_event(actor.actor_id, victim.actor_id, "TETHER", Color("c9a0ff"))
 
 func move_ability(actor, motion: Vector3) -> void:
-	if actor.training_dummy: return
+	if actor.training_dummy or CC.airborne_immune(actor): return
 	# Sweep the character capsule: mobility cannot cross pillars or walls.
 	if actor.identity.hold <= 0:
 		actor.move_and_collide(motion)
@@ -2908,7 +2980,7 @@ func bot_think(actor, delta: float) -> void:
 	if offset.length() > 0.1:
 		actor.look_at(actor.position + offset, Vector3.UP)
 	var visible := has_los(actor, destination)
-	var desired_range: float = float(actor.kit[0].range) * 0.85
+	var desired_range: float = 2.5 if actor.champion == "Outlaw" else float(actor.kit[0].range) * 0.85
 	if actor.casting < 0 and (not visible or offset.length() > desired_range):
 		if actor.path_timer <= 0:
 			actor.path_timer = 0.45
@@ -2921,7 +2993,7 @@ func bot_think(actor, delta: float) -> void:
 			var direction: Vector3 = (next - actor.position).normalized()
 			var local: Vector3 = actor.basis.inverse() * direction
 			actor.move_input = Vector2(local.x, local.z)
-	elif actor.casting < 0 and actor.champion != "Vanguard" and destination == foe and offset.length() < 7:
+	elif actor.casting < 0 and actor.champion not in ["Vanguard", "Outlaw"] and destination == foe and offset.length() < 7:
 		# Kite toward a clear cell, instead of backing into a pillar.
 		var retreat: Vector3 = actor.position - offset.normalized() * 3
 		var cell: Vector2i = nav.nearest(retreat)
@@ -2932,6 +3004,9 @@ func bot_think(actor, delta: float) -> void:
 	if actor.ai_timer > 0 or actor.casting >= 0:
 		return
 	actor.ai_timer = 0.25 if network else player_options.THINK_INTERVALS[level]
+	if actor.champion == "Outlaw":
+		Outlaw.bot(self, actor, foe)
+		return
 	if (level > 0 or randf() < 0.35) and ClassMechanics.bot(self, actor, foe, ally):
 		return
 	if actor.hp < 45 and try_spell(actor.actor_id, 4, actor.actor_id):
@@ -2947,12 +3022,12 @@ func bot_think(actor, delta: float) -> void:
 				if try_spell(actor.actor_id, 5, ally.actor_id):
 					return
 	else:
-		if level > 0 and foe.casting >= 0 and foe.cast_left < (1.0 if level == 2 else 0.55) and try_spell(actor.actor_id, 2, foe.actor_id):
+		if actor.champion != "Fulcrum" and level > 0 and foe.casting >= 0 and foe.cast_left < (1.0 if level == 2 else 0.55) and try_spell(actor.actor_id, 2, foe.actor_id):
 			return
 		if actor.champion == "Vanguard" and offset.length() > 7 and try_spell(actor.actor_id, 6, foe.actor_id):
 			return
-		if actor.champion == "Ember" and offset.length() < 5 and actor.cooldowns[6] == 0:
-			actor.rotation.y += PI
+		if actor.champion == "Ember" and offset.length() < 5 and actor.identity.blink_charges > 0:
+			actor.move_input = Vector2.DOWN
 			try_spell(actor.actor_id, 6, actor.actor_id)
 			return
 		if actor.hp < 55 and not visible:
@@ -2961,7 +3036,7 @@ func bot_think(actor, delta: float) -> void:
 				return
 	if visible and offset.length() <= desired_range:
 		actor.move_input = Vector2.ZERO
-		if foe.stunned <= 0 and try_spell(actor.actor_id, 3, foe.actor_id):
+		if actor.champion != "Fulcrum" and foe.stunned <= 0 and try_spell(actor.actor_id, 3, foe.actor_id):
 			return
 		if actor.champion != "Luminary" and try_spell(actor.actor_id, 1, foe.actor_id):
 			return
@@ -2984,6 +3059,19 @@ func combat_event(source: int, victim: int, text: String, color: Color) -> void:
 	show_event(epoch, source, victim, text, color)
 	if network:
 		show_event.rpc(epoch, source, victim, text, color)
+
+func outlaw_effect(source: int, victim: int, from: Vector3, to: Vector3, tag: String) -> void:
+	show_outlaw_effect(epoch, source, victim, from, to, tag)
+	if network: show_outlaw_effect.rpc(epoch, source, victim, from, to, tag)
+
+@rpc("authority", "call_remote", "reliable")
+func show_outlaw_effect(round_epoch: int, source: int, _victim: int, from: Vector3, to: Vector3, tag: String) -> void:
+	if round_epoch != epoch or dedicated or not actors.has(source): return
+	var presenter = actors[source].champion_model
+	if presenter != null and presenter.outlaw_art != null:
+		presenter.outlaw_art.fire(tag)
+		if tag in ["gun", "ricochet"]: from = presenter.outlaw_art.muzzle_position()
+	if outlaw_fx != null and not player_options.reduced_effects: outlaw_fx.shot(from, to, tag)
 
 @rpc("authority", "call_remote", "reliable")
 func show_event(round_epoch: int, source: int, victim: int, text: String, color: Color) -> void:
@@ -3013,7 +3101,7 @@ func show_event(round_epoch: int, source: int, victim: int, text: String, color:
 			preload("res://scripts/vanguard_strike.gd").spawn(self, actors[source].position, actor.position, actors[source].base_color)
 		elif text == "STARFALL" and actors[source].champion == "Fulcrum":
 			beam(actor.position + Vector3(0, 12, 0), actor.position, Color("dbbaff"))
-		else:
+		elif actors[source].champion != "Outlaw":
 			beam(actors[source].position, actor.position, color)
 
 func beam(from: Vector3, to: Vector3, color: Color) -> void:
@@ -3053,7 +3141,7 @@ func show_edit_previews() -> void:
 		var meter = frame.get_child(3).get_node("ResourceMeter")
 		meter.show()
 		frame.get_child(3).custom_minimum_size.y = 16
-		meter.sync({"champion": entry[2], "identity": {"heat": 60, "resolve": 60, "meditation": 75, "stars": [{}, {}], "instant_graviton": false, "instant_collapse": false}}, frame == player_frame)
+		meter.sync({"champion": entry[2], "identity": {"heat": 60, "resolve": 60, "meditation": 75, "stars": [{}, {}], "instant_graviton": 0.0, "instant_collapse": 0.0}}, frame == player_frame)
 		for chip in (frame.get_child(4) as HBoxContainer).get_children():
 			(chip as PanelContainer).hide()
 	party_box.visible = true
@@ -3095,6 +3183,13 @@ func show_edit_previews() -> void:
 		ability_images[slot].visible = art != null
 		button.text = "" if art != null else spell.name
 
+func kick_immune(actor) -> bool:
+	return Outlaw.unkickable(actor) or CC.airborne_immune(actor)
+
+func cast_bar_color(actor, interrupted: bool, normal: Color) -> Color:
+	if interrupted: return Color("854657")
+	return UNKICKABLE_CAST_COLOR if kick_immune(actor) else normal
+
 func update_frame(frame: VBoxContainer, id: int, prefix: String) -> void:
 	frame.set_meta("actor_id", id)
 	frame.visible = actors.has(id)
@@ -3120,7 +3215,7 @@ func update_frame(frame: VBoxContainer, id: int, prefix: String) -> void:
 	var interrupted: bool = actor.hp > 0 and Time.get_ticks_msec() < int(combat_text.interrupts.get(id, 0))
 	cast.visible = actor.casting >= 0 or interrupted
 	var cast_fill: StyleBoxFlat = cast.get_theme_stylebox("fill")
-	var cast_tint := Color("854657") if interrupted else Color("8b713e")
+	var cast_tint := cast_bar_color(actor, interrupted, Color("8b713e"))
 	if cast_fill.bg_color != cast_tint: cast_fill.bg_color = cast_tint
 	if interrupted:
 		cast.value = 100
@@ -3159,7 +3254,10 @@ func _process(_delta: float) -> void:
 	update_proc_flash()
 
 func proc_ready(actor, spell: Dictionary) -> bool:
-	return (spell.kind == "graviton" and actor.identity.instant_graviton) or (spell.kind == "collapse" and actor.identity.instant_collapse)
+	if spell.kind == "severe": return actor.identity.instant_severe > 0
+	if spell.kind == "trickshot": return (actor.identity.backflip_combo and Outlaw.backflip_airborne(actor)) or actor.identity.coin_left > 0
+	if spell.kind == "defense_detonation": return actor.identity.defense_detonation == Outlaw.MAX_STACKS
+	return (spell.kind == "graviton" and actor.identity.instant_graviton > 0) or (spell.kind == "collapse" and actor.identity.instant_collapse > 0)
 
 func update_proc_flash() -> void:
 	var actor = actors.get(local_id)
@@ -3246,6 +3344,7 @@ func update_visuals(delta: float) -> void:
 	for slot in range(TOTAL_SLOTS):
 		var button := ability_buttons[slot]
 		var ability := kit_slot(slot)
+		cooldown_overlays[slot].set_charges(-1)
 		# Empty slots stay hidden in play and visible while editing, so there is
 		# somewhere to drop an ability.
 		button.visible = actors.has(local_id) and (ability >= 0 or edit_mode or drag_slot >= 0)
@@ -3260,6 +3359,8 @@ func update_visuals(delta: float) -> void:
 			continue
 		var actor = actors[local_id]
 		var spell: Dictionary = actor.kit[ability]
+		var blink_available: bool = spell.kind == "blink" and actor.identity.blink_charges > 0
+		if spell.kind == "blink": cooldown_overlays[slot].set_charges(actor.identity.blink_charges)
 		var art := AbilityArt.texture_for(spell.name, actor.champion)
 		ability_images[slot].texture = art
 		ability_images[slot].visible = art != null
@@ -3269,8 +3370,8 @@ func update_visuals(delta: float) -> void:
 		# The ability's own cooldown wins the slot: it is the longer wait and the
 		# one worth a number. The global cooldown only shows where nothing else is
 		# running, and never on an off-GCD ability.
-		var own: float = actor.cooldowns[ability]
-		var global_cd: float = 0.0 if spell.off or (spell.kind == "collapse" and actor.identity.instant_collapse) else actor.gcd
+		var own: float = 0.0 if blink_available else actor.cooldowns[ability]
+		var global_cd: float = 0.0 if spell.off or (spell.kind == "collapse" and actor.identity.instant_collapse > 0) else actor.gcd
 		# Crowd control is a real reason the slot is unusable, so it sweeps too.
 		# Whichever wait is LONGER wins the slot, because that is the honest
 		# answer to "when can I press this" — a 16s cooldown outlives a 2s stun,
@@ -3285,6 +3386,8 @@ func update_visuals(delta: float) -> void:
 			cooldown_overlays[slot].sync(own, maxf(spell.cd, own), false)
 		elif global_cd > 0.0:
 			cooldown_overlays[slot].sync(global_cd, GCD_DURATION, true)
+		elif blink_available and actor.cooldowns[ability] > 0:
+			cooldown_overlays[slot].sync(actor.cooldowns[ability], spell.cd, false, true)
 		else:
 			cooldown_overlays[slot].sync(0.0, 0.0, false)
 		var reason: String = ability_reasons.get(ability, "")

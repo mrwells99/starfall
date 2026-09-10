@@ -91,7 +91,7 @@ func rebuild() -> void:
 			var slot := int(action.trim_prefix("bar_"))
 			group = "Action bar %d" % (slot / game.BAR_SLOTS + 1)
 			var ability: int = game.assignment[slot]
-			title = "Button %d · %s" % [slot % game.BAR_SLOTS + 1, kit[ability].name if ability >= 0 and ability < kit.size() else "Empty slot"]
+			title = "Button %d · %s" % [slot % game.BAR_SLOTS + 1, kit[ability].name if ability >= 0 and ability < kit.size() and kit[ability].kind != "unavailable" else "Empty slot"]
 		else:
 			title = game.controls.LABELS[action]
 		if not search.text.is_empty() and not (group + " " + title).to_lower().contains(search.text.to_lower()):

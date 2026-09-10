@@ -1,5 +1,8 @@
 extends RefCounted
 
+const INSTANT_PROC_DURATION := 4.0
+const SolarFlareIndicator = preload("res://scripts/solar_flare_indicator.gd")
+
 static func point_los(game, a: Vector3, b: Vector3) -> bool:
 	return game.get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(a + Vector3.UP, b + Vector3.UP, 1)).is_empty()
 
@@ -24,6 +27,8 @@ static func consume_star(a, id: int) -> bool:
 
 static func validate(game, a, spell: Dictionary, b) -> String:
 	var s: Dictionary = a.identity
+	var outlaw_reason: String = game.Outlaw.validate(game, a, spell, b)
+	if not outlaw_reason.is_empty(): return outlaw_reason
 	if spell.kind in a.Kits.ALLY_KINDS and not can_help(game, a, b):
 		return "That fighter is in a duel"
 	if spell.kind == "pull" and b.team == a.team and not can_help(game, a, b):
@@ -34,6 +39,8 @@ static func validate(game, a, spell: Dictionary, b) -> String:
 		return "That ally needs your Guiding Star"
 	if spell.kind == "swap" and (s.hold > 0 or b.identity.hold > 0):
 		return "Cannot exchange a fighter holding the line"
+	if spell.kind == "swap" and (game.CC.airborne_immune(a) or game.CC.airborne_immune(b)):
+		return "Cannot exchange during Backflip immunity"
 	if spell.kind == "swap" and (a.test_move(a.transform, b.position - a.position) or b.test_move(b.transform, a.position - b.position)):
 		return "Exchange path is blocked"
 	if spell.kind == "gravity_starfall" and s.meditation < 50:
@@ -49,7 +56,7 @@ static func validate(game, a, spell: Dictionary, b) -> String:
 			return "Place a Gravity Anchor first (Shift+1)"
 		if a.position.distance_to(s.anchor_pos) > a.Kits.MAX_CAST_RANGE:
 			return "Anchor out of range"
-		if spell.kind in ["inward", "outward"] and b.position.distance_to(s.anchor_pos) > a.Kits.MAX_CAST_RANGE:
+		if spell.kind in ["inward", "outward"] and b.position.distance_to(s.anchor_pos) > a.Kits.ANCHOR_CONTROL_RADIUS:
 			return "Target out of anchor range"
 	return ""
 
@@ -83,7 +90,7 @@ static func resolve(game, a, spell: Dictionary, b) -> bool:
 		"graviton":
 			if not game.may_harm(a, b):
 				return true
-			s.instant_graviton = false
+			s.instant_graviton = 0.0
 			game.damage(a, b, spell.power)
 			if b.hp > 0 and game.may_harm(a, b):
 				var previous: Dictionary = b.identity.dots.get(a.actor_id, {})
@@ -119,10 +126,14 @@ static func resolve(game, a, spell: Dictionary, b) -> bool:
 		"stoke":
 			s.heat = minf(100, s.heat + 30)
 		"flare_cc", "earth":
-			for other in enemies(game, a, a.position, 8):
+			var radius: float = a.Kits.SOLAR_FLARE_RANGE if spell.kind == "flare_cc" else 8.0
+			for other in enemies(game, a, a.position, radius):
 				var offset: Vector3 = other.position - a.position
+				if spell.kind == "flare_cc": offset.y = 0
 				var forward: float = (-a.basis.z).dot(offset.normalized())
-				if forward < 0.5 or (spell.kind == "earth" and absf(a.basis.x.dot(offset)) > 1.5):
+				var cutoff: float = cos(a.Kits.SOLAR_FLARE_HALF_ANGLE) if spell.kind == "flare_cc" else .5
+				var overlaps_flare: bool = spell.kind == "flare_cc" and offset.length_squared() <= .000001
+				if (not overlaps_flare and forward < cutoff - .000001) or (spell.kind == "earth" and absf(a.basis.x.dot(offset)) > 1.5):
 					continue
 				if spell.kind == "earth":
 					game.damage(a, other, 12)
@@ -217,14 +228,18 @@ static func resolve(game, a, spell: Dictionary, b) -> bool:
 			if not game.may_harm(a, b):
 				return true
 			if spell.kind == "inward":
-				s.instant_collapse = true
+				s.instant_collapse = INSTANT_PROC_DURATION
 			var offset: Vector3 = s.anchor_pos - b.position
 			offset.y = 0
 			if spell.kind == "outward":
 				offset = -offset
 				if offset.length() < 0.01:
 					offset = -a.basis.z
+			var previous_position: Vector3 = b.position
 			game.move_ability(b, offset.normalized() * (8.0 if spell.kind == "outward" else minf(8, maxf(0, offset.length() - 1))))
+			if b.casting >= 0 and b.position.distance_squared_to(previous_position) > .000001:
+				b.casting = -1
+				game.combat_event(a.actor_id, b.actor_id, "INTERRUPTED", game.GOLD)
 		"orbit":
 			s.orbit = 6.0
 		"swap":
@@ -236,11 +251,11 @@ static func resolve(game, a, spell: Dictionary, b) -> bool:
 			a.reset_physics_interpolation()
 			b.reset_physics_interpolation()
 		"collapse":
-			s.instant_collapse = false
+			s.instant_collapse = 0.0
 			var empowered: bool = s.meditation >= 75
 			var targets := enemies(game, a, s.anchor_pos, 6, false)
 			if not targets.is_empty():
-				s.instant_graviton = true
+				s.instant_graviton = INSTANT_PROC_DURATION
 			for other in targets:
 				game.damage(a, other, 22)
 				control(game, a, other, 3 if empowered else 2, "Collapse", not empowered)
@@ -259,10 +274,11 @@ static func tick(game, a, delta: float) -> void:
 	# Each family is attached to the victim; both can coexist and Mend clears both.
 	tick_dots(game, a, s.dots, delta, 3.0, 0.0)
 	tick_dots(game, a, a.identity.entropy_dots, delta, 2.0, 5.0)
+	game.Outlaw.tick(game, a, delta)
 	s = a.identity
 	if a.hp <= 0:
 		return
-	for field in ["anchor_left", "orbit", "root", "slow", "immune", "last", "hold", "guard_left", "challenge_left", "challenge_tick", "exposed_left", "wake", "wake_tick"]:
+	for field in ["instant_collapse", "instant_graviton", "anchor_left", "orbit", "root", "slow", "immune", "last", "hold", "guard_left", "challenge_left", "challenge_tick", "exposed_left", "wake", "wake_tick"]:
 		s[field] = maxf(0, s[field] - delta)
 	for id in s.brands.keys():
 		s.brands[id].left -= delta
@@ -273,8 +289,8 @@ static func tick(game, a, delta: float) -> void:
 		if s.stars[i].left <= 0 or not game.actors.has(s.stars[i].id) or game.actors[s.stars[i].id].hp <= 0:
 			s.stars.remove_at(i)
 	if s.anchor_left > 0 and s.orbit > 0:
-		for b in enemies(game, a, s.anchor_pos, 6, false):
-			if b.identity.immune <= 0:
+		for b in enemies(game, a, s.anchor_pos, a.Kits.HEAVY_ORBIT_RADIUS, false):
+			if b.identity.immune <= 0 and not game.CC.airborne_immune(b):
 				b.identity.slow = 0.2
 	if s.wake > 0:
 		var pulse: bool = s.wake_tick <= 0
@@ -286,7 +302,7 @@ static func tick(game, a, delta: float) -> void:
 			var nearest: Vector3 = Geometry3D.get_closest_point_to_segment(b.position, s.wake_pos, s.wake_end)
 			var radius := 5.0 if s.wake_pos == s.wake_end else 1.5
 			if b.position.distance_to(nearest) <= radius and point_los(game, nearest, b.position):
-				if b.identity.immune <= 0:
+				if b.identity.immune <= 0 and not game.CC.airborne_immune(b):
 					b.identity.slow = 0.2
 				if pulse:
 					game.damage(a, b, 4)
@@ -338,15 +354,19 @@ static func before_damage(game, source, victim, amount: float) -> float:
 static func bot(game, a, foe, ally) -> bool:
 	var s: Dictionary = a.identity
 	if a.champion == "Fulcrum":
+		if foe.casting >= 0:
+			for slot in [1, 8]:
+				if game.try_spell(a.actor_id, slot, foe.actor_id):
+					return true
 		if not foe.identity.entropy_dots.has(a.actor_id) and game.try_spell(a.actor_id, 13, foe.actor_id):
 			return true
-		if s.instant_collapse and s.anchor_left > 0 and game.try_spell(a.actor_id, 11, a.actor_id):
+		if s.instant_collapse > 0 and s.anchor_left > 0 and game.try_spell(a.actor_id, 11, a.actor_id):
 			return true
 		if s.meditation >= 50 and (foe.stunned > 0 or s.meditation >= 95):
 			a.move_input = Vector2.ZERO
 			if game.try_spell(a.actor_id, 12, foe.actor_id):
 				return true
-		if s.instant_graviton and game.try_spell(a.actor_id, 0, foe.actor_id):
+		if s.instant_graviton > 0 and game.try_spell(a.actor_id, 0, foe.actor_id):
 			return true
 		if not foe.identity.dots.has(a.actor_id):
 			a.move_input = Vector2.ZERO
@@ -377,6 +397,15 @@ static func paint(game) -> void:
 	for a in game.actors.values():
 		if a.training_dummy: continue
 		var s: Dictionary = a.identity
+		var flare_outline := a.get_node_or_null("SolarFlareOutline") as MeshInstance3D
+		if a.champion == "Ember" and a.actor_id == game.local_id and flare_outline == null:
+			flare_outline = SolarFlareIndicator.new()
+			a.add_child(flare_outline)
+		if flare_outline != null:
+			# Solar Flare occupies slot 8. Its replicated cooldown starts only on
+			# a successful cast, even when the cone misses every enemy.
+			var just_cast: bool = a.champion == "Ember" and a.cooldowns[8] > float(a.kit[8].cd) - SolarFlareIndicator.VISIBLE_SECONDS
+			flare_outline.visible = just_cast and a.actor_id == game.local_id and a.hp > 0 and game.phase == "match"
 		var marker := a.get_node_or_null("GravityMarker") as Node3D
 		if marker == null:
 			marker = Node3D.new()
@@ -404,7 +433,7 @@ static func paint(game) -> void:
 		marker.visible = a.hp > 0 and s.anchor_left > 0
 		if marker.visible:
 			marker.global_position = s.anchor_pos + Vector3.UP * 0.08
-			var radius := 6.0 if s.orbit > 0 or (a.casting >= 0 and a.kit[a.casting].kind == "collapse") else 1.0
+			var radius: float = a.Kits.HEAVY_ORBIT_RADIUS if s.orbit > 0 else (6.0 if a.casting >= 0 and a.kit[a.casting].kind == "collapse" else 1.0)
 			marker.get_child(0).scale = Vector3(radius, 0.2, radius)
 			(marker.get_node("Timer") as Label3D).text = "%s ANCHOR %.1f" % ["ALLY" if game.actors.has(game.local_id) and game.actors[game.local_id].team == a.team else "ENEMY", s.anchor_left]
 		var wake := field_marker(a, "BurningField", Color("ff8a4c"))

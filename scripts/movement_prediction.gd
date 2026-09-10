@@ -31,6 +31,10 @@ func reconcile(game, actor) -> void:
 	actor.jump_buffer = state.get("jump_buffer", 0.0)
 	actor.walking = state.get("walk", false)
 	actor.rotation.y = state.yaw
+	# Roll's remaining travel is movement state; rewind it before replaying inputs.
+	# Combat buffs and combo resources remain server-owned.
+	for key in ["roll_left", "roll_direction", "roll_distance", "backflip_active"]:
+		if state.get("identity", {}).has(key): actor.identity[key] = state.identity[key]
 	# A position rewind does not update CharacterBody3D's cached floor contact.
 	# Use the server contact for the first replay/prediction step; subsequent
 	# move_and_slide calls provide fresh contact at the replayed position.

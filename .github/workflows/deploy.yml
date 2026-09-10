@@ -81,8 +81,13 @@ jobs:
 
       - name: Parse check
         run: |
+          python3 tests/check_presenter_indentation.py
           godot --headless --path . --check-only --script scripts/arena.gd
+          godot --headless --path . --check-only --script scripts/champion_model.gd
           godot --headless --path . --check-only --script tests/network_peer.gd
+
+      - name: Test runner rejects hidden script failures
+        run: python3 tests/check_suite_runner_test.py
 
       - name: Arena mesh integrity
         run: ./tests/check_suite.sh "Arena LOD checks" godot --headless --path . --script tests/arena_lod_test.gd
@@ -117,6 +122,26 @@ jobs:
       - name: Champion introduction and practice checks
         run: ./tests/check_suite.sh "Champion introduction checks" godot --headless --path . --script tests/champion_introduction_test.gd
 
+      - name: Fulcrum windows and routed Vanguard Charge
+        run: |
+          ./tests/check_suite.sh "Fulcrum Meditation checks" godot --headless --path . --script tests/fulcrum_meditation_test.gd
+          ./tests/check_suite.sh "Vanguard Charge checks" godot --headless --path . --script tests/vanguard_charge_test.gd
+
+      - name: Aimed Solar Flare and directional Blink charges
+        run: ./tests/check_suite.sh "Ember abilities checks" godot --headless --path . --script tests/ember_abilities_test.gd
+
+      - name: Outlaw combos and character presentation
+        run: |
+          ./tests/check_suite.sh "Outlaw ability checks" godot --headless --path . --script tests/outlaw_abilities_test.gd
+          ./tests/check_suite.sh "Outlaw presentation checks" godot --headless --path . --script tests/outlaw_presentation_test.gd
+          ./tests/check_suite.sh "Outlaw local match checks" godot --headless --path . --script tests/outlaw_local_match_test.gd
+
+      - name: Saved ability bars remain on screen
+        run: ./tests/check_suite.sh "Hotbar viewport checks" godot --headless --path . --script tests/hotbar_viewport_test.gd
+
+      - name: Kick immunity cast-bar colors
+        run: ./tests/check_suite.sh "Cast bar checks" godot --headless --path . --script tests/cast_bar_test.gd
+
       # These bind fixed UDP ports and must not overlap — hence one step, in order.
       - name: Networked suites (sequential)
         run: |
@@ -126,6 +151,9 @@ jobs:
           python3 tests/run_network.py --test-team
           python3 tests/run_network.py --test-latency
           python3 tests/run_network.py --test-movement --test-latency --test-drop-jump
+          python3 tests/run_charge_network.py --test-latency
+          python3 tests/run_ember_network.py --test-latency
+          python3 tests/run_outlaw_network.py --test-latency
           python3 tests/run_six.py
           python3 tests/run_dedicated.py
           python3 tests/run_polish.py

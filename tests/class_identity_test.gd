@@ -124,19 +124,22 @@ func run() -> void:
 	for champion in arena.Kits.NAMES:
 		await reset(champion)
 		a = arena.actors[1]
-		check(a.kit.size() == (14 if champion == "Fulcrum" else 12) and a.cooldowns.size() == a.kit.size(), champion + " has the supported slot count")
+		check(a.kit.size() == {"Fulcrum":14,"Outlaw":10}.get(champion,12) and a.cooldowns.size() == a.kit.size(), champion + " has the supported slot count")
 		for ability in a.kit:
+			if ability.kind == "unavailable": continue
 			check(arena.AbilityArt.texture_for(ability.name, champion) != null, ability.name + " has an icon")
 		a.identity.heat = 70
 		a.identity.stars = [{"id": 2, "left": 9.0}]
 		a.identity.anchor_pos = Vector3(1, 0, 2)
-		a.cooldowns[11] = 8.0
+		var final_slot: int = a.kit.size()-1
+		a.cooldowns[final_slot] = 8.0
 		var state: Dictionary = a.snapshot()
 		a.reset_identity()
 		a.receive(bytes_to_var(var_to_bytes(state)), true)
-		check(a.identity.heat == 70 and a.identity.stars.size() == 1 and a.cooldowns[11] == 8, "Expanded state round-trips for " + champion)
+		check(a.identity.heat == 70 and a.identity.stars.size() == 1 and a.cooldowns[final_slot] == 8, "Expanded state round-trips for " + champion)
 		arena.update_visuals(0)
-		check(arena.ability_buttons[11].visible, "Second bar is visible for " + champion)
+		check(arena.ability_buttons[final_slot].visible, "Second bar exposes the final ability for " + champion)
+	await reset("Ember")
 	arena.default_bindings()
 	var old: Array = []
 	for i in range(arena.TOTAL_SLOTS):

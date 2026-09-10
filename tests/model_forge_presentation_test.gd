@@ -64,6 +64,17 @@ func run_class(title: String) -> void:
 		check(actor.velocity == original_velocity, "Backpedal animation never changes physical velocity")
 	actor.rotation.y = 0
 	visual.animate(.016,actor)
+	if title == "Vanguard":
+		actor.charge = {"target": 2}
+		actor.presentation_grounded = false
+		actor.presentation_vertical_speed = 4.0
+		actor.position += Vector3.FORWARD * 32.0 / 30.0
+		visual.animate(1.0 / 30.0, actor)
+		check(art.clip == "Sprint", "Charge uses locomotion even above the teleport filter and on a rising ramp")
+		actor.charge.clear()
+		actor.presentation_grounded = null
+		actor.presentation_vertical_speed = 0.0
+		visual.animate(.016, actor)
 	actor.casting = 0; visual.animate(.016, actor)
 	check(art.clip == "CastEnter", "Casting uses preset anticipation")
 	for i in 45: visual.animate(1.0/60.0, actor)
