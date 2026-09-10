@@ -7,3 +7,14 @@
 # .gdignore is kept so Godot does not import whatever lands here.
 artifacts/*
 !artifacts/.gdignore
+
+# Exported clients and launcher build output
+build/
+launcher/bin/
+
+# Python release tool caches
+__pycache__/
+
+# Local/server download staging
+downloads/
+incoming-windows/

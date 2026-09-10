@@ -80,6 +80,10 @@ func reclaim(peer: int, ticket: String) -> bool:
 	reservations.erase(ticket)
 	game.roster[peer] = item.roster
 	actor.owner_peer = peer
+	actor.last_jump_id = 0
+	actor.jump_queued = false
+	actor.jump_buffer = 0
+	actor.walking = false
 	actor.last_input_seq = -1
 	actor.last_action_seq = -1
 	actor.last_motion_seq = -1

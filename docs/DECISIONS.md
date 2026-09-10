@@ -243,6 +243,8 @@ The owner authorized Ember Heat, Vanguard Resolve, Luminary Guiding Stars, and F
 
 ## Prior (undated) — No click-to-target on character models
 
+**Superseded by the approved movement-controls pass on 2026-09-09:** a world-origin left click below a five-screen-unit drag threshold may select another visible character. Self is excluded from picking; UI gestures, drags, and two-button movement never trigger target selection. The earlier rationale below is retained as history.
+
 **Decision:** Character models, overhead nameplates, damage labels, and the ground are never clickable target-select surfaces. Target selection is Tab (enemies), F1–F3 (self / teammates), or clickable UI frames only.
 
 **Why:** A specific bug: both mouse buttons enabled forward run, mouse capture recentered the cursor over the player's own character, and the next click selected self. Removing model raycast picking is the root fix. In the process it became a product principle — explicit targeting via keys and frames is more predictable than click-selection and matches the WoW controls identity.

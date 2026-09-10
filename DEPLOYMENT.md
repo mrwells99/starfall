@@ -225,12 +225,22 @@ No address or port should be visible anywhere in the UI.
 | Clients rejected with a version error | `Config.VERSION` differs between client and server. Expected after a protocol change — everyone must re-download. |
 | Queue says "Searching…" forever | Working as designed: it needs `*_MIN_PLAYERS` humans. Lobbies show a code immediately, which is why they can look fine while the queue looks broken. |
 
+## Windows downloads
+
+The deployment now also builds the Windows launcher/client and serves them from
+`https://play.leafmods.com/downloads/`. See [Windows distribution](docs/WINDOWS_DISTRIBUTION.md)
+for the one-time HTTPS setup, sharing link, and update behavior. Only exported
+client files are public; the source repository can be private. TCP 80/443 are
+required in addition to the existing game UDP ports.
+
 ## How to roll back
 
 Every build is an immutable tag, so rollback is a redeploy of an older one.
 
 **Preferred — re-run the workflow against a known-good tag.** This takes the
-same path as a normal deploy, including the health gate:
+same path as a normal deploy, including the health gate and matching Windows
+update manifest. Choose a tag that has a retained Windows release; tags from
+before Windows distribution are not eligible for this paired rollback:
 
 ```bash
 gh workflow run deploy.yml --ref main -f tag=sha-1a2b3c4
@@ -249,8 +259,10 @@ gh api "/users/<owner>/packages/container/starfall/versions" \
 ssh deploy@play.leafmods.com
 cd /opt/starfall
 cat .last-tag                      # the tag this deploy replaced
+python3 publish_windows.py verify --tag sha-1a2b3c4
 sed -i 's|^STARFALL_TAG=.*|STARFALL_TAG=sha-1a2b3c4|' .env
 sudo /usr/local/bin/starfall-deploy
+python3 publish_windows.py promote --tag sha-1a2b3c4
 ```
 
 A rollback done this way is invisible to CI. The next push to `main` will
@@ -262,8 +274,9 @@ same break twice.
 `Config.VERSION` is compiled into both client and server, and the server hard
 rejects mismatched clients. Rolling the server back to a build with a different
 `VERSION` will disconnect everyone on the current client with a version error.
-That is the handshake working correctly, but it does mean **a rollback can look
-like an outage to players**. Check whether `VERSION` differs between the two
+That is the handshake working correctly. Windows players should close the game
+and reopen the launcher after rollback to install the matching retained client.
+Linux developers must check out the matching source revision. Check whether `VERSION` differs between the two
 tags before rolling back during a session.
 
 CI emits a warning when `scripts/` changes without a `VERSION` bump.
