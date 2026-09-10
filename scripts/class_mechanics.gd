@@ -71,18 +71,10 @@ static func heal(game, a, b, amount: float) -> void:
 static func control(game, a, b, duration: float, title: String, root_only: bool = false, breaks: bool = false) -> void:
 	if not game.may_harm(a, b) or b.hp <= 0 or (root_only and b.identity.immune > 0):
 		return
-	var factor: float = [1.0, 0.5, 0.25, 0.0][mini(b.dr_count, 3)]
-	if factor <= 0:
+	var category := "root" if root_only else ("incapacitate" if breaks else "stun")
+	if game.CC.apply(b, category, duration, title) <= 0:
+		game.combat_event(a.actor_id, b.actor_id, "IMMUNE", game.GOLD)
 		return
-	b.dr_count += 1
-	b.dr_timer = 18 + duration * factor
-	if root_only:
-		b.identity.root = duration * factor
-	else:
-		b.stunned = duration * factor
-		b.stun_from = title
-		b.casting = -1
-		b.identity.disorient = breaks
 	game.combat_event(a.actor_id, b.actor_id, title.to_upper(), game.GOLD)
 
 static func resolve(game, a, spell: Dictionary, b) -> bool:
@@ -185,12 +177,12 @@ static func resolve(game, a, spell: Dictionary, b) -> bool:
 						heal(game, a, other, 9)
 						break
 		"absolution":
+			game.CC.clear(b, ["stun", "incapacitate", "disorient", "root"])
 			b.stunned = 0.0
 			b.stun_from = ""
 			b.identity.root = 0.0
 			b.identity.slow = 0.0
 			b.identity.disorient = false
-			b.dr_timer = minf(b.dr_timer, 18)
 			if consume_star(a, b.actor_id):
 				b.identity.immune = 3.0
 		"pilgrim":
@@ -318,9 +310,6 @@ static func tick_dots(game, a, dots: Dictionary, delta: float, tick_damage: floa
 			dots.erase(source_id)
 
 static func before_damage(game, source, victim, amount: float) -> float:
-	if victim.identity.disorient:
-		victim.stunned = 0.0
-		victim.identity.disorient = false
 	for a in game.actors.values():
 		if a.training_dummy: continue
 		var s: Dictionary = a.identity
@@ -386,9 +375,7 @@ static func bot(game, a, foe, ally) -> bool:
 # Replicated state drives the same anchor and resource readouts on every peer.
 static func paint(game) -> void:
 	for a in game.actors.values():
-		if a.training_dummy:
-			a.nameplate.text = a.nameplate_base_text()
-			continue
+		if a.training_dummy: continue
 		var s: Dictionary = a.identity
 		var marker := a.get_node_or_null("GravityMarker") as Node3D
 		if marker == null:
@@ -438,38 +425,6 @@ static func paint(game) -> void:
 		if starfall.visible:
 			starfall.global_position = game.actors[a.cast_target].position + Vector3.UP * 0.1
 			starfall.scale = Vector3(a.Kits.STARFALL_RADIUS, 0.15, a.Kits.STARFALL_RADIUS)
-		var star_total := 0
-		var brand_total := 0
-		for owner in game.actors.values():
-			if owner.hp > 0:
-				star_total += star_count(owner, a.actor_id)
-				brand_total += int(owner.identity.brands.get(a.actor_id, {}).get("count", 0))
-		var plate_text: String = a.nameplate_base_text()
-		if star_total > 0:
-			plate_text += "\n" + "✦".repeat(star_total)
-		if brand_total > 0:
-			plate_text += "\nBRANDS %d" % brand_total
-		var resource := ""
-		if a.champion == "Ember":
-			resource = "HEAT %d/100" % s.heat
-		elif a.champion == "Vanguard":
-			resource = "RESOLVE %d/100" % s.resolve
-		elif a.champion == "Fulcrum":
-			resource = "MEDITATION %d/100" % s.meditation
-			if s.meditation >= 75:
-				resource += "\nCOLLAPSE STUN READY"
-			if s.instant_graviton:
-				resource += "\nINSTANT GRAVITON"
-			if s.instant_collapse:
-				resource += "\nINSTANT COLLAPSE"
-		elif a.champion == "Luminary":
-			resource = "STARS %d/3" % s.stars.size()
-		if not resource.is_empty():
-			plate_text += "\n" + resource
-		if a.nameplate.text != plate_text:
-			a.nameplate.text = plate_text
-		if a.actor_id == game.local_id and not resource.is_empty():
-			(game.player_frame.get_child(3) as Label).text = resource
 
 static func field_marker(a, node_name: String, tint: Color) -> MeshInstance3D:
 	var node := a.get_node_or_null(node_name) as MeshInstance3D

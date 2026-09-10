@@ -87,12 +87,22 @@ See [`CLASS_ABILITIES.md`](CLASS_ABILITIES.md). `scripts/kits.gd` and `scripts/c
 
 **Interrupts** cancel an active cast and set spell lockout to **4 seconds**. Missing does neither but still spends the cooldown.
 
-**Control diminishing returns** — stuns, disorients, and roots share one DR category:
+**Control diminishing returns** — six independent categories:
 
-- Duration factors: 1.0 → 0.5 → 0.25 → 0.0 (immune).
-- A successful stun increments DR count and sets reset timer to `18 + duration`.
-- Immune attempts do not extend the timer. Dispel clears stun and caps remaining reset to 18 s (without resetting count).
-- Damage does not break stun.
+| Category | Movement | Abilities | Damage break |
+|---|---|---|---|
+| Stun | Blocked | Blocked | Never |
+| Incapacitated | Blocked | Blocked | Any positive damage |
+| Disoriented | Blocked | Blocked | 25% chance per hit; guaranteed at 20 cumulative damage |
+| Silence | Allowed | Blocked for casters only | Never |
+| Disarm | Allowed | Blocked for melee only | Never |
+| Root | Blocked | Allowed, except existing movement abilities | Never |
+
+Each category has its own 100% → 50% → 25% → immune progression. It resets 18 seconds after that category's last effect ends, including an early damage break or dispel. Immune attempts do not extend the timer. Damage threshold is based on the game's fixed 100 maximum HP. The Disoriented tuning is a framework default; no current spell applies it. Vanguard is currently the only melee class.
+
+Existing spell effects and numbers are unchanged: Stasis/Bash/Anchor/Rebuke, Earthsplitter and empowered Collapse use Stun; Solar Flare's existing instant damage break uses Incapacitated; normal Collapse uses Root. No spells were assigned Silence, Disarm or chance-break Disoriented. Slows remain slows and do not become roots. Interrupts and their lockouts are explicitly outside DR and always retain their normal strength.
+
+Simple category icons appear to the left of enemy arena health bars and to the right of party health bars while diminished, with seconds until full duration returns. Hover explains the category and next duration tier. Unit-frame aura strips no longer show a Diminished text badge. Thick icon borders mark immunity.
 
 **Spell lockout** —
 - Ember can use Ward / Blink while locked.
@@ -274,3 +284,5 @@ _Considered and set aside. Recorded so they aren't relitigated without new reaso
 World and match chat goes to everyone in the current server session. Enter opens chat, Enter sends, and Escape cancels typing; **Settings → Keybinds → Open chat** changes the opening key. Typing blocks gameplay hotkeys and movement. Messages identify the class and actor number, show literal text, and keep the latest 100 lines; leaving clears the local history. Messages are limited to 240 characters with a server-enforced send interval. There are no private messages or cross-server channels.
 
 The personal crowd-control indicator shows a sample icon in Edit HUD even outside a match. Drag it like a unit frame; its position saves with the rest of the HUD.
+
+**Nameplates:** Allies and enemies show health, a very thin class-resource strip and buff/debuff icons. Your own character has no overhead nameplate. Party and enemy arena health bars also have thin resource strips; DR icons remain on the sides and active effects underneath.
