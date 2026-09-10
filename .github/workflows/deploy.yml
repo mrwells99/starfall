@@ -37,6 +37,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check suite result labels before starting Godot
+        run: python3 tests/check_suite_contracts.py
+
       - name: Cache Godot binary
         id: godot-cache
         uses: actions/cache@v4
@@ -171,7 +174,7 @@ jobs:
 
       - name: Vanguard presentation suite (Xvfb)
         run: |
-          ./tests/check_suite.sh "Vanguard presentation" \
+          ./tests/check_suite.sh "Model Forge presentation" \
             xvfb-run -a --server-args="-screen 0 1280x800x24" \
             godot --path . --rendering-method gl_compatibility --audio-driver Dummy --script tests/vanguard_presentation_test.gd
 
