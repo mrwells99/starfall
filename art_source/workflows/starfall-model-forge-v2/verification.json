@@ -1,0 +1,40 @@
+{
+  "passed": true,
+  "source_files": 77,
+  "clips": 32,
+  "core_bones": 53,
+  "total_bones": 83,
+  "rebuilt_glb_byte_identical": true,
+  "rebuilt_glb_sha256": "bda538ffdae65f2d73d0ea962b922bc55717b03a89f05d7f1af5a1ca03e30712",
+  "core_motion_bone_frame_samples": 111830,
+  "core_rest_max_error": 0.0,
+  "core_motion_max_error": 0.0,
+  "preset_retained_vertices_max_error": 0.0,
+  "skin_weight_max_error": 1.7881393432617188e-07,
+  "source_library_motion_max_error": 1.3113021850585938e-06,
+  "rejected_revision_paths_blocked": true,
+  "arm_layer_matches_accepted_r002": true,
+  "nonempty_extract_blocked": true,
+  "corrupt_part_rejected": true,
+  "v1_unchanged": true,
+  "personal_and_project_skill_identical": true,
+  "skill_validator": "Both copies passed quick_validate.py",
+  "archive_parts": [
+    {
+      "file": "baseline.zip.001",
+      "bytes": 33554432,
+      "sha256": "164c7db4ba255011b9707a18d086daf67050a3420c0e5f10ecbfaad35ddd5770"
+    },
+    {
+      "file": "baseline.zip.002",
+      "bytes": 28615705,
+      "sha256": "b7862a98c71ff5764b64d2544f8b888be090b3bf4814c62bd28c59a3b57e789e"
+    }
+  ],
+  "new_classes": "Use verified preset and runtime; adapt reference-specific costume/equipment",
+  "notes": [
+    "Isolated rebuild did not install or change the live model.",
+    "Godot integration-context scripts are not a complete playable game archive.",
+    "Existing accepted runtime suite results are preserved in runtime_contract.json; no gameplay change made."
+  ]
+}

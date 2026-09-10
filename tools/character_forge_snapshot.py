@@ -1,9 +1,11 @@
-"""Freeze once or read-only verify Starfall Character Forge v1.
+"""Freeze once, verify, or recover Starfall Character Forge v1.
 Create: blender -b --python tools/character_forge_snapshot.py -- --create
 Verify: python tools/character_forge_snapshot.py --verify (or --compare-live)
-No mode restores files or overwrites a completed package.
+Recover: python tools/character_forge_snapshot.py --extract EMPTY_DIRECTORY
+Recovery never overwrites files. The current local-only package uses tar.xz;
+the original manifest and every frozen member retain their original bytes.
 """
-import argparse, hashlib, json, pathlib, platform, subprocess, sys, zipfile
+import argparse, hashlib, json, lzma, pathlib, platform, subprocess, sys, tarfile, zipfile
 from datetime import datetime, timezone
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DEST = ROOT / 'art_source/workflows/starfall-character-forge-v1'
@@ -100,28 +102,87 @@ def source_paths():
             paths.update(area.glob(pattern))
     return sorted(p for p in paths if p.is_file())
 
-def verify(compare=False):
-    manifest = json.loads((DEST / 'manifest.json').read_text(encoding='utf-8'))
-    if sha(ARCHIVE) != manifest['archive_sha256']:
+def safe_member(name):
+    member = pathlib.PurePosixPath(name)
+    if (not name or member.is_absolute() or '..' in member.parts or ':' in name
+            or '\\' in name or member.as_posix() != name):
+        raise ValueError('Unsafe archive member: ' + name)
+    return member
+
+def package_info(package):
+    manifest_path = package / 'manifest.json'
+    manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+    storage_path = package / 'storage.json'
+    if not storage_path.exists():
+        storage = {'format': 'zip', 'archive': manifest['archive'],
+                   'archive_sha256': manifest['archive_sha256'], 'contracts': 'contracts.json'}
+    else:
+        storage = json.loads(storage_path.read_text(encoding='utf-8'))
+        if (storage['schema'] != 1 or storage['format'] != 'tar.xz'
+                or storage['manifest_sha256'] != sha(manifest_path)
+                or storage['original_archive_sha256'] != manifest['archive_sha256']):
+            raise ValueError('Compressed storage metadata does not match the original manifest')
+    for key in ('archive', 'contracts'):
+        if len(safe_member(storage[key]).parts) != 1:
+            raise ValueError('Storage files must be directly inside the package')
+    archive_path = package / storage['archive']
+    if sha(archive_path) != storage['archive_sha256']:
         raise ValueError('Archive SHA-256 does not match; do not use this package.')
-    with zipfile.ZipFile(ARCHIVE) as archive:
-        expected = manifest['files']
-        if set(archive.namelist()) != set(expected) or len(archive.namelist()) != len(expected):
-            raise ValueError('Archive member list differs from manifest')
-        for name, record in expected.items():
-            member = pathlib.PurePosixPath(name)
-            if member.is_absolute() or '..' in member.parts or ':' in name:
-                raise ValueError('Unsafe archive member: ' + name)
-            data = archive.read(name)
-            if len(data) != record['bytes'] or hashlib.sha256(data).hexdigest() != record['sha256']:
-                raise ValueError('Archive file mismatch: ' + name)
+    if 'archive_bytes' in storage and archive_path.stat().st_size != storage['archive_bytes']:
+        raise ValueError('Archive size differs from storage metadata')
+    return manifest, storage, archive_path
+
+def members(archive_path, format_name):
+    if format_name == 'zip':
+        with zipfile.ZipFile(archive_path) as archive:
+            for info in archive.infolist():
+                if info.is_dir():
+                    raise ValueError('Unexpected directory member: ' + info.filename)
+                yield info.filename, archive.read(info)
+    else:
+        with tarfile.open(archive_path, 'r|xz') as archive:
+            for info in archive:
+                if not info.isfile():
+                    raise ValueError('Only regular files are allowed: ' + info.name)
+                with archive.extractfile(info) as stream:
+                    yield info.name, stream.read()
+
+def checked_members(manifest, storage, archive_path):
+    expected, seen = manifest['files'], set()
+    for name, data in members(archive_path, storage['format']):
+        safe_member(name)
+        if name not in expected or name in seen:
+            raise ValueError('Unexpected or duplicate archive member: ' + name)
+        record = expected[name]
+        if len(data) != record['bytes'] or hashlib.sha256(data).hexdigest() != record['sha256']:
+            raise ValueError('Archive file mismatch: ' + name)
+        seen.add(name)
+        yield name, data
+    if seen != set(expected):
+        raise ValueError('Archive member list differs from manifest')
+
+def verify(compare=False, package=DEST):
+    manifest, storage, archive_path = package_info(package)
+    for _ in checked_members(manifest, storage, archive_path):
+        pass
+    expected = manifest['files']
     contract_rel = (DEST / 'contracts.json').relative_to(ROOT).as_posix()
-    if sha(DEST / 'contracts.json') != manifest['files'][contract_rel]['sha256']:
-        raise ValueError('External contracts.json differs from its frozen archived copy')
-    print('FORGE_V1_VERIFIED', len(expected), 'files;', ARCHIVE.stat().st_size, 'archive bytes')
+    contract_path = package / storage['contracts']
+    if storage['format'] == 'tar.xz':
+        if sha(contract_path) != storage['contracts_sha256']:
+            raise ValueError('Compressed contracts checksum mismatch')
+        with lzma.open(contract_path, 'rb') as stream:
+            contract_sha = hashlib.file_digest(stream, 'sha256').hexdigest()
+    else:
+        contract_sha = sha(contract_path)
+    if contract_sha != expected[contract_rel]['sha256']:
+        raise ValueError('External contracts differ from their frozen archived copy')
+    print('FORGE_V1_VERIFIED', len(expected), 'files;', archive_path.stat().st_size, 'archive bytes')
     if compare:
         changes = []
         for rel, record in expected.items():
+            if rel == contract_rel:
+                continue  # Package contracts were checked above, including compressed storage.
             path = ROOT / rel
             if not path.is_file():
                 changes.append({'path': rel, 'state': 'missing'})
@@ -129,6 +190,22 @@ def verify(compare=False):
                 changes.append({'path': rel, 'state': 'changed'})
         print(json.dumps({'live_differences': changes, 'count': len(changes)}, indent=2))
     return manifest
+
+def extract(destination, package=DEST):
+    destination = destination.resolve()
+    if destination.exists() and (not destination.is_dir() or any(destination.iterdir())):
+        raise FileExistsError('Recovery requires an empty directory: ' + str(destination))
+    verify(package=package)  # Fully validate before creating any recovered files.
+    manifest, storage, archive_path = package_info(package)
+    destination.mkdir(parents=True, exist_ok=True)
+    for name, data in checked_members(manifest, storage, archive_path):
+        target = destination.joinpath(*safe_member(name).parts)
+        if not target.resolve().is_relative_to(destination):
+            raise ValueError('Recovery target escapes destination: ' + name)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with target.open('xb') as stream:
+            stream.write(data)
+    print('FORGE_V1_EXTRACTED', len(manifest['files']), 'files to', destination)
 
 def create():
     for path in [ARCHIVE, DEST / 'manifest.json', DEST / 'contracts.json']:
@@ -164,8 +241,15 @@ if __name__ == '__main__':
     group.add_argument('--create', action='store_true')
     group.add_argument('--verify', action='store_true')
     group.add_argument('--compare-live', action='store_true')
+    group.add_argument('--extract', type=pathlib.Path, metavar='EMPTY_DIRECTORY')
+    parser.add_argument('--package', type=pathlib.Path, default=DEST,
+                        help='Read a package copied to another location (not for --create).')
     mode = parser.parse_args(args)
     if mode.create:
+        if mode.package.resolve() != DEST.resolve():
+            parser.error('--package cannot relocate historical creation')
         create()
+    elif mode.extract is not None:
+        extract(mode.extract, package=mode.package)
     else:
-        verify(compare=mode.compare_live)
+        verify(compare=mode.compare_live, package=mode.package)

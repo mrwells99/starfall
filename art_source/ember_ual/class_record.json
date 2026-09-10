@@ -1,0 +1,203 @@
+{
+  "schema": 2,
+  "workflow": "Starfall Model Forge v2",
+  "baseline_manifest_sha256": "ba51084d96ce0202a11984e5c19f845f3fe7fe3c96a03599b04d7ae7f690fa35",
+  "baseline_archive_sha256": "7be9f5dbcbb448090db190235e0ade5ea42b20162e3b4a98039a1f2b740b8bf9",
+  "class_slug": "ember",
+  "class_display_name": "Ember",
+  "reference_paths": [
+    "art_source/references/ember.png"
+  ],
+  "stage_directory": "artifacts/forge-v2-all-classes/ember",
+  "design": {
+    "silhouette": [
+      "hood",
+      "orbital halo",
+      "layered burning astral robe"
+    ],
+    "armor_and_clothing": [
+      "Original approved costume fitted to actual preset joint landmarks"
+    ],
+    "palette": [
+      "black",
+      "bronze",
+      "ember orange"
+    ],
+    "material_roles": [
+      "Ember_AntiqueBronze",
+      "Ember_BlackLeather",
+      "Ember_EngravedGold",
+      "Ember_FaceVoid",
+      "Ember_LivingCinder",
+      "Ember_NebulaSilk",
+      "Ember_ObsidianPlate",
+      "Ember_Starlight",
+      "Ember_TeamInlay"
+    ],
+    "face_and_hair_treatment": "Covered mannequin head removed; original sealed hood/helmet retained; no added face or hair",
+    "weapon": "Unarmed",
+    "carrying_hands": []
+  },
+  "inputs": {
+    "library_sha256": "1b7bf67866360665426bb99e4c71bd619f19b408453c24e30f0c3071601eee5c",
+    "costume_source": "C:\\projects\\starfall\\art_source\\ember_ual\\costume_source.blend",
+    "costume_sha256": "8c652c87eba3000a518ba8836b195e69d982d84ddf8674f48927dc0528aeaed7"
+  },
+  "invariants": {
+    "preserve_53_bone_rest_anatomy": true,
+    "preserve_32_clip_core_motion": true,
+    "use_accepted_runtime": true,
+    "excluded_revisions": [
+      "r006",
+      "r007"
+    ]
+  },
+  "intentional_exceptions": {
+    "core_motion_bones": [],
+    "reason": "No core motion exceptions",
+    "new_equipment_controls": [],
+    "texture_palette_recipe_changes": [
+      "None; all original packed image hashes retained. Godot export may re-encode texture containers."
+    ]
+  },
+  "tools": {
+    "blender_version": "5.2.1 LTS",
+    "godot_version": "4.7.2 stable",
+    "renderer": "OpenGL Compatibility / RTX 5060 Ti / NVIDIA 616.64",
+    "python_version": "Blender bundled Python 3.13",
+    "seeds": {
+      "texture_generation": "Original packed costume textures; no new random generation"
+    }
+  },
+  "deliverables": {
+    "builder": "tools/build_model_forge_class.py",
+    "companions": [
+      "tools/model_forge_equipment.py"
+    ],
+    "editable_blend": "art_source/ember.blend",
+    "packed_textures": [
+      "Ember woven astral silk"
+    ],
+    "glb": "assets/characters/ember.glb",
+    "runtime_modules": [
+      "scripts/model_forge_art.gd",
+      "scripts/model_forge_jump_pose.gd",
+      "scripts/model_forge_pose_blend.gd",
+      "scripts/model_forge_equipment.gd",
+      "scripts/ember_art.gd"
+    ],
+    "viewer": "tools/model_forge_review.gd"
+  },
+  "validation": {
+    "source_checks": {
+      "passed": true,
+      "class": "ember",
+      "core_bones": 53,
+      "total_bones": 73,
+      "clips": 32,
+      "mannequin_vertex_max_error": 0.0,
+      "skin_weight_max_error": 9.685754776000977e-08,
+      "triangles": 138722,
+      "materials": [
+        "Ember_AntiqueBronze",
+        "Ember_BlackLeather",
+        "Ember_EngravedGold",
+        "Ember_FaceVoid",
+        "Ember_LivingCinder",
+        "Ember_NebulaSilk",
+        "Ember_ObsidianPlate",
+        "Ember_Starlight",
+        "Ember_TeamInlay"
+      ],
+      "preserved_packed_image_hashes": {
+        "Ember woven astral silk": "c7d56e386c39f46c77759a8ed0b0808ae68927abdedb28f17dd619d56c81323c"
+      },
+      "equipment": {
+        "slug": "ember",
+        "max_grip_error": 0.0,
+        "motion_exceptions": []
+      },
+      "v2_core_contract_passed": true
+    },
+    "animation_contract": {
+      "core_rest_max_error": 0.0,
+      "inherited_motion_max_error": 0.0,
+      "verified_bone_frame_samples": 111830
+    },
+    "skin_checks": {
+      "weight_max_error": 9.685754776000977e-08,
+      "unchanged_mannequin_max_error": 0.0
+    },
+    "materials_export": "Packed original maps preserved; final GLB reviewed in Godot Compatibility",
+    "weapon_grip": "Final hand attachment and rapid-transition tests pass; right staff fingers retain library grip; Vanguard both wrist constraints <1e-4m",
+    "godot_tests": {
+      "class_presentation": [
+        972,
+        972
+      ],
+      "jump_arms": [
+        68,
+        68
+      ],
+      "pose_transitions": [
+        152,
+        152
+      ],
+      "jump_momentum": [
+        35,
+        35
+      ],
+      "combat": [
+        81,
+        81
+      ],
+      "fulcrum_presentation": [
+        203,
+        203
+      ],
+      "rendered_ability_art": [
+        195,
+        195
+      ]
+    },
+    "visual_review": {
+      "renderer": "Godot Compatibility",
+      "resolution": [
+        1000,
+        900
+      ],
+      "monitor": 0,
+      "fps_cap": 30,
+      "folder": "artifacts/forge-v2-all-classes/ember",
+      "views": [
+        "front",
+        "back",
+        "side",
+        "walk-a",
+        "walk-b",
+        "run-a",
+        "run-b",
+        "backpedal",
+        "side-run",
+        "cast",
+        "jump-apex"
+      ]
+    },
+    "limitations": [
+      "Existing stylized costume preserved",
+      "No terrain foot IK or real-time cloth collision; extreme limb/robe intersections possible",
+      "Owner visual feedback pending; no uncontended performance benchmark"
+    ]
+  },
+  "installation": {
+    "before_manifest": "C:\\projects\\starfall\\artifacts\\forge-v2-all-classes\\before\\manifest.json",
+    "installed_manifest": "C:\\projects\\starfall\\artifacts\\forge-v2-all-classes\\installed_manifest.json",
+    "new_paths": [
+      "art_source/ember_ual/class_record.json",
+      "art_source/ember_ual/costume_source.blend",
+      "art_source/ember_ual/README.md",
+      "art_source/ember_ual/recipe.json"
+    ],
+    "owner_feedback": "User authorized conversion and reversible project installation; final visual approval pending"
+  }
+}

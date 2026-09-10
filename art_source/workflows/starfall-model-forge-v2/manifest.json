@@ -1,0 +1,427 @@
+{
+  "schema": 2,
+  "name": "Starfall Model Forge v2",
+  "approved_revision": "Fulcrum r001-r005 + r008; r006/r007 excluded",
+  "created_utc": "2026-09-10T00:51:05.357527+00:00",
+  "files": {
+    "art_source/.gdignore": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "group": "approved_model"
+    },
+    "art_source/fulcrum.blend": {
+      "sha256": "cfd6093b348fc52ce271a6d288fa7430aaba03d114b8b5ee70b6548620aafe44",
+      "bytes": 15751911,
+      "group": "approved_model"
+    },
+    "art_source/fulcrum_ual/AnimationLibrary_Godot_Standard.glb": {
+      "sha256": "1b7bf67866360665426bb99e4c71bd619f19b408453c24e30f0c3071601eee5c",
+      "bytes": 6671104,
+      "group": "preset_and_costume_inputs"
+    },
+    "art_source/fulcrum_ual/QUATERNIUS_LICENSE.txt": {
+      "sha256": "11eac7504a28077e9d8dbac8ddfca2566510efba7eef46e11f21cdd2bc96d4d5",
+      "bytes": 446,
+      "group": "preset_and_costume_inputs"
+    },
+    "art_source/fulcrum_ual/README.md": {
+      "sha256": "01befdb46ba19387425b56bdfb5be9e4df4092f3ae17652530d1dc75a3106a70",
+      "bytes": 3064,
+      "group": "preset_and_costume_inputs"
+    },
+    "art_source/fulcrum_ual/costume_source.blend": {
+      "sha256": "a91021ff76bfceebce5cf06c8f11e337bffd64327edff8ab3c627d3cd49f76dd",
+      "bytes": 9502895,
+      "group": "preset_and_costume_inputs"
+    },
+    "art_source/fulcrum_ual/fulcrum_ual.blend": {
+      "sha256": "cfd6093b348fc52ce271a6d288fa7430aaba03d114b8b5ee70b6548620aafe44",
+      "bytes": 15751911,
+      "group": "preset_and_costume_inputs"
+    },
+    "art_source/fulcrum_ual/recipe.json": {
+      "sha256": "25bff4b0833c88bc3cc392cf2e77f3317529cef94c08b5fdc8eac37a4aa95550",
+      "bytes": 37264,
+      "group": "preset_and_costume_inputs"
+    },
+    "art_source/references/fulcrum.png": {
+      "sha256": "a4d9d84381483be89acf2b409b88b128760380c8968f932cbcbc34effdb10ee8",
+      "bytes": 1980683,
+      "group": "approved_model"
+    },
+    "art_source/workflows/README.md": {
+      "sha256": "1f6752193b249abd32e6f53600a1002f736bd6a0fb4b39f8987d0ea821c63f39",
+      "bytes": 502,
+      "group": "documentation"
+    },
+    "art_source/workflows/starfall-model-forge-v2/README.md": {
+      "sha256": "a13e0cbc6f3ffc83f57063b63fc04ba1f8e9e5419082f4191c050c5936ffe8c9",
+      "bytes": 2114,
+      "group": "workflow"
+    },
+    "art_source/workflows/starfall-model-forge-v2/WORKFLOW.md": {
+      "sha256": "dd786a6a6f4b16b22a91362d1de0f98bae0ed972d7e0a70b9b8b63baf451aee4",
+      "bytes": 16071,
+      "group": "workflow"
+    },
+    "art_source/workflows/starfall-model-forge-v2/feedback.json": {
+      "sha256": "33de24ad5af55eec58670fab81b95eb177966a64ace195d33fe4e65cab651d25",
+      "bytes": 2322,
+      "group": "workflow"
+    },
+    "art_source/workflows/starfall-model-forge-v2/new_character.template.json": {
+      "sha256": "de4e6291a43dc8587e11714bcf170386cc26b5b3583a2c55701fa319e7825a32",
+      "bytes": 1654,
+      "group": "workflow"
+    },
+    "art_source/workflows/starfall-model-forge-v2/runtime_contract.json": {
+      "sha256": "826200626a42423ea0c13d7afbd883597ca8b789701a3abf72eb39a6b52c0e5a",
+      "bytes": 4418,
+      "group": "workflow"
+    },
+    "assets/characters/fulcrum.glb": {
+      "sha256": "bda538ffdae65f2d73d0ea962b922bc55717b03a89f05d7f1af5a1ca03e30712",
+      "bytes": 13006220,
+      "group": "approved_export_and_textures"
+    },
+    "assets/characters/fulcrum.glb.import": {
+      "sha256": "b7d45069fd671f003bbda115ea263ee0d4dde6c7fd8ba40f17f9e9a72a5f55d8",
+      "bytes": 1086,
+      "group": "approved_export_and_textures"
+    },
+    "assets/characters/fulcrum_ash.png": {
+      "sha256": "7444363b696c17f1cbd48ceb4e8767848a575fa5e717774cf23a22c54defe7ff",
+      "bytes": 586598,
+      "group": "approved_export_and_textures"
+    },
+    "assets/characters/fulcrum_ash.png.import": {
+      "sha256": "ef38cc7787e42a4a384f1f77871195b7496a3d6a833e2a303e89d53f22637807",
+      "bytes": 955,
+      "group": "approved_export_and_textures"
+    },
+    "assets/characters/fulcrum_fabric_normal.png": {
+      "sha256": "c6d59262e561e551bf0f67fdc9e20649a388940d73c4b5b8618fc865088ae6c1",
+      "bytes": 1324516,
+      "group": "approved_export_and_textures"
+    },
+    "assets/characters/fulcrum_fabric_normal.png.import": {
+      "sha256": "590b8dde9c813e796f155e6da46543b01bb3e6180b2ae4c86803d740baada988",
+      "bytes": 985,
+      "group": "approved_export_and_textures"
+    },
+    "assets/characters/fulcrum_fulcrum_ash.png": {
+      "sha256": "7444363b696c17f1cbd48ceb4e8767848a575fa5e717774cf23a22c54defe7ff",
+      "bytes": 586598,
+      "group": "approved_export_and_textures"
+    },
+    "assets/characters/fulcrum_fulcrum_ash.png.import": {
+      "sha256": "6c4cdf7a35bf3cbabe08a95559df1e71559354c18972cd638fe7b39ccb4df0c4",
+      "bytes": 1094,
+      "group": "approved_export_and_textures"
+    },
+    "assets/characters/fulcrum_fulcrum_fabric_normal.png": {
+      "sha256": "c6d59262e561e551bf0f67fdc9e20649a388940d73c4b5b8618fc865088ae6c1",
+      "bytes": 1324516,
+      "group": "approved_export_and_textures"
+    },
+    "assets/characters/fulcrum_fulcrum_fabric_normal.png.import": {
+      "sha256": "5d38232a49ec3cf952599fde78db753ff5da18115e339e0a2e1b226c81c48b4f",
+      "bytes": 1181,
+      "group": "approved_export_and_textures"
+    },
+    "assets/characters/fulcrum_fulcrum_steel.png": {
+      "sha256": "aa6340e51f827c4ed15aa7192fd88c24eac5f36d4433eee6c8ff1211ab5d0bac",
+      "bytes": 1035593,
+      "group": "approved_export_and_textures"
+    },
+    "assets/characters/fulcrum_fulcrum_steel.png.import": {
+      "sha256": "b300fbf25fbbb5d7e094f48e547ac5961cb338cc546ab6271b6358da698e58b8",
+      "bytes": 1100,
+      "group": "approved_export_and_textures"
+    },
+    "assets/characters/fulcrum_fulcrum_steel_roughness.png": {
+      "sha256": "281ddf232650fb0132fac35aab0e16c2a983a9cae6629040d52e6a3a65886a57",
+      "bytes": 875763,
+      "group": "approved_export_and_textures"
+    },
+    "assets/characters/fulcrum_fulcrum_steel_roughness.png.import": {
+      "sha256": "86af1effd5dcc8a502f6f1e4f066644f8d1478e58e58d74fa86551de4a8b860f",
+      "bytes": 1130,
+      "group": "approved_export_and_textures"
+    },
+    "assets/characters/fulcrum_fulcrum_weave.png": {
+      "sha256": "6509a475291e62fdc5b1e642369bed0b45cfce2eda18cb74ffe81b69f68febb3",
+      "bytes": 897896,
+      "group": "approved_export_and_textures"
+    },
+    "assets/characters/fulcrum_fulcrum_weave.png.import": {
+      "sha256": "cafe8cca4e9c1c9c5b3d76bbcf13eba08697f13bbf1da328aa7cacb009955c22",
+      "bytes": 1099,
+      "group": "approved_export_and_textures"
+    },
+    "assets/characters/fulcrum_steel.png": {
+      "sha256": "aa6340e51f827c4ed15aa7192fd88c24eac5f36d4433eee6c8ff1211ab5d0bac",
+      "bytes": 1035593,
+      "group": "approved_export_and_textures"
+    },
+    "assets/characters/fulcrum_steel.png.import": {
+      "sha256": "f631b7244cd8b4770a80482e0e739d1fc4532251b15d775ba56990a1744cfbeb",
+      "bytes": 961,
+      "group": "approved_export_and_textures"
+    },
+    "assets/characters/fulcrum_steel_roughness.png": {
+      "sha256": "1aa0227584532e32c4f6659e2c174f5dd73005e8affdabd67dda8a616f7232c6",
+      "bytes": 879808,
+      "group": "approved_export_and_textures"
+    },
+    "assets/characters/fulcrum_steel_roughness.png.import": {
+      "sha256": "cb7330c57bb2750012322a68cb85263b049767064588c9f96933a63c7333bafe",
+      "bytes": 991,
+      "group": "approved_export_and_textures"
+    },
+    "assets/characters/fulcrum_weave.png": {
+      "sha256": "6509a475291e62fdc5b1e642369bed0b45cfce2eda18cb74ffe81b69f68febb3",
+      "bytes": 897896,
+      "group": "approved_export_and_textures"
+    },
+    "assets/characters/fulcrum_weave.png.import": {
+      "sha256": "9a2263b8290120af11413d2749a7aeb817a5df9bcec5786f33fecf575fddf892",
+      "bytes": 961,
+      "group": "approved_export_and_textures"
+    },
+    "docs/CHARACTER_PIPELINE.md": {
+      "sha256": "15bbd32ecb68f984d1f2f29fcde7cc5dd8f0cfc97d550158480ca2d3493a9759",
+      "bytes": 38686,
+      "group": "documentation"
+    },
+    "docs/CONTEXT.md": {
+      "sha256": "01429541bc6b09ba7c246055ae7ffebde929a8153ce8fb41cffbc1273ab01d7d",
+      "bytes": 56021,
+      "group": "documentation"
+    },
+    "docs/FULCRUM_UNIVERSAL_ANIMATION_PASS.md": {
+      "sha256": "d720a75ac520b1d99bf96caa44a6ec4759fb60b2de483b491ca306b6f84690df",
+      "bytes": 25997,
+      "group": "documentation"
+    },
+    "docs/STARFALL_MODEL_FORGE_V2.md": {
+      "sha256": "869c6410aae9394eb28dc6a6f5831e05ae277eff24edf4eec61f52e9c9d3b378",
+      "bytes": 879,
+      "group": "documentation"
+    },
+    "scenes/fulcrum_preview.tscn": {
+      "sha256": "ab0407efdd890b686d86f8a00cbe82661f6332cf86535f8b7a4d568f7a95eab7",
+      "bytes": 184,
+      "group": "build_and_review"
+    },
+    "scripts/arena.gd": {
+      "sha256": "857561ee71f392f5557969e5d22ce27d4a067a401c7a0492cf7dc897b0bd80c1",
+      "bytes": 154243,
+      "group": "integration_context_only"
+    },
+    "scripts/auras.gd": {
+      "sha256": "0a905283836e80b23b827fcde299db07c34c6fbfe3b0febeca88275168ebc954",
+      "bytes": 6006,
+      "group": "integration_context_only"
+    },
+    "scripts/champion_model.gd": {
+      "sha256": "b0958fb919ae34026506ca573d924c2e1f61fc01330e53e91456e5b0d5867774",
+      "bytes": 10976,
+      "group": "integration_context_only"
+    },
+    "scripts/combatant.gd": {
+      "sha256": "37fd60ee7c32022bed8c06ee2c4e9a430cb445757196caf51c32c48ee5493c0a",
+      "bytes": 9564,
+      "group": "integration_context_only"
+    },
+    "scripts/fulcrum_art.gd": {
+      "sha256": "0456f6181b231ed770df568e036462d080109badb3ce92e0cbc60c3fa8b4e44b",
+      "bytes": 8620,
+      "group": "accepted_runtime"
+    },
+    "scripts/fulcrum_art.gd.uid": {
+      "sha256": "57199ea95f4e2004c66bd2d2a3cd99d1f22ba664d5c7888714024a65f0761ff9",
+      "bytes": 20,
+      "group": "accepted_runtime"
+    },
+    "scripts/fulcrum_jump_pose.gd": {
+      "sha256": "d61475e3486b3f1065473169c725dc91e86d3422d66f0d2d866abfcb5890fd18",
+      "bytes": 2679,
+      "group": "accepted_runtime"
+    },
+    "scripts/fulcrum_jump_pose.gd.uid": {
+      "sha256": "37cb6dce914d8596663c20587b7d5004affcd439790edebf08d82ee4f05230c2",
+      "bytes": 20,
+      "group": "accepted_runtime"
+    },
+    "scripts/fulcrum_pose_blend.gd": {
+      "sha256": "ca2553374ec024dc006a99905f857f990303dbdabb9cb27c70fd7786150f57d8",
+      "bytes": 2843,
+      "group": "accepted_runtime"
+    },
+    "scripts/fulcrum_pose_blend.gd.uid": {
+      "sha256": "a8bfce6ea64130ae8fad1c81f8c97fbd20d3a2841664da0b67166262fef65b17",
+      "bytes": 20,
+      "group": "accepted_runtime"
+    },
+    "scripts/kits.gd": {
+      "sha256": "b5e25c3c105b701eb878afb236c18ec6a92b754cab848c960efde6daf9889873",
+      "bytes": 11297,
+      "group": "integration_context_only"
+    },
+    "tests/fulcrum_jump_pose_test.gd": {
+      "sha256": "701383d2a1a39b2a944d878e1c713ab4cd2579a840959f8ae037f18ada09376e",
+      "bytes": 4725,
+      "group": "regression_tests"
+    },
+    "tests/fulcrum_jump_pose_test.gd.uid": {
+      "sha256": "e108cc43fd134c897a4722190afa187c8fc07f6dc264638fe593a714532d585b",
+      "bytes": 20,
+      "group": "regression_tests"
+    },
+    "tests/fulcrum_pose_blend_test.gd": {
+      "sha256": "41bdc0bcb9200a707f4e712834ce41b3179149596adc9125cc6c4ec0284cf23b",
+      "bytes": 6070,
+      "group": "regression_tests"
+    },
+    "tests/fulcrum_pose_blend_test.gd.uid": {
+      "sha256": "e1faf2dfbcf15624afadebd068d2bd3316ee48a7455010cf3e710faa60238166",
+      "bytes": 20,
+      "group": "regression_tests"
+    },
+    "tests/fulcrum_presentation_test.gd": {
+      "sha256": "35364a661b1de620ba775981d9fa8268087821dcf566dc6748fafca2e525a765",
+      "bytes": 8433,
+      "group": "regression_tests"
+    },
+    "tests/fulcrum_presentation_test.gd.uid": {
+      "sha256": "1a21c8ba954a2a14f38ae3891f10f0e531f9fe9c5af6adc4e135d13e213c9928",
+      "bytes": 20,
+      "group": "regression_tests"
+    },
+    "tests/jump_momentum_test.gd": {
+      "sha256": "0a2ffc2db75ccded3691692fe43dc876480ed9d7132204142f60db1d1bd42ddb",
+      "bytes": 7793,
+      "group": "regression_tests"
+    },
+    "tests/jump_momentum_test.gd.uid": {
+      "sha256": "4f3a5cdc093517ea02f802ad115353440a34f530c7332b347bbb28571baa32d6",
+      "bytes": 20,
+      "group": "regression_tests"
+    },
+    "tools/build_fulcrum.py": {
+      "sha256": "ddaf3841c5ca59bf50776919931843bf4860128008ca23e9d8251ac749e9fde8",
+      "bytes": 19073,
+      "group": "build_and_review"
+    },
+    "tools/build_fulcrum_ual.py": {
+      "sha256": "ca91edd111f6d0db728e7aabec19bf4229e2828e63136746f556c59a1fffeba6",
+      "bytes": 15366,
+      "group": "build_and_review"
+    },
+    "tools/fulcrum_details.py": {
+      "sha256": "e5fade052f3815aee0a34a3a094bbfcc5a84bdc8a60d5669304842091331835e",
+      "bytes": 19762,
+      "group": "build_and_review"
+    },
+    "tools/fulcrum_jump_review.gd": {
+      "sha256": "c5a5c60be5255081dcc8e2a056fe2415e9ac29b713f367acd7dd69fab39be1d4",
+      "bytes": 4162,
+      "group": "build_and_review"
+    },
+    "tools/fulcrum_jump_review.gd.uid": {
+      "sha256": "31f45e1e96aedd7b4fe2931a899048ecd0de863939ccdc0a79ba9027d1c7ba7f",
+      "bytes": 20,
+      "group": "build_and_review"
+    },
+    "tools/fulcrum_preview.gd": {
+      "sha256": "8dd6a0bc341ff2a0517348f4f81702e0f77a786be3e5df14312432648b5f9c45",
+      "bytes": 6992,
+      "group": "build_and_review"
+    },
+    "tools/fulcrum_preview.gd.uid": {
+      "sha256": "62f82aa32f74a6b665cad1b62b6ecc116887b9e10412c7e0431c3dcbd9e00456",
+      "bytes": 20,
+      "group": "build_and_review"
+    },
+    "tools/fulcrum_transition_review.gd": {
+      "sha256": "e6dff6362e03653ef06c04a8e2c2f14f22d6e615b73da71577f458bd1a9a453b",
+      "bytes": 3370,
+      "group": "build_and_review"
+    },
+    "tools/fulcrum_transition_review.gd.uid": {
+      "sha256": "1d7faf52e5b3c5f284f3299b4ea07b0eaf14c1228aef6c0f5c19cba0e9984841",
+      "bytes": 20,
+      "group": "build_and_review"
+    },
+    "tools/fulcrum_ual_review.gd": {
+      "sha256": "cb1ae5182fc7181d1627aa90791d5b419749d235cc4a7e8455fe9a4fff2f296f",
+      "bytes": 5085,
+      "group": "build_and_review"
+    },
+    "tools/fulcrum_ual_review.gd.uid": {
+      "sha256": "365ac016113e35aa8520e15107909103e9a4b81141084f937a327e0ee18e05e4",
+      "bytes": 20,
+      "group": "build_and_review"
+    },
+    "tools/fulcrum_weapon.py": {
+      "sha256": "ef03ab447fc74271d191281806af23cd394b96ae0b7072253ada96003bbcf797",
+      "bytes": 11760,
+      "group": "build_and_review"
+    },
+    "tools/inspect_fulcrum_ual.py": {
+      "sha256": "273707d0c5d9771c8ce4a8705c471d54d9fe6fc47afcab239994e19473c4e54e",
+      "bytes": 1700,
+      "group": "build_and_review"
+    },
+    "tools/model_forge_snapshot.py": {
+      "sha256": "201980efee15bb80a7e9f3069446b0c45e2aa90580f277057580fde0f8ff2d20",
+      "bytes": 15781,
+      "group": "build_and_review"
+    },
+    "tools/skills/starfall-character-forge/SKILL.md": {
+      "sha256": "2bb5a6484d24e89597a630a0e491de6d0250c9c3f6e9a38b3df9d4f6efe95f3a",
+      "bytes": 3998,
+      "group": "skill"
+    },
+    "tools/verify_fulcrum_ual.py": {
+      "sha256": "d3cc1edee4ed32190a792144c292c106a8aedf29d0df3c275d0408c7397fda0d",
+      "bytes": 3852,
+      "group": "build_and_review"
+    }
+  },
+  "parts": [
+    {
+      "file": "baseline.zip.001",
+      "bytes": 33554432,
+      "sha256": "164c7db4ba255011b9707a18d086daf67050a3420c0e5f10ecbfaad35ddd5770"
+    },
+    {
+      "file": "baseline.zip.002",
+      "bytes": 28615705,
+      "sha256": "b7862a98c71ff5764b64d2544f8b888be090b3bf4814c62bd28c59a3b57e789e"
+    }
+  ],
+  "environment": {
+    "blender": "5.2.1 LTS",
+    "blender_build": "9e2066aef7ef",
+    "blender_executable": "C:\\Program Files\\Blender Foundation\\Blender 5.2\\blender.exe",
+    "blender_sha256": "284f4041f98e113f3dc10654a7193ffaaa9bfdfec8b87fa116620a48b5f6d4cb",
+    "python": "3.13.13 (main, May  8 2026, 12:37:03) [MSC v.1944 64 bit (AMD64)]",
+    "numpy": "2.3.4",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "godot_executable": "C:\\Users\\aidan\\Desktop\\Godot_v4.7.2-stable_win64.exe\\Godot_v4.7.2-stable_win64_console.exe",
+    "godot_sha256": "c8f0a6bc45a19b33541501e57f6f7cd972ab18453743266339d495cbbe846643",
+    "godot_version": "4.7.2.stable.official.ed1daf0bf",
+    "review_renderer": "OpenGL Compatibility; RTX 5060 Ti; driver 616.64 (approved review)"
+  },
+  "archive": {
+    "bytes": 62170137,
+    "sha256": "7be9f5dbcbb448090db190235e0ade5ea42b20162e3b4a98039a1f2b740b8bf9",
+    "format": "Concatenated standard ZIP, ordered parts"
+  },
+  "contracts": {
+    "file": "contracts.json.gz",
+    "sha256": "dc3bde6dbe3c7d9a107d00818b77eeacd8a77e4c13b24af864042eee1cf66360"
+  }
+}

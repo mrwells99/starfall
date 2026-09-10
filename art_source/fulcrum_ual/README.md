@@ -1,5 +1,7 @@
 # Fulcrum preset-based source package
 
+**Approved 2026-09-09:** this model and the accepted runtime through r008 are the baseline of [Starfall Model Forge v2](../workflows/starfall-model-forge-v2/README.md), now the default for future classes. Reverted r006/r007 are excluded. Earlier experimental/pending descriptions are historical.
+
 Experimental r001, 2026-09-09. Full design, animation mapping, validation, review controls and rollback instructions: [Fulcrum Universal Animation pass](../../docs/FULCRUM_UNIVERSAL_ANIMATION_PASS.md).
 
 Current revision **r004** adds a baked upper-body turn to sideways and diagonal clips, following owner feedback. The current builder and verifiers stage into `artifacts/fulcrum-turn-r004/`; the r001 stage mentioned below is historical. Original inputs and mannequin rest anatomy remain unchanged. Runtime r002/r003 refinements provide the jump arm arc and movement cadence; keep the current `fulcrum_art.gd` and `fulcrum_jump_pose.gd` with this asset.
