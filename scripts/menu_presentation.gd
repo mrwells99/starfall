@@ -1,6 +1,7 @@
 extends RefCounted
 ## Menu layout with a selection-only cached champion portrait.
 var game
+var scroll: ScrollContainer
 var stack: VBoxContainer
 var wordmark: Label
 var eyebrow: Label
@@ -16,6 +17,12 @@ var error_text: Label
 func install(arena) -> void:
 	game = arena
 	stack = game.result_text.get_parent()
+	var margin := stack.get_parent()
+	scroll = ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	margin.add_child(scroll)
+	stack.reparent(scroll)
+	stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	wordmark = stack.get_child(0)
 	eyebrow = stack.get_child(1)
 	wordmark.text = "S T A R F A L L"
@@ -144,12 +151,12 @@ func refresh() -> void:
 
 func layout() -> void:
 	if not is_instance_valid(game.panel): return
+	var chrome: float = game.panel.get_combined_minimum_size().y - scroll.get_combined_minimum_size().y
 	if preview.visible:
-		# Spend remaining vertical space on the portrait without pushing actions
-		# off short displays. Its 3:4 frame stays centered above the full-width picker.
-		var other_height: float = game.panel.get_combined_minimum_size().y - hero.get_combined_minimum_size().y
-		var portrait_height := clampf(game.ui.size.y - other_height - 40.0, 180.0, 360.0)
+		var other_height: float = stack.get_combined_minimum_size().y - hero.get_combined_minimum_size().y
+		var portrait_height := clampf(game.ui.size.y - other_height - chrome - 32.0, 150.0, 360.0)
 		preview.custom_minimum_size = Vector2(portrait_height * 0.75, portrait_height)
+	scroll.custom_minimum_size.y = minf(stack.get_combined_minimum_size().y, maxf(120, game.ui.size.y - chrome - 32))
 	game.panel.reset_size()
 	game.panel.position = (game.ui.size - game.panel.size) * 0.5
 

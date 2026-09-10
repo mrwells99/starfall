@@ -1,5 +1,5 @@
 extends Control
-## Floating effect icons beneath the health bar; no enclosing card.
+## Fixed inset effect tiles with a cast strip below the roster health bar.
 var game
 var cast: ProgressBar
 var strip: HBoxContainer
@@ -8,22 +8,27 @@ func install(arena) -> void:
 	game = arena
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	offset_top = 41
+	anchor_bottom = 0
+	offset_top = 4
+	offset_bottom = 44
 	offset_left = 4
 	offset_right = -4
-	cast = game.styled_bar(Color("c2a1f0"), 17)
-	cast.custom_minimum_size = Vector2(0, 17)
+	cast = game.styled_bar(Color("c2a1f0"), 15)
+	cast.custom_minimum_size = Vector2(0, 15)
 	add_child(cast)
 	cast.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	cast.offset_bottom = 17
+	cast.offset_top = 42
+	cast.offset_bottom = 57
+	cast.offset_left = 0
+	cast.offset_right = 0
 	(cast.get_child(0) as Label).add_theme_font_size_override("font_size", 11)
 	strip = HBoxContainer.new()
 	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	strip.add_theme_constant_override("separation", 4)
+	strip.add_theme_constant_override("separation", 2)
 	add_child(strip)
 	for i in range(6):
 		var chip := PanelContainer.new()
-		chip.custom_minimum_size = Vector2(28, 28)
+		chip.custom_minimum_size = Vector2(20, 20)
 		chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var edge := StyleBoxFlat.new()
 		edge.bg_color = Color("101321")
@@ -38,7 +43,7 @@ func install(arena) -> void:
 		var timer := Label.new()
 		timer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		timer.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
-		timer.add_theme_font_size_override("font_size", 12)
+		timer.add_theme_font_size_override("font_size", 11)
 		timer.add_theme_color_override("font_color", Color.WHITE)
 		timer.add_theme_color_override("font_outline_color", Color.BLACK)
 		timer.add_theme_constant_override("outline_size", 5)
@@ -60,7 +65,7 @@ func sync(actor) -> void:
 		var fill: StyleBoxFlat = cast.get_theme_stylebox("fill")
 		var cast_color := Color("854657") if interrupted else Color("675183")
 		if fill.bg_color != cast_color: fill.bg_color = cast_color
-	strip.position.y = 20 if cast.visible else 0
+	strip.position = Vector2(3, 1)
 	var effects: Array = game.Auras.active(actor)
 	effects.sort_custom(func(a, b): return priority(a) > priority(b))
 	if actor.hp > 0 and actor.hp <= 30:

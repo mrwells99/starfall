@@ -203,3 +203,36 @@ Self and target now anchor above the action bars (260px health width, 32px heigh
 The default self/target pair uses mirrored center-bottom offsets (-370/+110 for 260px bars), keeping the combined group centered at any viewport width. A 220px center gap fits both DR groups; compact focus sits outside the pair at +410. Centering and bounds are checked at six resolutions, including 2536×1427 and ultrawide.
 
 Self/target health widths reduced 15% to 221px with mirrored -331/+110 offsets and unchanged 220px DR gap; focus follows at +371. Party/enemy rows now fit visible content (40px quiet, up to 91px with a cast and aura icons), include both DR rows when needed, and use a 2px inter-row gap.
+
+Roster layout supersedes the dynamic-height experiment: party/enemy rows are fixed at 70px (2px separation), with a 52px health bar, up to six 22px effect icons inset at upper left, a dedicated upper-right health percentage, and a 17px inset cast strip. Resources remain 6px below health; DR remains outside, with space for both rows. Casts/effects appearing or expiring never change row height or position.
+
+Roster health bars slimmed from 52px to 40px; inset effects are 20px and casts 15px. Fixed row positions and external DR space are preserved.
+
+Party/enemy resource and cast positions swapped: a 10px resource strip is inset at the bottom of health, with the 15px cast below health. Rows stay fixed at 64px with 1px separation. Roster-only DR tiles are 28px with 2px gaps so both rows fit; primary-frame DR tiles remain unchanged.
+
+Default self/target gap tightened from 220px to 152px while keeping 221px widths and a centered pair (-297/+76 offsets). Focus follows at +337. Primary-frame DR uses two columns per group to fit all six categories without overlap; roster DR is unchanged.
+
+World-nameplate buff/debuff icons enlarged 2.5× (0.28 to 0.70 world units), with 0.76 spacing and 0.48 vertical offset above health. Visible icon groups center above the nameplate. HUD/DR icon sizes are unchanged.
+
+Removed the separate personal aura display and its Edit HUD entry. Personal buffs/debuffs and hover descriptions remain on the player unit frame; old SelfAuras saved positions are ignored.
+
+All class resource bars now share mana blue (#327ce6), across self/target/focus, party/arena, nameplates, and Edit HUD previews. Class health colors and resource thresholds/segments are unchanged.
+
+Team readability: class health colors remain intact. Other fighters show a red triangle (enemy) or cyan circle (ally) beside nameplates, with matching unshaded ground rings. The selected non-local actor has white nameplate brackets and a thicker white selection ring; the local actor never receives either ground ring. Party/arena rows carry matching symbols on their outer edge, opposite DR. Marker meshes are created once, have no shadows, and use viewer-relative team checks; dedicated actors do not instantiate them.
+
+Removed team triangle/circle symbols from world nameplates. Team ground rings, selected-target white brackets/ring, and party/arena row symbols remain.
+
+Owner priority update: spell VFX and client distribution/performance-balance work deferred; friend owns movement/animation and reportedly fixed his machine’s freezing. Next big run backlog: comfort settings, practice tools with bot difficulty on Offline menu, and friend-joining/recovery improvements. Combat feedback is currently a design discussion, not yet authorized for implementation. See POLISH_CHECKLIST.md current priorities.
+
+Follow-up preferences: Classic-style floating combat text for combat outcomes, building on existing aggregation; Easy/Normal/Hard bot presets; reclaim a bot-controlled character on same-match reconnect if reasonably simple. Rejoin feasibility and secure session identity still require investigation.
+
+
+## Quality-of-life batch completed locally
+- Edit HUD now shows party/enemy placeholders even in a live duel; drag input is consumed and party positions persist. Real input regression test added.
+- `player_options.gd`: persisted mouse sensitivity/invert, UI/text scale (90–125%), reduced combat flashes/effects, Offline Easy/Normal/Hard AI behavior and passive opponents. Separate local reset controls restore health/resources/effects or cooldowns, blocked online. Reduced effects retain gameplay boundaries and status indicators.
+- `combat_text.gd`: repeated outcome messages merge; local outgoing/incoming (spectator-follow when applicable) floating text preserves numeric aggregation and prioritizes interruptions/immunity/dispels/CC breaks. Other actors still get frame interruption feedback. Mitigation is labeled Reduced, not Absorbed, because shields are currently reductions.
+- `session_recovery.gd`: connection progress, retry/copy-code, and current-client-session reconnect tickets. Disconnect reserves existing actor for 90 seconds in same active round/server; bot controls actor until valid ticket reclaims it. Health/cooldowns/DR remain, input sequence counters reset, ticket rotates. No client/server restart recovery, world rejoin, or host migration. Compatible game/server deployment required; not deployed here.
+- Menus use a bounded scroll container at short heights or larger UI scale. Comfort has its own modal panel.
+- Validation: UI 220/220 including live party drag and saved reload; QoL 21/21; combat 81/81; spectator 22/22; DR 76/76; team HUD 108/108. Real ENet host/client and private lobby suites passed; new reconnect suite rejects forged ticket and verifies same actor/HP/CD/DR after new-peer reclamation. Native Forward+ menu/combat render review passed; menu captures at 100%/125% on 1280×720 passed bounds checks. New unit/reconnect tests wired into CI.
+
+Owner requested removal of manual reset health/resources and cooldown controls. Both buttons, their container, and the reset handler are deleted. Existing automatic duel/round resets, difficulty presets, and passive opponents remain.

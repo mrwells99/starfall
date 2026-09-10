@@ -1,6 +1,7 @@
 extends Control
 ## Cached 2D resource readout. It follows replicated class state, never predicts costs.
-const COLORS := {"Ember": Color("ff984f"), "Vanguard": Color("f2cf74"), "Fulcrum": Color("bc96ff"), "Luminary": Color("91e6c0")}
+const RESOURCE_BLUE := Color("327ce6")
+const COLORS := {"Ember": RESOURCE_BLUE, "Vanguard": RESOURCE_BLUE, "Fulcrum": RESOURCE_BLUE, "Luminary": RESOURCE_BLUE}
 var champion := ""
 var amount := 0.0
 var thresholds: Array = []

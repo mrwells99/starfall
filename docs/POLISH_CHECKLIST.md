@@ -2,6 +2,27 @@
 
 Priorities from the 2026-09-09 review. The owner authorized items 1, 3, and 5, then prioritized a reported RTX 5060 Ti performance problem ahead of them. Those three polish items and initial performance mitigations are implemented locally in 0.11.0. Audio belongs to the owner’s sound-engineer friend and is excluded from agent work. Other items remain proposals.
 
+## Current priorities — owner update
+
+This supersedes the older suggested sequence below. The refreshed conversational list uses the numbering here:
+
+1. **Spell animation / visual effects:** deferred until later.
+2. **Movement and animation refinement:** the owner's friend is actively handling this. Do not duplicate that work.
+3. **Combat feedback — implemented:** existing floating text now filters to local outgoing/incoming events (or the followed teammate when spectating), combines repeated results, colors damage/healing by direction, and prioritizes interrupts, immunity, dispels, and damage-triggered CC breaks. Damage mitigation reports Reduced rather than inventing an absorb pool. Other fighters keep their frame interrupt indicators.
+4. **Comfort settings — implemented:** Settings → Comfort provides mouse sensitivity, inverted vertical look, 90/100/110/125% interface scaling, and reduced combat flashes/decorative effects. Options persist; menus scroll on short/enlarged displays.
+5. **Practice tools — implemented:** Offline has Easy/Normal/Hard behavior presets and passive opponents. Manual health/resource/cooldown reset controls were removed at the owner’s request; existing duel resets remain. No health/damage multipliers and no offline world dummies were introduced.
+6. **Playing with friends — implemented locally:** connection elapsed/progress with existing cancel, retry, copy lobby code, and a Reconnect to match action. A random private ticket reserves a disconnected player's existing actor for up to 90 seconds in the same active match/server process; successful use rotates the ticket. Invalid, expired, occupied, or previous-round reservations are refused. This first version keeps the ticket in the running client session; restarting the client or server is not supported. Both game and server need this build; no deployment performed.
+7. **Client downloads and updates:** deferred.
+8. **Performance and balance sessions:** deferred. The owner reports the friend fixed the freezing on his machine; this has not been independently benchmarked here and is no longer an active agent investigation.
+
+### Accepted follow-up preferences
+
+- Combat feedback: owner favors WoW Classic-style floating combat text. Refine the existing aggregated damage/heal/event system rather than create a competing display. Proposed scope: outgoing results for the local player's actions and important incoming events affecting the local player, with other actors' detailed status on frames. Exact filtering remains a design choice; the owner did not explicitly approve the previous self/target/focus-only filter.
+- Bot difficulty: three presets, **Easy / Normal / Hard**, on Offline. Define behavior differences through reaction timing, interrupts, and coordination, without defaulting to artificial health/damage increases.
+- Rejoin: owner supports reclaiming the bot-controlled character if implementation stays reasonably simple. Scope the design to the same active match on the same server, with safe identity verification. Do not imply server-restart recovery, host migration, or guaranteed feasibility before inspecting the network/session model.
+
+The owner authorized this batch. The live-1v1 Edit HUD party-frame bug is also fixed: placeholders are shown even with no teammates, drag input is consumed, and positions persist. Audio remains assigned to the owner's friend; movement/animation work remains with that friend.
+
 ## Visual repass — 2026-09-09
 
 Items 1/3/5 now also have a presentation pass: larger launch action cards and title hierarchy; consistent menu/status surfaces; settings actions below options; separate victory/defeat treatment with winning-team caption, duration and survivor cards; stronger rematch emphasis; inset ability-restriction borders/status strips and a distinct tooltip explanation. No audio or extra 3D effects. `menu_presentation.gd` handles presentation without changing round authority or ability validation. Verified 200 UI checks, 30 polish checks, online rematch/waiting, and 30 layout cases across three window sizes. Native captures are `artifacts/polish-{menu,settings,availability,results,defeat,pause}.png`.

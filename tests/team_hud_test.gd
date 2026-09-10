@@ -117,16 +117,24 @@ func run() -> void:
 	game.update_visuals(0)
 	await process_frame
 	var compact_row = game.enemy_buttons[2]
-	check(compact_row.custom_minimum_size.y == 91, "Busy row reserves cast and effect space")
+	check(compact_row.custom_minimum_size.y == 64, "Busy rows use the fixed compact height")
 	var compact_details = compact_row.get_node("Details")
-	check(compact_row.get_global_rect().encloses(compact_details.strip.get_child(0).get_global_rect()), "Busy row contains its effect icon")
+	var compact_health = game.roster_bar(compact_row)
+	check(compact_health.get_global_rect().encloses(compact_details.strip.get_child(0).get_global_rect()), "Effects are inset inside health")
+	check(compact_row.get_global_rect().encloses(compact_details.cast.get_global_rect()), "Cast strip fits within the fixed row")
+	check(compact_details.cast.global_position.y >= compact_health.get_global_rect().end.y, "Cast appears below health")
+	var inset_resource = compact_health.get_node("ThinResource")
+	check(compact_health.get_global_rect().encloses(inset_resource.get_global_rect()) and inset_resource.size.y == 10, "Thicker resource strip sits inside health")
+	check(not compact_details.strip.get_global_rect().intersects(compact_health.get_child(0).get_global_rect()), "Effects do not cover health percentage")
+	var busy_position: Vector2 = compact_row.position
 	check(compact_row.get_global_rect().encloses(compact_row.get_node("DiminishingReturns").get_global_rect()), "Busy row contains both DR rows")
 	compact_actor.hp = 100
 	compact_actor.casting = -1
 	compact_actor.dr_states.clear()
 	game.update_visuals(0)
 	await process_frame
-	check(compact_row.custom_minimum_size.y == 40, "Quiet rows collapse to health and resource height")
+	check(compact_row.custom_minimum_size.y == 64, "Quiet rows retain the same height without shifting targets")
+	check(compact_row.position == busy_position, "Clearing casts and effects does not move the row")
 	game.leave_session("")
 	check(game.combat_text.entries.is_empty() and game.combat_text.interrupts.is_empty(), "Session changes clear combat feedback")
 	game.queue_free()

@@ -46,6 +46,7 @@ var body_mesh: MeshInstance3D
 var training_dummy := false
 var champion_model: Node3D
 var nameplate: Label3D
+var team_marker
 var health_mesh: MeshInstance3D
 var health_pivot: Node3D
 var resource_mesh: MeshInstance3D
@@ -130,16 +131,18 @@ func setup(id: int, peer: int, side: int, choice: String, presentation: bool = t
 		if is_fill: resource_mesh = mesh
 	for i in range(NAMEPLATE_AURAS):
 		var holder := Node3D.new()
-		holder.position = Vector3(-0.34 + i * 0.34, 2.82, 0)
 		holder.visible = false
 		health_pivot.add_child(holder)
-		holder.position = Vector3(-0.34 + i * 0.34, 0.34, 0.02)
+		holder.position = Vector3(-0.76 + i * 0.76, 0.48, 0.02)
 		var icon := Sprite3D.new()
 		icon.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 		icon.pixel_size = 0.0022
 		icon.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 		holder.add_child(icon)
 		aura_icons.append(holder)
+	team_marker = preload("res://scripts/team_marker.gd").new()
+	add_child(team_marker)
+	team_marker.install(self)
 
 # Painted from the arena, which is the only thing that knows who the local
 # player is and therefore who counts as hostile.
@@ -161,7 +164,8 @@ func paint_nameplate_auras(auras: Array, art) -> void:
 		if texture == null:
 			continue
 		(holder.get_child(0) as Sprite3D).texture = texture
-		(holder.get_child(0) as Sprite3D).pixel_size = 0.28 / maxf(1, texture.get_width())
+		(holder.get_child(0) as Sprite3D).pixel_size = 0.70 / maxf(1, texture.get_width())
+		holder.position.x = (i - (mini(auras.size(), NAMEPLATE_AURAS) - 1) * 0.5) * 0.76
 
 func visual_tick(delta: float, camera: Camera3D, show_nameplate: bool = true) -> void:
 	flash = maxf(0, flash - delta)

@@ -129,6 +129,7 @@ var host_row: HBoxContainer
 var join_row: HBoxContainer
 var code_field: LineEdit
 var config := UserConfig.new()
+var player_options
 var controls = preload("res://scripts/key_bindings.gd").new()
 var prediction = preload("res://scripts/movement_prediction.gd").new()
 var keybind_menu
@@ -167,6 +168,7 @@ const RANDOM_OPPONENT := 100
 # safe and a fight is always something both people chose.
 var social
 var network_handshake
+var recovery
 var chat_last_sent := {}
 var next_world_actor_id := 1
 const TrainingDummies = preload("res://scripts/training_dummies.gd")
@@ -193,7 +195,6 @@ var camera_save_timer := 1.0
 var slot_size := DEFAULT_SLOT_SIZE
 var slot_size_field: LineEdit
 var drag_ghost: TextureRect
-var self_auras: HBoxContainer
 var size_label: Label
 var settings_extra: Array[Control] = []
 var lobby_code := ""
@@ -230,6 +231,9 @@ func _ready() -> void:
 	build_arena()
 	build_camera()
 	build_ui()
+	recovery = preload("res://scripts/session_recovery.gd").new()
+	recovery.setup(self)
+	if not dedicated: recovery.install_ui()
 	network_handshake = preload("res://scripts/network_handshake.gd").new()
 	network_handshake.setup(self)
 	multiplayer.connected_to_server.connect(on_connected)
@@ -294,9 +298,9 @@ func build_camera() -> void:
 	ring.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
 	var torus := TorusMesh.new()
 	torus.inner_radius = 0.75
-	torus.outer_radius = 0.86
+	torus.outer_radius = 0.91
 	ring.mesh = torus
-	ring.material_override = material(GOLD, true)
+	ring.material_override = material(Color.WHITE, true)
 	add_child(ring)
 	ring.hide()
 
@@ -443,30 +447,49 @@ func install_dr_column(button: Button, left: bool) -> void:
 	diminishing.name = "DiminishingReturns"
 	button.add_child(diminishing)
 	diminishing.install(self)
+	diminishing.add_theme_constant_override("h_separation", 2)
+	diminishing.add_theme_constant_override("v_separation", 2)
+	for chip in diminishing.get_children():
+		chip.custom_minimum_size = Vector2(28, 28)
 	diminishing.left_side = left
 	diminishing.position.x = 4 if left else 224
+	var badge = preload("res://scripts/team_badge.gd").new()
+	badge.name = "TeamBadge"
+	badge.hostile = left
+	badge.position = Vector2(332 if left else -22, 12)
+	badge.size = Vector2(18, 18)
+	button.add_child(badge)
 
 func roster_row(parent: Node, callback: Callable) -> Button:
 	var button := add_button(parent, "", callback)
-	button.custom_minimum_size = Vector2(220, 40)
+	button.custom_minimum_size = Vector2(220, 64)
 	for state_name in ["normal", "hover", "pressed", "disabled", "focus", "hover_pressed"]:
 		button.add_theme_stylebox_override(state_name, StyleBoxEmpty.new())
-	var bar := styled_bar(UI_EDGE, 26)
-	bar.custom_minimum_size = Vector2(0, 26)
+	var bar := styled_bar(UI_EDGE, 40)
+	bar.custom_minimum_size = Vector2(0, 40)
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bar.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	bar.offset_left = 4
 	bar.offset_right = -4
 	bar.offset_top = 4
 	bar.anchor_bottom = 0
-	bar.offset_bottom = 30
+	bar.offset_bottom = 44
 	button.add_child(bar)
+	var percentage := bar.get_child(0) as Label
+	percentage.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	percentage.offset_left = -62
+	percentage.offset_right = -4
+	percentage.offset_top = 1
+	percentage.offset_bottom = 22
+	percentage.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	var resource = preload("res://scripts/thin_resource_bar.gd").new()
 	resource.name = "ThinResource"
 	bar.add_child(resource)
 	resource.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	resource.offset_top = 2
-	resource.offset_bottom = 8
+	resource.offset_left = 3
+	resource.offset_right = -3
+	resource.offset_top = -12
+	resource.offset_bottom = -2
 	var details = preload("res://scripts/arena_frame_details.gd").new()
 	details.name = "Details"
 	button.add_child(details)
@@ -595,8 +618,8 @@ func build_ui() -> void:
 	target_frame = unit_frame(Vector2(330, 56), RED)
 	focus_frame = unit_frame(Vector2(636, 56), GOLD)
 	# Equal widths and mirrored offsets center the pair at every aspect ratio.
-	# The 220px middle gap also fits both six-category DR groups in 1v1.
-	for entry in [[player_frame, -331, 221], [target_frame, 110, 221], [focus_frame, 371, 180]]:
+	# A 152px middle gap fits two compact DR columns per frame in 1v1.
+	for entry in [[player_frame, -297, 221], [target_frame, 76, 221], [focus_frame, 337, 180]]:
 		var frame: VBoxContainer = entry[0]
 		frame.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
 		frame.offset_left = entry[1]
@@ -615,16 +638,17 @@ func build_ui() -> void:
 		dr.name = "DiminishingReturns"
 		frame.get_child(1).add_child(dr)
 		dr.install(self)
-		dr.position = Vector2(229 if frame == player_frame else -106, 0)
+		dr.columns = 2
+		dr.position = Vector2(229 if frame == player_frame else -72, 0)
 	party_box = VBoxContainer.new()
-	party_box.add_theme_constant_override("separation", 2)
+	party_box.add_theme_constant_override("separation", 1)
 	party_box.position = Vector2(24, 220)
 	ui.add_child(party_box)
 	for i in range(3):
 		party_buttons.append(roster_row(party_box, select_party.bind(i)))
 		install_dr_column(party_buttons[i], false)
 	enemy_box = VBoxContainer.new()
-	enemy_box.add_theme_constant_override("separation", 2)
+	enemy_box.add_theme_constant_override("separation", 1)
 	ui.add_child(enemy_box)
 	enemy_box.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	enemy_box.offset_left = -354
@@ -897,19 +921,8 @@ func build_ui() -> void:
 	drag_ghost.z_index = 90
 	drag_ghost.hide()
 	ui.add_child(drag_ghost)
-	self_auras = HBoxContainer.new()
-	self_auras.name = "SelfAuras"
-	self_auras.alignment = BoxContainer.ALIGNMENT_END
-	self_auras.add_theme_constant_override("separation", 4)
-	self_auras.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	self_auras.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	self_auras.offset_left = -420
-	self_auras.offset_right = -24
-	self_auras.offset_top = 150
-	self_auras.offset_bottom = 182
-	ui.add_child(self_auras)
-	for i in range(AURA_SLOTS):
-		self_auras.add_child(aura_widget())
+	player_options = preload("res://scripts/player_options.gd").new()
+	player_options.install(self)
 	keybind_menu = preload("res://scripts/keybind_menu.gd").new()
 	ui.add_child(keybind_menu)
 	keybind_menu.setup(self)
@@ -992,6 +1005,7 @@ func host_session(dedicated_mode: bool = false, world: bool = false) -> void:
 	refresh_lobby()
 
 func join_session() -> void:
+	recovery.remember_attempt()
 	var host_address := address.text.strip_edges()
 	leave_session("")
 	var peer := ENetMultiplayerPeer.new()
@@ -1011,6 +1025,7 @@ func connect_to(port: int) -> bool:
 	menu_presentation.show_error("")
 	close_peer()
 	current_port = port
+	recovery.remember_attempt()
 	var peer := ENetMultiplayerPeer.new()
 	var error := peer.create_client(address.text.strip_edges(), port)
 	if error != OK:
@@ -1145,6 +1160,7 @@ func make_code() -> String:
 	return out
 
 func leave_session(message: String) -> void:
+	if message.is_empty() and recovery != null: recovery.token = ""
 	if previous_frame_cap >= 0:
 		Engine.max_fps = previous_frame_cap
 		previous_frame_cap = -1
@@ -1184,6 +1200,10 @@ func leave_session(message: String) -> void:
 		menu_presentation.show_error("")
 
 func on_connected() -> void:
+	status = "Connected — joining session…"
+	if intent == "reconnect":
+		request_rejoin.rpc_id(1, recovery.token)
+		return
 	match intent:
 		"host":
 			claim_lobby.rpc_id(1, mode, Config.VERSION)
@@ -1256,7 +1276,7 @@ func register_player(choice: String, client_version: String) -> void:
 	if choice not in Kits.NAMES:
 		rejected.rpc_id(peer, "Unknown champion.")
 		return
-	if roster.size() >= mode * 2:
+	if roster.size() + recovery.reserved_count() >= mode * 2:
 		rejected.rpc_id(peer, "That server is full. Try again in a moment.")
 		return
 	# A queue has to hold you for the NEXT round rather than turning you away.
@@ -1275,6 +1295,7 @@ func register_player(choice: String, client_version: String) -> void:
 		counts[entry.team] += 1
 	var side := 0 if counts[0] < counts[1] else 1
 	roster[peer] = {"champion": choice, "team": side}
+	recovery.issue(peer)
 	broadcast_lobby()
 	maybe_auto_start()
 
@@ -1296,6 +1317,7 @@ func maybe_auto_start() -> void:
 
 @rpc("authority", "call_remote", "reliable")
 func rejected(reason: String) -> void:
+	if intent == "reconnect": recovery.token = ""
 	leave_session(reason)
 
 func broadcast_lobby() -> void:
@@ -1416,6 +1438,8 @@ func refresh_menu() -> void:
 			_:
 				lobby_text.text = status if not status.is_empty() else "Online plays against people.\nOffline is local sparring against bots."
 
+	if player_options != null: player_options.refresh()
+	if recovery != null: recovery.refresh()
 	menu_presentation.refresh()
 
 func refresh_result_status() -> void:
@@ -1672,7 +1696,6 @@ func register_movable_frames() -> void:
 	]
 	for bar in range(bar_roots.size()):
 		named.append([bar_roots[bar], "ActionBar%d" % (bar + 1)])
-	named.append([self_auras, "SelfAuras"])
 	named.append([cc_tracker, "CrowdControl"])
 	for entry in named:
 		var frame: Control = entry[0]
@@ -1952,6 +1975,7 @@ func apply_settings() -> void:
 
 func load_settings() -> void:
 	config.load_config()
+	player_options.load_preferences()
 	graphics_choice.select(UserConfig.GRAPHICS_PRESETS.find(config.graphics_preset()))
 	frame_limit_choice.select(UserConfig.FRAME_LIMITS.find(config.frame_limit()))
 	render_scale_choice.select(UserConfig.RENDER_SCALES.find(config.render_scale()))
@@ -2079,6 +2103,7 @@ func round_started(round_epoch: int, size_per_team: int, states: Array) -> void:
 func on_peer_left(peer: int) -> void:
 	if not network or not multiplayer.is_server():
 		return
+	recovery.reserve(peer)
 	roster.erase(peer)
 	chat_last_sent.erase(peer)
 	if world_mode:
@@ -2089,7 +2114,7 @@ func on_peer_left(peer: int) -> void:
 			sync_duels()
 		broadcast_lobby()
 		return
-	if private_lobby and roster.is_empty():
+	if private_lobby and roster.is_empty() and recovery.reserved_count() == 0:
 		claimed = false
 		lobby_code = ""
 		print("LOBBY RELEASED port=%d" % current_port)
@@ -2118,6 +2143,8 @@ func make_snapshot() -> Array:
 func _physics_process(delta: float) -> void:
 	if phase == "connecting":
 		connected_seconds += delta
+		if not dedicated:
+			lobby_text.text = "%s\n%.0fs elapsed · Cancel to stop" % [status, connected_seconds]
 		if connected_seconds > 10:
 			if intent in ["host", "join"]:
 				next_probe()
@@ -2588,7 +2615,12 @@ func damage(source, victim, amount: float) -> void:
 		actual = maxf(0, victim.hp - 1)
 		victim.identity.last = 0.0
 		combat_event(source.actor_id, victim.actor_id, "LAST LIGHT", GOLD)
+	var controlled_before: bool = victim.cc_effects.has("incapacitate") or victim.cc_effects.has("disorient")
 	CC.on_damage(victim, actual)
+	if controlled_before and not victim.cc_effects.has("incapacitate") and not victim.cc_effects.has("disorient"):
+		combat_event(source.actor_id, victim.actor_id, "CC BROKEN", GOLD)
+	if reduction < 1.0 and actual > 0:
+		combat_event(source.actor_id, victim.actor_id, "REDUCED", Color("91bbef"))
 	victim.hp = maxf(1 if victim.training_dummy else 0, victim.hp - actual)
 	combat_event(source.actor_id, victim.actor_id, "−%d" % ceili(actual), RED)
 	if victim.hp == 0:
@@ -2763,12 +2795,19 @@ func _dedicated_rematch(finished_epoch: int = -1) -> void:
 		begin_round()
 	else:
 		phase = "lobby"
+		if private_lobby and roster.is_empty():
+			claimed = false
+			lobby_code = ""
 		status = "Waiting for %d players (%d connected)…" % [min_players, roster.size()]
 		broadcast_lobby()
 		print("DEDICATED WAITING humans=%d/%d" % [roster.size(), min_players])
 
 func bot_think(actor, delta: float) -> void:
 	actor.move_input = Vector2.ZERO
+	if not network and player_options.passive and actors.has(local_id) and actor.team != actors[local_id].team:
+		actor.casting = -1
+		return
+	var level: int = player_options.difficulty if not network else 1
 	actor.ai_timer -= delta
 	actor.path_timer -= delta
 	if actor.stunned > 0:
@@ -2786,6 +2825,8 @@ func bot_think(actor, delta: float) -> void:
 		return
 	enemies.sort_custom(func(a, b): return actor.position.distance_squared_to(a.position) < actor.position.distance_squared_to(b.position))
 	friends.sort_custom(func(a, b): return a.hp < b.hp)
+	if level == 2:
+		enemies.sort_custom(func(a, b): return a.hp < b.hp)
 	var foe = enemies[0]
 	var ally = friends[0]
 	var destination = ally if actor.champion == "Luminary" and ally.hp < 76 else foe
@@ -2818,8 +2859,8 @@ func bot_think(actor, delta: float) -> void:
 			actor.move_input = Vector2(local.x, local.z)
 	if actor.ai_timer > 0 or actor.casting >= 0:
 		return
-	actor.ai_timer = 0.25
-	if ClassMechanics.bot(self, actor, foe, ally):
+	actor.ai_timer = 0.25 if network else player_options.THINK_INTERVALS[level]
+	if (level > 0 or randf() < 0.35) and ClassMechanics.bot(self, actor, foe, ally):
 		return
 	if actor.hp < 45 and try_spell(actor.actor_id, 4, actor.actor_id):
 		return
@@ -2834,7 +2875,7 @@ func bot_think(actor, delta: float) -> void:
 				if try_spell(actor.actor_id, 5, ally.actor_id):
 					return
 	else:
-		if foe.casting >= 0 and foe.cast_left < 1.0 and try_spell(actor.actor_id, 2, foe.actor_id):
+		if level > 0 and foe.casting >= 0 and foe.cast_left < (1.0 if level == 2 else 0.55) and try_spell(actor.actor_id, 2, foe.actor_id):
 			return
 		if actor.champion == "Vanguard" and offset.length() > 7 and try_spell(actor.actor_id, 6, foe.actor_id):
 			return
@@ -2884,8 +2925,16 @@ func show_event(round_epoch: int, source: int, victim: int, text: String, color:
 		return
 	spectator.record(source, victim, text)
 	var actor = actors[victim]
-	actor.flash = 0.16
-	combat_text.emit(actor, text, color)
+	actor.flash = 0.0 if player_options.reduced_effects else 0.16
+	if text == "INTERRUPTED": combat_text.interrupts[victim] = Time.get_ticks_msec() + 1200
+	if source == local_id or victim == local_id or (spectator.active and victim == spectator.follow_id()):
+		var feedback_color := color
+		if text.begins_with("−"):
+			feedback_color = Color("ff786b") if victim == local_id else Color("ffe8ad")
+		elif text.begins_with("+"):
+			feedback_color = Color("8fe8ad")
+		combat_text.emit(actor, text, feedback_color)
+	if player_options.reduced_effects: return
 	if source != victim and actors.has(source):
 		if actors[source].champion == "Vanguard" and text.begins_with("−"):
 			actors[source].champion_model.present_strike()
@@ -2942,7 +2991,7 @@ func show_edit_previews() -> void:
 		enemy_buttons[i].visible = true
 		for row in [party_buttons[i], enemy_buttons[i]]:
 			row.text = ""
-			row.custom_minimum_size.y = 40
+			row.custom_minimum_size.y = 64
 			var health := roster_bar(row)
 			health.value = 100
 			var thin = health.get_node("ThinResource")
@@ -3041,7 +3090,7 @@ func proc_ready(actor, spell: Dictionary) -> bool:
 
 func update_proc_flash() -> void:
 	var actor = actors.get(local_id)
-	var pulse := (sin(Time.get_ticks_msec() * 0.012) + 1.0) * 0.5
+	var pulse := 0.35 if player_options.reduced_effects else (sin(Time.get_ticks_msec() * 0.012) + 1.0) * 0.5
 	for slot in range(ability_images.size()):
 		var ability := kit_slot(slot) if actor != null else -1
 		var ready: bool = actor != null and actor.hp > 0 and ability >= 0 and proc_ready(actor, actor.kit[ability])
@@ -3068,7 +3117,7 @@ func update_visuals(delta: float) -> void:
 		notice.text = "Arena opens in %d" % ceili(countdown)
 	for actor in actors.values():
 		actor.visual_tick(delta, camera, actor.actor_id != local_id)
-	ring.visible = actors.has(selected_id) and actors[selected_id].hp > 0
+	ring.visible = selected_id != local_id and actors.has(selected_id) and actors[selected_id].hp > 0
 	if ring.visible:
 		ring.position = actors[selected_id].position + Vector3(0, 0.08, 0)
 	if edit_mode and not actors.has(local_id):
@@ -3104,11 +3153,12 @@ func update_visuals(delta: float) -> void:
 	for actor in actors.values():
 		var hostile: bool = actors.has(local_id) and actor.team != actors[local_id].team
 		actor.mark_hostile(hostile)
+		if actor.team_marker != null:
+			actor.team_marker.sync(hostile, actor.actor_id == local_id, actor.actor_id == selected_id)
 		# Your own effects are already on the personal strip and the centre-screen
 		# readout; repeating them over your own head is noise.
 		var overhead: Array = [] if actor.actor_id == local_id else Auras.active(actor)
 		actor.paint_nameplate_auras(overhead, AbilityArt)
-	paint_self_auras()
 	# Before the bar: it maintains cc_total, which the slots use as the sweep
 	# denominator.
 	update_cc_tracker()
@@ -3172,6 +3222,7 @@ func update_visuals(delta: float) -> void:
 			button.modulate = Color("83919e")
 	refresh_result_status()
 	sync_hud_visibility()
+	if edit_mode: show_edit_previews()
 	update_ability_tooltip()
 
 func sync_hud_visibility() -> void:
@@ -3183,12 +3234,10 @@ func sync_hud_visibility() -> void:
 		entry[0].visible = (show_hud and actors.has(entry[1])) or edit_mode
 	party_box.visible = (show_hud and party_ids().size() > 1) or edit_mode
 	enemy_box.visible = (show_hud and not enemy_ids().is_empty() and (mode != 1 or world_mode)) or edit_mode
-	self_auras.visible = (show_hud and self_auras.visible) or edit_mode
 	for bar in bar_roots:
 		bar.visible = (show_hud and not spectator.active) or edit_mode
 	if spectator.active and not edit_mode:
 		player_frame.hide()
-		self_auras.hide()
 		cc_tracker.hide()
 		ability_tooltip.hide()
 	if not show_hud and not edit_mode:
@@ -3226,21 +3275,6 @@ func aura_chip_at(frame: Node, pointer: Vector2) -> PanelContainer:
 			return panel
 	return null
 
-# Your own buffs and debuffs, top right, the way an MMO puts them.
-func paint_self_auras() -> void:
-	if self_auras == null:
-		return
-	var mine: Array = Auras.active(actors[local_id]) if actors.has(local_id) else []
-	self_auras.visible = not mine.is_empty() or edit_mode
-	for i in range(AURA_SLOTS):
-		var chip := self_auras.get_child(i) as PanelContainer
-		if i < mine.size():
-			paint_aura(chip, mine[i])
-		else:
-			chip.hide()
-			if chip.has_meta("aura"):
-				chip.remove_meta("aura")
-
 func paint_roster_row(button: Button, actor, _title: String, friendly: bool) -> void:
 	var bar := roster_bar(button)
 	if bar == null:
@@ -3253,22 +3287,6 @@ func paint_roster_row(button: Button, actor, _title: String, friendly: bool) -> 
 	bar.get_node("ThinResource").sync(actor)
 	button.get_node("Details").sync(actor)
 	if button.has_node("DiminishingReturns"): button.get_node("DiminishingReturns").sync(actor)
-	# Fit only currently visible information, including a second DR row.
-	var details = button.get_node("Details")
-	var bottom := 38.0 # Health plus the full six-pixel resource bar.
-	if details.cast.visible:
-		bottom = maxf(bottom, details.offset_top + 17)
-	for chip in details.strip.get_children():
-		if chip.visible:
-			bottom = maxf(bottom, details.offset_top + details.strip.position.y + 28)
-	if button.has_node("DiminishingReturns"):
-		var dr = button.get_node("DiminishingReturns")
-		var count := 0
-		for chip in dr.get_children():
-			if chip.visible: count += 1
-		if count > 0:
-			bottom = maxf(bottom, 4 + ceilf(count / 3.0) * 34 - 4)
-	button.custom_minimum_size.y = bottom + 2
 
 
 func party_ids() -> Array[int]:
@@ -3298,6 +3316,7 @@ func cycle_target(direction: int = 1) -> void:
 		selected_id = candidates[(0 if direction > 0 else candidates.size() - 1) if current < 0 else posmod(current + direction, candidates.size())]
 
 func _input(event: InputEvent) -> void:
+	if player_options != null and player_options.dialog.visible: return
 	if social != null and social.handle_input(event):
 		get_viewport().set_input_as_handled()
 		return
@@ -3307,7 +3326,8 @@ func _input(event: InputEvent) -> void:
 		if keybind_menu.handle(event):
 			get_viewport().set_input_as_handled()
 		return
-	if edit_mode and handle_edit_input(event):
+	if edit_mode:
+		if handle_edit_input(event): get_viewport().set_input_as_handled()
 		return
 	if handle_shift_drag(event):
 		return
@@ -3318,8 +3338,8 @@ func _input(event: InputEvent) -> void:
 			release_mouse()
 	if event is InputEventMouseMotion and not panel.visible:
 		if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) or Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
-			pivot.rotation.y -= event.relative.x * 0.004
-			arm.rotation.x = clampf(arm.rotation.x - event.relative.y * 0.004, -1.15, 0.12)
+			pivot.rotation.y -= event.relative.x * 0.004 * player_options.sensitivity
+			arm.rotation.x = clampf(arm.rotation.x - event.relative.y * 0.004 * player_options.sensitivity * (-1.0 if player_options.invert_y else 1.0), -1.15, 0.12)
 			if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
 				local_yaw = pivot.rotation.y
 	# The game launches fullscreen, so it has to offer a way back out. F11 and
@@ -3524,12 +3544,6 @@ func update_ability_tooltip() -> void:
 		ability_tooltip.hide()
 		return
 	var pointer := ui.get_global_mouse_position()
-	var strip_chip := chip_in_strip(self_auras, pointer)
-	if strip_chip != null:
-		var mine: Dictionary = strip_chip.get_meta("aura")
-		ability_tooltip.present_text("%s\n\n%s\n\n%s remaining" % [
-			mine.name, mine.description, format_aura_time(mine.remaining)], pointer, ui.size)
-		return
 	for frame in [player_frame, target_frame, focus_frame] + party_buttons + enemy_buttons:
 		var chip := aura_chip_at(frame, pointer)
 		if chip != null:
@@ -3674,3 +3688,33 @@ func relay_chat(peer: int, message: String) -> void:
 func chat_message(round_epoch: int, message: String) -> void:
 	if round_epoch == epoch and social != null:
 		social.append_message(message)
+
+
+@rpc("authority", "call_remote", "reliable")
+func session_ticket(ticket: String) -> void:
+	if ticket.length() != 64: return
+	recovery.token = ticket
+	recovery.endpoint = address.text.strip_edges()
+	recovery.port = current_port
+
+@rpc("any_peer", "call_remote", "reliable")
+func request_rejoin(ticket: String) -> void:
+	if not network or not multiplayer.is_server(): return
+	var peer := multiplayer.get_remote_sender_id()
+	if not recovery.reclaim(peer, ticket):
+		rejected.rpc_id(peer, "That character is no longer available to reconnect. Join a new match.")
+		return
+	session_restored.rpc_id(peer, epoch, mode, make_snapshot(), phase, elapsed, countdown, lobby_code)
+	broadcast_lobby()
+
+@rpc("authority", "call_remote", "reliable")
+func session_restored(round_epoch: int, size_per_team: int, states: Array, round_phase: String, time: float, start_time: float, code: String) -> void:
+	round_started(round_epoch, size_per_team, states)
+	phase = round_phase
+	elapsed = time
+	countdown = start_time
+	lobby_code = code
+	intent = ""
+	input_seq = 0
+	action_seq = 0
+	refresh_lobby()

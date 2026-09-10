@@ -102,6 +102,9 @@ jobs:
       - name: Independent crowd control diminishing returns
         run: ./tests/check_suite.sh "Diminishing returns checks" godot --headless --path . --script tests/diminishing_returns_test.gd
 
+      - name: Comfort, practice, and feedback checks
+        run: ./tests/check_suite.sh "Quality of life checks" godot --headless --path . --script tests/quality_of_life_test.gd
+
       - name: Team frames and combat text checks
         run: ./tests/check_suite.sh "Team HUD checks" godot --headless --path . --script tests/team_hud_test.gd
 
@@ -112,6 +115,7 @@ jobs:
       - name: Networked suites (sequential)
         run: |
           set -euo pipefail
+          python3 tests/run_reconnect.py
           python3 tests/run_network.py
           python3 tests/run_network.py --test-team
           python3 tests/run_network.py --test-latency

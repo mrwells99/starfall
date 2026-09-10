@@ -12,9 +12,12 @@ func clear() -> void:
 func emit(actor, text: String, color: Color) -> void:
 	var now := Time.get_ticks_msec()
 	if text == "INTERRUPTED": interrupts[actor.actor_id] = now + 1200
+	for entry in entries:
+		if entry.id == actor.actor_id and entry.kind == "event" and entry.node.text == text and now - int(entry.created) < 900:
+			return
 	var numeric := text.begins_with("−") or text.begins_with("+")
 	var kind := text.left(1) if numeric else "event"
-	var priority := 3 if text == "DEFEATED" else (2 if text in ["INTERRUPTED", "STUNNED"] else 1)
+	var priority := 3 if text == "DEFEATED" else (2 if text in ["INTERRUPTED", "STUNNED", "IMMUNE", "DISPELLED", "CC BROKEN"] else 1)
 	if numeric:
 		for entry in entries:
 			if entry.id == actor.actor_id and entry.kind == kind and now - int(entry.created) < 220:

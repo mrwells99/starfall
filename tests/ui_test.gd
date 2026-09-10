@@ -402,9 +402,9 @@ func run() -> void:
 	self_me.shield = 6.0
 	self_me.shield_from = "Ward"
 	arena.update_visuals(0)
-	check(arena.self_auras.visible, "Your own buffs and debuffs get their own strip")
+	check(not arena.ui.has_node("SelfAuras"), "No separate personal aura display is created")
 	var strip_shown := 0
-	for chip in arena.self_auras.get_children():
+	for chip in arena.player_frame.get_child(4).get_children():
 		if (chip as PanelContainer).visible:
 			strip_shown += 1
 	check(strip_shown == 2, "The strip lists every effect on you")
@@ -433,15 +433,15 @@ func run() -> void:
 	self_me.shield_from = ""
 	arena.update_visuals(0)
 	check(arena.ability_buttons[0].modulate.r >= 0.99, "Slots return to normal once the hold ends")
-	check(not arena.self_auras.visible, "The strip hides when nothing is on you")
+	check(not arena.player_frame.get_child(4).get_child(0).visible, "Personal frame effects hide when nothing is on you")
 
 	# Both readouts are arrangeable.
 	arena.register_movable_frames()
 	var arrangeable := {}
 	for frame in arena.movable_frames:
 		arrangeable[frame.name] = true
-	check(arrangeable.has("SelfAuras") and arrangeable.has("CrowdControl"),
-		"The aura strip and crowd control readout can be moved in Edit HUD")
+	check(not arrangeable.has("SelfAuras") and arrangeable.has("CrowdControl"),
+		"Removed aura display stays out of Edit HUD; crowd control remains movable")
 
 	# The ghost follows the cursor: motion must be handled before the button guard.
 	arena.drag_slot = 0
@@ -564,6 +564,28 @@ func run() -> void:
 	check(arena.menu_presentation.error_card.visible, "Connection rejection does not disappear with combat notices")
 	arena.menu_presentation.error_card.get_child(0).get_child(2).pressed.emit()
 	check(not arena.menu_presentation.error_card.visible, "Connection notice can be dismissed")
+	# Editing a live duel must expose teammate placeholders and consume drag input.
+	arena.mode_choice.select(0)
+	arena.local_match()
+	arena.phase = "match"
+	arena.toggle_edit_mode(true)
+	arena.update_visuals(0)
+	await process_frame
+	await process_frame
+	var party_start: Vector2 = arena.party_box.position
+	var party_point: Vector2 = arena.roster_bar(arena.party_buttons[1]).get_global_rect().get_center()
+	check(arena.party_buttons[1].is_visible_in_tree(), "Live 1v1 edit mode exposes party placeholders")
+	point_mouse(party_point)
+	mouse_button(party_point, MOUSE_BUTTON_LEFT, true)
+	point_mouse(party_point + Vector2(70, 35))
+	mouse_button(party_point + Vector2(70, 35), MOUSE_BUTTON_LEFT, false)
+	check(arena.party_box.position.distance_to(party_start) > 30, "Party frames move through real Edit HUD input")
+	check(arena.moved_frames.has("PartyFrame"), "Party drag is marked for persistence")
+	var party_saved: Vector2 = arena.party_box.position
+	arena.toggle_edit_mode(false)
+	arena.party_box.position = party_start
+	arena.load_layout()
+	check(arena.party_box.position.is_equal_approx(party_saved), "Party frame drag reloads correctly")
 	print("UI checks: %d passed / %d total" % [checks - failures, checks])
 	arena.queue_free()
 	await process_frame
