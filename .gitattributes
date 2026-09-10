@@ -1,1 +1,1 @@
-art_source/workflows/starfall-character-forge-v1/starfall-character-forge-v1.zip filter=lfs diff=lfs merge=lfs -text
+# Forge v1 is now a local-only backup; see .gitignore.

@@ -7,3 +7,6 @@
 # .gdignore is kept so Godot does not import whatever lands here.
 artifacts/*
 !artifacts/.gdignore
+
+# Historical model workflow: local compressed backup, never include in commits.
+/art_source/workflows/starfall-character-forge-v1/

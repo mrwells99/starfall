@@ -1,0 +1,154 @@
+{
+  "schema": 2,
+  "name": "Starfall Model Forge v2",
+  "approved": "2026-09-09",
+  "baseline": "Fulcrum r004 baked model + r002/r003/r005/r008 runtime",
+  "rejected": [
+    "r006",
+    "r007"
+  ],
+  "anatomy": {
+    "library": "Quaternius Universal Animation Library Standard",
+    "library_file": "art_source/fulcrum_ual/AnimationLibrary_Godot_Standard.glb",
+    "library_sha256": "1b7bf67866360665426bb99e4c71bd619f19b408453c24e30f0c3071601eee5c",
+    "core_bones": 53,
+    "baseline_total_bones": 83,
+    "preserve_core_rest": true,
+    "preserve_retained_mannequin_vertices": true,
+    "additional_controls": "Class-specific cloth/equipment only"
+  },
+  "animation": {
+    "fps": 30,
+    "interpolation": "LINEAR",
+    "source_clips": 46,
+    "exported_clips": 32,
+    "native_selected": 11,
+    "derived_variants": 21,
+    "recipe": "art_source/fulcrum_ual/recipe.json",
+    "directional": {
+      "side_leg_degrees": 90,
+      "diagonal_leg_degrees": 45,
+      "pelvis_fraction": 0.65,
+      "side_upper_body_degrees": 20,
+      "diagonal_upper_body_degrees": 14,
+      "backpedal": "Reverse Walk source; correct signed diagonal heading"
+    }
+  },
+  "selection": {
+    "movement_threshold": 0.12,
+    "jog_threshold": 1.8,
+    "sprint_threshold": 5.5,
+    "discard_displacement_above": 1,
+    "actor_local_sectors": 8,
+    "backward_walk_sectors": [
+      3,
+      4,
+      5
+    ],
+    "instant_clip_selection": true,
+    "preserve_locomotion_phase": true
+  },
+  "cadence": {
+    "run_scale": 0.9,
+    "backpedal_scale": 1.15,
+    "backpedal_speed_reference": 3.8,
+    "speed_divisors": {
+      "Walk": 1.35,
+      "Run": 2.8,
+      "Sprint": 4.4
+    },
+    "clamp": [
+      0.55,
+      2.5
+    ],
+    "response": 18,
+    "physical_speed_unchanged": true
+  },
+  "transitions": {
+    "ordinary": {
+      "JumpStart": 0.08,
+      "locomotion_pair": 0.12,
+      "cast_boundary": 0.12,
+      "other": 0.1
+    },
+    "jump_body": 0.16,
+    "jump_body_bones": [
+      "DEF-hips",
+      "DEF-spine.001",
+      "DEF-spine.002",
+      "DEF-spine.003",
+      "DEF-neck",
+      "DEF-head"
+    ],
+    "method": "Capture displayed local poses; bounded smoothstep toward authored target",
+    "takeoff_direction": "Retain displayed directional posture during blend; no new midair-facing controller"
+  },
+  "jump": {
+    "arms_source": "JumpStart at 25% of source duration",
+    "weight": "clamp(1 - (vertical_velocity / launch_velocity)^2, 0, 1)",
+    "launch_reference": 7,
+    "launch_rule": "max(reference, measured takeoff speed)",
+    "landing_arm_release": 0.12,
+    "JumpStart_window": 0.18,
+    "stationary_landing_window": 0.15,
+    "casting_arms": "Use cast pose",
+    "arm_source_sha256": "d61475e3486b3f1065473169c725dc91e86d3422d66f0d2d866abfcb5890fd18",
+    "body": "Existing jump animation plus r008 transition easing only",
+    "forbidden_reverted_features": [
+      "r006 extra shoulder elevation",
+      "r006 additive full-body arc/hip stretch",
+      "r007 upright-apex body pose reconstruction",
+      "r007 captured full-body ascent/descent retracing"
+    ]
+  },
+  "weapon": {
+    "baseline": "Floating singularity with broken rings/debris",
+    "hand": "DEF-hand.L",
+    "bones": [
+      "gravity.focus",
+      "gravity.outer",
+      "gravity.inner",
+      "gravity.debris"
+    ],
+    "baked_blender_offset": [
+      0.24,
+      -0.055,
+      0.22
+    ],
+    "runtime": "Preserve hand-relative offset through arm correction and final-pose blending",
+    "future_classes": "Adapt attachment type explicitly; preserve core rig and gait except documented minimum grip changes"
+  },
+  "materials": {
+    "map_resolution": [
+      1024,
+      1024
+    ],
+    "maps": [
+      "violet weave",
+      "ash cloth",
+      "steel base color",
+      "steel roughness",
+      "fabric normal"
+    ],
+    "python_seed": 41,
+    "numpy_seed": 83,
+    "packed_blend": true,
+    "embedded_glb": true,
+    "roughness_normal_colorspace": "Non-Color",
+    "class_palette": "Follow new reference",
+    "baseline_material_authority": "contracts.json.gz plus packed source"
+  },
+  "validation": {
+    "core_rest_tolerance": 0.000001,
+    "core_motion_tolerance": 0.00001,
+    "weight_tolerance": 0.0001,
+    "clip_sampling": "Every key and half frame",
+    "accepted_tests": {
+      "presentation": 203,
+      "arms_cadence": 69,
+      "transitions": 184,
+      "momentum": 35
+    },
+    "visual_checks_required": true
+  }
+}

@@ -97,7 +97,8 @@ func run() -> void:
 			fighter.flash = 0
 			fighter.visual_tick(0.01, arena.camera)
 			check(authored_art.materials[0].albedo_color == authored_art.base_colors[0], "Impact restores original material color")
-		check(authored_art.clip in (["CastEnter", "Cast"] if fighter.champion == "Fulcrum" else ["Cast"]) if authored_art != null else fighter.champion_model.left_arm.rotation.x < -0.5, "Casting poses the arm")
+		# Every authored class now uses the v2 anticipation before the cast loop.
+		check(authored_art.clip in ["CastEnter", "Cast"] if authored_art != null else fighter.champion_model.left_arm.rotation.x < -0.5, "Casting poses the arm")
 		fighter.casting = -1
 		fighter.hp = 0
 		fighter.visual_tick(0.4, arena.camera)

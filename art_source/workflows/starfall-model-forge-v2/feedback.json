@@ -1,0 +1,58 @@
+{
+  "schema": 2,
+  "owner_approval": "2026-09-09: 'that's better' for r008; make accepted Fulcrum workflow default for future classes; explicitly omit reverted changes",
+  "accepted": [
+    {
+      "id": "original-model",
+      "decision": "Reference-specific hood/mask, smooth black/violet layered armor, worn woven textures and original identity retained"
+    },
+    {
+      "id": "weapon",
+      "decision": "Integrated black singularity, broken orbital rings and debris following the left palm; owner approved project installation"
+    },
+    {
+      "id": "r001",
+      "decision": "Use actual downloaded UAL mannequin anatomy; fit existing costume to it; preset walk/jog/sprint/cast/jump and directional derivations"
+    },
+    {
+      "id": "r002",
+      "decision": "Bent elbows and existing arm arc tied to jump velocity; 10% slower run/sprint cadence without travel-speed change"
+    },
+    {
+      "id": "r003",
+      "decision": "Backpedaling and backward diagonals use reversed walking with 1.15 normal cadence"
+    },
+    {
+      "id": "r004",
+      "decision": "Upper body turns toward side/diagonal travel with distributed hips/spine turn"
+    },
+    {
+      "id": "r005",
+      "decision": "Short final-pose smoothing across transitions, interruption from displayed pose, responsive input"
+    },
+    {
+      "id": "r008",
+      "decision": "Only slightly longer 0.16s torso/head easing at jump boundaries; preserve poses/arms and takeoff-direction carryover"
+    }
+  ],
+  "rejected": [
+    {
+      "id": "r006",
+      "status": "reverted; not reusable",
+      "reason": "Added body offsets/hip lift and increased shoulder elevation outside the desired result",
+      "exclude": "Implementation, tests, preview, generated assets and trial captures"
+    },
+    {
+      "id": "r007",
+      "status": "reverted; not reusable",
+      "reason": "Reconstructed full-body takeoff-to-upright-apex-to-takeoff arc was not accepted",
+      "exclude": "Implementation, tests, preview, generated assets and trial captures"
+    }
+  ],
+  "scope_rules": [
+    "Appearance and equipment vary with each reference",
+    "Do not apply abandoned intermediate settings",
+    "Do not convert other current classes until requested",
+    "Any future approved shared change becomes a new version; do not refresh v2 silently"
+  ]
+}

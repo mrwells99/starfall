@@ -6,7 +6,7 @@
 **Frozen checkpoint:** 2026-09-08, after the crystal-armored Vanguard delivery.  
 **Project:** `C:/projects/starfall`.
 
-This is the repeatable character-production procedure requested by the owner. Use it for new classes and explicitly requested revisions. The detailed recipes, exact delivered files, original references, and animation contracts are archived with it. Read this file and verify the archive before starting; do not reconstruct the process from conversation memory.
+This is the historical character-production procedure. **[Starfall Model Forge v2](STARFALL_MODEL_FORGE_V2.md) is the approved default for new work.** Use v1 only when explicitly requested. The detailed recipes, exact delivered files, original references, and animation contracts are archived with it. Read this file and verify the archive before starting; do not reconstruct the process from conversation memory.
 
 ## Contents
 
@@ -40,13 +40,14 @@ Package: `art_source/workflows/starfall-character-forge-v1/`.
 
 | File | Purpose |
 | --- | --- |
-| `starfall-character-forge-v1.zip` | Frozen current character sources, GLBs, references, maps/import metadata, build companions, viewers, verification/presentation code, shared integration context, logs and this workflow. Internal paths are relative to the project. |
-| `manifest.json` | Every archived file's SHA-256 and size, archive SHA-256, selected file groups and environment fingerprint. |
-| `contracts.json` | Read directly from all four final Blender files: rig hierarchy/rest transforms, mesh counts/material names, skin-weight errors, named clips, frame ranges and every bone's evaluated basis matrix at every authored frame. |
+| `starfall-character-forge-v1.tar.xz` | Losslessly recompressed sources, GLBs, references, maps/import metadata, builders, viewers, verification code, shared integration context, logs and original workflow. All 309 internal files retain their original bytes and project-relative paths. |
+| `manifest.json` | Unchanged original file checksums, sizes and environment fingerprint; its ZIP name/hash describe the original container for provenance. |
+| `storage.json` | Current tar.xz and compressed-contract checksums, archive size, original manifest checksum and compression details. |
+| `contracts.json.xz` | Losslessly compressed animation record from all four final Blender files: rig hierarchy/rest transforms, mesh counts/material names, skin-weight errors, named clips, frame ranges and every bone's evaluated basis matrix at every authored frame. The archive also contains its original uncompressed copy. |
 
-The archive is a character workflow/source snapshot, not a full backup of the complete arena, all game assets, installed applications or the computer. Shared game code is included as integration context, not permission to replace the live project's current gameplay. The package is outside ignored `artifacts/`; `art_source/.gdignore` excludes it from Godot import. Keep the ZIP, manifest and contracts together when moving it to another machine.
+The archive is a character workflow/source snapshot, not a full backup of the complete arena, all game assets, installed applications or the computer. Shared game code is included as integration context, not permission to replace the live project's current gameplay. `art_source/.gdignore` excludes it from Godot import. Keep the entire package together when copying it to another machine, along with the current `tools/character_forge_snapshot.py` recovery helper.
 
-**Repository storage:** the 181.29 MiB ZIP is tracked with Git LFS because it exceeds GitHub's ordinary Git file limit. This changes its transport, not the frozen archive bytes, manifest or animation contracts. On another machine, install Git LFS and run `git lfs install`, then `git lfs pull --include="art_source/workflows/starfall-character-forge-v1/starfall-character-forge-v1.zip"` before verification or reuse. A small text pointer at the ZIP path means the archive has not been downloaded yet. Do not regenerate the baseline to replace a missing LFS download.
+**Local storage only (owner request, 2026-09-09):** the entire v1 folder is ignored by Git and removed from the current index. It is no longer included in normal future commits or clones. Copy the folder separately for backup or use on another computer. Earlier commits and their original Git LFS objects are historical and were not rewritten. The current compressed package needs only standard Python; no LFS download or external archiver is required. The original ZIP was replaced after complete checksum and recovery verification; archived source bytes and animation data are unchanged.
 
 Verify using `tools/character_forge_snapshot.py --verify`. Its `--compare-live` mode reports changed or missing live paths without changing them. Differences are expected after future development; inspect them and preserve newer work. The creation mode refuses to overwrite a completed version-1 package. Original asset bytes can be recovered exactly from the verified archive. Rebuilding can change serialization metadata, image encodings, or floating-point results across application versions; compare semantic contracts and visuals rather than claiming byte-identical regeneration. New designs also require artistic decisions, so an identical future visual result cannot be guaranteed by a text file. This package fixes the concrete starting assets and makes changes detectable.
 
@@ -190,7 +191,7 @@ Open the actual `.blend` and model viewer for the owner. Say what was built, whe
 
 Original rollback manifests record pre-change bytes; installed manifests record what this task put in place. Before restoring, compare current hashes to installed hashes to detect later edits. Restore only intended class paths, merge shared docs/dispatch selectively, reimport and retest. Leave unrelated files intact. Never unpack a whole archive over the live project without inspecting its scope. A model-only recovery can use the frozen `.blend` and GLB; exact game behavior may also need the matching presentation module and importer version.
 
-Version 1 is immutable by convention plus hash verification, not protected against deliberate disk deletion. Keep an independent copy if long-term storage is needed. Create `v2` for changed standards and record intentional differences; do not refresh v1 from the live tree or silently update its reference/animations. The archive verification command detects corruption; it does not authorize restoration or a full-project overwrite.
+Version 1's frozen contents are immutable by convention plus hash verification, not protected against deliberate disk deletion. The owner authorized lossless storage recompression and Git exclusion on 2026-09-09; this changes the container only. Keep an independent copy if long-term storage is needed. V2 contains the newer approved standard; do not refresh v1 from the live tree or silently update its references/animations. The archive verification command detects corruption; it does not authorize a full-project overwrite. Recover with the current helper into an empty directory and select the needed files from there; the older helper inside the archive describes the original ZIP format.
 
 Known product limitations remain: stylized geometry simpler than the concept illustrations, no terrain foot IK, no real-time cloth collision, no dedicated jump/death clips, no mocap, potential extreme-speed backward/sideways foot sliding and no multi-character GPU benchmark. Those are not features to invent or claims to conceal. Improve them only within a later requested scope and preserve the baseline for comparison.
 
@@ -204,6 +205,9 @@ Archive verification uses standard Python; creation and contract capture use Ble
 # Read-only archive integrity and optional live-drift check.
 & 'C:/Program Files/Blender Foundation/Blender 5.2/5.2/python/bin/python.exe' tools/character_forge_snapshot.py --verify
 & 'C:/Program Files/Blender Foundation/Blender 5.2/5.2/python/bin/python.exe' tools/character_forge_snapshot.py --compare-live
+
+# Recover original files into an empty directory, without overwriting live work.
+& 'C:/Program Files/Blender Foundation/Blender 5.2/5.2/python/bin/python.exe' tools/character_forge_snapshot.py --extract artifacts/forge-v1-recovery
 
 # Example complete Vanguard build; do not execute over manual edits without backup.
 & 'C:/Program Files/Blender Foundation/Blender 5.2/blender.exe' -b --python tools/build_vanguard.py

@@ -1,0 +1,294 @@
+{
+  "schema": 2,
+  "workflow": "Starfall Model Forge v2",
+  "baseline_manifest_sha256": "ba51084d96ce0202a11984e5c19f845f3fe7fe3c96a03599b04d7ae7f690fa35",
+  "baseline_archive_sha256": "7be9f5dbcbb448090db190235e0ade5ea42b20162e3b4a98039a1f2b740b8bf9",
+  "class_slug": "vanguard",
+  "class_display_name": "Vanguard",
+  "reference_paths": [
+    "art_source/references/vanguard.png"
+  ],
+  "stage_directory": "artifacts/forge-v2-all-classes/vanguard",
+  "design": {
+    "silhouette": [
+      "sealed crystal-crown helmet",
+      "layered plate",
+      "compass tabard and cape"
+    ],
+    "armor_and_clothing": [
+      "Original approved costume fitted to actual preset joint landmarks"
+    ],
+    "palette": [
+      "dark void steel",
+      "muted gold",
+      "violet crystal",
+      "navy"
+    ],
+    "material_roles": [
+      "Vanguard_AmethystPBR",
+      "Vanguard_AstralCloth",
+      "Vanguard_CelestialAlloyPBR",
+      "Vanguard_JointLeather",
+      "Vanguard_SealedVisorShadow",
+      "Vanguard_TeamInlay",
+      "Vanguard_Visor",
+      "Vanguard_VoidSteelPBR"
+    ],
+    "face_and_hair_treatment": "Covered mannequin head removed; original sealed hood/helmet retained; no added face or hair",
+    "weapon": "Original crystal hammer, fitted at uniform 0.78 scale; two hands",
+    "carrying_hands": [
+      "L",
+      "R"
+    ]
+  },
+  "inputs": {
+    "library_sha256": "1b7bf67866360665426bb99e4c71bd619f19b408453c24e30f0c3071601eee5c",
+    "costume_source": "C:\\projects\\starfall\\art_source\\vanguard_ual\\costume_source.blend",
+    "costume_sha256": "0f05f3194d607a9bdcb7c6d06b7f8ae2b022522c9b2616fb86839aa8e06fd605"
+  },
+  "invariants": {
+    "preserve_53_bone_rest_anatomy": true,
+    "preserve_32_clip_core_motion": true,
+    "use_accepted_runtime": true,
+    "excluded_revisions": [
+      "r006",
+      "r007"
+    ]
+  },
+  "intentional_exceptions": {
+    "core_motion_bones": [
+      "DEF-upper_arm.L",
+      "DEF-forearm.L",
+      "DEF-hand.L",
+      "DEF-f_index.01.L",
+      "DEF-f_index.02.L",
+      "DEF-f_index.03.L",
+      "DEF-f_middle.01.L",
+      "DEF-f_middle.02.L",
+      "DEF-f_middle.03.L",
+      "DEF-f_pinky.01.L",
+      "DEF-f_pinky.02.L",
+      "DEF-f_pinky.03.L",
+      "DEF-f_ring.01.L",
+      "DEF-f_ring.02.L",
+      "DEF-f_ring.03.L",
+      "DEF-thumb.01.L",
+      "DEF-thumb.02.L",
+      "DEF-thumb.03.L",
+      "DEF-upper_arm.R",
+      "DEF-forearm.R",
+      "DEF-hand.R",
+      "DEF-f_index.01.R",
+      "DEF-f_index.02.R",
+      "DEF-f_index.03.R",
+      "DEF-f_middle.01.R",
+      "DEF-f_middle.02.R",
+      "DEF-f_middle.03.R",
+      "DEF-f_pinky.01.R",
+      "DEF-f_pinky.02.R",
+      "DEF-f_pinky.03.R",
+      "DEF-f_ring.01.R",
+      "DEF-f_ring.02.R",
+      "DEF-f_ring.03.R",
+      "DEF-thumb.01.R",
+      "DEF-thumb.02.R",
+      "DEF-thumb.03.R"
+    ],
+    "reason": "Two-hand hammer grip and additional Sword_Attack-based Strike",
+    "new_equipment_controls": [
+      "weapon"
+    ],
+    "texture_palette_recipe_changes": [
+      "None; all original packed image hashes retained. Godot export may re-encode texture containers."
+    ]
+  },
+  "tools": {
+    "blender_version": "5.2.1 LTS",
+    "godot_version": "4.7.2 stable",
+    "renderer": "OpenGL Compatibility / RTX 5060 Ti / NVIDIA 616.64",
+    "python_version": "Blender bundled Python 3.13",
+    "seeds": {
+      "texture_generation": "Original packed costume textures; no new random generation"
+    }
+  },
+  "deliverables": {
+    "builder": "tools/build_model_forge_class.py",
+    "companions": [
+      "tools/model_forge_equipment.py"
+    ],
+    "editable_blend": "art_source/vanguard.blend",
+    "packed_textures": [
+      "Vanguard cloth weave normals",
+      "Vanguard forged roughness",
+      "Vanguard navy astral weave",
+      "Vanguard violet fractured amethyst",
+      "Vanguard weathered celestial alloy",
+      "Vanguard worn void steel"
+    ],
+    "glb": "assets/characters/vanguard.glb",
+    "runtime_modules": [
+      "scripts/model_forge_art.gd",
+      "scripts/model_forge_jump_pose.gd",
+      "scripts/model_forge_pose_blend.gd",
+      "scripts/model_forge_equipment.gd",
+      "scripts/vanguard_authored.gd"
+    ],
+    "viewer": "tools/model_forge_review.gd"
+  },
+  "validation": {
+    "source_checks": {
+      "passed": true,
+      "class": "vanguard",
+      "core_bones": 53,
+      "total_bones": 66,
+      "clips": 33,
+      "mannequin_vertex_max_error": 0.0,
+      "skin_weight_max_error": 1.7881393432617188e-07,
+      "triangles": 130910,
+      "materials": [
+        "Vanguard_AmethystPBR",
+        "Vanguard_AstralCloth",
+        "Vanguard_CelestialAlloyPBR",
+        "Vanguard_JointLeather",
+        "Vanguard_SealedVisorShadow",
+        "Vanguard_TeamInlay",
+        "Vanguard_Visor",
+        "Vanguard_VoidSteelPBR"
+      ],
+      "preserved_packed_image_hashes": {
+        "Vanguard cloth weave normals": "0e91b7e90729b1de17862ae773695cb9d06f2b00b4f86398b19bbc81c2bc276a",
+        "Vanguard forged roughness": "860caf08d647380c2e2979b96f3c0a8426a44b3a5e08e41157ee517d0402eed4",
+        "Vanguard navy astral weave": "950e146170bf70bc80c388130b7b8b58cae79295cf106652f3a8d0976f0dfe6c",
+        "Vanguard violet fractured amethyst": "f35184f88ebbd30a18378685aa9ee747cd148c7c7eb17fa84ec6c6ba4f5a274a",
+        "Vanguard weathered celestial alloy": "59a1fa2dc3d1fda1b7128454a4aa0825ad6d94f450d507bac3aa7df8618df9ac",
+        "Vanguard worn void steel": "81f4a56beb1d58774adbbe840c31bc1abfd67a9d980eef68ff78fd32107a161e"
+      },
+      "equipment": {
+        "slug": "vanguard",
+        "max_grip_error": 2.950279395762582e-07,
+        "motion_exceptions": [
+          "DEF-upper_arm.L",
+          "DEF-forearm.L",
+          "DEF-hand.L",
+          "DEF-f_index.01.L",
+          "DEF-f_index.02.L",
+          "DEF-f_index.03.L",
+          "DEF-f_middle.01.L",
+          "DEF-f_middle.02.L",
+          "DEF-f_middle.03.L",
+          "DEF-f_pinky.01.L",
+          "DEF-f_pinky.02.L",
+          "DEF-f_pinky.03.L",
+          "DEF-f_ring.01.L",
+          "DEF-f_ring.02.L",
+          "DEF-f_ring.03.L",
+          "DEF-thumb.01.L",
+          "DEF-thumb.02.L",
+          "DEF-thumb.03.L",
+          "DEF-upper_arm.R",
+          "DEF-forearm.R",
+          "DEF-hand.R",
+          "DEF-f_index.01.R",
+          "DEF-f_index.02.R",
+          "DEF-f_index.03.R",
+          "DEF-f_middle.01.R",
+          "DEF-f_middle.02.R",
+          "DEF-f_middle.03.R",
+          "DEF-f_pinky.01.R",
+          "DEF-f_pinky.02.R",
+          "DEF-f_pinky.03.R",
+          "DEF-f_ring.01.R",
+          "DEF-f_ring.02.R",
+          "DEF-f_ring.03.R",
+          "DEF-thumb.01.R",
+          "DEF-thumb.02.R",
+          "DEF-thumb.03.R"
+        ],
+        "bone": "weapon",
+        "scale": 0.78
+      },
+      "v2_core_contract_passed": true
+    },
+    "animation_contract": {
+      "core_rest_max_error": 0.0,
+      "inherited_motion_max_error": 0.0,
+      "verified_bone_frame_samples": 35870
+    },
+    "skin_checks": {
+      "weight_max_error": 1.7881393432617188e-07,
+      "unchanged_mannequin_max_error": 0.0
+    },
+    "materials_export": "Packed original maps preserved; final GLB reviewed in Godot Compatibility",
+    "weapon_grip": "Final hand attachment and rapid-transition tests pass; right staff fingers retain library grip; Vanguard both wrist constraints <1e-4m",
+    "godot_tests": {
+      "class_presentation": [
+        972,
+        972
+      ],
+      "jump_arms": [
+        68,
+        68
+      ],
+      "pose_transitions": [
+        152,
+        152
+      ],
+      "jump_momentum": [
+        35,
+        35
+      ],
+      "combat": [
+        81,
+        81
+      ],
+      "fulcrum_presentation": [
+        203,
+        203
+      ],
+      "rendered_ability_art": [
+        195,
+        195
+      ]
+    },
+    "visual_review": {
+      "renderer": "Godot Compatibility",
+      "resolution": [
+        1000,
+        900
+      ],
+      "monitor": 0,
+      "fps_cap": 30,
+      "folder": "artifacts/forge-v2-all-classes/vanguard",
+      "views": [
+        "front",
+        "back",
+        "side",
+        "walk-a",
+        "walk-b",
+        "run-a",
+        "run-b",
+        "backpedal",
+        "side-run",
+        "cast",
+        "jump-apex",
+        "strike"
+      ]
+    },
+    "limitations": [
+      "Existing stylized costume preserved",
+      "No terrain foot IK or real-time cloth collision; extreme limb/robe intersections possible",
+      "Owner visual feedback pending; no uncontended performance benchmark"
+    ]
+  },
+  "installation": {
+    "before_manifest": "C:\\projects\\starfall\\artifacts\\forge-v2-all-classes\\before\\manifest.json",
+    "installed_manifest": "C:\\projects\\starfall\\artifacts\\forge-v2-all-classes\\installed_manifest.json",
+    "new_paths": [
+      "art_source/vanguard_ual/class_record.json",
+      "art_source/vanguard_ual/costume_source.blend",
+      "art_source/vanguard_ual/README.md",
+      "art_source/vanguard_ual/recipe.json"
+    ],
+    "owner_feedback": "User authorized conversion and reversible project installation; final visual approval pending"
+  }
+}

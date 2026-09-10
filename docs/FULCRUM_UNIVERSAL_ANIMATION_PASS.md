@@ -1,5 +1,7 @@
 # Fulcrum — Universal Animation Library pass r001
 
+**Approved successor workflow, 2026-09-09:** the owner accepted r008 and selected the accumulated r001–r005 plus r008 work as the default for future classes. [Starfall Model Forge v2](STARFALL_MODEL_FORGE_V2.md) freezes the accepted sources and runtime. Reverted r006/r007 are excluded. Earlier experimental/pending wording below records history and is superseded by this approval.
+
 Recorded 2026-09-09. Installed locally for owner review; this is an experimental successor to Fulcrum's old animation workflow, not an approved replacement for Character Forge v1 across all classes. Base commit: `921935073ec71ede5dcad7893e23ae14a97e5d6c`. No commit, push or deployment performed.
 
 ## Owner feedback revision r008 — slight jump transition smoothing

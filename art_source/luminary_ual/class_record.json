@@ -1,0 +1,343 @@
+{
+  "schema": 2,
+  "workflow": "Starfall Model Forge v2",
+  "baseline_manifest_sha256": "ba51084d96ce0202a11984e5c19f845f3fe7fe3c96a03599b04d7ae7f690fa35",
+  "baseline_archive_sha256": "7be9f5dbcbb448090db190235e0ade5ea42b20162e3b4a98039a1f2b740b8bf9",
+  "class_slug": "luminary",
+  "class_display_name": "Luminary",
+  "reference_paths": [
+    "art_source/references/luminary.png"
+  ],
+  "stage_directory": "artifacts/forge-v2-all-classes/luminary",
+  "design": {
+    "silhouette": [
+      "ivory hood",
+      "celestial halo",
+      "long embroidered cape"
+    ],
+    "armor_and_clothing": [
+      "Original approved costume fitted to actual preset joint landmarks"
+    ],
+    "palette": [
+      "ivory",
+      "gold",
+      "midnight blue"
+    ],
+    "material_roles": [
+      "Luminary_AntiqueBronze",
+      "Luminary_BlackLeather",
+      "Luminary_CelestialGlass",
+      "Luminary_EngravedGold",
+      "Luminary_FaceVoid",
+      "Luminary_FeaturelessShadow",
+      "Luminary_HoodLining",
+      "Luminary_IvoryEnamel",
+      "Luminary_LivingCinder",
+      "Luminary_MidnightVelvet",
+      "Luminary_NebulaSilk",
+      "Luminary_Starlight",
+      "Luminary_TeamInlay"
+    ],
+    "face_and_hair_treatment": "Covered mannequin head removed; original sealed hood/helmet retained; no added face or hair",
+    "weapon": "Original celestial staff, fitted at uniform 0.86 scale",
+    "carrying_hands": [
+      "R"
+    ]
+  },
+  "inputs": {
+    "library_sha256": "1b7bf67866360665426bb99e4c71bd619f19b408453c24e30f0c3071601eee5c",
+    "costume_source": "C:\\projects\\starfall\\art_source\\luminary_ual\\costume_source.blend",
+    "costume_sha256": "a6c670f246280bc473aba3d839384e23a32cff69d541fe804eca84beb2992f6c"
+  },
+  "invariants": {
+    "preserve_53_bone_rest_anatomy": true,
+    "preserve_32_clip_core_motion": true,
+    "use_accepted_runtime": true,
+    "excluded_revisions": [
+      "r006",
+      "r007"
+    ]
+  },
+  "intentional_exceptions": {
+    "core_motion_bones": [
+      "DEF-f_index.01.R",
+      "DEF-f_index.02.R",
+      "DEF-f_index.03.R",
+      "DEF-f_middle.01.R",
+      "DEF-f_middle.02.R",
+      "DEF-f_middle.03.R",
+      "DEF-f_pinky.01.R",
+      "DEF-f_pinky.02.R",
+      "DEF-f_pinky.03.R",
+      "DEF-f_ring.01.R",
+      "DEF-f_ring.02.R",
+      "DEF-f_ring.03.R",
+      "DEF-thumb.01.R",
+      "DEF-thumb.02.R",
+      "DEF-thumb.03.R"
+    ],
+    "reason": "Source idle right-finger grip retained around staff",
+    "new_equipment_controls": [
+      "staff"
+    ],
+    "texture_palette_recipe_changes": [
+      "None; all original packed image hashes retained. Godot export may re-encode texture containers."
+    ]
+  },
+  "tools": {
+    "blender_version": "5.2.1 LTS",
+    "godot_version": "4.7.2 stable",
+    "renderer": "OpenGL Compatibility / RTX 5060 Ti / NVIDIA 616.64",
+    "python_version": "Blender bundled Python 3.13",
+    "seeds": {
+      "texture_generation": "Original packed costume textures; no new random generation"
+    }
+  },
+  "deliverables": {
+    "builder": "tools/build_model_forge_class.py",
+    "companions": [
+      "tools/model_forge_equipment.py"
+    ],
+    "editable_blend": "art_source/luminary.blend",
+    "packed_textures": [
+      "Luminary star field",
+      "Luminary woven astral silk"
+    ],
+    "glb": "assets/characters/luminary.glb",
+    "runtime_modules": [
+      "scripts/model_forge_art.gd",
+      "scripts/model_forge_jump_pose.gd",
+      "scripts/model_forge_pose_blend.gd",
+      "scripts/model_forge_equipment.gd",
+      "scripts/luminary_art.gd"
+    ],
+    "viewer": "tools/model_forge_review.gd"
+  },
+  "validation": {
+    "source_checks": {
+      "passed": true,
+      "class": "luminary",
+      "core_bones": 53,
+      "total_bones": 80,
+      "clips": 32,
+      "mannequin_vertex_max_error": 0.0,
+      "skin_weight_max_error": 9.685754776000977e-08,
+      "triangles": 162078,
+      "materials": [
+        "Luminary_AntiqueBronze",
+        "Luminary_BlackLeather",
+        "Luminary_CelestialGlass",
+        "Luminary_EngravedGold",
+        "Luminary_FaceVoid",
+        "Luminary_FeaturelessShadow",
+        "Luminary_HoodLining",
+        "Luminary_IvoryEnamel",
+        "Luminary_LivingCinder",
+        "Luminary_MidnightVelvet",
+        "Luminary_NebulaSilk",
+        "Luminary_Starlight",
+        "Luminary_TeamInlay"
+      ],
+      "preserved_packed_image_hashes": {
+        "Luminary star field": "0ff86ddfbb7cfac5bd9b7e2bf2766681fc35037a4324b54abe2dec1fe82695f4",
+        "Luminary woven astral silk": "0882c6793a73c7658b909e6009f7ee00ae11660b32cf6b2f8f99dc0eff8be372"
+      },
+      "equipment": {
+        "slug": "luminary",
+        "max_grip_error": 0.0,
+        "motion_exceptions": [
+          "DEF-f_index.01.R",
+          "DEF-f_index.02.R",
+          "DEF-f_index.03.R",
+          "DEF-f_middle.01.R",
+          "DEF-f_middle.02.R",
+          "DEF-f_middle.03.R",
+          "DEF-f_pinky.01.R",
+          "DEF-f_pinky.02.R",
+          "DEF-f_pinky.03.R",
+          "DEF-f_ring.01.R",
+          "DEF-f_ring.02.R",
+          "DEF-f_ring.03.R",
+          "DEF-thumb.01.R",
+          "DEF-thumb.02.R",
+          "DEF-thumb.03.R"
+        ],
+        "bone": "staff",
+        "scale": 0.86,
+        "grip_rotations": {
+          "DEF-f_index.01.R": [
+            0.7769216299057007,
+            0.6295971274375916,
+            9.59405355160925e-08,
+            -3.8743019104003906e-07
+          ],
+          "DEF-f_index.02.R": [
+            0.7819496393203735,
+            0.6233413219451904,
+            2.2033962920886552e-07,
+            6.074232317132555e-08
+          ],
+          "DEF-f_index.03.R": [
+            0.7819496393203735,
+            0.62334144115448,
+            1.5245117879203463e-07,
+            -2.1200264654908096e-07
+          ],
+          "DEF-f_middle.01.R": [
+            0.7769216895103455,
+            0.6295972466468811,
+            -5.4016709327697754e-08,
+            0.0
+          ],
+          "DEF-f_middle.02.R": [
+            0.7819497585296631,
+            0.6233415007591248,
+            -4.1618477553129196e-08,
+            1.2378438896121224e-07
+          ],
+          "DEF-f_middle.03.R": [
+            0.7819494009017944,
+            0.6233417987823486,
+            9.487848728895187e-09,
+            -1.8865102902054787e-07
+          ],
+          "DEF-f_pinky.01.R": [
+            0.7436506748199463,
+            0.6644939184188843,
+            9.12696123123169e-08,
+            -0.07369866967201233
+          ],
+          "DEF-f_pinky.02.R": [
+            0.7816792726516724,
+            0.6231796145439148,
+            0.01954120770096779,
+            -0.015577467158436775
+          ],
+          "DEF-f_pinky.03.R": [
+            0.7819494605064392,
+            0.6233419179916382,
+            -2.126034814864397e-07,
+            8.221832104027271e-08
+          ],
+          "DEF-f_ring.01.R": [
+            0.7769217491149902,
+            0.6295972466468811,
+            -1.7927959561347961e-07,
+            -2.682209014892578e-07
+          ],
+          "DEF-f_ring.02.R": [
+            0.7819498777389526,
+            0.6233410835266113,
+            4.999310476705432e-08,
+            2.551448972099024e-07
+          ],
+          "DEF-f_ring.03.R": [
+            0.7819493412971497,
+            0.623341977596283,
+            -2.203742042183876e-07,
+            -6.158370524644852e-08
+          ],
+          "DEF-thumb.01.R": [
+            0.9945780634880066,
+            0.09516015648841858,
+            -7.450580596923828e-08,
+            -0.04194121062755585
+          ],
+          "DEF-thumb.02.R": [
+            0.9753006100654602,
+            0.219523087143898,
+            -0.023865001276135445,
+            0.005364543758332729
+          ],
+          "DEF-thumb.03.R": [
+            0.7264605760574341,
+            0.6872082948684692,
+            2.0411991386026784e-07,
+            -2.03253875952214e-08
+          ]
+        }
+      },
+      "v2_core_contract_passed": true
+    },
+    "animation_contract": {
+      "core_rest_max_error": 0.0,
+      "inherited_motion_max_error": 0.0,
+      "verified_bone_frame_samples": 80180
+    },
+    "skin_checks": {
+      "weight_max_error": 9.685754776000977e-08,
+      "unchanged_mannequin_max_error": 0.0
+    },
+    "materials_export": "Packed original maps preserved; final GLB reviewed in Godot Compatibility",
+    "weapon_grip": "Final hand attachment and rapid-transition tests pass; right staff fingers retain library grip; Vanguard both wrist constraints <1e-4m",
+    "godot_tests": {
+      "class_presentation": [
+        972,
+        972
+      ],
+      "jump_arms": [
+        68,
+        68
+      ],
+      "pose_transitions": [
+        152,
+        152
+      ],
+      "jump_momentum": [
+        35,
+        35
+      ],
+      "combat": [
+        81,
+        81
+      ],
+      "fulcrum_presentation": [
+        203,
+        203
+      ],
+      "rendered_ability_art": [
+        195,
+        195
+      ]
+    },
+    "visual_review": {
+      "renderer": "Godot Compatibility",
+      "resolution": [
+        1000,
+        900
+      ],
+      "monitor": 0,
+      "fps_cap": 30,
+      "folder": "artifacts/forge-v2-all-classes/luminary",
+      "views": [
+        "front",
+        "back",
+        "side",
+        "walk-a",
+        "walk-b",
+        "run-a",
+        "run-b",
+        "backpedal",
+        "side-run",
+        "cast",
+        "jump-apex"
+      ]
+    },
+    "limitations": [
+      "Existing stylized costume preserved",
+      "No terrain foot IK or real-time cloth collision; extreme limb/robe intersections possible",
+      "Owner visual feedback pending; no uncontended performance benchmark"
+    ]
+  },
+  "installation": {
+    "before_manifest": "C:\\projects\\starfall\\artifacts\\forge-v2-all-classes\\before\\manifest.json",
+    "installed_manifest": "C:\\projects\\starfall\\artifacts\\forge-v2-all-classes\\installed_manifest.json",
+    "new_paths": [
+      "art_source/luminary_ual/class_record.json",
+      "art_source/luminary_ual/costume_source.blend",
+      "art_source/luminary_ual/README.md",
+      "art_source/luminary_ual/recipe.json"
+    ],
+    "owner_feedback": "User authorized conversion and reversible project installation; final visual approval pending"
+  }
+}
