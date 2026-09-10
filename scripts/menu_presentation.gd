@@ -1,6 +1,7 @@
 extends RefCounted
 ## Menu layout with a selection-only cached champion portrait.
 var game
+var scroll: ScrollContainer
 var stack: VBoxContainer
 var wordmark: Label
 var eyebrow: Label
@@ -10,10 +11,18 @@ var status_card: PanelContainer
 var preview: TextureRect
 var hero: HBoxContainer
 var introduction: VBoxContainer
+var error_card: PanelContainer
+var error_text: Label
 
 func install(arena) -> void:
 	game = arena
 	stack = game.result_text.get_parent()
+	var margin := stack.get_parent()
+	scroll = ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	margin.add_child(scroll)
+	stack.reparent(scroll)
+	stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	wordmark = stack.get_child(0)
 	eyebrow = stack.get_child(1)
 	wordmark.text = "S T A R F A L L"
@@ -27,6 +36,20 @@ func install(arena) -> void:
 	shell.shadow_size = 24
 	shell.shadow_color = Color(0, 0, 0, 0.5)
 	game.panel.add_theme_stylebox_override("panel", shell)
+	error_card = PanelContainer.new()
+	error_card.add_theme_stylebox_override("panel", game.ui_box(Color("302032"), Color("bd7e91"), 8))
+	stack.add_child(error_card)
+	stack.move_child(error_card, 3)
+	var error_column := VBoxContainer.new()
+	error_card.add_child(error_column)
+	var error_title = game.add_label(error_column, "CONNECTION NOTICE", 15)
+	error_title.add_theme_color_override("font_color", Color("ffc0c5"))
+	error_text = game.add_label(error_column, "", 15)
+	error_text.custom_minimum_size.x = 560
+	error_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	error_text.add_theme_color_override("font_color", Color("ffe5eb"))
+	game.add_button(error_column, "Dismiss", func(): game.status = ""; show_error(""))
+	error_card.hide()
 	for i in range(game.main_row.get_child_count()):
 		var button: Button = game.main_row.get_child(i)
 		var titles := ["ONLINE", "OFFLINE", "SETTINGS"]
@@ -92,11 +115,12 @@ func install(arena) -> void:
 	game.ui.resized.connect(layout)
 
 func refresh() -> void:
+	error_card.visible = not error_text.text.is_empty() and game.phase == "menu" and game.menu_state == "main"
 	var results: bool = game.phase == "results" and game.menu_state != "settings"
 	metrics.visible = results
 	var selecting: bool = game.phase == "menu" and game.menu_state in ["online", "offline", "queue", "host", "join", "abilities"]
 	preview.show_champion(game.Kits.NAMES[game.champion_choice.selected], selecting)
-	status_card.visible = game.menu_state != "abilities"
+	status_card.visible = game.menu_state != "abilities" and not error_card.visible
 	hero.visible = selecting
 	introduction.show_champion(game.Kits.NAMES[game.champion_choice.selected], selecting and game.menu_state in ["online", "offline", "abilities"])
 	wordmark.add_theme_font_size_override("font_size", 28 if selecting else 42)
@@ -127,11 +151,16 @@ func refresh() -> void:
 
 func layout() -> void:
 	if not is_instance_valid(game.panel): return
+	var chrome: float = game.panel.get_combined_minimum_size().y - scroll.get_combined_minimum_size().y
 	if preview.visible:
-		# Spend remaining vertical space on the portrait without pushing actions
-		# off short displays. Its 3:4 frame stays centered above the full-width picker.
-		var other_height: float = game.panel.get_combined_minimum_size().y - hero.get_combined_minimum_size().y
-		var portrait_height := clampf(game.ui.size.y - other_height - 40.0, 180.0, 360.0)
+		var other_height: float = stack.get_combined_minimum_size().y - hero.get_combined_minimum_size().y
+		var portrait_height := clampf(game.ui.size.y - other_height - chrome - 32.0, 150.0, 360.0)
 		preview.custom_minimum_size = Vector2(portrait_height * 0.75, portrait_height)
+	scroll.custom_minimum_size.y = minf(stack.get_combined_minimum_size().y, maxf(120, game.ui.size.y - chrome - 32))
 	game.panel.reset_size()
 	game.panel.position = (game.ui.size - game.panel.size) * 0.5
+
+func show_error(message: String) -> void:
+	if error_card == null: return
+	error_text.text = message
+	game.refresh_menu()

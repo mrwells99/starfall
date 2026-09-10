@@ -117,6 +117,29 @@ func run() -> void:
 	check(arena.selected_id == 2, "Clicking party frame selects ally")
 	await click(arena.enemy_buttons[1].get_global_rect().get_center())
 	check(arena.selected_id == 5, "Clicking enemy frame selects enemy")
+	var enemy_frame_point: Vector2 = arena.enemy_buttons[2].get_global_rect().get_center()
+	point_mouse(enemy_frame_point)
+	mouse_button(enemy_frame_point, MOUSE_BUTTON_RIGHT, true)
+	await process_frame
+	mouse_button(enemy_frame_point, MOUSE_BUTTON_RIGHT, false)
+	check(arena.focus_id == 6 and arena.selected_id == 5, "Right-click enemy row sets focus without changing target")
+	check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "Right-click enemy row does not capture camera")
+	var saved_actions: Dictionary = arena.controls.actions.duplicate(true)
+	for i in range(3):
+		arena.controls.put(arena, "target_arena_%d" % (i + 1), 0, KEY_F4 + i)
+		arena.controls.put(arena, "focus_arena_%d" % (i + 1), 1, KEY_F7 + i)
+		key_event(KEY_F4 + i)
+		await process_frame
+		key_event(KEY_F4 + i, false)
+		check(arena.selected_id == 4 + i, "Target arena binding selects matching enemy row")
+		key_event(KEY_F7 + i)
+		await process_frame
+		key_event(KEY_F7 + i, false)
+		check(arena.focus_id == 4 + i and arena.selected_id == 4 + i, "Secondary focus arena binding sets matching focus")
+	arena.keybind_menu.rebuild()
+	for i in range(3):
+		check(arena.keybind_menu.buttons.has("target_arena_%d:0" % (i + 1)) and arena.keybind_menu.buttons.has("focus_arena_%d:1" % (i + 1)), "Arena target/focus actions appear in Keybinds")
+	arena.controls.actions = saved_actions
 	arena.focus_id = 4
 	arena.update_visuals(0)
 	await process_frame
@@ -204,13 +227,13 @@ func run() -> void:
 			shown += 1
 	check(shown == 2, "Active auras appear as chips on the unit frame")
 	var first := strip.get_child(0) as PanelContainer
-	var first_row := first.get_child(0) as HBoxContainer
+	var first_row := first.get_child(0) as Control
 	check(first.has_meta("aura"), "Aura chip carries its data")
 	# The stun came from an ability, so the chip shows that ability's icon and
 	# the text collapses to just the countdown.
 	check((first_row.get_child(0) as TextureRect).visible,
 		"Aura chip shows the icon of the ability that caused it")
-	check((first_row.get_child(1) as Label).text.contains("s"),
+	check((first_row.get_child(1) as Label).text == str(ceili(first.get_meta("aura").remaining)),
 		"Aura chip counts down")
 	# Hovering a chip explains the effect.
 	point_mouse(first.get_global_rect().get_center())
@@ -277,7 +300,7 @@ func run() -> void:
 	check(shades.size() == Kits.NAMES.size(), "Every champion has a distinct class colour")
 	arena.update_visuals(0)
 	var bar_fill := (arena.player_frame.get_child(1) as ProgressBar).get_theme_stylebox("fill") as StyleBoxFlat
-	check(bar_fill.bg_color == Kits.color(arena.actors[arena.local_id].champion),
+	check(bar_fill.bg_color == arena.hud_health_color(arena.actors[arena.local_id].champion),
 		"The health bar is filled with the champion's class colour")
 	# The team border is an overlay drawn over the fill, so it is visible at any
 	# health rather than only where the bar is empty.
@@ -305,22 +328,23 @@ func run() -> void:
 	arena.update_visuals(0)
 	var ally_bar: ProgressBar = arena.roster_bar(arena.party_buttons[1])
 	check(ally_bar != null and ally_bar.value == 40.0, "Party rows show health as a bar, not a number")
-	check((ally_bar.get_child(0) as Label).text.contains("40 HP"), "The bar still carries the readable numbers")
+	check((ally_bar.get_child(0) as Label).text == "40%", "Health bars show only the health percentage")
 	var ally_fill := ally_bar.get_theme_stylebox("fill") as StyleBoxFlat
-	check(ally_fill.bg_color == Kits.color(ally.champion), "Roster bars use the class colour")
+	check(ally_fill.bg_color == arena.hud_health_color(ally.champion), "Roster bars use the class colour")
 	var foe_id: int = arena.enemy_ids()[0]
 	arena.actors[foe_id].hp = 85.0
+	arena.selected_id = foe_id
 	arena.update_visuals(0)
 	var foe_bar: ProgressBar = arena.roster_bar(arena.enemy_buttons[0])
 	check(foe_bar.value == 85.0, "Enemy rows track health too")
 	var foe_edge: StyleBoxFlat = arena.bar_edge(foe_bar).get_theme_stylebox("panel")
 	var ally_edge: StyleBoxFlat = arena.bar_edge(ally_bar).get_theme_stylebox("panel")
 	check(foe_edge.border_color == arena.ENEMY_EDGE and foe_edge.border_width_left > ally_edge.border_width_left,
-		"Enemies carry a heavier red border than allies")
+		"Selected enemy has a stronger rose edge than unselected allies")
 	# The border is drawn over the fill, so it survives at full health.
 	arena.actors[foe_id].hp = 100.0
 	arena.update_visuals(0)
-	check(arena.bar_edge(foe_bar).visible and (arena.bar_edge(foe_bar).get_theme_stylebox("panel") as StyleBoxFlat).border_width_left == 3,
+	check(arena.bar_edge(foe_bar).visible and (arena.bar_edge(foe_bar).get_theme_stylebox("panel") as StyleBoxFlat).border_width_left == 2,
 		"The enemy border is still there at full health")
 
 	# --- shift-drag rearranges bars outside edit mode --------------------------
@@ -378,9 +402,9 @@ func run() -> void:
 	self_me.shield = 6.0
 	self_me.shield_from = "Ward"
 	arena.update_visuals(0)
-	check(arena.self_auras.visible, "Your own buffs and debuffs get their own strip")
+	check(not arena.ui.has_node("SelfAuras"), "No separate personal aura display is created")
 	var strip_shown := 0
-	for chip in arena.self_auras.get_children():
+	for chip in arena.player_frame.get_child(4).get_children():
 		if (chip as PanelContainer).visible:
 			strip_shown += 1
 	check(strip_shown == 2, "The strip lists every effect on you")
@@ -409,15 +433,15 @@ func run() -> void:
 	self_me.shield_from = ""
 	arena.update_visuals(0)
 	check(arena.ability_buttons[0].modulate.r >= 0.99, "Slots return to normal once the hold ends")
-	check(not arena.self_auras.visible, "The strip hides when nothing is on you")
+	check(not arena.player_frame.get_child(4).get_child(0).visible, "Personal frame effects hide when nothing is on you")
 
 	# Both readouts are arrangeable.
 	arena.register_movable_frames()
 	var arrangeable := {}
 	for frame in arena.movable_frames:
 		arrangeable[frame.name] = true
-	check(arrangeable.has("SelfAuras") and arrangeable.has("CrowdControl"),
-		"The aura strip and crowd control readout can be moved in Edit HUD")
+	check(not arrangeable.has("SelfAuras") and arrangeable.has("CrowdControl"),
+		"Removed aura display stays out of Edit HUD; crowd control remains movable")
 
 	# The ghost follows the cursor: motion must be handled before the button guard.
 	arena.drag_slot = 0
@@ -529,6 +553,39 @@ func run() -> void:
 	arena.paint_bar_edge(row_bar, Color.BLUE, 3)
 	check(border.border_color == Color.BLUE and border.border_width_left == 3, "Reused border still responds to style changes")
 
+	arena.toggle_edit_mode(false)
+	var mismatch := "Version mismatch — server is v0.12.0, your client is v0.11.0. Update to play."
+	arena.rejected(mismatch)
+	for frame in range(4): await process_frame
+	check(arena.menu_presentation.error_card.is_visible_in_tree() and arena.menu_presentation.error_text.text == mismatch, "Version rejection appears inside the foreground menu")
+	check(arena.panel.get_global_rect().encloses(arena.menu_presentation.error_card.get_global_rect()), "Connection error card fits within the menu")
+	check(Rect2(Vector2.ZERO, arena.ui.size).encloses(arena.panel.get_global_rect()), "Connection notice keeps the whole menu on screen")
+	arena.update_visuals(4)
+	check(arena.menu_presentation.error_card.visible, "Connection rejection does not disappear with combat notices")
+	arena.menu_presentation.error_card.get_child(0).get_child(2).pressed.emit()
+	check(not arena.menu_presentation.error_card.visible, "Connection notice can be dismissed")
+	# Editing a live duel must expose teammate placeholders and consume drag input.
+	arena.mode_choice.select(0)
+	arena.local_match()
+	arena.phase = "match"
+	arena.toggle_edit_mode(true)
+	arena.update_visuals(0)
+	await process_frame
+	await process_frame
+	var party_start: Vector2 = arena.party_box.position
+	var party_point: Vector2 = arena.roster_bar(arena.party_buttons[1]).get_global_rect().get_center()
+	check(arena.party_buttons[1].is_visible_in_tree(), "Live 1v1 edit mode exposes party placeholders")
+	point_mouse(party_point)
+	mouse_button(party_point, MOUSE_BUTTON_LEFT, true)
+	point_mouse(party_point + Vector2(70, 35))
+	mouse_button(party_point + Vector2(70, 35), MOUSE_BUTTON_LEFT, false)
+	check(arena.party_box.position.distance_to(party_start) > 30, "Party frames move through real Edit HUD input")
+	check(arena.moved_frames.has("PartyFrame"), "Party drag is marked for persistence")
+	var party_saved: Vector2 = arena.party_box.position
+	arena.toggle_edit_mode(false)
+	arena.party_box.position = party_start
+	arena.load_layout()
+	check(arena.party_box.position.is_equal_approx(party_saved), "Party frame drag reloads correctly")
 	print("UI checks: %d passed / %d total" % [checks - failures, checks])
 	arena.queue_free()
 	await process_frame

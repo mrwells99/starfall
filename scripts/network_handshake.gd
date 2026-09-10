@@ -3,7 +3,7 @@ extends RefCounted
 # Runs before SceneMultiplayer permits ANY scene RPC. An RPC cannot safely
 # negotiate versions because differing method tables can misroute that RPC too.
 const Config = preload("res://scripts/config.gd")
-const PROTOCOL := 1
+const PROTOCOL := 2
 var game
 var schema := ""
 var rejection := ""
@@ -42,7 +42,7 @@ func hello_packet() -> PackedByteArray:
 
 func receive(peer: int, payload: PackedByteArray) -> void:
 	var hello = JSON.parse_string(payload.get_string_from_utf8()) if payload.size() <= 1024 else null
-	var reason := "Incompatible connection handshake. Update and restart both the game and server."
+	var reason := "Network protocol mismatch. Update and restart both the game and server."
 	if hello is Dictionary and hello.get("game") == "starfall" and hello.get("protocol") == PROTOCOL:
 		if hello.get("version") == Config.VERSION and hello.get("schema") == schema:
 			if not game.multiplayer.is_server():

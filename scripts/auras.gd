@@ -74,23 +74,20 @@ static func active(actor) -> Array:
 	for item in [["root", "Rooted", "Collapse", "Cannot move; can still cast.", DEBUFF], ["slow", "Slowed", "Heavy Orbit", "Movement reduced by 45%.", DEBUFF], ["immune", "Absolution", "Absolution", "Immune to roots and slows.", BUFF], ["last", "Last Light", "Last Light", "The next lethal hit leaves 1 HP, then protection ends.", BUFF], ["hold", "Hold the Line", "Hold the Line", "Stationary, displacement resistant; 70% frontal damage reduction.", BUFF], ["guard_left", "Intercede", "Intercede", "Redirecting 30% of an ally's incoming damage, up to the remaining budget.", BUFF], ["challenge_left", "Challenge", "Challenge", "Marked enemy attacking allies grants Resolve.", BUFF]]:
 		if identity.get(item[0], 0.0) > 0:
 			out.append({"key": item[0], "name": item[1], "source": item[2], "description": item[3], "kind": item[4], "remaining": identity[item[0]], "color": Color("c9a0ff")})
-	if identity.get("disorient", false) and actor.stunned > 0:
-		out[0].name = "Disoriented"
-		out[0].description = "Cannot move or act. Damage breaks this effect."
-	# Diminishing returns is not an effect on the fighter, but it decides whether
-	# your next stun is worth casting, so it belongs on the frame.
-	if actor.dr_timer > 0 and actor.dr_count > 0:
-		var next_text := "immune to further stuns"
-		if actor.dr_count == 1:
-			next_text = "next stun lasts 50%"
-		elif actor.dr_count == 2:
-			next_text = "next stun lasts 25%"
-		out.append({
-			"key": "dr", "name": "Diminished %d" % actor.dr_count, "kind": DEBUFF,
-			"remaining": actor.dr_timer, "color": Color("c9a0ff"),
-			"source": "",
-			"description": "Recently stunned — %s. Resets 18s after the last stun ends." % next_text,
-		})
+	for aura in out:
+		if aura.key == "stun":
+			if actor.cc_effects.has("incapacitate"):
+				aura.name = "Incapacitated"
+				aura.cc = "INCAPACITATED"
+				aura.description = "Cannot move or cast. Any damage breaks this effect."
+			elif actor.cc_effects.has("disorient"):
+				aura.name = "Disoriented"
+				aura.cc = "DISORIENTED"
+				aura.description = "Cannot move or cast. Damage can break this effect; 20 total damage guarantees it."
+	for category in ["silence", "disarm"]:
+		if actor.cc_effects.has(category):
+			var effect: Dictionary = actor.cc_effects[category]
+			out.append({"key": category, "name": "Silenced" if category == "silence" else "Disarmed", "cc": category.to_upper(), "source": effect.source, "kind": DEBUFF, "remaining": effect.remaining, "color": Color("b899df"), "description": "Cannot cast abilities. Movement is allowed; damage does not break this effect."})
 	return out
 
 # The crowd control currently on a fighter, or an empty dictionary. Stuns

@@ -22,8 +22,19 @@ var stun_from := ""
 var lock_from := ""
 var shield_from := ""
 var sprint_from := ""
-var dr_count := 0
-var dr_timer := 0.0
+var dr_states: Dictionary = {}
+var cc_effects: Dictionary = {}
+# Legacy accessors refer only to the stun track, not shared diminishing returns.
+var dr_count: int:
+	get: return int(dr_states.get("stun", {}).get("count", 0))
+	set(value):
+		if not dr_states.has("stun"): dr_states.stun = {"count": 0, "remaining": 0.0}
+		dr_states.stun.count = value
+var dr_timer: float:
+	get: return float(dr_states.get("stun", {}).get("remaining", 0.0))
+	set(value):
+		if not dr_states.has("stun"): dr_states.stun = {"count": 0, "remaining": 0.0}
+		dr_states.stun.remaining = value
 var move_input := Vector2.ZERO
 var jump_queued := false
 var input_age := 0.0
@@ -35,11 +46,12 @@ var body_mesh: MeshInstance3D
 var training_dummy := false
 var champion_model: Node3D
 var nameplate: Label3D
+var team_marker
 var health_mesh: MeshInstance3D
 var health_pivot: Node3D
-var cast_mesh: MeshInstance3D
-var cast_pivot: Node3D
-var cast_label: Label3D
+var resource_mesh: MeshInstance3D
+var resource_pivot: Node3D
+const ThinResource = preload("res://scripts/thin_resource_bar.gd")
 var aura_icons: Array = []
 var health_back_mat: StandardMaterial3D
 const NAMEPLATE_AURAS := 3
@@ -84,12 +96,6 @@ func setup(id: int, peer: int, side: int, choice: String, presentation: bool = t
 	add_child(champion_model)
 	champion_model.build(champion, base_color)
 	body_mesh = champion_model.torso
-	nameplate = Label3D.new()
-	nameplate.font_size = 24
-	nameplate.modulate = base_color
-	nameplate.position.y = 2.95
-	nameplate.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	add_child(nameplate)
 	health_pivot = Node3D.new()
 	health_pivot.position.y = 2.48
 	add_child(health_pivot)
@@ -112,52 +118,35 @@ func setup(id: int, peer: int, side: int, choice: String, presentation: bool = t
 	fill_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	health_mesh.material_override = fill_mat
 	health_pivot.add_child(health_mesh)
-	cast_pivot = Node3D.new()
-	cast_pivot.position.y = 2.3
-	cast_pivot.visible = false
-	add_child(cast_pivot)
-	var cast_back := MeshInstance3D.new()
-	var cast_plane := QuadMesh.new()
-	cast_plane.size = Vector2(1.6, 0.11)
-	cast_back.mesh = cast_plane
-	var cast_back_mat := StandardMaterial3D.new()
-	cast_back_mat.albedo_color = Color("17202b")
-	cast_back_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	cast_back.material_override = cast_back_mat
-	cast_pivot.add_child(cast_back)
-	cast_mesh = MeshInstance3D.new()
-	var cast_fill := QuadMesh.new()
-	cast_fill.size = Vector2(1.54, 0.07)
-	cast_mesh.mesh = cast_fill
-	cast_mesh.position.z = 0.01
-	var cast_fill_mat := StandardMaterial3D.new()
-	cast_fill_mat.albedo_color = Color("e8be78")
-	cast_fill_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	cast_mesh.material_override = cast_fill_mat
-	cast_pivot.add_child(cast_mesh)
-	cast_label = Label3D.new()
-	cast_label.font_size = 18
-	cast_label.outline_size = 6
-	cast_label.position.y = 0.14
-	cast_label.modulate = Color("ffe6a8")
-	cast_pivot.add_child(cast_label)
+	resource_pivot = Node3D.new()
+	resource_pivot.position.y = -0.1475
+	health_pivot.add_child(resource_pivot)
+	for is_fill in [false, true]:
+		var mesh := MeshInstance3D.new()
+		var quad := QuadMesh.new()
+		quad.size = Vector2(1.54, 0.07)
+		mesh.mesh = quad
+		var material := StandardMaterial3D.new()
+		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		material.albedo_color = ThinResource.COLORS.get(champion, Color.WHITE) if is_fill else Color("17202b")
+		mesh.material_override = material
+		mesh.position.z = 0.012 if is_fill else 0.01
+		resource_pivot.add_child(mesh)
+		if is_fill: resource_mesh = mesh
 	for i in range(NAMEPLATE_AURAS):
 		var holder := Node3D.new()
-		holder.position = Vector3(-0.62 + i * 0.62, 2.94, 0)
 		holder.visible = false
-		add_child(holder)
+		health_pivot.add_child(holder)
+		holder.position = Vector3(-0.76 + i * 0.76, 0.48, 0.02)
 		var icon := Sprite3D.new()
 		icon.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 		icon.pixel_size = 0.0022
 		icon.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 		holder.add_child(icon)
-		var timer := Label3D.new()
-		timer.font_size = 26
-		timer.outline_size = 8
-		timer.position.y = -0.34
-		timer.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		holder.add_child(timer)
 		aura_icons.append(holder)
+	team_marker = preload("res://scripts/team_marker.gd").new()
+	add_child(team_marker)
+	team_marker.install(self)
 
 # Painted from the arena, which is the only thing that knows who the local
 # player is and therefore who counts as hostile.
@@ -173,45 +162,33 @@ func paint_nameplate_auras(auras: Array, art) -> void:
 			continue
 		var aura: Dictionary = auras[i]
 		var texture = art.texture_for(aura.get("source", ""))
+		if texture == null: texture = art.texture_for(aura.name)
+		if texture == null: texture = art.texture_for("Stasis" if aura.has("cc") else "Ward")
 		holder.visible = texture != null
 		if texture == null:
 			continue
 		(holder.get_child(0) as Sprite3D).texture = texture
-		var timer := holder.get_child(1) as Label3D
-		timer.text = "%.0f" % ceil(aura.remaining) if aura.remaining >= 10.0 else "%.1f" % aura.remaining
-		timer.modulate = aura.color
+		(holder.get_child(0) as Sprite3D).pixel_size = 0.70 / maxf(1, texture.get_width())
+		holder.position.x = (i - (mini(auras.size(), NAMEPLATE_AURAS) - 1) * 0.5) * 0.76
 
-func visual_tick(delta: float, camera: Camera3D) -> void:
+func visual_tick(delta: float, camera: Camera3D, show_nameplate: bool = true) -> void:
 	flash = maxf(0, flash - delta)
 	if not training_dummy: champion_model.animate(delta, self)
 	health_mesh.scale.x = maxf(0.001, hp / 100.0)
 	health_mesh.position.x = -0.77 * (1.0 - hp / 100.0)
 	if camera and (camera.global_position - health_pivot.global_position).cross(Vector3.UP).length() > 0.01:
 		health_pivot.look_at(camera.global_position, Vector3.UP, true)
-	# Cast bar fills left to right as the cast completes, and is hidden the rest
-	# of the time so a nameplate is not carrying an empty bar around.
-	cast_pivot.visible = casting >= 0 and hp > 0
-	if cast_pivot.visible:
-		var total: float = maxf(0.01, kit[casting].cast)
-		var done: float = clampf(1.0 - cast_left / total, 0.0, 1.0)
-		cast_label.text = "%s  %.1fs" % [kit[casting].name, cast_left]
-		cast_mesh.scale.x = maxf(0.001, done)
-		cast_mesh.position.x = -0.77 * (1.0 - done)
-		if camera and (camera.global_position - cast_pivot.global_position).cross(Vector3.UP).length() > 0.01:
-			cast_pivot.look_at(camera.global_position, Vector3.UP, true)
-	# ClassMechanics composes base text and resources in one assignment. Resetting
-	# then appending the text each tick forces Label3D to rebuild unchanged text.
+	health_pivot.visible = show_nameplate and hp > 0
+	resource_pivot.visible = not training_dummy
+	var amount := ThinResource.value(self)
+	resource_mesh.visible = amount > 0
+	resource_mesh.scale.x = maxf(0.001, amount)
+	resource_mesh.position.x = -0.77 * (1.0 - amount)
 
-func nameplate_base_text() -> String:
-	if training_dummy: return "TRAINING DUMMY"
-	var lines := "%s %s" % [champion, "[BOT]" if owner_peer == 0 else ""]
-	if hp <= 0:
-		lines += "\nDEFEATED"
-	return lines
 
 func snapshot() -> Dictionary:
 	return {"move_ack": last_motion_seq, "velocity": velocity, "grounded": is_on_floor(), "motion_revision": motion_revision, "id": actor_id, "peer": owner_peer, "team": team, "champion": champion, "pos": position, "yaw": rotation.y, "hp": hp, "cd": cooldowns.duplicate(), "gcd": gcd, "casting": casting, "left": cast_left, "stun": stunned, "lock": locked, "shield": shield, "sprint": sprint,
-		"stun_src": stun_from, "lock_src": lock_from, "shield_src": shield_from, "sprint_src": sprint_from, "dr": dr_count, "dr_timer": dr_timer, "cast_target": cast_target, "target": target_id, "identity": identity.duplicate(true)}
+		"stun_src": stun_from, "lock_src": lock_from, "shield_src": shield_from, "sprint_src": sprint_from, "dr": dr_count, "dr_timer": dr_timer, "dr_states": dr_states.duplicate(true), "cc_effects": cc_effects.duplicate(true), "cast_target": cast_target, "target": target_id, "identity": identity.duplicate(true)}
 
 func receive(data: Dictionary, instant: bool = false) -> void:
 	identity = data.get("identity", {}).duplicate(true)
@@ -241,9 +218,11 @@ func receive(data: Dictionary, instant: bool = false) -> void:
 	lock_from = data.get("lock_src", "")
 	shield_from = data.get("shield_src", "")
 	sprint_from = data.get("sprint_src", "")
-	dr_count = data.dr
-	dr_timer = data.dr_timer
+	dr_states = data.get("dr_states", {}).duplicate(true)
+	cc_effects = data.get("cc_effects", {}).duplicate(true)
 	target_id = data.target
 
 func reset_identity() -> void:
+	dr_states.clear()
+	cc_effects.clear()
 	identity = {"meditation": 0.0, "instant_graviton": false, "instant_collapse": false, "entropy_dots": {}, "dots": {}, "heat": 0.0, "resolve": 0.0, "brands": {}, "stars": [], "anchor_left": 0.0, "anchor_pos": Vector3.ZERO, "orbit": 0.0, "root": 0.0, "slow": 0.0, "immune": 0.0, "last": 0.0, "hold": 0.0, "disorient": false, "guard": -1, "guard_left": 0.0, "guard_budget": 0.0, "challenge": -1, "challenge_left": 0.0, "challenge_tick": 0.0, "exposed": -1, "exposed_left": 0.0, "wake": 0.0, "wake_pos": Vector3.ZERO, "wake_end": Vector3.ZERO, "wake_tick": 0.0}

@@ -54,9 +54,7 @@ func run() -> void:
 		stage.add_child(fighter)
 		fighter.position.x = (i - 1) * 1.9
 		fighter.rotation.y = PI + 0.28
-		fighter.nameplate.hide()
 		fighter.health_pivot.hide()
-		fighter.cast_pivot.hide()
 		fighters.append(fighter)
 	var camera := Camera3D.new()
 	stage.add_child(camera)

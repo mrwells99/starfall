@@ -106,7 +106,7 @@ static func summary(ability: Dictionary) -> String:
 		"kindle": "Deal 16 damage. Gain 20 Heat and add a brand (up to 3) for 10s.",
 		"flashpoint": "Consume your brands: 12 + 6 damage per brand. Three brands also deal 10 splash damage within 5m. Gain 10 Heat.",
 		"nova": "Requires 40 Heat. Consume all Heat: 18 + 0.4 damage per Heat to enemies within 5m of the target.",
-		"flare_cc": "Disorient enemies in your forward 8m cone for up to 3s. Damage breaks it; shares stun diminishing returns.",
+		"flare_cc": "Incapacitate enemies in your forward 8m cone for up to 3s. Any damage breaks it; uses incapacitate diminishing returns.",
 		"cinder": "Requires and spends 20 Heat. Dash 6m and leave a 5s burning trail that slows enemies by 45%.",
 		"stoke": "Generate 30 Heat. Maximum 100 Heat.",
 		"wake": "Create a 5m burning field at your feet for 5s. It slows enemies by 45% and deals 4 damage each second.",
@@ -132,7 +132,7 @@ static func summary(ability: Dictionary) -> String:
 		"graviton": "Deal 6 damage and apply an 11s DoT: 3 damage each second per stack, up to 2 stacks per caster. Reapplying refreshes both stacks without delaying the next tick. Generates no Meditation. Collapse hits make your next Graviton instant.",
 		"entropy": "Instantly apply a 15s DoT: 2 damage and 5 Meditation each second. One stack per caster; reapplying refreshes without delaying the next tick. Meditation caps at 100.",
 		"gravity_starfall": "Requires at least 50 Meditation. After a 2s cast, spend all Meditation to deal 20 + 0.4 damage per Meditation (40–60) to enemies within 5m of the target. Interrupted casts spend nothing.",
-		"collapse": "Consume your anchor: deal 22 damage within 6m and root for up to 2s. At 75+ Meditation, stun for up to 3s instead; Meditation is not spent. Inward makes your next Collapse instant and off the global cooldown. Its own cooldown still applies. Hitting an enemy makes your next Graviton instant. Works through line-of-sight blockers. Control shares diminishing returns."
+		"collapse": "Consume your anchor: deal 22 damage within 6m and root for up to 2s. At 75+ Meditation, stun for up to 3s instead; Meditation is not spent. Inward makes your next Collapse instant and off the global cooldown. Its own cooldown still applies. Hitting an enemy makes your next Graviton instant. Works through line-of-sight blockers. Root and stun use separate diminishing returns."
 	}
 	if concepts.has(ability.kind):
 		return concepts[ability.kind]

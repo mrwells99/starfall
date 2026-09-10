@@ -25,6 +25,9 @@ func run() -> void:
 	root.size = Vector2i(1280, 800)
 	await create_timer(0.3).timeout
 	await capture("menu")
+	game.rejected("Version mismatch — server is v0.12.0, your client is v0.11.0. Update to play.")
+	await capture("connection-error")
+	game.leave_session("")
 	game.menu_state = "online"
 	for i in range(game.Kits.NAMES.size()):
 		game.champion_choice.select(i)
@@ -86,6 +89,39 @@ func run() -> void:
 	game.actors[1].position = Vector3(0, 0, 6)
 	game.actors[4].position = Vector3(0, 0, -15)
 	await capture("availability")
+	game.selected_id = 4
+	game.focus_id = 5
+	for champion in game.Kits.NAMES:
+		game.champion_choice.select(game.Kits.NAMES.find(champion))
+		game.local_match()
+		game.phase = "match"
+		game.selected_id = 4
+		game.focus_id = 5
+		for fighter in game.actors.values():
+			fighter.position = Vector3((fighter.actor_id % 3 - 1) * 3, 0.1, 3 if fighter.team == 0 else -5)
+			fighter.reset_physics_interpolation()
+		var actor = game.actors[game.local_id]
+		actor.identity.heat = 65.0
+		actor.identity.resolve = 65.0
+		actor.identity.meditation = 80.0
+		actor.identity.stars = [{"id": 2, "left": 20.0}, {"id": 3, "left": 20.0}]
+		await create_timer(0.2).timeout
+		await capture("hud-" + champion.to_lower())
+	game.actors[2].hp = 24
+	game.actors[2].stunned = 2.8
+	game.actors[3].shield = 4.0
+	game.actors[4].casting = 0
+	game.actors[4].cast_left = 0.9
+	game.actors[5].casting = -1
+	game.actors[5].locked = 3.5
+	# Staged expired effects expose all six DR symbols without changing spells.
+	for category in game.CC.CATEGORIES:
+		game.actors[4].dr_states[category] = {"count": 2, "remaining": 12.0}
+	game.actors[5].dr_states.stun = {"count": 3, "remaining": 8.0}
+	game.actors[2].dr_states.stun = {"count": 2, "remaining": 15.0}
+	game.show_event(game.epoch, 1, 5, "INTERRUPTED", game.GOLD)
+	for i in range(10): game.combat_text.emit(game.actors[4], "−3", game.RED)
+	await capture("team-hud")
 	game.show_event(game.epoch, 4, game.local_id, "STUN", game.RED)
 	game.show_event(game.epoch, 4, game.local_id, "−42", game.RED)
 	game.show_event(game.epoch, 4, game.local_id, "DEFEATED", game.GOLD)
