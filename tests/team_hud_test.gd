@@ -11,6 +11,49 @@ func has_effect(details, key: String) -> bool:
 	for chip in details.strip.get_children():
 		if chip.visible and chip.get_meta("aura", {}).get("key", "") == key: return true
 	return false
+func check_brands(game) -> void:
+	game.mode = 3
+	game.roster = {1: {"champion": "Ember", "team": 0}}
+	game.begin_round()
+	game.phase = "match"
+	game.selected_id = 4
+	game.focus_id = 4
+	var caster = game.actors[1]
+	var victim = game.actors[4]
+	var icon = game.AbilityArt.texture_for("Flashpoint")
+	for count in range(1, 4):
+		victim.hp = 100
+		game.resolve_spell(caster, 0, victim)
+		game.update_visuals(0)
+		var effects: Array = game.Auras.active(victim, game.actors.values(), game.local_id)
+		check(effects[0].key == "brand_1" and effects[0].stacks == count and effects[0].remaining == 10.0, "Kindle immediately exposes Brand stacks and refreshed duration on its target")
+		for frame in [game.target_frame, game.focus_frame]:
+			var chip = frame.get_child(4).get_child(0)
+			check(chip.visible and chip.get_child(0).get_child(0).texture == icon and chip.get_child(0).get_child(1).text == "×%d" % count, "Target/focus Brand uses Flashpoint art and a stack count")
+		var roster_chip = game.enemy_buttons[0].get_node("Details").strip.get_child(0)
+		check(roster_chip.visible and roster_chip.get_child(0).texture == icon and roster_chip.get_child(1).text == "×%d" % count, "Arena Brand tile shows the same icon and stacks")
+		var overhead = victim.aura_icons[0]
+		check(overhead.visible and overhead.get_child(0).texture == icon and overhead.get_node("Stacks").text == "×%d" % count, "Nameplate Brand shows its stack count")
+	check(game.Auras.active(caster, game.actors.values()).is_empty(), "Brand is displayed on its victim, not its caster")
+	var replicated: Dictionary = bytes_to_var(var_to_bytes(caster.snapshot()))
+	caster.identity.brands.clear()
+	caster.receive(replicated)
+	check(game.Auras.active(victim, game.actors.values())[0].stacks == 3, "Brand display derives from replicated caster state")
+	game.spawn_actor(7, 7, 0, "Ember", Vector3(3, 0, 0))
+	var other = game.actors[7]
+	other.identity.brands[victim.actor_id] = {"count": 1, "left": 4.0}
+	var separate: Array = game.Auras.active(victim, [other, caster], game.local_id)
+	check(separate.size() == 2 and separate[0].stacks == 3 and separate[0].caster_id == 1 and separate[1].stacks == 1, "Multiple Embers retain separate stacks with your Brand first")
+	victim.hp = 100
+	game.resolve_spell(caster, 1, victim)
+	separate = game.Auras.active(victim, game.actors.values())
+	check(separate.size() == 1 and separate[0].caster_id == 7, "Flashpoint consumes only its own Brand indicator")
+	game.ClassMechanics.tick(game, other, 4.1)
+	game.update_visuals(0)
+	check(game.Auras.active(victim, game.actors.values()).is_empty() and not victim.aura_icons[0].visible, "Expired Brand disappears from the target and nameplate")
+	victim.shield = 2
+	game.update_visuals(0)
+	check(victim.aura_icons[0].visible and not victim.aura_icons[0].get_node("Stacks").visible, "Reusing a nameplate icon for a buff clears the old Brand count")
 func run() -> void:
 	root.disable_3d = true
 	var game = preload("res://tests/ui_test_arena.gd").new()
@@ -135,6 +178,7 @@ func run() -> void:
 	await process_frame
 	check(compact_row.custom_minimum_size.y == 64, "Quiet rows retain the same height without shifting targets")
 	check(compact_row.position == busy_position, "Clearing casts and effects does not move the row")
+	check_brands(game)
 	game.leave_session("")
 	check(game.combat_text.entries.is_empty() and game.combat_text.interrupts.is_empty(), "Session changes clear combat feedback")
 	game.queue_free()
