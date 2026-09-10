@@ -37,9 +37,9 @@ A three-second countdown starts each round. A round ends when every member of on
 
 ## Champions
 
-Four fixed-kit champions now have twelve abilities each, preserving their baseline movement, damage reduction and sustain while adding class resources and signature mechanics. **Ember** builds Heat and brands; **Vanguard** earns Resolve and protects allies; **Luminary** allocates three Guiding Stars; **Fulcrum** controls positions around a placed Gravity Anchor.
+Five fixed-kit champions preserve shared movement and combat rules while adding class resources and signature mechanics. **Ember** builds Heat and brands; **Vanguard** earns Resolve and protects allies; **Luminary** allocates three Guiding Stars; **Fulcrum** controls positions around a placed Gravity Anchor. **Outlaw** combines Bowie bleeds and mobility-gated Trickshots, building three Defense Detonation stacks for a moving three-shot finisher. Outlaw has ten abilities; the other classes have twelve available abilities.
 
-The complete current kits, exact effects, cooldowns, and shared rules live in [`CLASS_ABILITIES.md`](CLASS_ABILITIES.md), generated from the kit definitions by `tools/class_reference.gd`. Keys **1–7** use the first bar; **Shift+1–5** use the second. Every ability has a 256px painted icon.
+The complete current kits, exact effects, cooldowns, and shared rules live in [`CLASS_ABILITIES.md`](CLASS_ABILITIES.md), generated from the kit definitions by `tools/class_reference.gd`. Keys **1–7** use the first bar; the second bar uses Shift combinations. Outlaw's first pass uses distinct celestial cowboy placeholder icons.
 
 ### Ability tooltips
 

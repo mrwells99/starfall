@@ -23,6 +23,7 @@ func run() -> void:
 		mine.identity.resolve = 50
 		mine.identity.meditation = 50
 		mine.identity.stars = [{}, {}]
+		mine.identity.defense_detonation = 2
 		var other = game.actors[4]
 		other.identity.stars = [{}, {}]
 		other.shield = 4
@@ -43,7 +44,7 @@ func run() -> void:
 		check(game.actors[2].health_pivot.visible, "Ally nameplate is visible")
 		check(mine.nameplate == null and other.health_pivot.find_children("*", "Label3D", true, false).is_empty(), "Nameplate has no text nodes")
 		var resource = game.roster_bar(game.party_buttons[0]).get_node("ThinResource")
-		check(is_equal_approx(resource.fraction, 2.0/3.0 if mine.champion == "Luminary" else 0.5), "Party resource reads " + mine.champion)
+		check(is_equal_approx(resource.fraction, 2.0/3.0 if mine.champion in ["Luminary","Outlaw"] else 0.5), "Party resource reads " + mine.champion)
 		check(resource.size.y == 10, "Roster resource strip is ten pixels tall")
 		check(is_equal_approx(mine.resource_mesh.scale.x, resource.fraction), "World and roster resource values agree")
 		var enemy_resource = game.roster_bar(game.enemy_buttons[0]).get_node("ThinResource")

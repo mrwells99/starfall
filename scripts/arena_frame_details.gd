@@ -63,7 +63,7 @@ func sync(actor) -> void:
 			text = "%s · %.1fs" % [spell.name, actor.cast_left]
 		(cast.get_child(0) as Label).text = text
 		var fill: StyleBoxFlat = cast.get_theme_stylebox("fill")
-		var cast_color := Color("854657") if interrupted else Color("675183")
+		var cast_color: Color = game.cast_bar_color(actor, interrupted, Color("675183"))
 		if fill.bg_color != cast_color: fill.bg_color = cast_color
 	strip.position = Vector2(3, 1)
 	var effects: Array = game.Auras.active(actor)

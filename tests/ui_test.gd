@@ -197,6 +197,7 @@ func run() -> void:
 	arena.release_mouse()
 	for champion in arena.Kits.NAMES:
 		for ability in arena.Kits.get_kit(champion):
+			if ability.kind == "unavailable": continue
 			var text: String = arena.Kits.description(ability, champion)
 			check(not arena.Kits.summary(ability).is_empty() and text.contains("Cooldown"),
 				"Description coverage: " + ability.name)

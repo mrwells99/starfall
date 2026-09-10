@@ -64,7 +64,8 @@ func run() -> void:
 	var unique_art := {}
 	for champion in arena.Kits.NAMES:
 		for ability in arena.Kits.get_kit(champion):
-			var art_key: String = "Fulcrum/Starfall" if champion == "Fulcrum" and ability.name == "Starfall" else ability.name
+			if ability.kind == "unavailable": continue
+			var art_key: String = arena.AbilityArt.key_for(ability.name, champion)
 			var path: String = arena.AbilityArt.PATHS.get(art_key, "")
 			check(not unique_art.has(path) or unique_art[path] == ability.name,
 				"Different abilities must have different icons: " + ability.name)
@@ -76,6 +77,9 @@ func run() -> void:
 		actor.cooldowns.fill(0.0)
 		arena.update_visuals(0)
 		for slot in range(actor.kit.size()):
+			if actor.kit[slot].kind == "unavailable":
+				check(not arena.ability_buttons[slot].visible, "Retired ability is absent from the hotbar")
+				continue
 			var tex: Texture2D = arena.ability_images[slot].texture
 			check(tex != null and tex.get_width() <= 256,
 				champion + " has optimized art: " + actor.kit[slot].name)

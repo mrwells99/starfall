@@ -1,5 +1,11 @@
 # Technical Architecture
 
+## Outlaw gameplay and presentation
+
+`outlaw_mechanics.gd` owns combo windows, airborne immunity predicates, swept Roll travel, coin trajectories, per-caster Severe bleeds and the two mobile channels. Identity fields replicate with the existing snapshots. Roll travel state rewinds before client input replay; damage, combo stacks and instant-Severe grants remain authoritative. Deadeye acquires all eligible enemies without initial visibility filtering and checks final LOS/range. Defense Detonation checks each of its three shots separately; kick immunity applies only to that channel. `crowd_control.gd` and forced-movement entry points reject control during airborne Backflip. Matched client/server schemas are required for the added effect RPC.
+
+`outlaw_art.gd` extends the shared v2 presenter and `outlaw_equipment.gd` preserves the native fist grip around hand-parented weapons. Ability overlays affect the relevant arm; moving channels keep locomotion legs. Actual library Roll is reused for directional rolls and reversed for Backflip, with brief entry easing. The 32 inherited source clips and 53 core rest bones remain unchanged. `outlaw_effects.gd` reuses a prebuilt 24-shot mesh pool and persistent coin/Deadeye markers, while Outlaw damage bypasses the older generic per-hit beam allocation. Class-specific icon aliases permit distinct Outlaw Ward/Mend art without replacing other classes' art. Details and tuning are in `OUTLAW_CLASS.md`.
+
 ## Offline arena detail levels
 
 `tools/arena_mesh_lods.gd` uses ImporterMesh offline to generate index-only LODs with zero normal-merge angle. It copies generated LOD indices into the original ArrayMesh serialized surfaces to avoid requantizing base normals/UV2. This depends on Godot 4.5 storage; SHA256 and save/reload guards verify the unchanged packed base mesh. No runtime simplification or position-only shadow mesh is used. `sanctum_slice.gd` selects detail with bias 0.5 for authored architecture only.
@@ -439,6 +445,8 @@ Regression coverage: `social_test.gd`, `run_social.py` (two actual ENet clients:
 
 ### Fulcrum Meditation and DoTs (historical 0.9.0 baseline)
 
+The historical proc rules below are superseded by [the September 9 combat update](CHARGE_AND_FULCRUM_COMBAT_UPDATE.md): four-second instant buffs, displacement-based cast cancellation, retired Horizon, and continuous routed Vanguard Charge with a replicated travel state.
+
 Combatant identity now replicates `meditation`, `instant_graviton` and victim-owned `dots`, keyed by source actor. Graviton refreshes its own eight-second effect while preserving the next one-second tick; each valid tick deals 2 damage and grants 5 Meditation, capped at 100. DoTs stop on source loss, death, expiry, invalid world pairing or a completed DPS Mend. Periodic resource credit happens before damage so duel-end identity resets win. Ground hazards are not attached DoTs and remain active after Mend. Mend always restores up to 28 missing HP, bypassing time-based dampening. Other healing only dampens in arena matches, never in persistent worlds.
 
 Collapse samples Meditation on resolution: at 75+ it applies a three-second stun, otherwise its existing root; it consumes the anchor, not Meditation. Any hit grants one non-stacking instant Graviton with a flashing icon and no expiry timer, consumed on successful resolution through the normal GCD/validation path. Starfall requires 50+, casts for two seconds and spends all Meditation on resolution for 20 + 0.4 per point; cancelled or invalid casts retain the resource.
@@ -523,6 +531,14 @@ Appearance refinement: `hud_health_color` blends each class color toward navy fo
 `dr_icons.gd` attaches a 3×2 set of persistent icon controls on the left of enemy rows and right of party rows; only active diminished tracks are shown. Category/count/reset tooltip metadata uses the existing hover mechanism. Health bars retain their width; the enemy container reserves room on its right and old saved positions are clamped. Category art uses six simple generated pictograms, imported at 128px with mipmaps. Prompt provenance is in `assets/icons/dr/PROMPTS.md`. Tests cover category tiers, cross-category independence, natural/early expiry, damage-break tuning, role restrictions, full-strength interrupts, replication/deep copying, hover and viewport containment; six-peer ENet checks verify independent category dictionaries reach clients.
 
 DR placement uses `install_dr_column` to retain fixed health width with a separate icon area. Sparse enemy icon groups align against the health bar so a lone category does not drift away. Both party and enemy DR widgets expose hover metadata through the same hit test.
+
+## Ember cone targeting and Blink charges
+
+`Kits.SOLAR_FLARE_RANGE` and `SOLAR_FLARE_HALF_ANGLE` define the 4m/108-degree Solar Flare geometry (54 degrees either side). Its `flare_cc` kind resolves as a self-directed ability, then `ClassMechanics.resolve` filters enemies by radius, horizontal angle, terrain LOS and harm permission. `solar_flare_indicator.gd` shares a cached mesh/material between local Ember instances; the outline is a child of the caster, hidden by default. It is visible only during the first second of a successful Solar Flare's existing replicated cooldown, while the local Ember is alive in a match. Missed cones still show it; rejected casts cannot restart it. No extra RPC or timer state is needed. It is a simple flat ground outline, without terrain projection or an extra targeting step.
+
+`blink_charges.gd` owns two-charge consumption and sequential recharge. Charge count is in `identity.blink_charges`; `cooldowns[slot]` remains the authoritative next-charge timer. Existing identity/cooldown snapshots replicate both, and identity reset restores two charges. The common readiness validator permits Blink while a charge remains, regardless of the next-charge timer. The HUD distinguishes an available recharging charge from an empty ability with a smaller count badge and a lighter sweep.
+
+`send_action` samples movement and character yaw as before, plus a separate camera yaw for stationary Blink during free look. `submit_action` validates the additional finite heading and passes it through action-local intent resolution; stale actions still use their own movement intent without replacing newer movement. No position, speed or destination is accepted from clients. The RPC schema fingerprint automatically rejects earlier builds with the old action signature. Existing collision-safe `move_ability` and motion revisions handle the actual teleport and prediction reset. `tests/ember_abilities_test.gd` covers mechanics and HUD state; `run_ember_network.py --test-latency` verifies matching host/client behavior over ENet.
 
 ## Minimal overhead plates
 

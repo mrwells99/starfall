@@ -1,0 +1,256 @@
+{
+  "schema": 2,
+  "workflow": "Starfall Model Forge v2",
+  "baseline_manifest_sha256": "ba51084d96ce0202a11984e5c19f845f3fe7fe3c96a03599b04d7ae7f690fa35",
+  "baseline_archive_sha256": "7be9f5dbcbb448090db190235e0ade5ea42b20162e3b4a98039a1f2b740b8bf9",
+  "class_slug": "outlaw",
+  "class_display_name": "Outlaw",
+  "reference_paths": [
+    "art_source/references/outlaw-concept-v1.png"
+  ],
+  "stage_directory": "artifacts/outlaw-forge-v2",
+  "design": {
+    "silhouette": [
+      "celestial robot",
+      "wide cowboy hat",
+      "open split duster"
+    ],
+    "armor_and_clothing": [
+      "fitted blackened steel plates",
+      "joint actuators",
+      "brass-edged duster",
+      "constellation embroidery",
+      "cowboy boots and spurs"
+    ],
+    "palette": [
+      "brown-black leather",
+      "black steel",
+      "weathered brass",
+      "amber optics",
+      "blue condensed starlight",
+      "crimson Bowie etching"
+    ],
+    "material_roles": [
+      "base-color maps",
+      "micro-normal map",
+      "roughness map",
+      "metallic armor",
+      "emissive optics/reactor/weapon details"
+    ],
+    "face_and_hair_treatment": "Mechanical faceplate and optics; no human face or hair.",
+    "weapon": "Celestial revolver in right hand; 150% Bowie knife in left reverse grip across the native closed fist.",
+    "carrying_hands": [
+      "DEF-hand.R",
+      "DEF-hand.L"
+    ]
+  },
+  "inputs": {
+    "library_sha256": "1b7bf67866360665426bb99e4c71bd619f19b408453c24e30f0c3071601eee5c",
+    "costume_source": "tools/build_outlaw.py",
+    "costume_sha256": "4480564fd23d6a8990893a9164dc53555e394ee4be92bed77163dd72953442a5",
+    "seed_blend_sha256": "cfd6093b348fc52ce271a6d288fa7430aaba03d114b8b5ee70b6548620aafe44",
+    "source_library": "art_source/model_forge_v2/AnimationLibrary_Godot_Standard.glb",
+    "library_license": "art_source/model_forge_v2/QUATERNIUS_LICENSE.txt"
+  },
+  "invariants": {
+    "preserve_53_bone_rest_anatomy": true,
+    "preserve_32_clip_core_motion": true,
+    "use_accepted_runtime": true,
+    "excluded_revisions": [
+      "r006",
+      "r007"
+    ]
+  },
+  "intentional_exceptions": {
+    "core_motion_bones": [],
+    "reason": "No source/core motion edits. Outlaw-specific runtime grip and ability overlays only.",
+    "new_equipment_controls": [
+      "outlaw.gun",
+      "outlaw.knife"
+    ],
+    "texture_palette_recipe_changes": "Weathered brown-black leather, black steel, brass, gold optics, blue gun energy, crimson blade etching",
+    "runtime_grip_bones": "All native finger/thumb joints retain the closed Idle fist around carried equipment.",
+    "runtime_ability_bones": "Right shoulder/upper arm/forearm/hand use native pistol aim/fire. Left counterparts use mirrored Sword_Attack.",
+    "extra_clips": {
+      "Roll": "Roll",
+      "GunAim": "Pistol_Aim_Neutral",
+      "GunShoot": "Pistol_Shoot",
+      "KnifeStrike": "Sword_Attack"
+    },
+    "backflip": "Reversed native Roll retimed to physical leap; no dedicated backflip exists in the downloaded library.",
+    "special_move_blend_seconds": {
+      "limbs": 0.08,
+      "torso_head": 0.16
+    }
+  },
+  "tools": {
+    "blender_version": "5.2.1 LTS",
+    "godot_version": "4.7.2.stable.official.ed1daf0bf",
+    "renderer": "Godot Compatibility and Forward+ model review; Forward+ icon/hotbar validation; RTX 5060 Ti, driver 616.64",
+    "python_version": "3.12.14",
+    "seeds": {
+      "python": 91,
+      "numpy": 191
+    }
+  },
+  "deliverables": {
+    "builder": "tools/build_outlaw.py",
+    "companions": [
+      "tools/verify_outlaw.py",
+      "tools/build_outlaw_icons.py"
+    ],
+    "editable_blend": "art_source/outlaw_ual/outlaw.blend",
+    "packed_textures": [
+      "Outlaw duster",
+      "Outlaw micro_normal",
+      "Outlaw roughness",
+      "Outlaw steel"
+    ],
+    "glb": "assets/characters/outlaw.glb",
+    "runtime_modules": [
+      "scripts/outlaw_art.gd",
+      "scripts/outlaw_equipment.gd",
+      "scripts/outlaw_mechanics.gd",
+      "scripts/outlaw_effects.gd"
+    ],
+    "viewer": "tools/outlaw_review.gd",
+    "ability_icons": "assets/icons/abilities/outlaw/"
+  },
+  "validation": {
+    "source_checks": {
+      "passed": true,
+      "core_bones": 53,
+      "rig_bones": 85,
+      "clips": 36,
+      "mannequin_vertex_error": 0.0,
+      "skin_weight_error": 2.980232238769531e-07,
+      "triangles": 131886,
+      "packed_maps": {
+        "Outlaw duster": "2323528bed93b7ca1c65d6c3c223d6768e011008d7d488f02fda854fcf68da6e",
+        "Outlaw micro_normal": "54724b52c36fdf2235343bda7e0344a47f91990c73ed0eb6b20c954b9aa78903",
+        "Outlaw roughness": "eaa77b4c9e30db3d3b6c366a20d8905d2c5c64816f76903e6c21aa3bdc2f05d1",
+        "Outlaw steel": "e46be6fbc730876a52b5c416ff9d80c07735bbff0e28f98b467dc35b6f827e1c"
+      },
+      "knife_scale": 1.5,
+      "rest_and_32_clips": "frozen contract passed",
+      "grip": "hand-parented equipment; native closed fist is retained by the runtime layer"
+    },
+    "animation_contract": "111830 samples, zero rest and source motion error, no exceptions",
+    "skin_checks": 2.980232238769531e-07,
+    "materials_export": "4 packed maps, skinned GLB with embedded materials",
+    "weapon_grip": "Runtime review of Idle, run, backpedal, roll/backflip, aiming and knife strike; equipment remains parented to its hand.",
+    "godot_tests": {
+      "gameplay": "155/155",
+      "presentation": "1387/1387",
+      "hotbar_viewport": "82/82",
+      "cast_bar": "160/160",
+      "rendered_local_matches": "70/70",
+      "network": "Real ENet host and client passed with simulated 75ms latency",
+      "logs": "artifacts/outlaw-forge-v2/"
+    },
+    "visual_review": [
+      "front.png",
+      "back.png",
+      "side.png",
+      "three-quarter.png",
+      "run.png",
+      "backpedal.png",
+      "roll.png",
+      "backflip.png",
+      "knife-strike.png",
+      "gun-aim.png",
+      "moving-channel.png",
+      "deadeye.png",
+      "ability-icons.png"
+    ],
+    "limitations": [
+      "Procedural stylized interpretation, not photorealistic concept reproduction.",
+      "Bone-driven cloth; extreme actions may need further costume clearance polish.",
+      "Unspecified combat tuning is provisional; owner-specified damage and combo rules retained.",
+      "Ability art is deliberately placeholder SVG, authored last."
+    ]
+  },
+  "installation": {
+    "before_manifest": "artifacts/outlaw-forge-v2/before/manifest.json",
+    "installed_manifest": "art_source/outlaw_ual/installation.json",
+    "new_paths": [
+      "art_source/outlaw_ual/README.md",
+      "art_source/outlaw_ual/outlaw.blend",
+      "art_source/outlaw_ual/outlaw_duster.png",
+      "art_source/outlaw_ual/outlaw_micro_normal.png",
+      "art_source/outlaw_ual/outlaw_roughness.png",
+      "art_source/outlaw_ual/outlaw_steel.png",
+      "art_source/outlaw_ual/recipe.json",
+      "assets/characters/outlaw.glb",
+      "assets/characters/outlaw.glb.import",
+      "assets/characters/outlaw_outlaw_duster.png",
+      "assets/characters/outlaw_outlaw_duster.png.import",
+      "assets/characters/outlaw_outlaw_micro_normal.png",
+      "assets/characters/outlaw_outlaw_micro_normal.png.import",
+      "assets/characters/outlaw_outlaw_roughness.png",
+      "assets/characters/outlaw_outlaw_roughness.png.import",
+      "assets/characters/outlaw_outlaw_steel.png",
+      "assets/characters/outlaw_outlaw_steel.png.import",
+      "assets/icons/abilities/outlaw/backflip.svg",
+      "assets/icons/abilities/outlaw/backflip.svg.import",
+      "assets/icons/abilities/outlaw/coin_toss.svg",
+      "assets/icons/abilities/outlaw/coin_toss.svg.import",
+      "assets/icons/abilities/outlaw/deadeye.svg",
+      "assets/icons/abilities/outlaw/deadeye.svg.import",
+      "assets/icons/abilities/outlaw/defense_detonation.svg",
+      "assets/icons/abilities/outlaw/defense_detonation.svg.import",
+      "assets/icons/abilities/outlaw/mend.svg",
+      "assets/icons/abilities/outlaw/mend.svg.import",
+      "assets/icons/abilities/outlaw/roll.svg",
+      "assets/icons/abilities/outlaw/roll.svg.import",
+      "assets/icons/abilities/outlaw/severe.svg",
+      "assets/icons/abilities/outlaw/severe.svg.import",
+      "assets/icons/abilities/outlaw/starshot.svg",
+      "assets/icons/abilities/outlaw/starshot.svg.import",
+      "assets/icons/abilities/outlaw/trickshot.svg",
+      "assets/icons/abilities/outlaw/trickshot.svg.import",
+      "assets/icons/abilities/outlaw/ward.svg",
+      "assets/icons/abilities/outlaw/ward.svg.import",
+      "docs/OUTLAW_CLASS.md",
+      "scripts/outlaw_art.gd",
+      "scripts/outlaw_art.gd.uid",
+      "scripts/outlaw_effects.gd",
+      "scripts/outlaw_effects.gd.uid",
+      "scripts/outlaw_equipment.gd",
+      "scripts/outlaw_equipment.gd.uid",
+      "scripts/outlaw_mechanics.gd",
+      "scripts/outlaw_mechanics.gd.uid",
+      "tests/cast_bar_test.gd",
+      "tests/cast_bar_test.gd.uid",
+      "tests/check_presenter_indentation.py",
+      "tests/check_suite_runner_test.py",
+      "tests/hotbar_viewport_test.gd",
+      "tests/hotbar_viewport_test.gd.uid",
+      "tests/outlaw_abilities_test.gd",
+      "tests/outlaw_abilities_test.gd.uid",
+      "tests/outlaw_local_match_test.gd",
+      "tests/outlaw_local_match_test.gd.uid",
+      "tests/outlaw_network_peer.gd",
+      "tests/outlaw_network_peer.gd.uid",
+      "tests/outlaw_presentation_test.gd",
+      "tests/outlaw_presentation_test.gd.uid",
+      "tests/run_outlaw_network.py",
+      "tools/build_outlaw.py",
+      "tools/build_outlaw_icons.py",
+      "tools/outlaw_icon_review.gd",
+      "tools/outlaw_icon_review.gd.uid",
+      "tools/outlaw_review.gd",
+      "tools/outlaw_review.gd.uid",
+      "tools/verify_outlaw.py"
+    ],
+    "owner_feedback": [
+      "Bowie knife enlarged by 50%.",
+      "Hold the knife in a proper closed grip.",
+      "Backflip blocks CC while airborne.",
+      "Roll grants one-second instant Severe buff.",
+      "Cowboy/lore ability placeholders authored last."
+    ],
+    "rollback": "tools/outlaw_forge_record.py --rollback; verifies all installed hashes first; preserves later edits by refusing mismatches."
+  },
+  "reference_sha256": "0d0a67c1e083a19e51ee7b6137da68879d8abf8d6117214febdddfa5f2d8b3b3"
+}

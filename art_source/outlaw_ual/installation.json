@@ -1,0 +1,471 @@
+{
+  "class": "Outlaw",
+  "before_manifest": "artifacts/outlaw-forge-v2/before/manifest.json",
+  "files": {
+    ".github/workflows/deploy.yml": {
+      "installed_sha256": "bfff5b1d7b61223b64f14173a89b7b199aa2a30b7a942c3a0d4658237a9ab17d",
+      "bytes": 24310,
+      "before_sha256": "e76eb07f82f2d169d3aa8a3fa25817d2b575a7b3254823f890ad096cb9c3bb77"
+    },
+    "art_source/outlaw_ual/README.md": {
+      "installed_sha256": "1463fbde853ccb4db4ce1ca7107ff16daa27165aae62c883e9bd12734e6a9e91",
+      "bytes": 2064,
+      "before_sha256": null
+    },
+    "art_source/outlaw_ual/outlaw.blend": {
+      "installed_sha256": "db05f32419e15ce4fefbd19bc78c316a9223f6395277c5265c85a6ad5836a5d7",
+      "bytes": 20830423,
+      "before_sha256": null
+    },
+    "art_source/outlaw_ual/outlaw_duster.png": {
+      "installed_sha256": "2323528bed93b7ca1c65d6c3c223d6768e011008d7d488f02fda854fcf68da6e",
+      "bytes": 1233760,
+      "before_sha256": null
+    },
+    "art_source/outlaw_ual/outlaw_micro_normal.png": {
+      "installed_sha256": "54724b52c36fdf2235343bda7e0344a47f91990c73ed0eb6b20c954b9aa78903",
+      "bytes": 1784679,
+      "before_sha256": null
+    },
+    "art_source/outlaw_ual/outlaw_roughness.png": {
+      "installed_sha256": "eaa77b4c9e30db3d3b6c366a20d8905d2c5c64816f76903e6c21aa3bdc2f05d1",
+      "bytes": 1128751,
+      "before_sha256": null
+    },
+    "art_source/outlaw_ual/outlaw_steel.png": {
+      "installed_sha256": "e46be6fbc730876a52b5c416ff9d80c07735bbff0e28f98b467dc35b6f827e1c",
+      "bytes": 1174965,
+      "before_sha256": null
+    },
+    "art_source/outlaw_ual/recipe.json": {
+      "installed_sha256": "a62849665d6abf40051d4d66d248888fd25dafa1b71b0ace9cbc33212f8bd0a6",
+      "bytes": 29197,
+      "before_sha256": null
+    },
+    "assets/characters/outlaw.glb": {
+      "installed_sha256": "aa8676ea2cfd1d20e6393cfe577e82d2064b0da11281b1a96dbf162f0ff3a28d",
+      "bytes": 13166072,
+      "before_sha256": null
+    },
+    "assets/characters/outlaw.glb.import": {
+      "installed_sha256": "22f55893b423c487b7e552ab5f2d3fee5b0042047751c4f1e7915be0eac8aad5",
+      "bytes": 1151,
+      "before_sha256": null
+    },
+    "assets/characters/outlaw_outlaw_duster.png": {
+      "installed_sha256": "2323528bed93b7ca1c65d6c3c223d6768e011008d7d488f02fda854fcf68da6e",
+      "bytes": 1233760,
+      "before_sha256": null
+    },
+    "assets/characters/outlaw_outlaw_duster.png.import": {
+      "installed_sha256": "f470c797d1b6c4bed961c4f23083e03ebd81dd9cf2ca70304f722d47fa066841",
+      "bytes": 1097,
+      "before_sha256": null
+    },
+    "assets/characters/outlaw_outlaw_micro_normal.png": {
+      "installed_sha256": "54724b52c36fdf2235343bda7e0344a47f91990c73ed0eb6b20c954b9aa78903",
+      "bytes": 1784679,
+      "before_sha256": null
+    },
+    "assets/characters/outlaw_outlaw_micro_normal.png.import": {
+      "installed_sha256": "d9ab5dc81b082da89682445cd2824227a381cf404d3c5ce83ac612bcd95f3c01",
+      "bytes": 1169,
+      "before_sha256": null
+    },
+    "assets/characters/outlaw_outlaw_roughness.png": {
+      "installed_sha256": "86d9ce80d191f2c6532a4203fcbb9e7a939951a9cf3d74e383b33eb48e8e6744",
+      "bytes": 1114545,
+      "before_sha256": null
+    },
+    "assets/characters/outlaw_outlaw_roughness.png.import": {
+      "installed_sha256": "62d13b6c49223b8a1d2cf08db32942a4510c6016b88162d2505000a4df88fcdd",
+      "bytes": 1106,
+      "before_sha256": null
+    },
+    "assets/characters/outlaw_outlaw_steel.png": {
+      "installed_sha256": "e46be6fbc730876a52b5c416ff9d80c07735bbff0e28f98b467dc35b6f827e1c",
+      "bytes": 1174965,
+      "before_sha256": null
+    },
+    "assets/characters/outlaw_outlaw_steel.png.import": {
+      "installed_sha256": "a9267b9f01f98856d1a81c62d5d9b94c30b8f70aa866ae23196589153cd9cae5",
+      "bytes": 1093,
+      "before_sha256": null
+    },
+    "assets/icons/abilities/outlaw/backflip.svg": {
+      "installed_sha256": "b4e7df24f2b2f771ad78b9fd15394388cf7324f27a6ea7c269fb0c906f08dc12",
+      "bytes": 4680,
+      "before_sha256": null
+    },
+    "assets/icons/abilities/outlaw/backflip.svg.import": {
+      "installed_sha256": "8ba0dbb276acda88106fbcf40c3fa989b3e41071e630a3e7ec7831ffd9b90e43",
+      "bytes": 1055,
+      "before_sha256": null
+    },
+    "assets/icons/abilities/outlaw/coin_toss.svg": {
+      "installed_sha256": "6139534a1034537467f062f84e7229b8542ed529505691b1b133c4b2a7b445e6",
+      "bytes": 4170,
+      "before_sha256": null
+    },
+    "assets/icons/abilities/outlaw/coin_toss.svg.import": {
+      "installed_sha256": "8af9e53f9aa2c9c2d99c24e6b9cc957f019696963d01152b79b1fa8f0c2aa2e2",
+      "bytes": 1058,
+      "before_sha256": null
+    },
+    "assets/icons/abilities/outlaw/deadeye.svg": {
+      "installed_sha256": "97da00d8e68ea639985e778ab2d9b393dbe2b2fd1fdffa775eb0662e6f242ca3",
+      "bytes": 4685,
+      "before_sha256": null
+    },
+    "assets/icons/abilities/outlaw/deadeye.svg.import": {
+      "installed_sha256": "fbfdb96a9d24aee5fc61d07d1c4c774f541cc6278298dc5c0560f3c57bf52080",
+      "bytes": 1052,
+      "before_sha256": null
+    },
+    "assets/icons/abilities/outlaw/defense_detonation.svg": {
+      "installed_sha256": "3016c4a001baac3d6a09c8caed9cd60941c5ee318bbbf66042ca479c40b33d9b",
+      "bytes": 4771,
+      "before_sha256": null
+    },
+    "assets/icons/abilities/outlaw/defense_detonation.svg.import": {
+      "installed_sha256": "e5c62c7a303d9b16db853e8d43d56b65e268cb9e776ddc15cbc12cbc3fb3caaf",
+      "bytes": 1085,
+      "before_sha256": null
+    },
+    "assets/icons/abilities/outlaw/mend.svg": {
+      "installed_sha256": "fe57890430c0f2901db1bbc200e834797fccd336b1fc8fd14800573abab3513d",
+      "bytes": 4637,
+      "before_sha256": null
+    },
+    "assets/icons/abilities/outlaw/mend.svg.import": {
+      "installed_sha256": "1e8dc748511f62978f6a3f1b62f974e742e644fcb276f1464ddf585f3fd12d56",
+      "bytes": 1043,
+      "before_sha256": null
+    },
+    "assets/icons/abilities/outlaw/roll.svg": {
+      "installed_sha256": "645659491fce215ffdd644627d967a67391bdf790f55f05aaa6626b8d79d3f61",
+      "bytes": 4673,
+      "before_sha256": null
+    },
+    "assets/icons/abilities/outlaw/roll.svg.import": {
+      "installed_sha256": "5c535a6556b3d7a54e90260e09dd37e454e86710128abec54d590cc01be66b27",
+      "bytes": 1043,
+      "before_sha256": null
+    },
+    "assets/icons/abilities/outlaw/severe.svg": {
+      "installed_sha256": "38d1ecac31b2c297c4c5a93ddbc64d6162ed8a5f4eafb96ca098a7b240c78810",
+      "bytes": 4279,
+      "before_sha256": null
+    },
+    "assets/icons/abilities/outlaw/severe.svg.import": {
+      "installed_sha256": "48e2a49177fcb440fbb00220ff7a17a7a23c1f318a5423d0d6cd9e835cd8ca8b",
+      "bytes": 1049,
+      "before_sha256": null
+    },
+    "assets/icons/abilities/outlaw/starshot.svg": {
+      "installed_sha256": "720b132ff81c6c5eb02da17fae2b717c5091bc9320dbae9615d97b2fff1fa483",
+      "bytes": 4292,
+      "before_sha256": null
+    },
+    "assets/icons/abilities/outlaw/starshot.svg.import": {
+      "installed_sha256": "42a82b42a3fdaeb3c40c92932f52d5126a11f2bdad63d8f2946c5560599b35f2",
+      "bytes": 1054,
+      "before_sha256": null
+    },
+    "assets/icons/abilities/outlaw/trickshot.svg": {
+      "installed_sha256": "ccd1e397c2447bf9d6c5614f900f121b45f158402b10deaf9b92e3942d60e1bb",
+      "bytes": 4211,
+      "before_sha256": null
+    },
+    "assets/icons/abilities/outlaw/trickshot.svg.import": {
+      "installed_sha256": "d5bc87b2af70cf302931f9c9c67ddd8c95ca8c90a95cf009f98c76ecf4c25656",
+      "bytes": 1058,
+      "before_sha256": null
+    },
+    "assets/icons/abilities/outlaw/ward.svg": {
+      "installed_sha256": "87af3fb7f203c3b4c327bbd1b81344953ddb7ff20ec315dab4bd13a8fd01ca12",
+      "bytes": 4062,
+      "before_sha256": null
+    },
+    "assets/icons/abilities/outlaw/ward.svg.import": {
+      "installed_sha256": "1b560f2eb382558384dd87f75e854008e108af374a26fe134798f3efb35f7983",
+      "bytes": 1043,
+      "before_sha256": null
+    },
+    "docs/CLASS_ABILITIES.md": {
+      "installed_sha256": "26b01fbd29bcd0a7faf9f1a7fa8d9fe3424394371d28e6349ece574d0767a3aa",
+      "bytes": 19366,
+      "before_sha256": "1b27e4f8ff039848cd3de6e6e6ae6548a874f59337bf24500bd61ed156c8e5f4"
+    },
+    "docs/CONTEXT.md": {
+      "installed_sha256": "08ac1a46ed94e89ca6c43621ba26de29f1d1ac72e2eb4646fa74b3656b058f2f",
+      "bytes": 59915,
+      "before_sha256": "f07f5c02ec3362ebd7be9e16f8e90ce3070ed5a65bc9b3240bfe01b5d14507ea"
+    },
+    "docs/GAME_DESIGN.md": {
+      "installed_sha256": "82431e42071a9cb04af835404073febc3b006603c6bb7ef0f4d3d5713527e599",
+      "bytes": 23629,
+      "before_sha256": "b405d8ffc1ce7b8b1f61fdb3970b95aa14fbd20b20dc8260fbb5e76df40f09a0"
+    },
+    "docs/OUTLAW_CLASS.md": {
+      "installed_sha256": "56f3f9047baa606ce9fcf50b4bc8b677622fb768d93aacf239ca8254ff22103e",
+      "bytes": 9946,
+      "before_sha256": null
+    },
+    "docs/TECHNICAL_ARCHITECTURE.md": {
+      "installed_sha256": "b228931dc3b473509a6718e90751f9c6fd169fbd052e5ee54b8f7231e86cc0eb",
+      "bytes": 61899,
+      "before_sha256": "630d27f061bf5f8df99805b151bc04e7e9e11235db67eab883b81b7a94ae2bdb"
+    },
+    "scripts/ability_art.gd": {
+      "installed_sha256": "b8bd86c47cb3e5af30fdf0ee1319aeaabce71f4b32fde12047aaeaba73f549e0",
+      "bytes": 5689,
+      "before_sha256": "8c109b1602cd94f69bda1c5347e428b1be0f6c5a30f2b9093229d758abc14289"
+    },
+    "scripts/arena.gd": {
+      "installed_sha256": "e1f8ba5a86cdda46963728c52720b6f8dbed1d06232eacb1e37a030fd3c2be2e",
+      "bytes": 164605,
+      "before_sha256": "241a47e960d4a2292d05f6fcd7942b4303042ce79ee8e4e41e35e1b061c4ea7c"
+    },
+    "scripts/arena_frame_details.gd": {
+      "installed_sha256": "34af60cfe6ecc9e0a8daadc0163ca235b11028d36cea16b2e8c1e60767fb03fc",
+      "bytes": 4177,
+      "before_sha256": "f6ccaa0508d0cb7d3fcffb8a44fcb3134fcc46340345b32b01b6102c2a512b82"
+    },
+    "scripts/auras.gd": {
+      "installed_sha256": "5bcd24edbde6416507771ddb2aa626af9e60e4346180f00223fa2aa58f456a75",
+      "bytes": 7875,
+      "before_sha256": "922698de0c04df134335dc44acbbdb3ca7f73d9d639550b46a6578d982cd68ec"
+    },
+    "scripts/champion_introduction.gd": {
+      "installed_sha256": "51b7737c0a8d6a49e939b94d6a64b6fa3b9fcef83c01126f1b8d8e07cabed62f",
+      "bytes": 4874,
+      "before_sha256": "29c96f4046a1dfc89d263e07aafbb63c89eff7f7b5e8adf3e12e2400261e111b"
+    },
+    "scripts/champion_model.gd": {
+      "installed_sha256": "7e54037120b32544c22886a2b9de16b7ef9a7c264909fe0b19b58f21cdb77685",
+      "bytes": 11234,
+      "before_sha256": "b0958fb919ae34026506ca573d924c2e1f61fc01330e53e91456e5b0d5867774"
+    },
+    "scripts/class_mechanics.gd": {
+      "installed_sha256": "5f3ec92dda471a3903a394359a7b4a429e863930479600aedf59389d7bf322df",
+      "bytes": 20861,
+      "before_sha256": "950967e86ed6def819c0e4b03038b6a162b2d808894221bceaec8edbaa6211be"
+    },
+    "scripts/combatant.gd": {
+      "installed_sha256": "45bb27d57aaa35cddf0cab3ab4ae5455140503fc8f6e7daae8242fced46e1f7d",
+      "bytes": 10115,
+      "before_sha256": "c6fe18b5a3db2f0aef9ac2357531b5430d446c80c81706164f1f5cf24ed2fb84"
+    },
+    "scripts/crowd_control.gd": {
+      "installed_sha256": "7a75956f6046efec5647fed7b901237e5aea56995f2025f45a939f76d32fcee0",
+      "bytes": 4434,
+      "before_sha256": "53f722f0ffdb488eb8f9fed76d383d89349777219fcc44a2389b238832c0a3ba"
+    },
+    "scripts/kits.gd": {
+      "installed_sha256": "e2b9410d58cfecb993c3f69b90a4c6bd1998b7bb833344f630b763ba2149bdcc",
+      "bytes": 15361,
+      "before_sha256": "8daa6a26a2c93f6c708fb83f8c131feb91f2b2f99b8b61b92fdf821a4f05d005"
+    },
+    "scripts/model_forge_art.gd": {
+      "installed_sha256": "6b2fa1d5cd6542f249389759bd07af1a7e39c0544a5cc022ab67c708ad20193f",
+      "bytes": 9942,
+      "before_sha256": "6af736cde01641b27c7ed2c389000826c9cfe8f95bd70746da6b02d426ed9b51"
+    },
+    "scripts/movement_prediction.gd": {
+      "installed_sha256": "5b30efac5e70c08a051b2689502379041ae7d696a11eb92db1ae6c1550dfbbc6",
+      "bytes": 2852,
+      "before_sha256": "60d510c5f6780534bd2aade8f846148fc42f9f901f9aef2107394462226a0045"
+    },
+    "scripts/outlaw_art.gd": {
+      "installed_sha256": "70b60262ecb548cae6bed30de8234b019c068aa364e3580ed7e1016511a7daa6",
+      "bytes": 5331,
+      "before_sha256": null
+    },
+    "scripts/outlaw_art.gd.uid": {
+      "installed_sha256": "e7306cd253e3e5f7382ff1bd4bd89798b465ff347a70d4830af6c98b2e8ee187",
+      "bytes": 19,
+      "before_sha256": null
+    },
+    "scripts/outlaw_effects.gd": {
+      "installed_sha256": "6f6c103a0570f1f341ec2481a8d01a24d869890a13ce582808f85234dc0be645",
+      "bytes": 3070,
+      "before_sha256": null
+    },
+    "scripts/outlaw_effects.gd.uid": {
+      "installed_sha256": "bb5a8042d97f590d82127de20c119664aeab21328326127f1ca56d0d43c5db86",
+      "bytes": 20,
+      "before_sha256": null
+    },
+    "scripts/outlaw_equipment.gd": {
+      "installed_sha256": "da667f7d9c24287808f04afe3323f7f325312de1e6890c8d4dacd85301344c62",
+      "bytes": 1358,
+      "before_sha256": null
+    },
+    "scripts/outlaw_equipment.gd.uid": {
+      "installed_sha256": "ec47fc6627718d136db1240406c177b5be665b8cef45e4680a82fa172206a695",
+      "bytes": 20,
+      "before_sha256": null
+    },
+    "scripts/outlaw_mechanics.gd": {
+      "installed_sha256": "5c42c743dc8f57ac31c0dcd59da37841a490ff64af31a160d8aa39f4bc19b810",
+      "bytes": 9810,
+      "before_sha256": null
+    },
+    "scripts/outlaw_mechanics.gd.uid": {
+      "installed_sha256": "b6b13987be0b99c5d6a898fc341f030573c5819e9dd32cd6e5c38805db285759",
+      "bytes": 20,
+      "before_sha256": null
+    },
+    "scripts/resource_meter.gd": {
+      "installed_sha256": "636849a59a8996581d96e6c45c1a4fba16de9e907a4797f3ff3fd7bcb0b7fa78",
+      "bytes": 2112,
+      "before_sha256": "623ee4ac2c60e6e9d4b226b82d56304a9c42bebfb2fed680509e4bb67feae94c"
+    },
+    "scripts/thin_resource_bar.gd": {
+      "installed_sha256": "7b4990994c2560e2ad15cd85cef1e5bea0cfbd1f04d247b7ec524294c3b39b70",
+      "bytes": 1144,
+      "before_sha256": "0d813caa291e433a4644585dd077c07a549737a2fac0f05831475d68cdd635ae"
+    },
+    "tests/ability_art_test.gd": {
+      "installed_sha256": "2389cf0c6f391a94d6e200d0c9b4eae51ae6f5a2aefb9e413a9aad315ae38684",
+      "bytes": 5939,
+      "before_sha256": "051632ddf6ce2ff7ba4d597e8a80e071a400ffd1dacd54f56e1561ad4f8e3bff"
+    },
+    "tests/cast_bar_test.gd": {
+      "installed_sha256": "a1141302bd28098f23cca0a8bfceb507186e4bcc05e7620429c069a860cc9724",
+      "bytes": 3835,
+      "before_sha256": null
+    },
+    "tests/cast_bar_test.gd.uid": {
+      "installed_sha256": "3e5166fb1f81e1e72c41f06717c91cced63341320fe9e3576f344002419131c5",
+      "bytes": 19,
+      "before_sha256": null
+    },
+    "tests/check_presenter_indentation.py": {
+      "installed_sha256": "f2284b1159eaf3686ea33b8f7e31ad4910fc66ccab4688b292b7c8d7340e6a34",
+      "bytes": 609,
+      "before_sha256": null
+    },
+    "tests/check_suite.sh": {
+      "installed_sha256": "88fe5a706ec0fa6ac4277473f57f98b07c48f0ffb289414877cb38d5c1b82754",
+      "bytes": 1563,
+      "before_sha256": "03cf0a0ddc0c9f46120c490f10dd1a9413c768ac2ddfcfbef60d1d1af7623e78"
+    },
+    "tests/check_suite_runner_test.py": {
+      "installed_sha256": "465c8d65595e6a9358f3162b1691186739e777256e76a1a6f47696b870016f94",
+      "bytes": 1304,
+      "before_sha256": null
+    },
+    "tests/class_identity_test.gd": {
+      "installed_sha256": "d15fed9af96a1edcaaaf5919b7d0acc7538da4ddcb2c8e8bc171065761bbf84e",
+      "bytes": 7252,
+      "before_sha256": "733558cd0dfd8d41df40c42c8f3c399119878ed15e996467ec2d6e8c5ceaa16e"
+    },
+    "tests/hotbar_viewport_test.gd": {
+      "installed_sha256": "19918331de4d5b6e18965c03d6537d1882f3449cd50bd7ccefd9d5f52a2b15eb",
+      "bytes": 5062,
+      "before_sha256": null
+    },
+    "tests/hotbar_viewport_test.gd.uid": {
+      "installed_sha256": "27b3600981977e9c0ac5931954efa1740c0fff99193bac1ec6cfceeee8e9dae0",
+      "bytes": 20,
+      "before_sha256": null
+    },
+    "tests/nameplate_test.gd": {
+      "installed_sha256": "12b5fb84921e275c4c95d5ab59f2d8340e6fcbfae1c55774e55cbed52ee2f071",
+      "bytes": 3380,
+      "before_sha256": "8b82d881bbbfea2014374f172f2bc8de121816d414ffebf6e1cee59a630028e3"
+    },
+    "tests/outlaw_abilities_test.gd": {
+      "installed_sha256": "a39436fd9eca3a4beb9bc7ef1b53119f7e5e2e134597e98946ea1868dbecd54a",
+      "bytes": 14052,
+      "before_sha256": null
+    },
+    "tests/outlaw_abilities_test.gd.uid": {
+      "installed_sha256": "338932dcde7b52a2c684f54cfcbc8252704bd0f66dae9947faac73b55102599c",
+      "bytes": 20,
+      "before_sha256": null
+    },
+    "tests/outlaw_local_match_test.gd": {
+      "installed_sha256": "120aca12b05519c3c409d49c7b7b7e07505835b22825aaae97c6c7b7b9a47446",
+      "bytes": 4907,
+      "before_sha256": null
+    },
+    "tests/outlaw_local_match_test.gd.uid": {
+      "installed_sha256": "7627954568e4a2d714b995f0e039ea74c0df28cde999332ab4eef4ca54d2a1fa",
+      "bytes": 20,
+      "before_sha256": null
+    },
+    "tests/outlaw_network_peer.gd": {
+      "installed_sha256": "fa3a5dc5311f944260a755dcc98f8fcf7c494fe0c9915dafd0b462fa6c3dc1af",
+      "bytes": 3030,
+      "before_sha256": null
+    },
+    "tests/outlaw_network_peer.gd.uid": {
+      "installed_sha256": "44ca64a183acc22d0c4650903caf58558bc82d5d674ad4fbe08789ee545481ab",
+      "bytes": 19,
+      "before_sha256": null
+    },
+    "tests/outlaw_presentation_test.gd": {
+      "installed_sha256": "5a630c25670ca0ccc1bd96d2bb8b4424492c9d59370630525f0c6d4a007ceec3",
+      "bytes": 5346,
+      "before_sha256": null
+    },
+    "tests/outlaw_presentation_test.gd.uid": {
+      "installed_sha256": "af0fe3cd9cbd3c8581cadd26a07563693e9ec8af7b801eb5314fc28848b94a73",
+      "bytes": 19,
+      "before_sha256": null
+    },
+    "tests/resource_meter_test.gd": {
+      "installed_sha256": "c00134e94b2269d6127c6d24a1957bd761f620bd03572685da1c0c25acb93d78",
+      "bytes": 1962,
+      "before_sha256": "28062674f2ca85f30d03bba6aeb7c1e0ac2ed332751437a6e486f4514eb12dc6"
+    },
+    "tests/run_outlaw_network.py": {
+      "installed_sha256": "6313e9b2a363a3e7fa7ec862b4a8530070f323fa85a0558deab4d10f33974944",
+      "bytes": 526,
+      "before_sha256": null
+    },
+    "tools/build_outlaw.py": {
+      "installed_sha256": "4480564fd23d6a8990893a9164dc53555e394ee4be92bed77163dd72953442a5",
+      "bytes": 26722,
+      "before_sha256": null
+    },
+    "tools/build_outlaw_icons.py": {
+      "installed_sha256": "9096ba3515892fd1af35f01561dfcb6155026781ab17b4fbc8266b6fd4e9173b",
+      "bytes": 5275,
+      "before_sha256": null
+    },
+    "tools/class_reference.gd": {
+      "installed_sha256": "7fe9b1910e55f12c37ed3396ab04f9082550c9d8625746366525cbe4157673ef",
+      "bytes": 8781,
+      "before_sha256": "7bd9e0e65e7444a229a1d2c264bb75f43b891e8fba752c69f578f8cb2756c76e"
+    },
+    "tools/outlaw_icon_review.gd": {
+      "installed_sha256": "94726b839f15a9c568e58e9a3f9a5c2fe2717055ed0c81f4580ad849e28dfb36",
+      "bytes": 1812,
+      "before_sha256": null
+    },
+    "tools/outlaw_icon_review.gd.uid": {
+      "installed_sha256": "ec392dec40496681e82fc8b8e72ddb9719945337e780067d8ce554ed36a8fa1c",
+      "bytes": 20,
+      "before_sha256": null
+    },
+    "tools/outlaw_review.gd": {
+      "installed_sha256": "ae6554c6ef900ca7a36d119b4838a9f37fa6d880fec0d9eb7825d797390cfeaf",
+      "bytes": 3593,
+      "before_sha256": null
+    },
+    "tools/outlaw_review.gd.uid": {
+      "installed_sha256": "22f0f65ebe83e1f0fbe3a128e6a5ed84e5a424ebf920ae5d46e46df251b57a5a",
+      "bytes": 19,
+      "before_sha256": null
+    },
+    "tools/verify_outlaw.py": {
+      "installed_sha256": "d8493236a8b6c2625072eedaf49f1c3400923212fe4b50e89a4a38609a0f38e2",
+      "bytes": 2172,
+      "before_sha256": null
+    }
+  }
+}

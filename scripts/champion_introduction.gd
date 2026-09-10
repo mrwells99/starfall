@@ -4,7 +4,8 @@ const GUIDES := {
 	"Ember": ["RANGED BURST", "Build pressure with brands, then cash them in for a fiery burst. Keep space with Blink.", "HEAT · Build with Kindle, Flashpoint and Stoke. Spend it on Supernova or Cinderstep.", ["Kindle", "Flashpoint", "Supernova"]],
 	"Vanguard": ["MELEE PRESSURE", "Stay close, expose your target and deliver a heavy finisher. Protect allies under pressure.", "RESOLVE · Build with Sundering Blow. Spend it on Oathbreaker or your defensive abilities.", ["Sundering Blow", "Oathbreaker", "Intercede"]],
 	"Luminary": ["TEAM HEALER", "Keep allies alive, remove dangerous effects and prepare an emergency save.", "STARS · Place up to three Guiding Stars on allies. Falling Star consumes them to heal.", ["Guiding Star", "Falling Star", "Last Light"]],
-	"Fulcrum": ["CONTROL & DISPLACEMENT", "Shape the fight with gravity. Move enemies, deny space and set up your team's attacks.", "MEDITATION · Build with Entropy damage. Save it to empower Collapse or spend it on Starfall.", ["Entropy", "Collapse", "Starfall"]]
+	"Fulcrum": ["CONTROL & DISPLACEMENT", "Shape the fight with gravity. Move enemies, deny space and set up your team's attacks.", "MEDITATION · Build with Entropy damage. Save it to empower Collapse or spend it on Starfall.", ["Entropy", "Collapse", "Starfall"]],
+	"Outlaw": ["MELEE & RANGED COMBOS", "Cut with your Bowie knife, roll into a quick Severe, and land airborne or coin-ricochet Trickshots.", "DEFENSE DETONATION · Land three combo Trickshots to unlock a moving, unkickable three-shot channel.", ["Severe", "Trickshot", "Defense Detonation"]]
 }
 var game
 var title: Label
@@ -77,7 +78,7 @@ func show_champion(champion: String, active: bool) -> void:
 	summary.text = guide[1]
 	resource.text = guide[2]
 	var kit: Array = game.Kits.get_kit(champion)
-	var shown: Array = kit if library else kit.filter(func(spell): return spell.name in guide[3])
+	var shown: Array = kit.filter(func(spell): return spell.kind != "unavailable" and (library or spell.name in guide[3]))
 	for i in range(rows.size()):
 		rows[i].visible = i < shown.size()
 		if i >= shown.size(): continue
