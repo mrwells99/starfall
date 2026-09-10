@@ -113,6 +113,9 @@ jobs:
       - name: Movement gestures, ordering, and jump reliability
         run: ./tests/check_suite.sh "Movement controls checks" godot --headless --path . --script tests/movement_controls_test.gd
 
+      - name: Smooth fractional camera zoom
+        run: ./tests/check_suite.sh "Camera zoom checks" godot --headless --path . --script tests/camera_zoom_test.gd
+
       - name: Comfort, practice, and feedback checks
         run: ./tests/check_suite.sh "Quality of life checks" godot --headless --path . --script tests/quality_of_life_test.gd
 
@@ -135,12 +138,18 @@ jobs:
           ./tests/check_suite.sh "Outlaw ability checks" godot --headless --path . --script tests/outlaw_abilities_test.gd
           ./tests/check_suite.sh "Outlaw presentation checks" godot --headless --path . --script tests/outlaw_presentation_test.gd
           ./tests/check_suite.sh "Outlaw local match checks" godot --headless --path . --script tests/outlaw_local_match_test.gd
+          ./tests/check_suite.sh "Outlaw aim preview checks" godot --headless --path . --script tests/outlaw_aim_test.gd
 
       - name: Saved ability bars remain on screen
         run: ./tests/check_suite.sh "Hotbar viewport checks" godot --headless --path . --script tests/hotbar_viewport_test.gd
 
       - name: Kick immunity cast-bar colors
         run: ./tests/check_suite.sh "Cast bar checks" godot --headless --path . --script tests/cast_bar_test.gd
+
+      - name: Body hitbox fit and aimed cooldown foundation
+        run: |
+          ./tests/check_suite.sh "Hitbox pose checks" godot --headless --path . --script tests/hitbox_pose_test.gd
+          ./tests/check_suite.sh "Aimed combat checks" godot --headless --path . --script tests/aimed_combat_test.gd
 
       # These bind fixed UDP ports and must not overlap — hence one step, in order.
       - name: Networked suites (sequential)
@@ -154,6 +163,7 @@ jobs:
           python3 tests/run_charge_network.py --test-latency
           python3 tests/run_ember_network.py --test-latency
           python3 tests/run_outlaw_network.py --test-latency
+          python3 tests/run_aimed_network.py --test-latency
           python3 tests/run_six.py
           python3 tests/run_dedicated.py
           python3 tests/run_polish.py

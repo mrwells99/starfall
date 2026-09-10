@@ -50,6 +50,9 @@ var path: PackedVector2Array = []
 var body_mesh: MeshInstance3D
 var training_dummy := false
 var champion_model: Node3D
+var body_hitboxes: RefCounted
+var hitbox_pose: Node3D
+var aim_stamp := 0.0
 var nameplate: Label3D
 var team_marker
 var health_mesh: MeshInstance3D
@@ -153,6 +156,23 @@ func setup(id: int, peer: int, side: int, choice: String, presentation: bool = t
 	add_child(team_marker)
 	team_marker.install(self)
 
+func setup_hitboxes() -> void:
+	if body_hitboxes != null: return
+	var art
+	if champion_model == null:
+		hitbox_pose = load("res://scripts/hitbox_pose.gd").new()
+		add_child(hitbox_pose); hitbox_pose.build(champion)
+		art = hitbox_pose.art
+	else:
+		art = champion_model.get(champion.to_lower()+"_art")
+	body_hitboxes = preload("res://scripts/body_hitboxes.gd").new()
+	body_hitboxes.setup(art.skeleton,champion)
+
+func update_hitboxes(delta: float) -> void:
+	if body_hitboxes == null: setup_hitboxes()
+	if hitbox_pose != null and not training_dummy: hitbox_pose.animate(delta,self)
+	body_hitboxes.update()
+
 # Painted from the arena, which is the only thing that knows who the local
 # player is and therefore who counts as hostile.
 func mark_hostile(hostile: bool) -> void:
@@ -211,6 +231,12 @@ func receive(data: Dictionary, instant: bool = false) -> void:
 	owner_peer = data.peer
 	hp = data.hp
 	cooldowns = data.cd
+	# A pre-preview server has no trailing local camera utility in its snapshot.
+	# Fill only local slots; never infer a missing combat cooldown.
+	if cooldowns.size() < kit.size() and kit[cooldowns.size()].get("local_only", false):
+		cooldowns = cooldowns.duplicate()
+	while cooldowns.size() < kit.size() and kit[cooldowns.size()].get("local_only", false):
+		cooldowns.append(0.0)
 	gcd = data.gcd
 	casting = data.casting
 	cast_left = data.left

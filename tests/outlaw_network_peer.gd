@@ -12,6 +12,10 @@ var severe_seen := false
 var backflip_seen := false
 var combo_seen := false
 var consumed_seen := false
+var aim_seen := false
+var aim_exited := false
+var aim_seq := -1
+var old_detonation_rejected := false
 func _initialize() -> void:
 	host = "--test-host" in OS.get_cmdline_user_args(); call_deferred("setup")
 func setup() -> void:
@@ -43,6 +47,8 @@ func _process(delta: float) -> bool:
 	backflip_seen=backflip_seen or (outlaw.identity.backflip_active and outlaw.position.y>.5)
 	combo_seen=combo_seen or outlaw.identity.defense_detonation==1
 	consumed_seen=consumed_seen or (combo_seen and not outlaw.identity.backflip_combo)
+	if host and combo_seen and not old_detonation_rejected:
+		old_detonation_rejected=not arena.try_spell(outlaw.actor_id,8,target.actor_id) and outlaw.identity.defense_detonation==1 and outlaw.casting==-1
 	if not host:
 		if step==0 and match_time>.7:
 			step=1;arena.local_yaw=0;arena.pivot.rotation.y=PI/2;arena.selected_id=target.actor_id;arena.send_action(6)
@@ -52,9 +58,16 @@ func _process(delta: float) -> bool:
 			step=3;arena.send_action(3)
 		elif step==3 and backflip_seen:
 			step=4;arena.send_action(2)
+		elif step==4 and combo_seen and not outlaw.identity.backflip_active:
+			step=5;aim_seq=arena.action_seq;arena.application_focused=true;arena.send_action(arena.assignment.find(8))
+			aim_seen=arena.outlaw_aim_test.enabled and outlaw.identity.defense_detonation==1 and arena.action_seq==aim_seq
+		elif step==5 and match_time>4:
+			step=6;arena.send_action(arena.assignment.find(8))
+			aim_exited=not arena.outlaw_aim_test.enabled and outlaw.identity.defense_detonation==1 and arena.action_seq==aim_seq
 	if match_time>(6.0 if host else 5.0):
 		var passed: bool=roll_seen and proc_seen and severe_seen and backflip_seen and combo_seen and consumed_seen and outlaw.identity.instant_severe==0 and target.hp<73
-		if passed:print("OUTLAW NETWORK %s PASS: Roll, instant Severe, bleed, airborne combo, resource and consumption" % ["HOST" if host else "CLIENT"])
+		passed=passed and outlaw.identity.defense_detonation==1 and (old_detonation_rejected if host else (aim_seen and aim_exited))
+		if passed:print("OUTLAW NETWORK %s PASS: Roll, Severe, combo resource, Detonation aim toggles without spending or RPC, legacy channel rejected" % ["HOST" if host else "CLIENT"])
 		else:push_error("Outlaw network failed: roll=%s proc=%s severe=%s flip=%s combo=%s consumed=%s hp=%s pos=%s" % [roll_seen,proc_seen,severe_seen,backflip_seen,combo_seen,consumed_seen,target.hp,outlaw.position])
 		arena.leave_session("");quit(0 if passed else 1)
 	return false

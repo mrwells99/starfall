@@ -1,6 +1,7 @@
 extends "res://scripts/model_forge_art.gd"
 ## Outlaw equipment/action layers leave the accepted 32-clip base intact.
 const Outlaw = preload("res://scripts/outlaw_mechanics.gd")
+const BACKFLIP_ROLL_START := .60 # Skip the forward Roll's recovery when playing it backwards.
 var active_actor
 var shot_left := 0.0
 var knife_left := 0.0
@@ -8,9 +9,11 @@ var action_serial := -1
 var step_motion := Vector3.ZERO
 var special_kind := ""
 var special_blend = preload("res://scripts/model_forge_pose_blend.gd").new()
+var test_aim_weight := 0.0
+var test_aim_direction := Vector3.FORWARD
 
 func _init() -> void:
-	asset = preload("res://assets/characters/outlaw.glb")
+	asset_path = "res://assets/characters/outlaw.glb"
 	class_title = "Outlaw"
 	equipment = preload("res://scripts/outlaw_equipment.gd").new()
 
@@ -57,21 +60,23 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
 			elif actor.identity.outlaw_action == "gun": shot_left = .32
 		action_serial = actor.identity.outlaw_action_serial
 	shot_left = maxf(0, shot_left - delta); knife_left = maxf(0, knife_left - delta)
-	var gun_cast: bool = actor.casting >= 0 and actor.kit[actor.casting].kind in ["starshot", "defense_detonation", "deadeye"]
+	var gun_cast: bool = actor.casting >= 0 and actor.kit[actor.casting].kind in ["starshot", "deadeye"]
 	var special: bool = actor.identity.roll_left > 0 or actor.identity.backflip_active
 	var next_special: String = "roll" if actor.identity.roll_left > 0 else ("backflip" if actor.identity.backflip_active else "")
-	if special and next_special != special_kind: special_blend.begin(.08,.16)
+	if special and next_special != special_kind: special_blend.begin(.08,.08 if next_special == "backflip" else .16)
 	special_kind = next_special
 	equipment.aim_weight = move_toward(equipment.aim_weight, 1.0 if (gun_cast or shot_left > 0) and not special else 0.0, delta * 12)
+	if not special and actor.hp > 0 and actor.stunned <= 0:
+		equipment.aim_weight = maxf(equipment.aim_weight,test_aim_weight)
 	equipment.knife_weight = move_toward(equipment.knife_weight, 1.0 if knife_left > 0 else 0.0, delta * 15)
 	equipment.knife_time = .65 - knife_left
 	equipment.shot_time = .32 - shot_left if shot_left > 0 else -1.0
 	super.animate(host, delta, actor)
 	if special and actor.hp > 0 and actor.stunned <= 0:
 		var rolling: bool = actor.identity.roll_left > 0
-		var progress: float = 1.0 - actor.identity.roll_left / Outlaw.ROLL_SECONDS if rolling else clampf(actor.identity.backflip_elapsed / 1.2, 0, 1)
+		var progress: float = 1.0 - actor.identity.roll_left / Outlaw.ROLL_SECONDS if rolling else clampf(actor.identity.backflip_elapsed / Outlaw.BACKFLIP_AIRTIME, 0, 1)
 		var animation: Animation = player.get_animation(clip_names.Roll)
-		player.seek(animation.length * (progress if rolling else 1.0 - progress), true)
+		player.seek(animation.length * (progress if rolling else BACKFLIP_ROLL_START * (1.0 - progress)), true)
 		special_blend.apply(delta)
 		equipment.apply()
 		if rolling:
@@ -81,12 +86,26 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
 			model.rotation.y = PI
 	else:
 		model.rotation.y = lerp_angle(model.rotation.y, PI, minf(1, delta * 25))
+		if actor.hp > 0 and actor.stunned <= 0 and actor.casting < 0: apply_test_aim()
+
+func apply_test_aim() -> void:
+	if test_aim_weight <= 0: return
+	# Aim the existing articulated pistol pose as a unit; keep elbow/finger grip.
+	var hand: int = skeleton.find_bone("DEF-hand.R")
+	var upper: int = skeleton.find_bone("DEF-upper_arm.R")
+	skeleton.force_update_all_bone_transforms()
+	var forward: Vector3 = (skeleton.global_basis*skeleton.get_bone_global_pose(hand).basis*Vector3.UP).normalized()
+	var correction := Quaternion(forward,test_aim_direction.normalized())
+	var parent: int = skeleton.get_bone_parent(upper)
+	var basis: Basis = (skeleton.global_basis*skeleton.get_bone_global_pose(parent).basis).orthonormalized()
+	var local_correction: Quaternion = basis.get_rotation_quaternion().inverse()*correction*basis.get_rotation_quaternion()
+	skeleton.set_bone_pose_rotation(upper,Quaternion.IDENTITY.slerp(local_correction,test_aim_weight)*skeleton.get_bone_pose_rotation(upper))
 
 func override_clip(desired: String, alive: bool, stunned: bool, _delta: float) -> String:
 	if not alive or stunned or active_actor == null: return desired
 	if active_actor.identity.roll_left > 0 or active_actor.identity.backflip_active: return "Roll"
 	var spell_kind: String = active_actor.kit[active_actor.casting].kind if active_actor.casting >= 0 else ""
-	if spell_kind in ["starshot", "defense_detonation", "deadeye", "severe"] or shot_left > 0 or knife_left > 0:
+	if spell_kind in ["starshot", "deadeye", "severe"] or shot_left > 0 or knife_left > 0:
 		if was_airborne: return desired if desired.begins_with("Jump") else "JumpLoop"
 		if filtered_speed <= .12: return "Idle"
 		var sector := posmod(roundi(atan2(step_motion.x, -step_motion.z) / (PI / 4)), 8)

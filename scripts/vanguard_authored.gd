@@ -9,11 +9,12 @@ var ward: MeshInstance3D
 var pulse: MeshInstance3D
 
 func _init() -> void:
- asset = preload("res://assets/characters/vanguard.glb")
+ asset_path = "res://assets/characters/vanguard.glb"
  class_title = "Vanguard"
 
 func build(host: Node3D, team_color: Color) -> void:
  super.build(host, team_color)
+ if pose_only: return
  ward = make_ring(host, team_color, .53)
  pulse = make_ring(host, team_color, .55)
  ward.visible = false
@@ -57,6 +58,12 @@ func override_clip(desired: String, alive: bool, stunned: bool, delta: float) ->
 
 func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
  super.animate(host, delta, actor)
+ if pose_only:
+  if last_hp >= 0 and actor.hp < last_hp and actor.hp > 0: recoil_left = .18
+  last_hp = actor.hp
+  recoil_left = maxf(0.0, recoil_left - delta)
+  model.position.z = .025 * sin(recoil_left / .18 * PI)
+  return
  var alive: bool = actor.hp > 0
  if actor.shield > 0 and shield_left <= 0 and alive:
   pulse_left = .45

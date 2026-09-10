@@ -2,6 +2,10 @@ extends SceneTree
 var game
 var checks := 0
 var failures := 0
+class MemoryConfig extends "res://scripts/user_config.gd":
+	func load_config() -> void: pass
+	func save_config() -> void: pass
+	func apply_display() -> void: pass
 func check(ok: bool, message: String) -> void:
 	checks += 1
 	if not ok:
@@ -23,6 +27,7 @@ func key_event(code: int, down: bool) -> void:
 func run() -> void:
 	root.disable_3d = true
 	game = load("res://tests/ui_test_arena.gd").new()
+	game.config = MemoryConfig.new()
 	root.add_child(game)
 	await process_frame
 	game.set_physics_process(false)
