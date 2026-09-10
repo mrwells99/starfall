@@ -4,11 +4,12 @@ extends Control
 #
 # The shaded wedge covers the fraction of the cooldown still remaining and
 # unwinds clockwise from 12 o'clock, so a slot reads as ready the instant the
-# dark area clears. Two tiers, like the game they come from:
+# dark area clears. The sweep distinguishes these states:
 #
 #   - Ability cooldown: heavy shade plus an OmniCC-style countdown number.
 #   - Global cooldown:  light shade, no number. It lasts 1.5s; a number there
 #     is unreadable noise.
+#   - Available charge recharging: light shade, countdown and corner badge.
 #
 # This runs its own timer. The HUD only refreshes when server state arrives,
 # which is well below frame rate, so a node that waited to be told would tick
@@ -22,7 +23,9 @@ const SEGMENTS := 48
 var remaining := 0.0
 var duration := 0.0
 var is_gcd := false
+var is_recharge := false
 var label: Label
+var charge_label: Label
 var key_label: Label
 var availability_label: Label
 var availability_reason := ""
@@ -53,6 +56,27 @@ func _init() -> void:
 	key_label.add_theme_constant_override("shadow_offset_x", 1)
 	key_label.add_theme_constant_override("shadow_offset_y", 1)
 	add_child(key_label)
+	charge_label = Label.new()
+	charge_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	charge_label.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	charge_label.offset_left = -18
+	charge_label.offset_right = -2
+	charge_label.offset_top = -18
+	charge_label.offset_bottom = -2
+	charge_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	charge_label.add_theme_font_size_override("font_size", 12)
+	var charge_box := StyleBoxFlat.new()
+	charge_box.bg_color = Color(.025, .03, .055, .95)
+	charge_box.set_corner_radius_all(3)
+	charge_box.content_margin_left = 3
+	charge_box.content_margin_right = 3
+	charge_label.add_theme_stylebox_override("normal", charge_box)
+	charge_label.add_theme_color_override("font_color", Color.WHITE)
+	charge_label.add_theme_color_override("font_shadow_color", Color.BLACK)
+	charge_label.add_theme_constant_override("shadow_offset_x", 1)
+	charge_label.add_theme_constant_override("shadow_offset_y", 1)
+	charge_label.hide()
+	add_child(charge_label)
 	availability_label = Label.new()
 	availability_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	availability_label.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
@@ -66,6 +90,10 @@ func _init() -> void:
 
 func set_key(text: String) -> void:
 	key_label.text = text
+
+func set_charges(count: int) -> void:
+	charge_label.visible = count >= 0
+	charge_label.text = str(count) if count >= 0 else ""
 
 # Short text plus color, never color alone. Cooldowns/CC keep their existing
 # sweeps; their full reason remains available in the shared tooltip.
@@ -105,10 +133,11 @@ func refresh_availability() -> void:
 	queue_redraw()
 
 # Authoritative state from the server snapshot.
-func sync(new_remaining: float, new_duration: float, gcd: bool) -> void:
+func sync(new_remaining: float, new_duration: float, gcd: bool, recharging: bool = false) -> void:
 	remaining = maxf(0.0, new_remaining)
 	duration = maxf(0.0, new_duration)
 	is_gcd = gcd
+	is_recharge = recharging
 	_refresh()
 
 func _process(delta: float) -> void:
@@ -154,4 +183,4 @@ func _draw() -> void:
 	for i in range(SEGMENTS + 1):
 		var angle := begin + sweep * (float(i) / float(SEGMENTS))
 		points.append(centre + Vector2(cos(angle), sin(angle)) * radius)
-	draw_colored_polygon(points, GCD_COLOR if is_gcd else SWEEP_COLOR)
+	draw_colored_polygon(points, GCD_COLOR if is_gcd or is_recharge else SWEEP_COLOR)

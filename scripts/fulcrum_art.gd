@@ -1,6 +1,7 @@
 extends RefCounted
 # Blender-authored Fulcrum presentation. Combat and collision remain on the actor.
-const ASSET = preload("res://assets/characters/fulcrum.glb")
+var asset: PackedScene
+var pose_only := false
 const RUN_CADENCE_SCALE := .90
 const BACKPEDAL_CADENCE_SCALE := 1.15
 const BACKPEDAL_REFERENCE_SPEED := 3.8
@@ -27,7 +28,8 @@ var jump_pose = preload("res://scripts/fulcrum_jump_pose.gd").new()
 var pose_blend = preload("res://scripts/fulcrum_pose_blend.gd").new()
 
 func build(host: Node3D, team_color: Color) -> void:
- model = ASSET.instantiate()
+ if asset == null: asset = preload("res://scripts/character_asset_cache.gd").get_scene("res://assets/characters/fulcrum.glb")
+ model = asset.instantiate()
  model.name = "FulcrumAuthored"
  # Blender -Y is glTF +Z; game combatants face -Z.
  model.rotation.y = PI
@@ -51,6 +53,7 @@ func build(host: Node3D, team_color: Color) -> void:
      materials.append(material)
      base_colors.append(material.albedo_color)
  assert(player != null and skeleton != null, "Fulcrum requires its imported skeleton and animations")
+ preload("res://scripts/character_asset_cache.gd").restore_libraries(model,player)
  for animation_name in player.get_animation_list():
   var short_name: String = String(animation_name).get_slice("/", String(animation_name).count("/"))
   clip_names[short_name] = animation_name

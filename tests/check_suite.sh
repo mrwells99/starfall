@@ -22,6 +22,13 @@ set +e
 status="${PIPESTATUS[0]}"
 set -e
 
+# Godot can return zero and still print a passing assertion count after a
+# script aborts inside a callback. Runtime errors must invalidate that result.
+if grep -Eq '(^|[[:space:]])(SCRIPT ERROR:|ERROR:)' "${out}"; then
+    echo "::error::${label} logged an engine or script error." >&2
+    exit 1
+fi
+
 line="$(grep -oE "${label}: [0-9]+ passed / [0-9]+ total" "${out}" | tail -1 || true)"
 if [[ -z "${line}" ]]; then
     echo "::error::${label} never reported a result — the suite did not run to completion." >&2

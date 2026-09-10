@@ -3,6 +3,16 @@ extends RefCounted
 # Art is presentation data; it never enters combat kits or network snapshots.
 # Shared ability names intentionally share art (Mend on Ember and Vanguard).
 const PATHS := {
+	"Starshot": "res://assets/icons/abilities/outlaw/starshot.svg",
+	"Severe": "res://assets/icons/abilities/outlaw/severe.svg",
+	"Trickshot": "res://assets/icons/abilities/outlaw/trickshot.svg",
+	"Backflip": "res://assets/icons/abilities/outlaw/backflip.svg",
+	"Roll": "res://assets/icons/abilities/outlaw/roll.svg",
+	"Coin Toss": "res://assets/icons/abilities/outlaw/coin_toss.svg",
+	"Defense Detonation": "res://assets/icons/abilities/outlaw/defense_detonation.svg",
+	"Deadeye": "res://assets/icons/abilities/outlaw/deadeye.svg",
+	"Outlaw/Ward": "res://assets/icons/abilities/outlaw/ward.svg",
+	"Outlaw/Mend": "res://assets/icons/abilities/outlaw/mend.svg",
 	"Kindle": "res://assets/icons/abilities/firebolt.png",
 	"Flashpoint": "res://assets/icons/abilities/flare.png",
 	"Supernova": "res://assets/icons/abilities/supernova.png",
@@ -61,9 +71,12 @@ const PATHS := {
 }
 static var textures: Dictionary = {}
 
+static func key_for(ability_name: String, champion: String = "") -> String:
+	var specific := champion + "/" + ability_name
+	return specific if PATHS.has(specific) else ability_name
+
 static func texture_for(ability_name: String, champion: String = "") -> Texture2D:
-	if champion == "Fulcrum" and ability_name == "Starfall":
-		ability_name = "Fulcrum/Starfall"
+	ability_name = key_for(ability_name, champion)
 	if not PATHS.has(ability_name):
 		return null
 	if not textures.has(ability_name):

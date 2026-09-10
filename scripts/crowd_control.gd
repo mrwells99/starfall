@@ -6,12 +6,15 @@ const RESET := 18.0
 const FACTORS := [1.0, 0.5, 0.25, 0.0]
 const BREAK_CHANCE := 0.25
 const BREAK_DAMAGE := 20.0 # 20% of the game's fixed 100 maximum HP.
+static func airborne_immune(actor) -> bool:
+	return actor.identity.get("backflip_active", false) and (not actor.is_on_floor() or actor.velocity.y > .1)
 static func remaining(actor, category: String) -> float:
 	return float(actor.cc_effects.get(category, {}).get("remaining", 0.0))
 static func apply(actor, category: String, duration: float, source: String) -> float:
 	if category not in CATEGORIES or duration <= 0 or actor.hp <= 0: return 0.0
+	if airborne_immune(actor): return 0.0
 	if category == "silence" and actor.champion == "Vanguard": return 0.0
-	if category == "disarm" and actor.champion != "Vanguard": return 0.0
+	if category == "disarm" and actor.champion not in ["Vanguard", "Outlaw"]: return 0.0
 	if category == "root" and actor.identity.get("immune", 0) > 0: return 0.0
 	var track: Dictionary = actor.dr_states.get(category, {"count": 0, "remaining": 0.0})
 	var factor: float = FACTORS[mini(int(track.count), 3)]
@@ -69,6 +72,8 @@ static func on_damage(actor, amount: float, roll: float = -1.0) -> void:
 		var chance := randf() if roll < 0 else roll
 		if effect.damage >= BREAK_DAMAGE or chance < BREAK_CHANCE: clear(actor, ["disorient"])
 static func spell_block(actor) -> float:
+	if airborne_immune(actor): return 0.0
+	if actor.champion == "Outlaw": return maxf(remaining(actor, "disarm"), remaining(actor, "silence"))
 	return remaining(actor, "disarm" if actor.champion == "Vanguard" else "silence")
 static func reset(actor) -> void:
 	actor.cc_effects.clear()

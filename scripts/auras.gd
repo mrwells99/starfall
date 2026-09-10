@@ -85,10 +85,25 @@ static func active(actor, sources: Array = [], local_source: int = -1) -> Array:
 			"description": "Moves 65% faster. Does not increase jump height or clear stuns.",
 		})
 	var identity: Dictionary = actor.identity
+	for source_id in identity.get("severe_bleeds", {}):
+		out.append({"key": "severe_%s" % source_id, "name": "Severe", "kind": DEBUFF, "remaining": identity.severe_bleeds[source_id].left, "color": Color("dd6c74"), "source": "Severe", "description": "Bleeds for 2 damage each second for 5 seconds. Refreshes per caster. DPS Mend removes it."})
+	if identity.get("coin_left", 0.0) > 0:
+		out.append({"key": "coin_combo", "name": "Coin Trickshot", "kind": BUFF, "remaining": identity.coin_left, "color": Color("f2c676"), "source": "Coin Toss", "description": "One off-GCD Trickshot while the coin is in flight. Both bullet segments must clear terrain."})
+	if preload("res://scripts/crowd_control.gd").airborne_immune(actor):
+		out.append({"key": "backflip", "name": "Backflip", "kind": BUFF, "remaining": maxf(.01, 1.2 - identity.backflip_elapsed), "color": Color("92ceff"), "source": "Backflip", "description": "Immune to crowd control and displacement until landing. One airborne Trickshot opportunity."})
+	for proc in [
+		["instant_severe", "Instant Severe", "Roll", "Roll grants 1 second to use one instant Severe. Severe's range, cooldown and global cooldown still apply. Consumed on successful use."],
+		["instant_collapse", "Instant Collapse", "Collapse", "Inward grants 4s to cast one instant Collapse off the global cooldown. Collapse's own cooldown still applies. Consumed when used."],
+		["instant_graviton", "Instant Graviton", "Graviton", "A landed Collapse grants 4s to cast one instant Graviton. The global cooldown still applies. Consumed when used."],
+	]:
+		if identity.get(proc[0], 0.0) > 0:
+			out.append({"key": proc[0], "name": proc[1], "source": proc[2], "description": proc[3], "kind": BUFF, "remaining": identity[proc[0]], "color": Color("c9a0ff")})
 	for item in [["root", "Rooted", "Collapse", "Cannot move; can still cast.", DEBUFF], ["slow", "Slowed", "Heavy Orbit", "Movement reduced by 45%.", DEBUFF], ["immune", "Absolution", "Absolution", "Immune to roots and slows.", BUFF], ["last", "Last Light", "Last Light", "The next lethal hit leaves 1 HP, then protection ends.", BUFF], ["hold", "Hold the Line", "Hold the Line", "Stationary, displacement resistant; 70% frontal damage reduction.", BUFF], ["guard_left", "Intercede", "Intercede", "Redirecting 30% of an ally's incoming damage, up to the remaining budget.", BUFF], ["challenge_left", "Challenge", "Challenge", "Marked enemy attacking allies grants Resolve.", BUFF]]:
 		if identity.get(item[0], 0.0) > 0:
 			out.append({"key": item[0], "name": item[1], "source": item[2], "description": item[3], "kind": item[4], "remaining": identity[item[0]], "color": Color("c9a0ff")})
 	for aura in out:
+		if aura.key == "root" and actor.cc_effects.has("root"):
+			aura.source = actor.cc_effects.root.source
 		if aura.key == "stun":
 			if actor.cc_effects.has("incapacitate"):
 				aura.name = "Incapacitated"

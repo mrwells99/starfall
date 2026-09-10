@@ -1,0 +1,142 @@
+{
+  "schema": 1,
+  "extension": "hitboxes-v1",
+  "required": true,
+  "approved": "2026-09-10",
+  "owner_request": "Bake hitbox creation into Starfall Model Forge v2.",
+  "base_workflow": "Starfall Model Forge v2",
+  "excluded_revisions": [
+    "r006",
+    "r007"
+  ],
+  "body": {
+    "shape": "mathematical_capsule",
+    "parts": [
+      "pelvis",
+      "abdomen",
+      "chest",
+      "neck",
+      "head",
+      "shoulder.L",
+      "upper_arm.L",
+      "forearm.L",
+      "hand.L",
+      "thigh.L",
+      "shin.L",
+      "foot.L",
+      "shoulder.R",
+      "upper_arm.R",
+      "forearm.R",
+      "hand.R",
+      "thigh.R",
+      "shin.R",
+      "foot.R"
+    ],
+    "endpoint_count": 38,
+    "radii_m": {
+      "standard": [
+        0.145,
+        0.175,
+        0.205,
+        0.085,
+        0.145,
+        0.105,
+        0.1,
+        0.09,
+        0.07,
+        0.12,
+        0.1,
+        0.085,
+        0.105,
+        0.1,
+        0.09,
+        0.07,
+        0.12,
+        0.1,
+        0.085
+      ],
+      "heavy": [
+        0.175,
+        0.205,
+        0.245,
+        0.085,
+        0.155,
+        0.145,
+        0.125,
+        0.115,
+        0.085,
+        0.145,
+        0.12,
+        0.1,
+        0.145,
+        0.125,
+        0.115,
+        0.085,
+        0.145,
+        0.12,
+        0.1
+      ]
+    },
+    "padding_description": "Approximately 2–4 cm around the main body; record armor-specific adjustments.",
+    "endpoint_authority": "scripts/body_hitboxes.gd",
+    "head_damage_multiplier": 1,
+    "excluded": [
+      "flowing cloth",
+      "hair",
+      "hat brims",
+      "halos",
+      "crystal tips",
+      "orbiting props",
+      "held weapons"
+    ],
+    "movement_capsule": {
+      "radius_m": 0.42,
+      "height_m": 1.8,
+      "change_authorized": false
+    }
+  },
+  "rig": {
+    "output_pattern": "assets/hitboxes/{class}_rig.scn",
+    "manifest": "assets/hitboxes/manifest.json",
+    "builder": "tools/build_hitbox_rigs.gd",
+    "pose_runtime": "scripts/hitbox_pose.gd",
+    "shared_presenter": true,
+    "render_resources_allowed": false,
+    "lossy_motion_resampling_allowed": false,
+    "portable_library_metadata": "hitbox_libraries",
+    "preserve_core_rest_bones": 53
+  },
+  "validation": {
+    "maximum_pose_error_m": 0.0005,
+    "common_poses": [
+      "idle",
+      "forward",
+      "side",
+      "diagonal",
+      "backpedal",
+      "jump",
+      "landing",
+      "cast",
+      "recover",
+      "interrupted transitions"
+    ],
+    "class_special_moves_required": true,
+    "required_suite_labels": {
+      "pose": "Hitbox pose checks",
+      "server": "Server runtime checks",
+      "combat": "Aimed combat checks"
+    },
+    "head_damage_multiplier": 1,
+    "front_side_images_required": true,
+    "special_move_images_when_applicable": true,
+    "review_renderer": "gl_compatibility",
+    "review_fps_cap": 30,
+    "review_monitor": "secondary; verify layout",
+    "new_playable_aimed_ability_authorized": false
+  },
+  "recovery": {
+    "max_archive_bytes": 33554432,
+    "extract_to_empty_stage_only": true,
+    "integration_context_must_not_overwrite_newer_gameplay": true
+  }
+}

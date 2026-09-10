@@ -197,8 +197,11 @@ func run() -> void:
 	arena.release_mouse()
 	for champion in arena.Kits.NAMES:
 		for ability in arena.Kits.get_kit(champion):
+			if ability.kind == "unavailable": continue
 			var text: String = arena.Kits.description(ability, champion)
-			check(not arena.Kits.summary(ability).is_empty() and text.contains("Cooldown"),
+			# Blink restores charges while remaining usable; its tooltip labels recharge.
+			var timing_label := "Charge recharge" if ability.kind == "blink" else "Cooldown"
+			check(not arena.Kits.summary(ability).is_empty() and text.contains(timing_label),
 				"Description coverage: " + ability.name)
 			arena.ability_tooltip.present(ability, champion, Vector2(1100, 740), arena.ui.size)
 			await process_frame

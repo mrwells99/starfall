@@ -41,7 +41,7 @@ func run() -> void:
 		var visible_count := 0
 		for row in intro.rows:
 			if row.visible: visible_count += 1
-		check(visible_count == kit.size() and game.menu_presentation.preview.visible, "Library lists entire kit with character preview")
+		check(visible_count == kit.filter(func(spell): return spell.kind != "unavailable").size() and game.menu_presentation.preview.visible, "Library lists available abilities with character preview")
 		intro.all_button.pressed.emit()
 		check(game.menu_state == "online" and not intro.library, "Back returns to selection")
 		game.leave_session("")

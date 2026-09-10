@@ -23,12 +23,13 @@ func run() -> void:
 		actor.identity.resolve = 40.0
 		actor.identity.meditation = 75.0
 		actor.identity.stars = [{"id": 2, "left": 30.0}, {"id": 3, "left": 30.0}]
+		actor.identity.defense_detonation = 2
 		game.selected_id = 4
 		game.focus_id = 5
 		game.update_visuals(0)
 		var meter = game.player_frame.get_child(3).get_node("ResourceMeter")
 		check(meter.visible and meter.champion == actor.champion, "Own meter follows selected champion")
-		check(meter.amount == [40, 40, 2, 75][i], "Meter reads replicated class resource")
+		check(meter.amount == [40, 40, 2, 75, 2][i], "Meter reads replicated class resource")
 		var before: String = meter.cache
 		game.update_visuals(0)
 		check(meter.cache == before, "Unchanged resource reuses draw state")

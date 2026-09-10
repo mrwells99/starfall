@@ -4,12 +4,14 @@ var actor_id := 0
 var owner_peer := 0
 var team := 0
 var champion := "Ember"
-var hp := 100.0
+const MAX_HEALTH := 100.0
+var hp := MAX_HEALTH
 var kit: Array = []
 const Auras = preload("res://scripts/auras.gd")
 const Kits = preload("res://scripts/kits.gd")
 var cooldowns: Array = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 var identity: Dictionary = {}
+var charge: Dictionary = {}
 var gcd := 0.0
 var casting := -1
 var cast_left := 0.0
@@ -48,6 +50,9 @@ var path: PackedVector2Array = []
 var body_mesh: MeshInstance3D
 var training_dummy := false
 var champion_model: Node3D
+var body_hitboxes: RefCounted
+var hitbox_pose: Node3D
+var aim_stamp := 0.0
 var nameplate: Label3D
 var team_marker
 var health_mesh: MeshInstance3D
@@ -151,6 +156,23 @@ func setup(id: int, peer: int, side: int, choice: String, presentation: bool = t
 	add_child(team_marker)
 	team_marker.install(self)
 
+func setup_hitboxes() -> void:
+	if body_hitboxes != null: return
+	var art
+	if champion_model == null:
+		hitbox_pose = load("res://scripts/hitbox_pose.gd").new()
+		add_child(hitbox_pose); hitbox_pose.build(champion)
+		art = hitbox_pose.art
+	else:
+		art = champion_model.get(champion.to_lower()+"_art")
+	body_hitboxes = preload("res://scripts/body_hitboxes.gd").new()
+	body_hitboxes.setup(art.skeleton,champion)
+
+func update_hitboxes(delta: float) -> void:
+	if body_hitboxes == null: setup_hitboxes()
+	if hitbox_pose != null and not training_dummy: hitbox_pose.animate(delta,self)
+	body_hitboxes.update()
+
 # Painted from the arena, which is the only thing that knows who the local
 # player is and therefore who counts as hostile.
 func mark_hostile(hostile: bool) -> void:
@@ -205,10 +227,11 @@ func visual_tick(delta: float, camera: Camera3D, show_nameplate: bool = true) ->
 
 func snapshot() -> Dictionary:
 	return {"jump_ack": last_jump_id, "jump_buffer": jump_buffer, "walk": walking, "move_ack": last_motion_seq, "velocity": velocity, "grounded": is_on_floor(), "motion_revision": motion_revision, "id": actor_id, "peer": owner_peer, "team": team, "champion": champion, "pos": position, "yaw": rotation.y, "hp": hp, "cd": cooldowns.duplicate(), "gcd": gcd, "casting": casting, "left": cast_left, "stun": stunned, "lock": locked, "shield": shield, "sprint": sprint,
-		"stun_src": stun_from, "lock_src": lock_from, "shield_src": shield_from, "sprint_src": sprint_from, "dr": dr_count, "dr_timer": dr_timer, "dr_states": dr_states.duplicate(true), "cc_effects": cc_effects.duplicate(true), "cast_target": cast_target, "target": target_id, "identity": identity.duplicate(true)}
+		"stun_src": stun_from, "lock_src": lock_from, "shield_src": shield_from, "sprint_src": sprint_from, "dr": dr_count, "dr_timer": dr_timer, "dr_states": dr_states.duplicate(true), "cc_effects": cc_effects.duplicate(true), "cast_target": cast_target, "target": target_id, "identity": identity.duplicate(true), "charge": charge.duplicate(true)}
 
 func receive(data: Dictionary, instant: bool = false) -> void:
 	identity = data.get("identity", {}).duplicate(true)
+	charge = data.get("charge", {}).duplicate(true)
 	net_position = data.pos
 	net_yaw = data.yaw
 	presentation_grounded = data.get("grounded", null)
@@ -222,6 +245,12 @@ func receive(data: Dictionary, instant: bool = false) -> void:
 	owner_peer = data.peer
 	hp = data.hp
 	cooldowns = data.cd
+	# A pre-preview server has no trailing local camera utility in its snapshot.
+	# Fill only local slots; never infer a missing combat cooldown.
+	if cooldowns.size() < kit.size() and kit[cooldowns.size()].get("local_only", false):
+		cooldowns = cooldowns.duplicate()
+	while cooldowns.size() < kit.size() and kit[cooldowns.size()].get("local_only", false):
+		cooldowns.append(0.0)
 	gcd = data.gcd
 	casting = data.casting
 	cast_left = data.left
@@ -240,8 +269,12 @@ func receive(data: Dictionary, instant: bool = false) -> void:
 	target_id = data.target
 
 func reset_identity() -> void:
+	charge.clear()
 	jump_queued = false
 	jump_buffer = 0
 	dr_states.clear()
 	cc_effects.clear()
-	identity = {"meditation": 0.0, "instant_graviton": false, "instant_collapse": false, "entropy_dots": {}, "dots": {}, "heat": 0.0, "resolve": 0.0, "brands": {}, "stars": [], "anchor_left": 0.0, "anchor_pos": Vector3.ZERO, "orbit": 0.0, "root": 0.0, "slow": 0.0, "immune": 0.0, "last": 0.0, "hold": 0.0, "disorient": false, "guard": -1, "guard_left": 0.0, "guard_budget": 0.0, "challenge": -1, "challenge_left": 0.0, "challenge_tick": 0.0, "exposed": -1, "exposed_left": 0.0, "wake": 0.0, "wake_pos": Vector3.ZERO, "wake_end": Vector3.ZERO, "wake_tick": 0.0}
+	# Instant procs store remaining seconds, shared by casting, auras and snapshots.
+	identity = {"meditation": 0.0, "instant_graviton": 0.0, "instant_collapse": 0.0, "entropy_dots": {}, "dots": {}, "heat": 0.0, "resolve": 0.0, "brands": {}, "stars": [], "anchor_left": 0.0, "anchor_pos": Vector3.ZERO, "orbit": 0.0, "root": 0.0, "slow": 0.0, "immune": 0.0, "last": 0.0, "hold": 0.0, "disorient": false, "guard": -1, "guard_left": 0.0, "guard_budget": 0.0, "challenge": -1, "challenge_left": 0.0, "challenge_tick": 0.0, "exposed": -1, "exposed_left": 0.0, "wake": 0.0, "wake_pos": Vector3.ZERO, "wake_end": Vector3.ZERO, "wake_tick": 0.0}
+	identity.blink_charges = Kits.BLINK_MAX_CHARGES if champion == "Ember" else 0
+	preload("res://scripts/outlaw_mechanics.gd").initialize(self)
