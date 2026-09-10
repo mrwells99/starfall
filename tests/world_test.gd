@@ -20,6 +20,28 @@ func go() -> void:
 	ck(arena.phase == "match", "World starts immediately with no countdown")
 	ck(arena.countdown == 0.0, "No countdown in the world")
 	ck(arena.actors.size() == 5, "Players and three stationary training dummies spawn")
+	ck(arena.selected_id == -1, "World arrival does not auto-target players or dummies")
+	arena.panel.hide()
+	arena.update_visuals(0)
+	ck(not arena.enemy_box.visible, "Arena frames are hidden in world mode")
+	arena.edit_mode = true
+	arena.update_visuals(0)
+	ck(not arena.enemy_box.visible, "Edit previews do not enable arena frames in the world")
+	arena.edit_mode = false
+	arena.cycle_target()
+	ck(arena.selected_id == 2, "World Tab prefers a player to challenge over training dummies")
+	arena.actors[2].hp = 0
+	arena.selected_id = -1
+	for _step in arena.TrainingDummies.IDS:
+		arena.cycle_target()
+		ck(arena.selected_id == -1, "World Tab never selects dummies even when no players are available")
+	arena.cycle_target(-1)
+	ck(arena.selected_id == -1, "Reverse world targeting also skips all dummies")
+	arena.actors[2].hp = 100
+	arena.selected_id = -100
+	arena.cycle_target()
+	ck(arena.selected_id == 2, "Tab leaves a manually selected dummy for an available player")
+	ck(arena.enemy_ids() == [2], "Arena target and focus shortcuts cannot pick a dummy either")
 	var a = arena.actors[1]
 	var b = arena.actors[2]
 	var dummy = arena.actors[-100]
@@ -39,6 +61,30 @@ func go() -> void:
 	ck(arena.duel_offers.get(2, -1) == 1, "A challenge is recorded against the target")
 	arena.confirm_duel(2)
 	ck(arena.duels.get(1, -1) == 2 and arena.duels.get(2, -1) == 1, "Accepting pairs both fighters")
+	arena.selected_id = -100
+	var tab := InputEventKey.new()
+	tab.keycode = KEY_TAB
+	tab.physical_keycode = KEY_TAB
+	tab.pressed = true
+	Input.parse_input_event(tab.duplicate())
+	await process_frame
+	ck(arena.selected_id == 2 and not arena.social.typing(), "Real Tab input selects the duel opponent instead of focusing chat")
+	tab.pressed = false
+	Input.parse_input_event(tab.duplicate())
+	for direction in [1, -1]:
+		arena.cycle_target(direction)
+		ck(arena.selected_id == 2, "Duel targeting stays on the opponent and skips dummies")
+	arena.update_visuals(0)
+	ck(not arena.enemy_box.visible and arena.target_frame.visible, "World duels use the target frame without arena frames")
+	arena.social.entry.grab_focus()
+	arena.selected_id = -1
+	tab.pressed = true
+	Input.parse_input_event(tab.duplicate())
+	await process_frame
+	ck(arena.selected_id == -1, "Chat typing does not activate duel targeting")
+	tab.pressed = false
+	Input.parse_input_event(tab.duplicate())
+	arena.social.entry.release_focus()
 	arena.damage(a, b, 30.0)
 	ck(b.hp == 70, "Damage lands once a duel is agreed")
 	# A third party still cannot join in.
@@ -54,6 +100,8 @@ func go() -> void:
 	arena.damage(a, b, 100.0)
 	ck(b.hp == 0 and not arena.duels.has(1) and not arena.duels.has(2), "Losing ends the duel")
 	ck(arena.respawn_timers.has(2), "The loser is queued to come back")
+	arena.cycle_target()
+	ck(arena.selected_id == 3, "After a duel Tab prefers the available bystander over dummies or a defeated player")
 	arena.check_winner()
 	ck(arena.phase == "match", "The world has no victory condition")
 	arena.tick_world(4.0)

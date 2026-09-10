@@ -429,16 +429,30 @@ func run() -> void:
 	arena.update_visuals(0)
 	ck(arena.ability_buttons[12].visible and arena.ability_images[12].texture != null, "Fulcrum's thirteenth ability is visible and illustrated")
 	ck(arena.ability_buttons[13].visible and arena.ability_images[13].texture != null, "Entropy is available as Fulcrum's fourteenth illustrated ability")
+	# Earlier suites can persist reduced effects, which intentionally stops pulsing.
+	var saved_reduced_effects: bool = arena.player_options.reduced_effects
+	arena.player_options.reduced_effects = false
 	arena.update_proc_flash()
 	ck(arena.ability_images[0].self_modulate != Color.WHITE, "Instant Graviton visibly pulses")
 	var first_tint: Color = arena.ability_images[0].self_modulate
 	await create_timer(.1).timeout
 	arena.update_proc_flash()
 	ck(arena.ability_images[0].self_modulate != first_tint, "Proc flash animates over time")
+	arena.player_options.reduced_effects = true
+	arena.update_proc_flash()
+	var reduced_tint: Color = arena.ability_images[0].self_modulate
+	ck(reduced_tint != Color.WHITE, "Reduced effects keeps the proc visibly highlighted")
+	await create_timer(.1).timeout
+	arena.update_proc_flash()
+	ck(arena.ability_images[0].self_modulate == reduced_tint, "Reduced effects keeps the proc highlight steady over time")
 	arena.ClassMechanics.tick(arena, a, 60)
 	ck(a.identity.instant_graviton == 0.0, "A long tick expires the proc and clamps its timer to zero")
 	arena.update_proc_flash()
 	ck(arena.ability_images[0].self_modulate == Color.WHITE, "Flash clears when the proc expires")
+	arena.player_options.reduced_effects = false
+	arena.update_proc_flash()
+	ck(arena.ability_images[0].self_modulate == Color.WHITE, "Expired proc stays clear with animated effects")
+	arena.player_options.reduced_effects = saved_reduced_effects
 	ck(arena.AbilityArt.texture_for("Starfall", "Fulcrum") != arena.AbilityArt.texture_for("Starfall", "Luminary"), "Both Starfalls retain distinct art")
 	for champion in arena.Kits.NAMES:
 		arena.world_mode = false

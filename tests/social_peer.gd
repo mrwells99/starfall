@@ -40,7 +40,22 @@ func _process(delta: float) -> bool:
 		arena.social.accept.pressed.emit()
 		arena.social.submit("hello from peer")
 		accepted = true
-	if arena.duels.has(arena.local_id): saw_duel = true
+	if arena.duels.has(arena.local_id) and not saw_duel:
+		arena.selected_id = -100
+		var tab := InputEventKey.new()
+		tab.keycode = KEY_TAB
+		tab.physical_keycode = KEY_TAB
+		tab.pressed = true
+		Input.parse_input_event(tab)
+		arena.update_visuals(0)
+		if arena.selected_id != arena.duels[arena.local_id] or arena.enemy_box.visible:
+			push_error("Network world duel Tab failed or arena frames became visible")
+			quit(1)
+			return false
+		var release := tab.duplicate()
+		release.pressed = false
+		Input.parse_input_event(release)
+		saw_duel = true
 	if not observer and saw_duel and saw_chat:
 		departing = true
 		arena.leave_session("done")

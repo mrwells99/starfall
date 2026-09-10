@@ -28,11 +28,25 @@ static func shield_name(champion: String) -> String:
 			return "Ward"
 
 # Returns active auras, most urgent first, as
-# {key, name, kind, remaining, description, color}.
-static func active(actor) -> Array:
+# {key, name, kind, remaining, description, color}, with optional stacks.
+static func active(actor, sources: Array = [], local_source: int = -1) -> Array:
 	var out: Array = []
 	if actor == null or actor.hp <= 0:
 		return out
+	# Brands are stored on their caster, keyed by victim, and are already in
+	# snapshots. Read that state rather than adding a second debuff timer.
+	for caster in sources:
+		if caster.hp <= 0: continue
+		var brand: Dictionary = caster.identity.get("brands", {}).get(actor.actor_id, {})
+		var stacks := int(brand.get("count", 0))
+		var remaining := float(brand.get("left", 0.0))
+		if stacks <= 0 or remaining <= 0: continue
+		var aura := {"key": "brand_%s" % caster.actor_id, "name": "Brand ×%d" % stacks,
+			"kind": DEBUFF, "remaining": remaining, "stacks": stacks,
+			"source": "Flashpoint", "caster_id": caster.actor_id, "color": Color("ff9c54"),
+			"description": "%s Brand: %d/3 stacks. This Ember's Flashpoint consumes these stacks for bonus damage. Kindle refreshes the duration." % ["Your" if caster.actor_id == local_source else "Ember #%d's" % caster.actor_id, stacks]}
+		if caster.actor_id == local_source: out.push_front(aura)
+		else: out.append(aura)
 	for source_id in actor.identity.dots:
 		var dot: Dictionary = actor.identity.dots[source_id]
 		var stacks := int(dot.get("stacks", 1))
