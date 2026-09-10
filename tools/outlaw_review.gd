@@ -7,8 +7,8 @@ func run() -> void:
 	sequence = [["Idle",2.0,Vector3.ZERO,0.0], ["Walk",1.5,Vector3.FORWARD,1.5],
 		["Run",1.5,Vector3.FORWARD,6.5], ["Left",1.2,Vector3.LEFT,6.5],
 		["Backpedal",1.5,Vector3.BACK,3.8], ["Jump",.7,Vector3.ZERO,0.0],
-		["Idle",.5,Vector3.ZERO,0.0], ["Roll",.55,Vector3.RIGHT,0.0],
-		["Idle",.4,Vector3.ZERO,0.0], ["Backflip",1.2,Vector3.ZERO,0.0],
+		["Idle",.5,Vector3.ZERO,0.0], ["Roll",art.Outlaw.ROLL_PRESENTATION_SECONDS,Vector3.RIGHT,0.0],
+		["Run",1.0,Vector3.FORWARD,6.5], ["Backflip",1.2,Vector3.ZERO,0.0],
 		["Idle",.5,Vector3.ZERO,0.0], ["Severe",.65,Vector3.ZERO,0.0],
 		["Starshot",.8,Vector3.ZERO,0.0], ["Detonation",3.0,Vector3.FORWARD,6.5],
 		["Deadeye",3.0,Vector3.FORWARD,3.25], ["Idle",1.5,Vector3.ZERO,0.0]]
@@ -46,7 +46,9 @@ func pose(label: String,t: float,delta: float,direction: Vector3,velocity: float
 	actor.position = Vector3(0,maxf(0,leap*t-10*t*t) if jumping else 0,0)
 	actor.identity.backflip_active = label=="Backflip"
 	actor.identity.backflip_elapsed = t if label=="Backflip" else 0.0
-	actor.identity.roll_left = maxf(.001,.55-t) if label=="Roll" else 0.0
+	actor.identity.roll_left = maxf(0,art.Outlaw.ROLL_SECONDS-t) if label=="Roll" else 0.0
+	actor.identity.roll_animation_left = maxf(0,art.Outlaw.ROLL_PRESENTATION_SECONDS-t) if label=="Roll" else 0.0
+	actor.identity.outlaw_action = "roll" if label=="Roll" else ""
 	actor.identity.roll_direction = direction
 	actor.casting = {"Starshot":0,"Detonation":8,"Deadeye":9}.get(label,-1)
 	actor.cast_left = maxf(0,3-t) if actor.casting>=0 else 0

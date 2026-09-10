@@ -51,6 +51,9 @@ func muzzle_position() -> Vector3:
 	# Same hand-local point used to author the revolver's luminous bore in Blender.
 	return skeleton.global_transform * (skeleton.get_bone_global_pose(skeleton.find_bone("DEF-hand.R")) * Vector3(-.030,.413,.085))
 
+func showing_roll(actor) -> bool:
+	return actor.identity.roll_left > 0 or (actor.identity.get("roll_animation_left",0.0) > 0 and actor.casting < 0 and not actor.identity.backflip_active and actor.identity.outlaw_action == "roll")
+
 func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
 	active_actor = actor
 	step_motion = actor.global_basis.inverse() * (actor.global_position - last_position) if initialized else Vector3.ZERO
@@ -61,8 +64,12 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
 		action_serial = actor.identity.outlaw_action_serial
 	shot_left = maxf(0, shot_left - delta); knife_left = maxf(0, knife_left - delta)
 	var gun_cast: bool = actor.casting >= 0 and actor.kit[actor.casting].kind in ["starshot", "deadeye"]
-	var special: bool = actor.identity.roll_left > 0 or actor.identity.backflip_active
-	var next_special: String = "roll" if actor.identity.roll_left > 0 else ("backflip" if actor.identity.backflip_active else "")
+	var special: bool = showing_roll(actor) or actor.identity.backflip_active
+	var next_special: String = "roll" if showing_roll(actor) else ("backflip" if actor.identity.backflip_active else "")
+	if special_kind == "roll" and next_special.is_empty():
+		# Roll is not a spell release. Hand the final crouch directly to the
+		# current gait (or idle), using the shared final-pose transition blend.
+		transient_left = 0.0
 	if special and next_special != special_kind: special_blend.begin(.08,.08 if next_special == "backflip" else .16)
 	special_kind = next_special
 	equipment.aim_weight = move_toward(equipment.aim_weight, 1.0 if (gun_cast or shot_left > 0) and not special else 0.0, delta * 12)
@@ -73,8 +80,10 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
 	equipment.shot_time = .32 - shot_left if shot_left > 0 else -1.0
 	super.animate(host, delta, actor)
 	if special and actor.hp > 0 and actor.stunned <= 0:
-		var rolling: bool = actor.identity.roll_left > 0
-		var progress: float = 1.0 - actor.identity.roll_left / Outlaw.ROLL_SECONDS if rolling else clampf(actor.identity.backflip_elapsed / Outlaw.BACKFLIP_AIRTIME, 0, 1)
+		var rolling: bool = showing_roll(actor)
+		var progress: float = clampf(actor.identity.backflip_elapsed / Outlaw.BACKFLIP_AIRTIME, 0, 1)
+		if rolling:
+			progress = (1.0 - actor.identity.roll_left / Outlaw.ROLL_SECONDS) * Outlaw.ROLL_ANIMATION_SPEED if actor.identity.roll_left > 0 else (Outlaw.ROLL_PRESENTATION_SECONDS - actor.identity.get("roll_animation_left",0.0)) / Outlaw.ROLL_ANIMATION_SECONDS
 		var animation: Animation = player.get_animation(clip_names.Roll)
 		player.seek(animation.length * (progress if rolling else BACKFLIP_ROLL_START * (1.0 - progress)), true)
 		special_blend.apply(delta)
@@ -101,9 +110,19 @@ func apply_test_aim() -> void:
 	var local_correction: Quaternion = basis.get_rotation_quaternion().inverse()*correction*basis.get_rotation_quaternion()
 	skeleton.set_bone_pose_rotation(upper,Quaternion.IDENTITY.slerp(local_correction,test_aim_weight)*skeleton.get_bone_pose_rotation(upper))
 
+func override_playback_rate(desired: String, default_rate: float) -> float:
+	# Moving Starshot keeps the selected leg gait in step with actual travel;
+	# the shared casting path otherwise resets playback to a fixed rate of one.
+	if active_actor == null or not Outlaw.starshot_cast(active_actor) or not is_locomotion(desired): return default_rate
+	if "Backward" in desired:
+		return clampf(filtered_speed / BACKPEDAL_REFERENCE_SPEED * BACKPEDAL_CADENCE_SCALE, .55, 2.5)
+	if desired.begins_with("Walk") or desired.begins_with("Strafe"):
+		return clampf(filtered_speed / 1.35, .55, 2.5)
+	return clampf(filtered_speed / 2.8, .55, 2.5) * RUN_CADENCE_SCALE
+
 func override_clip(desired: String, alive: bool, stunned: bool, _delta: float) -> String:
 	if not alive or stunned or active_actor == null: return desired
-	if active_actor.identity.roll_left > 0 or active_actor.identity.backflip_active: return "Roll"
+	if showing_roll(active_actor) or active_actor.identity.backflip_active: return "Roll"
 	var spell_kind: String = active_actor.kit[active_actor.casting].kind if active_actor.casting >= 0 else ""
 	if spell_kind in ["starshot", "deadeye", "severe"] or shot_left > 0 or knife_left > 0:
 		if was_airborne: return desired if desired.begins_with("Jump") else "JumpLoop"

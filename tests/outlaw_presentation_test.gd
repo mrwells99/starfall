@@ -38,9 +38,20 @@ func run() -> void:
 		actor.champion_model.animate(1.0/60,actor)
 	ck(art.clip=="Walk", "Deadeye uses the library's walking gait")
 	await directional_actions(actor, art)
-	actor.casting=-1; actor.identity.roll_left=.25; actor.identity.roll_direction=Vector3.LEFT
+	actor.casting=-1; actor.identity.roll_left=art.Outlaw.ROLL_SECONDS*.5; actor.identity.roll_direction=Vector3.LEFT
 	actor.champion_model.animate(.016,actor)
 	ck(art.clip=="Roll" and absf(wrapf(art.model.rotation.y-PI,-PI,PI))>1,"Directional Roll turns and uses the actual library clip")
+	ck(is_equal_approx(art.player.current_animation_position,art.player.get_animation(art.clip_names.Roll).length*.25),"Roll plays at half its previous speed while travel is unchanged")
+	actor.identity.roll_left=.001; actor.champion_model.animate(.016,actor)
+	ck(absf(art.player.current_animation_position/art.player.get_animation(art.clip_names.Roll).length-.5)<.002,"Roll reaches the animation midpoint as physical travel ends")
+	actor.identity.roll_left=0; actor.identity.outlaw_action="roll"
+	actor.identity.roll_animation_left=art.Outlaw.ROLL_PRESENTATION_SECONDS-art.Outlaw.ROLL_ANIMATION_SECONDS*.6
+	actor.champion_model.animate(.016,actor)
+	ck(art.clip=="Roll" and is_equal_approx(art.player.current_animation_position/art.player.get_animation(art.clip_names.Roll).length,.6),"Slower Roll retains its cadence through the crouched recovery")
+	actor.casting=1; actor.champion_model.animate(.016,actor)
+	ck(art.clip!="Roll","Severe can immediately take over the cosmetic recovery")
+	actor.casting=-1; actor.identity.roll_animation_left=0
+	roll_to_running(actor,art)
 	actor.identity.roll_left=0;actor.identity.backflip_active=true;actor.identity.backflip_elapsed=.5
 	actor.presentation_grounded=false;actor.velocity.y=2
 	actor.champion_model.animate(.016,actor)
@@ -62,6 +73,26 @@ func run() -> void:
 	actor.queue_free();await process_frame
 	print("Outlaw presentation checks: %d passed / %d total" % [checks-failures,checks])
 	quit(1 if failures else 0)
+
+func roll_to_running(actor,art) -> void:
+	var hips: int=art.skeleton.find_bone("DEF-hips")
+	var directions := [Vector3.FORWARD,Vector3.RIGHT,Vector3.BACK,Vector3.LEFT,Vector3(1,0,-1).normalized(),Vector3(1,0,1).normalized(),Vector3(-1,0,1).normalized(),Vector3(-1,0,-1).normalized()]
+	for direction in directions:
+		actor.casting=-1; actor.presentation_grounded=true; actor.identity.backflip_active=false
+		actor.identity.roll_left=0; actor.identity.outlaw_action="roll"; actor.identity.roll_direction=direction
+		actor.identity.roll_animation_left=.005
+		art.last_position=actor.position-direction*6.5/60
+		actor.champion_model.animate(1.0/60,actor)
+		ck(art.player.current_animation_position/art.player.current_animation_length<.63,"Roll never samples the removed standing tail")
+		var before: Quaternion=art.skeleton.get_bone_pose_rotation(hips)
+		actor.identity.roll_animation_left=0
+		for frame in 8:
+			art.last_position=actor.position-direction*6.5/60
+			actor.champion_model.animate(1.0/60,actor)
+			ck(art.is_locomotion(art.clip),"Roll exits directly into directional locomotion without idle/cast frames")
+			if frame==0:
+				ck(art.pose_blend.elapsed<art.pose_blend.duration and before.angle_to(art.skeleton.get_bone_pose_rotation(hips))<.35,"Running begins with a short blend from the displayed crouch")
+	actor.identity.outlaw_action=""
 
 func early_backflip(actor,art) -> void:
 	var hips: int=art.skeleton.find_bone("DEF-hips")
@@ -89,12 +120,14 @@ func directional_actions(actor, art) -> void:
 	var runs := ["Run", "RunForwardRight", "RunRight", "WalkBackwardRight", "WalkBackward", "WalkBackwardLeft", "RunLeft", "RunForwardLeft"]
 	for yaw in [0.0, PI/2]:
 		actor.rotation.y = yaw
-		for action in [["Deadeye",9,false,3.25], ["Detonation",-1,false,6.5], ["Severe",1,false,6.5], ["Walking Severe",1,true,1.6], ["Walking Detonation",-1,true,3.25], ["Walking Starshot",0,true,1.6], ["Walking shot recovery",-1,true,1.6], ["Walking knife strike",-1,true,1.6]]:
+		for action in [["Deadeye",9,false,3.25], ["Detonation",-1,false,6.5], ["Severe",1,false,6.5], ["Walking Severe",1,true,1.6], ["Walking Detonation",-1,true,3.25], ["Starshot",0,false,4.55], ["Walking Starshot",0,true,2.275], ["Walking shot recovery",-1,true,1.6], ["Walking knife strike",-1,true,1.6]]:
 			actor.casting=action[1]; actor.cast_left=3; actor.walking=action[2]
 			art.test_aim_weight = 1.0 if "Detonation" in action[0] else 0.0
 			art.test_aim_direction = -actor.basis.z
 			for sector in 8:
 				art.shot_left=0;art.knife_left=0
+				var motion_speed: float=action[3]
+				if action[1]==0 and sector in [3,4,5]: motion_speed=3.8*.7*(.5 if action[2] else 1.0)
 				var natural_clip := ""
 				if "Detonation" in action[0]:
 					art.test_aim_weight=0
@@ -106,11 +139,14 @@ func directional_actions(actor, art) -> void:
 				if action[0]=="Walking shot recovery": art.fire("gun")
 				if action[0]=="Walking knife strike": art.fire("knife")
 				for frame in 12:
-					art.last_position=actor.position-actor.basis*directions[sector]*action[3]/60.0
+					art.last_position=actor.position-actor.basis*directions[sector]*motion_speed/60.0
 					actor.champion_model.animate(1.0/60,actor)
-				var expected: String = runs[sector] if action[0] in ["Detonation","Severe"] else walks[sector]
+				var expected: String = runs[sector] if action[0] in ["Detonation","Severe","Starshot"] else walks[sector]
 				if not natural_clip.is_empty(): expected=natural_clip
 				ck(art.clip==expected and art.player.current_animation==art.clip_names[expected], "%s sector %d at yaw %.2f plays the actual imported clip" % [action[0],sector,yaw])
 				ck(art.skeleton.get_bone_global_pose(art.skeleton.find_bone("DEF-hand.R")).is_finite(), "%s sector %d keeps the carrying arm finite" % [action[0],sector])
+				if action[1]==0:
+					var rate: float=clampf(motion_speed/3.8*1.15,.55,2.5) if sector in [3,4,5] else (clampf(motion_speed/1.35,.55,2.5) if action[2] else clampf(motion_speed/2.8,.55,2.5)*.9)
+					ck(absf(art.player.speed_scale-rate)<.08,"Starshot running/walking cadence follows the slowed travel speed")
 	actor.rotation.y=0;actor.walking=false;actor.casting=-1
 	art.shot_left=0;art.knife_left=0;art.test_aim_weight=0

@@ -174,6 +174,7 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
 		clip = desired
 		player.play(clip_names[clip], 0.0)
 		if locomotion_change: player.seek(phase * player.get_animation(clip_names[clip]).length, false)
+	rate = override_playback_rate(desired, rate)
 	player.speed_scale = lerpf(player.speed_scale, rate, 1.0 - exp(-delta * 18.0)) if is_locomotion(desired) else 1.0
 	if alive and not stunned:
 		player.advance(delta)
@@ -193,6 +194,9 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
 			materials[i].albedo_color = Color.WHITE if actor.flash > 0 else (base_colors[i] if alive else base_colors[i].lerp(Color("333744"), 0.7))
 			materials[i].emission = Color.WHITE if actor.flash > 0 else base_emissions[i]
 			materials[i].emission_energy_multiplier = 2.0 if actor.flash > 0 else base_emission_energy[i] * (1.0 if alive else .15)
+
+func override_playback_rate(_desired: String, default_rate: float) -> float:
+	return default_rate
 
 func is_locomotion(name: String) -> bool:
 	return name.begins_with("Walk") or name.begins_with("Run") or name.begins_with("Sprint") or name.begins_with("Strafe")

@@ -1,4 +1,5 @@
 extends SceneTree
+const Outlaw = preload("res://scripts/outlaw_mechanics.gd")
 var checks := 0
 var failures := 0
 var maximum_error := 0.0
@@ -19,13 +20,14 @@ func run() -> void:
 		check(FileAccess.get_sha256("res://assets/hitboxes/"+title.to_lower()+"_rig.scn") == manifests.classes[title].rig_sha256,title+" rig integrity is verified")
 		var v_art = visible.champion_model.get(title.to_lower()+"_art")
 		var s_art = server.hitbox_pose.art
-		for state in ["idle","forward","left","backpedal","diagonal","jump","landing","cast","recover","roll","backflip"]:
-			if title != "Outlaw" and state in ["roll","backflip"]: continue
+		for state in ["idle","forward","left","backpedal","diagonal","jump","landing","cast","recover","roll","roll_recovery","roll_run","backflip"]:
+			if title != "Outlaw" and state in ["roll","roll_recovery","roll_run","backflip"]: continue
 			var error := 0.0
 			for frame in 48:
 				var t := frame/60.0
 				for actor in [visible,server]:
 					var direction: Vector3 = {"forward":Vector3.FORWARD,"left":Vector3.LEFT,"backpedal":Vector3.BACK,"diagonal":Vector3(1,0,-1).normalized()}.get(state,Vector3.ZERO)
+					if state=="roll_run" and t>=Outlaw.ROLL_SECONDS: direction=Vector3.FORWARD
 					actor.position += direction*(3.8 if state == "backpedal" else 6.5)/60.0
 					actor.presentation_grounded = state not in ["jump","backflip"]
 					actor.velocity.y = 7-20*t if state == "jump" else (12-20*t if state == "backflip" else 0)
@@ -33,7 +35,9 @@ func run() -> void:
 					actor.casting = 0 if state == "cast" else -1
 					actor.cast_left = maxf(.01,1.5-t) if state == "cast" else 0
 					if title == "Outlaw":
-						actor.identity.roll_left = maxf(.001,.55-t) if state == "roll" else 0
+						actor.identity.roll_left = maxf(0,Outlaw.ROLL_SECONDS-t) if state in ["roll","roll_run"] else 0
+						actor.identity.roll_animation_left = maxf(0,Outlaw.ROLL_PRESENTATION_SECONDS-t-(Outlaw.ROLL_SECONDS if state=="roll_recovery" else 0)) if state in ["roll","roll_recovery","roll_run"] else 0
+						actor.identity.outlaw_action = "roll" if state in ["roll","roll_recovery","roll_run"] else ""
 						actor.identity.roll_direction = Vector3.RIGHT
 						actor.identity.backflip_active = state == "backflip"
 						actor.identity.backflip_elapsed = t

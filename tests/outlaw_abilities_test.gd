@@ -61,19 +61,25 @@ func severe_and_roll() -> void:
 		var before: Vector3 = a.position
 		ck(game.try_spell(1, 6, -1, PI/2), "Roll accepts direction " + str(direction))
 		ck(a.identity.instant_severe == 0 and a.gcd == 0, "Roll is off GCD; its follow-up buff begins after travel")
-		tick(a, .55)
 		var expected: Vector3 = Vector3.LEFT if direction == Vector2.ZERO else Vector3(direction.x, 0, direction.y).normalized()
+		tick(a, .1)
+		var early: Vector3 = a.position - before; early.y = 0
+		ck(early.distance_to(expected*(6.0/.55)*1.5*.1) < .02 and a.identity.roll_left > 0, "Roll travels 50 percent faster during the motion in every direction")
+		tick(a, game.Outlaw.ROLL_SECONDS-.1)
 		var displacement: Vector3 = a.position - before; displacement.y = 0
-		ck(displacement.distance_to(expected*6) < .08, "Roll travel %s: actual %s, expected %s" % [direction, displacement, expected*6])
+		ck(displacement.distance_to(expected*7.8) < .08, "Roll travel %s: actual %s, expected %s" % [direction, displacement, expected*7.8])
 		ck(a.identity.instant_severe > .98 and a.identity.roll_left <= .00001, "Roll completion grants exactly a one-second instant Severe window")
+		ck(absf(a.identity.roll_animation_left-(game.Outlaw.ROLL_PRESENTATION_SECONDS-game.Outlaw.ROLL_SECONDS))<.001,"Half-speed Roll keeps only the trimmed cosmetic recovery after unchanged travel and buff timing")
 	clear_floor.queue_free(); await physics_frame
 	await reset()
 	a.move_input = Vector2.RIGHT
-	game.try_spell(1, 6, -1); tick(a, .55)
+	game.try_spell(1, 6, -1); tick(a, game.Outlaw.ROLL_SECONDS)
 	b.position = a.position + Vector3.FORWARD * 2
 	ck(game.proc_ready(a, a.kit[1]), "Instant Severe highlights its hotbar slot")
 	ck(game.try_spell(1, 1, 2) and a.casting == -1 and b.hp == 85, "Roll follow-up Severe fires instantly while moving")
 	ck(a.identity.instant_severe == 0 and a.cooldowns[1] == 4 and a.gcd == game.GCD_DURATION, "Successful Severe consumes the buff while retaining its cooldown and GCD")
+	game.Outlaw.tick(game,a,.01)
+	ck(a.identity.roll_animation_left==0,"Instant Severe immediately cancels Roll's cosmetic recovery")
 	await reset()
 	a.identity.instant_severe = 1; b.position.z = -8
 	ck(not game.try_spell(1, 1, 2) and a.identity.instant_severe == 1, "Out-of-range Severe preserves the current buff window")
@@ -83,7 +89,7 @@ func severe_and_roll() -> void:
 	ck(a.identity.instant_severe <= .000001 and not game.proc_ready(a, a.kit[1]), "Instant Severe expires at one second")
 	await reset()
 	var obstacle := wall(Vector3(2,1,0), Vector3(.3,2,4)); await physics_frame
-	a.move_input = Vector2.RIGHT; game.try_spell(1,6,-1); tick(a,.55)
+	a.move_input = Vector2.RIGHT; game.try_spell(1,6,-1); tick(a,game.Outlaw.ROLL_SECONDS)
 	ck(a.position.x < 1.5 and not a.test_move(a.transform, Vector3.ZERO), "Roll stops its capsule before solid terrain")
 	obstacle.queue_free(); await physics_frame
 
@@ -120,9 +126,54 @@ func moving_severe() -> void:
 	obstacle.queue_free();await physics_frame
 	await reset()
 	a.move_input=Vector2.RIGHT
-	ck(not game.try_spell(1,0,2), "Starshot still requires standing still")
-	a.move_input=Vector2.ZERO;game.try_spell(1,0,2)
+	ck(not game.try_spell(1,5,1), "Ordinary Mend still requires standing still")
+	a.move_input=Vector2.ZERO;game.try_spell(1,5,1)
 	ck(game.try_spell(2,2,1) and a.casting==-1 and a.locked>0, "Ordinary casts remain kickable")
+
+func moving_starshot() -> void:
+	for walking in [false,true]:
+		for direction in [Vector2.UP,Vector2.DOWN,Vector2.LEFT,Vector2.RIGHT,Vector2(1,-1).normalized(),Vector2(-1,-1).normalized(),Vector2(1,1).normalized(),Vector2(-1,1).normalized()]:
+			await reset()
+			a.walking=walking; a.move_input=direction
+			ck(game.try_spell(1,0,2) and a.casting==0 and is_equal_approx(a.cast_left,.7), "Starshot starts while running/walking in every direction and keeps its 0.7s cast")
+			tick(a,.1)
+			var normal_speed: float=(3.8 if direction.y>0 else 6.5)*(.5 if walking else 1.0)
+			ck(a.casting==0 and is_equal_approx(Vector2(a.velocity.x,a.velocity.z).length(),normal_speed*.7), "Starshot reduces running, walking and diagonal/backpedal speed by exactly 30 percent")
+			b.position=a.position+Vector3.FORWARD*2
+			var remaining: float=a.cast_left
+			ck(game.try_spell(2,2,1) and a.casting==0 and a.locked==0 and is_equal_approx(a.cast_left,remaining), "An enemy kick cannot cancel Starshot or apply a school lockout")
+			for frame in 37:
+				b.position=a.position+Vector3.FORWARD*2
+				tick(a,1.0/60)
+			ck(a.casting==-1 and b.hp==92 and a.identity.outlaw_channel.is_empty(), "Moving Starshot completes eight damage without a channel: %s walking=%s" % [direction,walking])
+			tick(a,.02)
+			ck(is_equal_approx(Vector2(a.velocity.x,a.velocity.z).length(),normal_speed), "Normal movement speed returns after Starshot completes")
+	await reset()
+	game.try_spell(1,0,2); a.move_input=Vector2.RIGHT; tick(a,.1)
+	ck(a.casting==0 and is_equal_approx(a.velocity.x,4.55), "Starting movement after Starshot begins keeps the cast and applies its speed cost")
+	game.cancel_own_cast(a,"Test"); tick(a,.02)
+	ck(a.casting==-1 and is_equal_approx(a.velocity.x,6.5), "Cancelling Starshot immediately restores running speed")
+	await reset()
+	game.try_spell(1,0,2); game.CC.apply(a,"stun",1,"Test"); tick(a,.8)
+	ck(a.casting==-1 and b.hp==100, "Hard crowd control still cancels Starshot")
+	await reset()
+	game.try_spell(1,0,2); b.position.z=-25; tick(a,.71)
+	ck(a.casting==-1 and b.hp==100, "Starshot rechecks its unchanged 18m range at completion")
+	await reset()
+	game.try_spell(1,0,2)
+	var obstacle:=wall(Vector3(0,1.5,-1),Vector3(2,3,.3)); await physics_frame
+	tick(a,.71)
+	ck(a.casting==-1 and b.hp==100, "Starshot still checks terrain when it finishes")
+	obstacle.queue_free(); await physics_frame
+	await reset()
+	a.move_input=Vector2.UP; game.try_spell(1,0,2); a.jump_queued=true; tick(a,.1)
+	ck(a.casting==0 and not a.is_on_floor() and is_equal_approx(a.velocity.z,-4.55), "Jumping during Starshot keeps the cast and the slowed takeoff momentum")
+	a.move_input=Vector2.RIGHT; tick(a,.1)
+	ck(a.casting==0 and is_equal_approx(a.velocity.z,-4.55) and absf(a.velocity.x)<.001, "Casting still preserves world-space jump direction while airborne")
+	await reset()
+	a.move_input=Vector2.UP; a.walking=true; a.sprint=2; a.identity.slow=2
+	game.try_spell(1,0,2); tick(a,.1)
+	ck(is_equal_approx(absf(a.velocity.z),6.5*.5*1.65*.55*.7), "Starshot's self speed cost composes with existing walk, sprint and slow modifiers")
 
 func measure_backflip(legacy: bool, rate: int, yaw := 0.0) -> Dictionary:
 	var previous_rate := Engine.physics_ticks_per_second
@@ -259,6 +310,7 @@ func channels() -> void:
 	game.try_spell(1,9,-1)
 	game.CC.apply(a,"stun",1,"Test"); tick(a,.1)
 	ck(a.casting == -1 and a.identity.outlaw_channel.is_empty() and b.hp == 100, "Deadeye remains vulnerable to non-kick crowd control")
+	ck(a.cooldowns[9] == 0, "Interrupted Deadeye refunds its entire remaining cooldown")
 	await reset()
 	game.spawn_actor(3,3,1,"Vanguard",Vector3(0,.025,8))
 	game.spawn_actor(4,4,1,"Luminary",Vector3(0,.025,-22))
@@ -288,13 +340,137 @@ func channels() -> void:
 	a.reset_identity()
 	ck(a.identity.defense_detonation == 0 and a.identity.instant_severe == 0 and a.identity.coin_left == 0, "Round and duel reset clears all Outlaw resources and opportunities")
 
+func severe_reach() -> void:
+	for instant in [false,true]:
+		await reset()
+		ck(is_equal_approx(a.kit[1].range,3.3),"Severe has exactly 10 percent more reach without half-metre rounding")
+		a.identity.instant_severe = 1 if instant else 0
+		b.position = a.position + Vector3.FORWARD*3.301
+		ck(not game.try_spell(1,1,2) and a.cooldowns[1]==0,"Severe rejects targets just beyond 3.3m for both normal and Roll casts")
+		b.position = a.position + Vector3.FORWARD*3.299
+		ck(game.try_spell(1,1,2),"Severe can start just inside its expanded reach")
+		tick(a,.61)
+		ck(b.hp==85 and b.identity.severe_bleeds.has(1),"Severe lands full damage and bleed within the new reach")
+	await reset()
+	b.position = a.position + Vector3.FORWARD*3.2
+	game.try_spell(1,1,2); b.position.z -= .2; tick(a,.61)
+	ck(b.hp==100,"Moving beyond the expanded range before completion still avoids Severe")
+
+func coin_momentum() -> void:
+	# Actual movement establishes launch velocity; a clear raised floor keeps
+	# arena pillars from obscuring distance and directional inheritance checks.
+	var floor_body := wall(Vector3(0,19.5,0),Vector3(80,1,80)); await physics_frame
+	for yaw in [0.0,PI/2]:
+		for direction in [Vector2.ZERO,Vector2.UP,Vector2.DOWN,Vector2.RIGHT,Vector2(1,-1).normalized()]:
+			await reset()
+			a.position = Vector3(0,20.025,0); a.velocity = Vector3.ZERO
+			a.rotation.y=yaw; a.move_input=direction
+			for frame in 10: game.simulate_movement(a,1.0/60)
+			var velocity: Vector3=a.velocity
+			var start: Vector3=a.position
+			ck(game.try_spell(1,7,-1,yaw),"Coin Toss can launch during movement: %s at %s" % [direction,yaw])
+			var origin: Vector3=a.identity.coin_origin
+			tick(a,.5)
+			var relative: Vector3=a.identity.coin_position-origin-(a.position-start); relative.y=0
+			var heading: Vector3=Basis(Vector3.UP,yaw)*Vector3.FORWARD
+			ck(relative.distance_to(heading*2.5)<.02,"Coin gains 2.5m over its moving caster in half a second, including diagonals/backpedal")
+			if direction==Vector2.UP:
+				var travel: Vector3=a.identity.coin_position-origin; travel.y=0
+				ck(absf(travel.length()-5.75)<.02,"Forward-running coin travels at 11.5m/s instead of falling behind a 6.5m/s runner")
+			var current: Vector3=a.identity.coin_position
+			a.move_input=-direction; a.rotation.y += PI; a.velocity=Vector3.ZERO
+			tick(a,.25)
+			var remaining_travel: Vector3=a.identity.coin_position-current; remaining_travel.y=0
+			var expected: Vector3=(heading*5+velocity)*.25; expected.y=0
+			ck(remaining_travel.distance_to(expected)<.02,"Stopping or turning afterward does not steer a released coin")
+	floor_body.queue_free(); await physics_frame
+	await reset()
+	a.position.y=10; a.velocity=Vector3(0,7,-6.5)
+	game.try_spell(1,7,-1)
+	var origin: Vector3=a.identity.coin_origin
+	game.Outlaw.tick(game,a,.25)
+	ck(absf((a.identity.coin_position-origin).y-2.9125)<.001,"An airborne toss inherits upward jump momentum too")
+	var saved: Dictionary=bytes_to_var(var_to_bytes(a.snapshot()))
+	var position: Vector3=a.identity.coin_position
+	a.reset_identity(); a.receive(saved,true)
+	ck(a.identity.coin_momentum==Vector3(0,7,-6.5) and a.identity.coin_position==position,"Coin launch momentum and position survive the network snapshot format")
+	game.Outlaw.tick(game,a,1.56)
+	ck(a.identity.coin_left==0,"Inherited momentum does not lengthen the 1.8s combo window")
+	a.reset_identity()
+	ck(a.identity.coin_momentum==Vector3.ZERO and a.identity.coin_left==0,"Round cleanup clears inherited coin momentum")
+	await reset()
+	a.velocity=Vector3(0,0,-20)
+	var obstacle:=wall(Vector3(0,2,-4),Vector3(5,4,.1)); await physics_frame
+	game.try_spell(1,7,-1); game.Outlaw.tick(game,a,.3)
+	ck(a.identity.coin_left==0 and not game.try_spell(1,2,2),"A fast inherited throw sweeps into thin terrain and loses its combo instead of tunnelling through")
+	obstacle.queue_free(); await physics_frame
+	await reset()
+
+func deadeye_refunds() -> void:
+	for category in ["stun","incapacitate","disorient","silence","disarm"]:
+		await reset()
+		game.try_spell(1,9,-1); tick(a,.25)
+		ck(a.cooldowns[9]>89 and a.casting==9,"Deadeye reserves its normal cooldown during the windup")
+		game.CC.apply(a,category,1,"Test"); tick(a,1.0/60)
+		ck(a.casting==-1 and a.cooldowns[9]==0 and b.hp==100 and a.identity.outlaw_channel.is_empty(),"Deadeye refunds on "+category+" without applying damage")
+	for elapsed in [.05,1.5,2.99]:
+		await reset()
+		game.try_spell(1,9,-1); tick(a,elapsed)
+		game.cancel_own_cast(a,""); tick(a,1.0/60)
+		ck(a.cooldowns[9]==0 and b.hp==100,"Manual cancellation refunds Deadeye even immediately before completion")
+		ck(game.try_spell(1,9,-1) and a.cooldowns[9]==90,"Refunded Deadeye can be cast again after cancellation")
+	for slot in [1,8]:
+		await reset()
+		game.spawn_actor(3,3,1,"Fulcrum",Vector3(0,.025,4))
+		var fulcrum=game.actors[3]; fulcrum.owner_peer=3
+		fulcrum.rotation.y=0
+		fulcrum.identity.anchor_left=20; fulcrum.identity.anchor_pos=Vector3(0,.025,-4)
+		game.try_spell(1,9,-1)
+		ck(game.try_spell(3,slot,1) and a.casting==-1,"Fulcrum displacement interrupts Deadeye")
+		tick(a,1.0/60)
+		ck(a.cooldowns[9]==0,"Inward/Outward interruption refunds Deadeye")
+	await reset()
+	game.try_spell(1,9,-1); a.hp=0; a.casting=-1; tick(a,1.0/60)
+	ck(a.cooldowns[9]==0 and a.identity.outlaw_channel.is_empty(),"Death before completion also releases Deadeye's reserved cooldown")
+	await reset()
+	game.world_mode=true; game.duels={1:2,2:1}
+	game.try_spell(1,9,-1); game.damage(b,a,200)
+	ck(a.hp==0 and a.cooldowns[9]==0 and a.identity.outlaw_channel.is_empty(),"Lethal damage refunds Deadeye before world-duel cleanup erases channel state")
+	await reset()
+	game.world_mode=true; game.duels={1:2,2:1}
+	game.try_spell(1,9,-1); game.end_duel(2,1); tick(a,1.0/60)
+	ck(a.casting==-1 and a.cooldowns[9]==0,"A duel ending during the winner's windup refunds that unfinished Deadeye too")
+	await reset()
+	game.try_spell(1,9,-1); game.CC.apply(a,"root",1,"Test"); tick(a,.2)
+	ck(a.casting==9 and a.cooldowns[9]>89,"Root alone does not interrupt Deadeye or refund it")
+	game.try_spell(2,2,1); tick(a,.1)
+	ck(a.casting==9 and a.cooldowns[9]>89,"An ineffective kick does not grant a cooldown refund")
+	tick(a,2.71)
+	ck(a.casting==-1 and b.hp==60 and a.cooldowns[9]>86,"Completed Deadeye keeps its cooldown and damage")
+	a.gcd=0; game.try_spell(1,0,2); game.cancel_own_cast(a,""); tick(a,.1)
+	ck(a.cooldowns[9]>86,"Cancelling a later spell cannot refund an already completed Deadeye")
+	await reset()
+	game.try_spell(1,9,-1); b.position.z=-25; tick(a,3.01)
+	ck(a.casting==-1 and b.hp==100 and a.cooldowns[9]>86,"Finishing with nobody in range still spends Deadeye's cooldown")
+	await reset()
+	game.try_spell(1,9,-1)
+	var obstacle:=wall(Vector3(0,1.5,-1),Vector3(2,3,.3)); await physics_frame
+	tick(a,3.01)
+	ck(a.casting==-1 and b.hp==100 and a.cooldowns[9]>86,"Finishing with everyone behind cover is a completed cast, not a refund")
+	obstacle.queue_free(); await physics_frame
+	await reset()
+
 func run() -> void:
 	game = load("res://arena.tscn").instantiate(); root.add_child(game); game.set_physics_process(false)
 	await severe_and_roll()
 	await moving_severe()
+	await severe_reach()
+	await moving_starshot()
 	await backflip_trajectory()
 	await backflip_and_coin()
+	await coin_momentum()
 	await detonation_foundation()
 	await channels()
+	await deadeye_refunds()
 	print("Outlaw ability checks: %d passed / %d total" % [checks-failures,checks])
 	quit(1 if failures else 0)

@@ -36,12 +36,13 @@ static func get_kit(champion: String) -> Array:
 	if champion == "Outlaw":
 		return [
 			spell("Starshot", "starshot", 8, 24, .7, 0),
-			spell("Severe", "severe", 15, 4, .6, 4),
+			# Apply the 10% increase after the shared half-metre range rounding.
+			spell("Severe", "severe", 15, 4, .6, 4).merged({"range": 3.0 * 1.1}, true),
 			spell("Trickshot", "trickshot", 12, 24, 0, 0, true),
 			spell("Backflip", "backflip", 12, 0, 0, 12, true),
 			spell("Ward", "shield", 5, 0, 0, 22, true),
 			spell("Mend", "self_heal", 28, 0, 2, 16),
-			spell("Roll", "roll", 6, 0, 0, 10, true),
+			spell("Roll", "roll", 7.8, 0, 0, 10, true),
 			spell("Coin Toss", "coin_toss", 1.8, 0, 0, 14),
 			# Aiming is local; firing remains disconnected until aimed shots exist.
 			spell("Defense Detonation", "defense_detonation", 10, 0, 0, 0, true).merged({"local_only": true}),
@@ -126,14 +127,14 @@ static func get_kit(champion: String) -> Array:
 # Numeric effects use the same kit dictionaries that the simulation reads.
 static func summary(ability: Dictionary) -> String:
 	var concepts := {
-		"starshot": "Transmute starlight into a gunshot for 8 damage.",
+		"starshot": "Cast while moving at 70% of your normal movement speed. Kicks cannot interrupt this cast or apply a lockout. Transmute starlight into a gunshot for 8 damage. Hard crowd control can still cancel it; range and line of sight are checked when it finishes.",
 		"severe": "Cast while moving normally; kicks cannot interrupt this cast or apply a lockout. Slash with your Bowie knife for 15% of the enemy's current health, rounded to a whole number. Apply a 5s bleed dealing 2 damage each second. One bleed per caster; reapplication refreshes it. Completing Roll grants a 1s buff for one instant Severe; its own cooldown and global cooldown still apply.",
 		"trickshot": "Instant, off-global-cooldown gunshot for 12 damage. Only usable once during Backflip's airborne combo or while your Coin Toss is still in flight. A coin shot ricochets from the coin to your selected enemy, requiring clear paths to the coin and from the coin to the enemy. A landed combo grants one Defense Detonation stack, up to 3.",
-		"roll": "Roll up to 6m over 0.55s in your movement-input direction, including diagonals; with no movement input, roll along camera heading. Stops at terrain. Completing the roll grants a 1s buff for one instant Severe. Off the global cooldown.",
+		"roll": "Roll up to 7.8m over approximately 0.48s in your movement-input direction, including diagonals; with no movement input, roll along camera heading. Stops at terrain. Completing the roll grants a 1s buff for one instant Severe. Off the global cooldown.",
 		"backflip": "Leap backward about 8.6m with a 2.8m rise on level ground, stopping at terrain. Deals no damage. While airborne, become immune to crowd control and forced movement and gain one opportunity to cast Trickshot. The combo window and immunity end when you land. Off the global cooldown.",
-		"coin_toss": "Toss a visible coin along camera heading in a 1.8s arc. While it remains airborne, Trickshot can shoot it and ricochet into an enemy behind your own line-of-sight cover. Both bullet paths must be clear; the coin stops at solid terrain. Tossing alone deals no damage or resource gain.",
+		"coin_toss": "Toss a visible coin along camera heading in a 1.8s arc, adding your movement velocity at release so a forward throw stays ahead while running. While it remains airborne, Trickshot can shoot it and ricochet into an enemy behind your own line-of-sight cover. Both bullet paths must be clear; the coin stops at solid terrain. Tossing alone deals no damage or resource gain.",
 		"defense_detonation": "Raise your gun and enter over-the-shoulder aiming while moving normally. Use Defense Detonation again to leave. No cast time. Firing is not available yet; aiming does not spend stacks. Planned fire: spend all available stacks (1 to 3) together for one rapid aimed burst, one shot per stack for 10% maximum health each.",
-		"deadeye": "Automatically mark every enemy without selecting a target. Wind up for 3s while limited to walking, then hit marked enemies still within 18m and clear line of sight for 40% of their maximum health. Cover is checked at completion. Kicks cannot interrupt it or apply a lockout. Cannot jump during the windup. 90s cooldown.",
+		"deadeye": "Automatically mark every enemy without selecting a target. Wind up for 3s while limited to walking, then hit marked enemies still within 18m and clear line of sight for 40% of their maximum health. Cover is checked at completion. Kicks cannot interrupt it or apply a lockout. Cannot jump during the windup. 90s cooldown, refunded if the cast is interrupted or cancelled before completion.",
 		"kindle": "Deal 16 damage. Gain 20 Heat and add a brand (up to 3) for 10s.",
 		"flashpoint": "Consume your brands: 12 + 6 damage per brand. Three brands also deal 10 splash damage within 5m. Gain 10 Heat.",
 		"nova": "Requires 40 Heat. Consume all Heat: 18 + 0.4 damage per Heat to enemies within 5m of the target.",

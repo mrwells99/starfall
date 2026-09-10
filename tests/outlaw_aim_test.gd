@@ -35,6 +35,65 @@ func click_hotbar(slot: int) -> void:
 		root.push_input(event,true)
 		await process_frame
 
+func held_right_gesture(bar_slot: int) -> void:
+	var preview = game.outlaw_aim_test
+	var controls = game.movement_controls
+	var motion := InputEventMouseMotion.new(); motion.screen_relative = Vector2(20,0)
+	for rapid in [false,true]:
+		controls.begin(mouse(MOUSE_BUTTON_RIGHT,true))
+		var origin: Vector2 = game.mouse_capture_origin
+		game.send_action(bar_slot)
+		check(preview.enabled and controls.right,"Entering Detonation retains an already owned right-button hold")
+		if rapid:
+			for repeat in 3:
+				step(); game.send_action(bar_slot); step(); game.send_action(bar_slot)
+		else: settle()
+		game._input(motion)
+		game.send_action(bar_slot)
+		check(not preview.enabled and controls.right and game.has_capture_origin and game.mouse_capture_origin == origin,"Exiting Detonation preserves held right-click and its original capture point, including rapid toggles")
+		var yaw: float = game.pivot.rotation.y
+		game._input(motion)
+		check(game.pivot.rotation.y != yaw and is_equal_approx(game.local_yaw,game.pivot.rotation.y),"Held right-click resumes ordinary camera and character turning without another press")
+		check(controls.sample(1.0/60) == Vector2.ZERO,"Resuming right-click does not invent two-button forward movement")
+		game._input(mouse(MOUSE_BUTTON_RIGHT,false))
+		check(not controls.right and not game.has_capture_origin,"Releasing after the transition ends the original camera gesture")
+		settle()
+	controls.begin(mouse(MOUSE_BUTTON_RIGHT,true)); game.send_action(bar_slot)
+	game._input(mouse(MOUSE_BUTTON_RIGHT,false))
+	check(preview.enabled and not controls.right,"Releasing right-click during aim does not leave aiming")
+	game.send_action(bar_slot)
+	check(not controls.right and not game.has_capture_origin,"A release during aim prevents a stuck right-click after exit")
+	settle(); game.send_action(bar_slot)
+	game._input(mouse(MOUSE_BUTTON_RIGHT,true)); game.send_action(bar_slot)
+	check(controls.right and game.has_capture_origin,"A right-button press owned by aiming can continue as normal mouse look on exit")
+	game._input(mouse(MOUSE_BUTTON_RIGHT,false)); settle()
+	# Physical presses owned by UI must never turn into camera gestures.
+	Input.parse_input_event(mouse(MOUSE_BUTTON_RIGHT,true)); controls.cancel()
+	game.send_action(bar_slot); game.send_action(bar_slot)
+	check(not controls.right and not game.has_capture_origin,"A physically held but unowned right button is not synthesized on exit")
+	Input.parse_input_event(mouse(MOUSE_BUTTON_RIGHT,false)); settle()
+	for reason in ["cast","roll","backflip","stun"]:
+		controls.begin(mouse(MOUSE_BUTTON_RIGHT,true)); game.send_action(bar_slot)
+		if reason == "cast": actor.casting = 0
+		if reason == "roll": actor.identity.roll_left = .4
+		if reason == "backflip": actor.identity.backflip_active = true
+		if reason == "stun": actor.stunned = 1
+		step()
+		check(not preview.enabled and controls.right and game.has_capture_origin,"Aiming yields to "+reason+" while retaining the held camera gesture")
+		actor.casting = -1; actor.identity.roll_left = 0; actor.identity.backflip_active = false; actor.stunned = 0
+		game._input(mouse(MOUSE_BUTTON_RIGHT,false)); settle()
+	for reason in ["focus","menu","death","reset"]:
+		controls.begin(mouse(MOUSE_BUTTON_RIGHT,true)); game.send_action(bar_slot)
+		if reason == "focus": game._notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
+		if reason == "menu": game.panel.show()
+		if reason == "death": actor.hp = 0
+		if reason == "reset": preview.reset()
+		step()
+		check(not preview.enabled and not controls.right and not game.has_capture_origin,"Losing "+reason+" discards a held aim gesture")
+		game.application_focused = true; game.panel.hide(); actor.hp = 100
+		game._input(mouse(MOUSE_BUTTON_RIGHT,false)); settle()
+		check(not controls.right,"Returning from "+reason+" cannot restore stale mouse input")
+
 func run() -> void:
 	game = load("res://arena.tscn").instantiate(); game.config = TestConfig.new(); root.add_child(game)
 	await process_frame; await process_frame
@@ -67,14 +126,17 @@ func run() -> void:
 	check(preview.enabled,"Clicking Defense Detonation enters aiming even with zero stacks during this preparation pass")
 	check(game.has_capture_origin and not game.movement_controls.left and not game.movement_controls.right,"Preview owns mouse look independently of held mouse gestures")
 	var samples := []
+	var crosshair_time := -1.0
 	for frame in 24:
 		step(); samples.append(game.arm.spring_length)
+		if preview.reticle.visible and crosshair_time < 0: crosshair_time = (frame+1)/60.0
 		if frame == 0:
 			check(game.arm.spring_length < normal_length and game.arm.spring_length > normal_length-(normal_length-preview.SHOULDER_DISTANCE)*.1,"First camera step eases in without snapping")
-			check(not preview.reticle.visible,"Reticle stays hidden while camera is moving in")
+			check(not preview.reticle.visible,"Reticle waits for the first camera clearance update")
 		if frame == 6:
 			check(actor.champion_model.outlaw_art.test_aim_weight > .1 and actor.champion_model.outlaw_art.test_aim_weight < .9,"Gun and camera raise together during transition")
-	check(preview.reticle.visible and preview.weight >= preview.ARRIVAL_WEIGHT,"Reticle appears once the shoulder transition has arrived")
+	check(preview.reticle.visible and crosshair_time > 0 and crosshair_time <= .1,"Crosshair appears within 100ms, well before the shoulder pan finishes")
+	print("DETONATION_CROSSHAIR_FIRST_VISIBLE_SECONDS: ",crosshair_time)
 	check((normal_length-samples[0]) < (samples[0]-samples[1]),"Aiming accelerates across its first frames like normal wheel zoom")
 	check((samples[15]-samples[16]) < (samples[1]-samples[2]),"Aiming decelerates gradually as the gun reaches its aimed position")
 	check(is_equal_approx(actor.champion_model.outlaw_art.test_aim_weight,preview.weight),"Gun raise follows the same eased weight as the camera")
@@ -169,6 +231,7 @@ func run() -> void:
 	preview.toggle()
 	check(game.arm.spring_length == halfway and preview.transition_velocity == before_velocity and preview.enabled,"Rapid re-entry preserves motion instead of restarting an easing curve")
 	settle(); check(preview.input(mouse(MOUSE_BUTTON_RIGHT,true)) and preview.enabled,"Right-click cannot exit after a rapid reversal either")
+	preview.input(mouse(MOUSE_BUTTON_RIGHT,false))
 	game.send_action(bar_slot)
 	settle()
 	# Measure the actual transition at equal times, independent of render FPS.
@@ -197,6 +260,7 @@ func run() -> void:
 		check(not preview.enabled and not preview.reticle.visible,"Aiming yields to "+reason)
 		actor.casting = -1; actor.identity.roll_left = 0; actor.identity.backflip_active = false; actor.stunned = 0
 		settle()
+	held_right_gesture(bar_slot)
 	preview.toggle(); settle(); game.application_focused = false; step()
 	check(not preview.owns_camera() and not preview.enabled and preview.transition_velocity == 0 and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE,"Losing focus releases camera, cursor and transition inertia")
 	game.application_focused = true

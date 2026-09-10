@@ -1,7 +1,7 @@
 extends RefCounted
 ## Defense Detonation aiming; legacy filename retained for existing tool references.
 ## Firing is intentionally disconnected. Neither toggling nor clicking spends stacks.
-const ARRIVAL_WEIGHT := .995 # Reticle appears once the camera is effectively over the shoulder.
+const RETICLE_START_WEIGHT := .25 # Show early in the pan, after a camera clearance update.
 const SHOULDER_DISTANCE := 1.65
 const SHOULDER_RIGHT := .55
 const SHOULDER_FOV := 62.0
@@ -68,14 +68,19 @@ func toggle() -> void:
 		enabled = true
 		shoulder_ready = false
 		game.movement_controls.left = false
-		game.movement_controls.right = false
+		# Keep an owned right-button gesture alive while aiming owns mouse look.
+		# Physical button polling would also pick up presses owned by the UI.
 		game.movement_controls.zoom_velocity = 0.0
 		game.capture_mouse()
 
-func leave() -> void:
+func leave(resume_gesture: bool = true) -> void:
 	enabled = false
 	if is_instance_valid(reticle): reticle.hide()
-	if game != null: game.release_mouse()
+	if game != null:
+		if resume_gesture and game.movement_controls.right and game.movement_controls.active() and actor_id == game.local_id:
+			game.capture_mouse()
+		else:
+			game.release_mouse()
 
 func clear_pose() -> void:
 	if game != null and game.actors.has(actor_id):
@@ -94,7 +99,7 @@ func restore_camera() -> void:
 
 func reset() -> void:
 	clear_pose()
-	if enabled: leave()
+	if enabled: leave(false)
 	progress = 0; weight = 0; transition_velocity = 0; actor_id = -1
 	shoulder_ready = false
 	restore_camera()
@@ -108,6 +113,12 @@ func input(event: InputEvent) -> bool:
 	# Escape reach the arena menu handler and indirectly close the preview.
 	if event is InputEventKey and event.keycode == KEY_ESCAPE: return true
 	if event is InputEventMouseButton:
+		if not event.pressed: game.controls.mouse_held.erase(event.button_index)
+		if event.button_index == MOUSE_BUTTON_RIGHT:
+			# Releases arrive here before normal movement input. Track both edges
+			# without exiting aim or restarting its smoothed facing animation.
+			game.movement_controls.right = event.pressed
+			game.movement_controls.dragged = true
 		# Preserve ordinary GUI activation when the cursor is available.
 		if event.button_index == MOUSE_BUTTON_LEFT and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE:
 			for slot in game.ability_buttons.size():
@@ -146,7 +157,7 @@ func tick(delta: float) -> void:
 		reset()
 	if enabled and not ready_to_aim(): leave()
 	advance_transition(delta)
-	if progress < ARRIVAL_WEIGHT: shoulder_ready = false
+	if progress < RETICLE_START_WEIGHT: shoulder_ready = false
 	if saved and progress == 0:
 		clear_pose(); restore_camera(); actor_id = -1
 	if saved and game.actors.has(actor_id):
@@ -154,11 +165,11 @@ func tick(delta: float) -> void:
 		art.test_aim_weight = weight if ready_to_aim() else 0.0
 		# Compute the final aiming direction, independent of the moving camera boom.
 		art.test_aim_direction = -(game.pivot.basis * Basis(Vector3.RIGHT,aim_pitch)).z
-	reticle.visible = enabled and progress >= ARRIVAL_WEIGHT and shoulder_ready and ready_to_aim()
+	reticle.visible = enabled and progress >= RETICLE_START_WEIGHT and shoulder_ready and ready_to_aim()
 
 func physics_tick() -> void:
 	if not saved or game == null: return
-	shoulder_ready = enabled and progress >= ARRIVAL_WEIGHT
+	shoulder_ready = enabled and progress >= RETICLE_START_WEIGHT
 	# Sweep the shoulder offset too; the existing spring arm covers rearward travel.
 	var query := PhysicsShapeQueryParameters3D.new()
 	query.shape = camera_shape

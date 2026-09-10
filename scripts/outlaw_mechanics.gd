@@ -1,7 +1,13 @@
 extends RefCounted
 ## Outlaw's authoritative combo state. Presentation never grants hits or charges.
-const ROLL_SECONDS := .55
-const ROLL_DISTANCE := 6.0
+# Travel is 30% farther at 50% higher speed, so duration scales by 1.3 / 1.5.
+const ROLL_SECONDS := .55 * 1.3 / 1.5
+const ROLL_DISTANCE := 6.0 * 1.3
+const ROLL_ANIMATION_SPEED := .5
+const ROLL_ANIMATION_SECONDS := ROLL_SECONDS / ROLL_ANIMATION_SPEED
+# End on the recovered crouch; discard the source clip's stand-to-idle tail.
+const ROLL_END_PHASE := .63
+const ROLL_PRESENTATION_SECONDS := ROLL_ANIMATION_SECONDS * ROLL_END_PHASE
 # Height is proportional to launch speed squared. Compensate the shorter
 # airtime horizontally to preserve the requested increase in travel distance.
 const BACKFLIP_SPEED := 12.0 * sqrt(.85 * .93)
@@ -14,15 +20,21 @@ const DETONATION_SHOT_INTERVAL := .12 # Provisional rapid-burst spacing, not a c
 const DETONATION_HEALTH_FRACTION := .1
 const SIGHT_RANGE := 18.0
 const MOBILE_KINDS := ["deadeye"]
+const STARSHOT_MOVE_SCALE := .7
 
 static func can_cast_moving(actor, spell: Dictionary) -> bool:
-	return actor.champion == "Outlaw" and (spell.kind in MOBILE_KINDS or spell.kind == "severe")
+	return actor.champion == "Outlaw" and (spell.kind in MOBILE_KINDS or spell.kind in ["severe", "starshot"])
+
+static func starshot_cast(actor) -> bool:
+	return actor.champion == "Outlaw" and actor.casting >= 0 and actor.kit[actor.casting].kind == "starshot"
 
 static func initialize(actor) -> void:
 	actor.identity.merge({"defense_detonation": 0, "severe_bleeds": {}, "backflip_active": false,
 		"backflip_combo": false, "backflip_elapsed": 0.0, "roll_left": 0.0, "roll_direction": Vector3.ZERO,
 		"roll_distance": 0.0, "instant_severe": 0.0,
+		"roll_animation_left": 0.0,
 		"coin_left": 0.0, "coin_origin": Vector3.ZERO, "coin_direction": Vector3.FORWARD,
+		"coin_momentum": Vector3.ZERO,
 		"coin_position": Vector3.ZERO, "outlaw_channel": {}, "outlaw_action": "", "outlaw_action_serial": 0}, true)
 
 static func backflip_airborne(a) -> bool:
@@ -35,7 +47,7 @@ static func deadeye_cast(a) -> bool:
 	return mobile_cast(a) and a.kit[a.casting].kind == "deadeye"
 
 static func unkickable(a) -> bool:
-	return a.champion == "Outlaw" and a.casting >= 0 and a.kit[a.casting].kind in ["severe", "deadeye"]
+	return a.champion == "Outlaw" and a.casting >= 0 and a.kit[a.casting].kind in ["severe", "starshot", "deadeye"]
 
 static func detonation_burst_plan(a) -> Dictionary:
 	# Snapshot all currently available stacks; never read live stacks per shot.
@@ -89,10 +101,19 @@ static func begin_channel(game, a, spell: Dictionary, target: int) -> void:
 	# Deadeye acquires all eligible opponents; visibility is checked at completion.
 	for enemy in game.actors.values():
 		if enemy.hp > 0 and enemy.team != a.team and game.may_harm(a, enemy): marked.append(enemy.actor_id)
-	a.identity.outlaw_channel = {"kind": spell.kind, "target": target, "marked": marked}
-	# Long windups cannot be repeatedly cancelled for free.
+	a.identity.outlaw_channel = {"kind": spell.kind, "slot": a.casting, "target": target, "marked": marked}
+	# Reserve the cooldown now; an unfinished cast refunds it during cleanup.
 	a.cooldowns[a.casting] = spell.cd
 	action(a, "aim")
+
+static func refund_interrupted_channel(game, a) -> void:
+	if not game.authoritative(): return
+	var channel: Dictionary = a.identity.get("outlaw_channel", {})
+	if channel.get("kind", "") == "deadeye" and not channel.get("completed", false):
+		var slot: int = int(channel.get("slot", -1))
+		if slot >= 0 and slot < a.kit.size() and a.kit[slot].kind == "deadeye":
+			a.cooldowns[slot] = 0.0
+	channel.clear()
 
 static func hit(game, a, b, damage: float, from: Vector3, tag: String) -> void:
 	game.damage(a, b, roundf(damage))
@@ -101,7 +122,7 @@ static func hit(game, a, b, damage: float, from: Vector3, tag: String) -> void:
 
 static func tick_channel(game, a, delta: float) -> void:
 	if not mobile_cast(a):
-		a.identity.outlaw_channel.clear()
+		refund_interrupted_channel(game, a)
 		return
 	var channel: Dictionary = a.identity.outlaw_channel
 	if channel.is_empty():
@@ -109,6 +130,8 @@ static func tick_channel(game, a, delta: float) -> void:
 		return
 	a.cast_left = maxf(0, a.cast_left - delta)
 	if a.cast_left <= 0:
+		# Finishing counts even if every marked enemy escapes sight or range.
+		channel.completed = true
 		for id in channel.marked:
 			var target = game.actors.get(id)
 			if target != null and target.hp > 0 and target.team != a.team and game.may_harm(a, target) and a.position.distance_to(target.position) <= SIGHT_RANGE and game.has_los(a, target):
@@ -129,6 +152,7 @@ static func resolve(game, a, spell: Dictionary, b, camera_yaw: Variant = null) -
 				b.identity.severe_bleeds[a.actor_id] = {"left": 5.0, "tick": previous.get("tick", 1.0)}
 		"roll":
 			a.identity.roll_left = ROLL_SECONDS
+			a.identity.roll_animation_left = ROLL_PRESENTATION_SECONDS
 			a.identity.roll_distance = 0.0
 			a.identity.roll_direction = game.BlinkCharges.direction(a, camera_yaw)
 			a.motion_revision += 1
@@ -149,6 +173,9 @@ static func resolve(game, a, spell: Dictionary, b, camera_yaw: Variant = null) -
 			a.identity.coin_position = a.identity.coin_origin
 			var yaw: float = a.rotation.y if camera_yaw == null else float(camera_yaw)
 			a.identity.coin_direction = Basis(Vector3.UP, yaw) * Vector3.FORWARD
+			# Inherit world velocity once at release, including airborne momentum.
+			# Later movement or camera turns cannot steer a coin already in flight.
+			a.identity.coin_momentum = a.velocity
 			action(a, "coin")
 		"trickshot":
 			var mode := trickshot_mode(game, a, b)
@@ -169,7 +196,15 @@ static func resolve(game, a, spell: Dictionary, b, camera_yaw: Variant = null) -
 
 static func tick(game, a, delta: float) -> void:
 	game.ClassMechanics.tick_dots(game, a, a.identity.severe_bleeds, delta, 2, 0)
-	if a.champion != "Outlaw" or a.hp <= 0: return
+	if a.champion != "Outlaw": return
+	# Covers CC, forced movement, manual cancel and death without depending on
+	# which system cleared casting. Runs before the dead-actor early return.
+	if not mobile_cast(a) or a.hp <= 0: refund_interrupted_channel(game, a)
+	if a.hp <= 0: return
+	# Cosmetic recovery only: never delays movement, casts or the instant buff.
+	a.identity.roll_animation_left = maxf(0, a.identity.get("roll_animation_left", 0.0) - delta)
+	if a.identity.roll_left <= 0 and (a.casting >= 0 or a.stunned > 0 or a.identity.backflip_active or a.identity.outlaw_action != "roll"):
+		a.identity.roll_animation_left = 0.0
 	a.identity.instant_severe = maxf(0, a.identity.instant_severe - delta)
 	if a.identity.backflip_active:
 		a.identity.backflip_elapsed += delta
@@ -180,15 +215,16 @@ static func tick(game, a, delta: float) -> void:
 		var previous: Vector3 = a.identity.coin_position
 		a.identity.coin_left = maxf(0, a.identity.coin_left - delta)
 		var t: float = COIN_SECONDS - a.identity.coin_left
-		var next: Vector3 = a.identity.coin_origin + a.identity.coin_direction * COIN_SPEED * t + Vector3.UP * (5.4 * t - 3.0 * t * t)
+		var launch_velocity: Vector3 = a.identity.coin_direction * COIN_SPEED + a.identity.get("coin_momentum", Vector3.ZERO)
+		var next: Vector3 = a.identity.coin_origin + launch_velocity * t + Vector3.UP * (5.4 * t - 3.0 * t * t)
 		if not raw_los(game, previous, next): a.identity.coin_left = 0.0
 		else: a.identity.coin_position = next
-	if not mobile_cast(a): a.identity.outlaw_channel.clear()
 
 static func roll_motion(game, a, delta: float) -> bool:
 	if a.identity.get("roll_left", 0.0) <= 0: return false
 	if a.stunned > 0 or a.identity.root > 0 or a.identity.hold > 0:
 		a.identity.roll_left = 0.0
+		a.identity.roll_animation_left = 0.0
 		return false
 	var active: float = minf(delta, a.identity.roll_left)
 	var distance: float = ROLL_DISTANCE / ROLL_SECONDS * active
@@ -197,7 +233,9 @@ static func roll_motion(game, a, delta: float) -> bool:
 	a.identity.roll_distance += a.position.distance_to(before)
 	a.identity.roll_left = maxf(0, a.identity.roll_left - delta)
 	if a.identity.roll_left < .00001: a.identity.roll_left = 0.0
-	if collision != null: a.identity.roll_left = 0.0
+	if collision != null:
+		a.identity.roll_left = 0.0
+		a.identity.roll_animation_left = 0.0
 	if a.identity.roll_left <= 0 and a.identity.roll_distance > .01 and game.authoritative():
 		a.identity.instant_severe = 1.0
 	a.velocity.x = 0; a.velocity.z = 0

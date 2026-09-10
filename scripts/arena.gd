@@ -2380,6 +2380,8 @@ func pong(stamp: int) -> void:
 	round_trip_ms = Time.get_ticks_msec() - stamp
 
 func tick_actor(actor, delta: float) -> void:
+	# Death resets class identity below, so release an unfinished reservation first.
+	if actor.hp <= 0: Outlaw.refund_interrupted_channel(self, actor)
 	ClassMechanics.tick(self, actor, delta)
 	actor.action_budget = maxf(0, actor.action_budget - delta)
 	actor.input_age += delta
@@ -2457,6 +2459,7 @@ func simulate_movement(actor, delta: float, grounded_override: Variant = null) -
 		speed *= 1.65
 	if actor.identity.slow > 0 and actor.identity.immune <= 0 and not airborne_protected:
 		speed *= 0.55
+	if Outlaw.starshot_cast(actor): speed *= Outlaw.STARSHOT_MOVE_SCALE
 	# Airborne movement carries world-space takeoff momentum, including when the
 	# player releases movement or turns. Collisions and control effects still stop it.
 	if grounded or immobilized:
@@ -2818,6 +2821,7 @@ func damage(source, victim, amount: float) -> void:
 	combat_event(source.actor_id, victim.actor_id, "−%d" % ceili(actual), RED)
 	if victim.hp == 0:
 		victim.casting = -1
+		Outlaw.refund_interrupted_channel(self, victim)
 		victim.move_input = Vector2.ZERO
 		combat_event(source.actor_id, victim.actor_id, "DEFEATED", GOLD)
 		if world_mode:
@@ -2882,6 +2886,7 @@ func end_duel(loser_id: int, winner_id: int) -> void:
 	sync_duels()
 	for id in [loser_id, winner_id]:
 		if actors.has(id):
+			Outlaw.refund_interrupted_channel(self, actors[id])
 			actors[id].reset_identity()
 	combat_event(winner_id, loser_id, "DUEL WON", GOLD)
 	# Losing a duel is not death: back up shortly, at full health.
