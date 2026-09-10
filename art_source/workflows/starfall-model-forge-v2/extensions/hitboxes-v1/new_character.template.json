@@ -1,0 +1,127 @@
+{
+  "schema": 2,
+  "workflow": "Starfall Model Forge v2",
+  "baseline_manifest_sha256": null,
+  "baseline_archive_sha256": null,
+  "class_slug": null,
+  "class_display_name": null,
+  "reference_paths": [],
+  "stage_directory": null,
+  "design": {
+    "silhouette": [],
+    "armor_and_clothing": [],
+    "palette": [],
+    "material_roles": [],
+    "face_and_hair_treatment": null,
+    "weapon": null,
+    "carrying_hands": []
+  },
+  "inputs": {
+    "library_sha256": "1b7bf67866360665426bb99e4c71bd619f19b408453c24e30f0c3071601eee5c",
+    "costume_source": null,
+    "costume_sha256": null
+  },
+  "invariants": {
+    "preserve_53_bone_rest_anatomy": true,
+    "preserve_32_clip_core_motion": true,
+    "use_accepted_runtime": true,
+    "excluded_revisions": [
+      "r006",
+      "r007"
+    ]
+  },
+  "intentional_exceptions": {
+    "core_motion_bones": [],
+    "reason": null,
+    "new_equipment_controls": [],
+    "texture_palette_recipe_changes": []
+  },
+  "tools": {
+    "blender_version": null,
+    "godot_version": null,
+    "renderer": null,
+    "python_version": null,
+    "seeds": {}
+  },
+  "deliverables": {
+    "builder": null,
+    "companions": [],
+    "editable_blend": null,
+    "packed_textures": [],
+    "glb": null,
+    "runtime_modules": [],
+    "viewer": null
+  },
+  "validation": {
+    "source_checks": null,
+    "animation_contract": null,
+    "skin_checks": null,
+    "materials_export": null,
+    "weapon_grip": null,
+    "godot_tests": null,
+    "visual_review": null,
+    "limitations": []
+  },
+  "installation": {
+    "before_manifest": null,
+    "installed_manifest": null,
+    "new_paths": [],
+    "owner_feedback": null
+  },
+  "workflow_revision": "v2 + hitboxes-v1",
+  "workflow_extensions": {
+    "hitboxes-v1": {
+      "manifest_sha256": null,
+      "archive_sha256": null,
+      "contract_sha256": null
+    }
+  },
+  "hitboxes": {
+    "required": true,
+    "profile": "standard",
+    "radii_m": [],
+    "fit_adjustments": null,
+    "source_glb": null,
+    "source_sha256": null,
+    "rig": null,
+    "rig_sha256": null,
+    "rig_manifest": "assets/hitboxes/manifest.json",
+    "definitions": "scripts/body_hitboxes.gd",
+    "definitions_sha256": null,
+    "tests": {
+      "pose": {
+        "path": null,
+        "sha256": null
+      },
+      "server": {
+        "path": null,
+        "sha256": null
+      },
+      "combat": {
+        "path": null,
+        "sha256": null
+      }
+    },
+    "maximum_pose_error_m": null,
+    "checked_poses": [],
+    "special_moves": [],
+    "server_compatibility": {
+      "engine_version": null,
+      "actual_pose_verified": false,
+      "evidence": {
+        "path": null,
+        "sha256": null
+      }
+    },
+    "review": {
+      "front_side": {
+        "path": null,
+        "sha256": null
+      },
+      "special_moves": {},
+      "reviewed": false,
+      "notes": null
+    },
+    "performance_notes": null
+  }
+}

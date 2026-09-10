@@ -1,6 +1,8 @@
 extends RefCounted
 # Shared v2 presentation for fitted classes; based on approved Fulcrum r008.
 var asset: PackedScene
+var asset_path := ""
+var pose_only := false
 var class_title := ""
 var equipment = preload("res://scripts/model_forge_equipment.gd").new()
 const RUN_CADENCE_SCALE := .90
@@ -32,6 +34,7 @@ var jump_pose = preload("res://scripts/model_forge_jump_pose.gd").new()
 var pose_blend = preload("res://scripts/model_forge_pose_blend.gd").new()
 
 func build(host: Node3D, team_color: Color) -> void:
+	if asset == null: asset = preload("res://scripts/character_asset_cache.gd").get_scene(asset_path)
 	model = asset.instantiate()
 	model.name = class_title + "Authored"
 	# Blender -Y is glTF +Z; game combatants face -Z.
@@ -61,6 +64,7 @@ func build(host: Node3D, team_color: Color) -> void:
 					material.emission_enabled = true
 					material.emission_energy_multiplier = base_emission_energy[-1]
 	assert(player != null and skeleton != null, "Fitted class requires its imported skeleton and animations")
+	preload("res://scripts/character_asset_cache.gd").restore_libraries(model,player)
 	for animation_name in player.get_animation_list():
 		var short_name: String = String(animation_name).get_slice("/", String(animation_name).count("/"))
 		clip_names[short_name] = animation_name

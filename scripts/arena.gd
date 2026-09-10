@@ -19,6 +19,9 @@ const AURA_SLOTS := 5
 const BAR_COUNT := 3
 const ClassMechanics = preload("res://scripts/class_mechanics.gd")
 const Outlaw = preload("res://scripts/outlaw_mechanics.gd")
+var aimed_combat = preload("res://scripts/aimed_combat.gd").new()
+var hitboxes_enabled := true
+signal aimed_shot_resolved(result: Dictionary)
 var outlaw_fx
 const BAR_SLOTS := 7
 const TOTAL_SLOTS := BAR_COUNT * BAR_SLOTS
@@ -234,6 +237,7 @@ var performance_timer := 0.0
 var availability_timer := 0.0
 var ability_reasons: Dictionary = {}
 var searching := false
+var outlaw_aim_test = preload("res://scripts/outlaw_aim_test.gd").new()
 
 func _ready() -> void:
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
@@ -269,6 +273,7 @@ func _ready() -> void:
 		outlaw_fx = preload("res://scripts/outlaw_effects.gd").new()
 		add_child(outlaw_fx)
 		outlaw_fx.install(self)
+		outlaw_aim_test.setup(self)
 
 func initialise_player_config() -> void:
 	if dedicated:
@@ -298,7 +303,7 @@ func build_camera() -> void:
 	pivot.position = Vector3(0, 1.6, 9)
 	add_child(pivot)
 	arm = SpringArm3D.new()
-	arm.spring_length = 10
+	arm.spring_length = movement_controls.ZOOM_MAX
 	arm.rotation.x = -0.38
 	arm.collision_mask = 1
 	pivot.add_child(arm)
@@ -963,12 +968,15 @@ func spawn_actor(id: int, peer: int, side: int, choice: String, pos: Vector3) ->
 	actor.net_position = pos
 	actor.net_yaw = actor.rotation.y
 	actors[id] = actor
+	if hitboxes_enabled: actor.setup_hitboxes()
 	if world_mode:
 		next_world_actor_id = maxi(next_world_actor_id, id + 1)
 	actor.get_global_transform_interpolated()
 	actor.reset_physics_interpolation()
 
 func clear_actors() -> void:
+	outlaw_aim_test.reset()
+	aimed_combat.reset()
 	combat_text.clear()
 	spectator.reset()
 	result_info.clear()
@@ -1620,6 +1628,7 @@ func build_cc_tracker() -> void:
 # already applies — Vanguard ignores it, and defensive or movement abilities
 # still work through it.
 func cc_block_remaining(actor, spell: Dictionary) -> float:
+	if spell.get("local_only", false): return actor.stunned
 	if CC.spell_block(actor) > 0: return maxf(actor.stunned, CC.spell_block(actor))
 	if actor.stunned > 0.0:
 		return actor.stunned
@@ -1969,9 +1978,12 @@ func load_layout() -> void:
 	if slot_size_field != null:
 		slot_size_field.text = str(slot_size)
 	var distance = config.get_value("hud", "camera_distance", 0.0)
-	if arm != null and distance is float and distance > 0.0:
-		arm.spring_length = clampf(distance, 3.0, 18.0)
+	if arm != null:
+		if (distance is float or distance is int) and is_finite(float(distance)) and distance > 0.0:
+			arm.spring_length = float(distance)
+		arm.spring_length = clampf(arm.spring_length, movement_controls.ZOOM_MIN, movement_controls.ZOOM_MAX)
 	movement_controls.zoom_target = arm.spring_length
+	movement_controls.zoom_velocity = 0.0
 	var places = config.get_value("hud", "frames", {})
 	if places is Dictionary:
 		for frame in movable_frames:
@@ -2192,7 +2204,9 @@ func announce_disconnect() -> void:
 func make_snapshot() -> Array:
 	var states: Array = []
 	for actor in actors.values():
-		states.append(actor.snapshot())
+		var state: Dictionary = actor.snapshot()
+		state["aim_stamp"] = actor.aim_stamp
+		states.append(state)
 	return states
 
 func _physics_process(delta: float) -> void:
@@ -2210,6 +2224,7 @@ func _physics_process(delta: float) -> void:
 		if Engine.max_fps != budget:
 			Engine.max_fps = budget
 		tick_camera_save(delta)
+		outlaw_aim_test.physics_tick()
 	if phase in ["countdown", "match"]:
 		if not authoritative() and actors.has(local_id):
 			prediction.reconcile(self, actors[local_id])
@@ -2247,6 +2262,8 @@ func _physics_process(delta: float) -> void:
 			ping_timer = 1
 			ping_host.rpc_id(1, Time.get_ticks_msec())
 	update_visuals(delta)
+	if hitboxes_enabled and phase in ["match", "countdown"]:
+		aimed_combat.tick(self,delta)
 
 func gather_input(delta: float) -> void:
 	if not actors.has(local_id):
@@ -2333,6 +2350,7 @@ func receive_snapshot(round_epoch: int, seq: int, payload: PackedByteArray, roun
 	if not decoded is Array:
 		return
 	var states: Array = decoded
+	if not states.is_empty(): aimed_combat.observe(float(states[0].get("aim_stamp",-1)))
 	last_snapshot = seq
 	packets_received += 1
 	for data in states:
@@ -2458,6 +2476,7 @@ func has_los(a, b) -> bool:
 	return get_world_3d().direct_space_state.intersect_ray(query).is_empty()
 
 func spell_target(actor, slot: int, requested: int) -> int:
+	if aimed_combat.enabled(actor.kit[slot]): return actor.actor_id
 	var kind: String = actor.kit[slot].kind
 	if kind in Kits.SELF_KINDS:
 		return actor.actor_id
@@ -2472,7 +2491,7 @@ func validate_spell(actor, slot: int, victim_id: int) -> String:
 		return "Select a living target"
 	var victim = actors[victim_id]
 	var spell: Dictionary = actor.kit[slot]
-	var friendly: bool = spell.kind in Kits.ALLY_KINDS or spell.kind in Kits.SELF_KINDS
+	var friendly: bool = spell.kind in Kits.ALLY_KINDS or spell.kind in Kits.SELF_KINDS or aimed_combat.enabled(spell)
 	if spell.kind == "unavailable":
 		return "Ability unavailable"
 	# A pull is aimed at whoever is selected, ally or enemy — the only ability
@@ -2518,6 +2537,12 @@ func send_action(slot: int) -> void:
 		return
 	var ability := kit_slot(slot)
 	if ability < 0:
+		return
+	if actors[local_id].kit[ability].kind == "defense_detonation":
+		outlaw_aim_test.toggle()
+		return # A hotbar utility, never a combat command or targeting action.
+	if aimed_combat.enabled(actors[local_id].kit[ability]):
+		aimed_combat.local_slot = ability
 		return
 	# Sample intent now: a turn/release and cast may arrive between physics ticks.
 	var movement: Vector2 = movement_controls.sample(0)
@@ -2576,6 +2601,24 @@ func submit_action(round_epoch: int, seq: int, slot: int, selected: int, move_se
 	if move_seq < 0: return
 	apply_action_intent(id, slot, selected, move_seq, movement, yaw, walking, camera_yaw)
 
+func deliver_aimed_action(round_epoch: int, seq: int, slot: int, direction: Vector3, stamp: float, revision: int) -> void:
+	if latency_ms > 0: await get_tree().create_timer(latency_ms/1000.0).timeout
+	if network and not multiplayer.is_server() and epoch == round_epoch:
+		submit_aimed_action.rpc_id(1,round_epoch,seq,slot,direction,stamp,revision)
+
+@rpc("any_peer", "call_remote", "reliable", 1)
+func submit_aimed_action(round_epoch: int, seq: int, slot: int, direction: Vector3, stamp: float, revision: int) -> void:
+	if not network or not multiplayer.is_server() or round_epoch != epoch or not hitboxes_enabled: return
+	var peer := multiplayer.get_remote_sender_id()
+	aimed_combat.enqueue(self,peer_actor(peer),peer,seq,slot,direction,stamp,revision)
+
+@rpc("authority", "call_remote", "reliable")
+func report_aimed_shot(round_epoch: int, result: Dictionary) -> void:
+	if round_epoch != epoch: return
+	if result.get("source",-1) == local_id and result.get("damage",0) > 0 and is_instance_valid(aimed_combat.reticle):
+		aimed_combat.reticle.confirm_hit()
+	aimed_shot_resolved.emit(result)
+
 # Cancelling a cast before it goes off clears the global cooldown.
 #
 # The GCD is charged when the cast BEGINS, so without this you paid for a spell
@@ -2596,6 +2639,7 @@ func cancel_own_cast(actor, message: String) -> void:
 func ability_block_reason(actor, slot: int, requested: int) -> String:
 	if phase != "match":
 		return "Round has not started" if phase == "countdown" else "Round is over"
+	if actor.kit[slot].kind == "defense_detonation": return outlaw_aim_test.block_reason(actor)
 	if actor.hp <= 0:
 		return "You are defeated"
 	if actor.stunned > 0:
@@ -2632,6 +2676,8 @@ func try_spell(id: int, slot: int, requested: int, camera_yaw: Variant = null) -
 	if not authoritative() or phase != "match" or not actors.has(id) or slot < 0 or slot >= actors[id].kit.size():
 		return false
 	var actor = actors[id]
+	if actor.kit[slot].get("local_only", false): return false
+	if aimed_combat.enabled(actor.kit[slot]): return false # Requires validated aim, never a selected-target fallback.
 	if actor.hp <= 0 or actor.stunned > 0:
 		return false
 	var reason := ability_block_reason(actor, slot, requested)
@@ -3056,6 +3102,9 @@ func private_notice(round_epoch: int, text: String) -> void:
 		say(text)
 
 func combat_event(source: int, victim: int, text: String, color: Color) -> void:
+	if dedicated and source != victim and actors.has(source) and actors[source].hitbox_pose != null:
+		if actors[source].champion == "Vanguard" and text.begins_with("−"):
+			actors[source].hitbox_pose.art.strike()
 	show_event(epoch, source, victim, text, color)
 	if network:
 		show_event.rpc(epoch, source, victim, text, color)
@@ -3246,17 +3295,19 @@ func update_frame(frame: VBoxContainer, id: int, prefix: String) -> void:
 func _process(_delta: float) -> void:
 	if dedicated:
 		return
+	outlaw_aim_test.tick(_delta)
 	movement_controls.tick(_delta)
 	combat_text.tick()
 	var follow_id: int = spectator.follow_id()
 	if actors.has(follow_id):
 		pivot.global_position = actors[follow_id].get_global_transform_interpolated().origin + Vector3(0, 1.6, 0)
+	outlaw_aim_test.apply_camera()
 	update_proc_flash()
 
 func proc_ready(actor, spell: Dictionary) -> bool:
 	if spell.kind == "severe": return actor.identity.instant_severe > 0
 	if spell.kind == "trickshot": return (actor.identity.backflip_combo and Outlaw.backflip_airborne(actor)) or actor.identity.coin_left > 0
-	if spell.kind == "defense_detonation": return actor.identity.defense_detonation == Outlaw.MAX_STACKS
+	if spell.kind == "defense_detonation": return actor.identity.defense_detonation > 0
 	return (spell.kind == "graviton" and actor.identity.instant_graviton > 0) or (spell.kind == "collapse" and actor.identity.instant_collapse > 0)
 
 func update_proc_flash() -> void:
@@ -3361,10 +3412,12 @@ func update_visuals(delta: float) -> void:
 		var spell: Dictionary = actor.kit[ability]
 		var blink_available: bool = spell.kind == "blink" and actor.identity.blink_charges > 0
 		if spell.kind == "blink": cooldown_overlays[slot].set_charges(actor.identity.blink_charges)
+		if spell.kind == "defense_detonation": cooldown_overlays[slot].set_charges(actor.identity.defense_detonation)
 		var art := AbilityArt.texture_for(spell.name, actor.champion)
 		ability_images[slot].texture = art
 		ability_images[slot].visible = art != null
 		ability_images[slot].modulate = Color("b6a4cf") if button.button_pressed else Color.WHITE
+		if spell.kind == "defense_detonation" and outlaw_aim_test.enabled: ability_images[slot].modulate = Color("81d5ff")
 		# Unillustrated abilities retain the existing text fallback.
 		button.text = "" if art != null or actor.cooldowns[ability] > 0.0 else spell.name
 		# The ability's own cooldown wins the slot: it is the longer wait and the
@@ -3492,6 +3545,9 @@ func cycle_target(direction: int = 1) -> void:
 		selected_id = candidates[(0 if direction > 0 else candidates.size() - 1) if current < 0 else posmod(current + direction, candidates.size())]
 
 func _input(event: InputEvent) -> void:
+	if outlaw_aim_test.input(event):
+		get_viewport().set_input_as_handled()
+		return
 	if movement_controls.input(event):
 		get_viewport().set_input_as_handled()
 		return
@@ -3551,11 +3607,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			movement_controls.zoom_target = maxf(3, movement_controls.zoom_target - 0.8)
-			camera_dirty = true
+			movement_controls.scroll_zoom(event.factor)
 		if event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			movement_controls.zoom_target = minf(18, movement_controls.zoom_target + 0.8)
-			camera_dirty = true
+			movement_controls.scroll_zoom(-event.factor)
 		if event.button_index in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT]:
 			movement_controls.begin(event)
 			get_viewport().set_input_as_handled()

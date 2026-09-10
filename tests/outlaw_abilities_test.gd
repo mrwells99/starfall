@@ -124,6 +124,48 @@ func moving_severe() -> void:
 	a.move_input=Vector2.ZERO;game.try_spell(1,0,2)
 	ck(game.try_spell(2,2,1) and a.casting==-1 and a.locked>0, "Ordinary casts remain kickable")
 
+func measure_backflip(legacy: bool, rate: int, yaw := 0.0) -> Dictionary:
+	var previous_rate := Engine.physics_ticks_per_second
+	Engine.physics_ticks_per_second = rate
+	await physics_frame
+	await reset()
+	a.position = Vector3(0,20.025,0); a.velocity = Vector3.ZERO; a.rotation.y = yaw
+	for frame in 10: game.simulate_movement(a,1.0/60)
+	var start: Vector3 = a.position
+	ck(game.try_spell(1,3,-1),"Backflip trajectory fixture launches from grounded terrain")
+	if legacy:
+		# Compare to the immediately preceding accepted trajectory.
+		var backward: Vector3 = a.basis.z*(3.0*2.0/sqrt(.85))
+		a.velocity = Vector3(backward.x,12.0*sqrt(.85),backward.z)
+	var peak := 0.0
+	var elapsed := 0.0
+	for frame in rate*3:
+		await physics_frame
+		a.input_age = 0; game.tick_actor(a,1.0/rate); elapsed += 1.0/rate
+		peak = maxf(peak,a.position.y-start.y)
+		if a.is_on_floor() and a.velocity.y <= 0: break
+	var travel: Vector3 = a.position-start; travel.y = 0
+	Engine.physics_ticks_per_second = previous_rate
+	return {"distance":travel.length(),"peak":peak,"elapsed":elapsed,"travel":travel,"landed":a.is_on_floor()}
+
+func backflip_trajectory() -> void:
+	var floor_body := wall(Vector3(0,19.5,0),Vector3(40,1,40))
+	await physics_frame
+	for rate in [30,60]:
+		var before: Dictionary = await measure_backflip(true,rate)
+		var after: Dictionary = await measure_backflip(false,rate)
+		ck(before.landed and after.landed,"Both Backflip trajectories land safely on level ground")
+		ck(absf(after.distance/before.distance-1.2) < .02,"Backflip adds 20 percent actual backward displacement at %d FPS" % rate)
+		ck(absf(after.peak/before.peak-.93) < .012,"Backflip lowers measured apex another 7 percent at %d FPS" % rate)
+		ck(after.elapsed < before.elapsed,"Lower Backflip completes its airborne combo window sooner")
+		print("BACKFLIP_TRAJECTORY %d FPS: old %.3fm / %.3fm peak; new %.3fm / %.3fm peak / %.3fs" % [rate,before.distance,before.peak,after.distance,after.peak,after.elapsed])
+	var sideways: Dictionary = await measure_backflip(false,60,PI/2)
+	ck(sideways.travel.x > 8.5 and absf(sideways.travel.z) < .05,"Backflip still travels backwards relative to character facing")
+	var obstacle := wall(Vector3(0,24,3),Vector3(10,8,.3)); await physics_frame
+	var blocked: Dictionary = await measure_backflip(false,60)
+	ck(blocked.landed and a.position.z < 2.5 and not a.test_move(a.transform,Vector3.ZERO),"Faster Backflip stops before a rear wall without entering terrain")
+	obstacle.queue_free(); floor_body.queue_free(); await physics_frame
+
 func backflip_and_coin() -> void:
 	await reset()
 	ck(not game.try_spell(1,2,2), "Trickshot requires its own combo window")
@@ -168,22 +210,44 @@ func backflip_and_coin() -> void:
 	game.world_mode = true; a.identity.coin_left = 1; a.identity.coin_position = a.position + Vector3.UP*2
 	ck(not game.try_spell(1,2,2) and b.hp == 100 and a.identity.defense_detonation == 0, "Combos cannot damage or gain stacks from world bystanders")
 
+class ClientOnly extends RefCounted:
+	func authoritative() -> bool: return false
+
+func detonation_foundation() -> void:
+	await reset()
+	ck(a.kit[8].cast == 0 and a.kit[8].get("local_only",false), "Detonation has no cast/channel and currently only opens aiming")
+	for count in range(4):
+		a.identity.defense_detonation = count; a.gcd = 0
+		ck(game.proc_ready(a,a.kit[8]) == (count>0), "Detonation signals each available stack count, including one")
+		ck(not game.try_spell(1,8,2), "Old targeted Detonation commands are rejected at every stack count")
+		tick(a,3.1)
+		ck(a.identity.defense_detonation == count and a.casting == -1 and b.hp == 100, "Rejected legacy cast never spends stacks, channels or deals automatic damage")
+		var plan: Dictionary = game.Outlaw.detonation_burst_plan(a)
+		ck(plan.is_empty() == (count==0), "A future burst requires at least one stack, not three")
+		ck(a.identity.defense_detonation == count, "Inspecting a burst plan leaves the resource unchanged")
+		var reserved: Dictionary = game.Outlaw.reserve_detonation_burst(game,a)
+		if count == 0:
+			ck(reserved.is_empty() and a.gcd == 0, "An empty burst spends nothing")
+			continue
+		ck(reserved.shots == count and a.identity.defense_detonation == 0, "Future authoritative fire reserves every current stack atomically")
+		ck(reserved.offsets.size() == count and reserved.offsets[0] == 0 and reserved.offsets.back() <= .24, "The first shot has no windup and up to three shots form a rapid burst")
+		ck(is_equal_approx(reserved.health_fraction,.1) and a.casting == -1 and b.hp == 100, "Prepared burst keeps ten-percent shot damage without performing a channel or hit")
+		if count > 1: ck(is_equal_approx(reserved.offsets[1],.12), "Prepared shots use 120ms spacing")
+		ck(game.Outlaw.reserve_detonation_burst(game,a).is_empty(), "A repeated request cannot reuse spent stacks")
+		a.identity.defense_detonation = 1
+		ck(reserved.shots == count and game.Outlaw.reserve_detonation_burst(game,a).is_empty() and a.identity.defense_detonation == 1, "A new combo stack is preserved for the next burst and the original firing GCD applies")
+	await reset()
+	a.identity.defense_detonation = 2
+	ck(game.Outlaw.reserve_detonation_burst(ClientOnly.new(),a).is_empty() and a.identity.defense_detonation == 2, "A client cannot authorize a stack spend")
+	for state in ["stun","cast","roll","backflip","lock","dead","round"]:
+		a.stunned = 1 if state=="stun" else 0; a.casting = 0 if state=="cast" else -1
+		a.identity.roll_left = .1 if state=="roll" else 0; a.identity.backflip_active = state=="backflip"
+		a.locked = 1 if state=="lock" else 0; a.hp = 0 if state=="dead" else 100
+		game.phase = "countdown" if state=="round" else "match"
+		ck(game.Outlaw.reserve_detonation_burst(game,a).is_empty() and a.identity.defense_detonation == 2, "Invalid future fire preserves stacks during "+state)
+	await reset()
+
 func channels() -> void:
-	await reset()
-	ck(not game.try_spell(1,8,2), "Defense Detonation requires all three stacks")
-	a.identity.defense_detonation = 3; a.move_input = Vector2.RIGHT
-	ck(game.try_spell(1,8,2) and a.identity.defense_detonation == 0, "Detonation starts while moving and spends exactly three stacks")
-	var before: Vector3 = a.position; tick(a,.1)
-	ck(a.position.distance_to(before) > .6 and a.casting == 8, "Detonation preserves normal running speed")
-	ck(game.try_spell(2,2,1) and a.casting == 8 and a.locked == 0, "Enemy kick neither cancels Detonation nor applies lockout")
-	a.move_input = Vector2.ZERO
-	tick(a,.9); ck(b.hp == 90, "Detonation first shot deals ten percent maximum HP")
-	tick(a,1); ck(b.hp == 80, "Detonation second shot is separately timed")
-	tick(a,1.01); ck(b.hp == 70 and a.casting == -1, "Detonation third shot ends its channel")
-	await reset()
-	a.identity.defense_detonation = 3; game.try_spell(1,8,2)
-	game.CC.apply(a,"stun",1,"Test"); tick(a,.1)
-	ck(a.casting == -1 and a.identity.outlaw_channel.is_empty() and b.hp == 100, "Detonation remains vulnerable to non-kick crowd control")
 	await reset()
 	ck(game.try_spell(1,9,-1), "Deadeye starts its kick-immune windup")
 	tick(a,.2)
@@ -202,7 +266,7 @@ func channels() -> void:
 	a.move_input = Vector2.RIGHT
 	ck(game.try_spell(1,9,-1) and a.cooldowns[9] == 90, "Deadeye starts without a tab target and spends its long cooldown")
 	ck(a.identity.outlaw_channel.marked.size() == 3, "Deadeye initially marks every enemy, including behind cover, behind the caster and outside range")
-	before = a.position; a.jump_queued = true; tick(a,.1)
+	var before: Vector3 = a.position; a.jump_queued = true; tick(a,.1)
 	ck(a.position.distance_to(before) > .3 and a.position.distance_to(before) < .35 and a.velocity.y <= 0, "Deadeye forces walking speed and prevents jumping")
 	a.move_input = Vector2.ZERO
 	tick(a,2.91)
@@ -228,7 +292,9 @@ func run() -> void:
 	game = load("res://arena.tscn").instantiate(); root.add_child(game); game.set_physics_process(false)
 	await severe_and_roll()
 	await moving_severe()
+	await backflip_trajectory()
 	await backflip_and_coin()
+	await detonation_foundation()
 	await channels()
 	print("Outlaw ability checks: %d passed / %d total" % [checks-failures,checks])
 	quit(1 if failures else 0)

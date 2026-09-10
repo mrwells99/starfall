@@ -22,8 +22,8 @@ func run() -> void:
 	arena.begin_round()
 	for actor in arena.actors.values():
 		check(actor.champion_model == null, "Server actor has no presentation model")
-		check(actor.get_child_count() == 1 and actor.get_child(0) is CollisionShape3D, "Collision capsule retained without visual children")
-	for champion in ["ember", "vanguard", "luminary", "fulcrum"]:
+		check(actor.get_child(0) is CollisionShape3D and actor.hitbox_pose != null and actor.hitbox_pose.find_children("*","MeshInstance3D",true,false).is_empty(), "Movement capsule and lightweight hitbox rig retained without visual children")
+	for champion in ["ember", "vanguard", "luminary", "fulcrum", "outlaw"]:
 		check(not ResourceLoader.has_cached("res://assets/characters/%s.glb" % champion), "Server does not load authored model: " + champion)
 	var before := get_node_count()
 	arena.combat_event(-1, arena.actors.keys()[0], "TEST", Color.WHITE)

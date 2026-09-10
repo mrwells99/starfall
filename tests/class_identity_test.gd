@@ -124,7 +124,7 @@ func run() -> void:
 	for champion in arena.Kits.NAMES:
 		await reset(champion)
 		a = arena.actors[1]
-		check(a.kit.size() == {"Fulcrum":14,"Outlaw":10}.get(champion,12) and a.cooldowns.size() == a.kit.size(), champion + " has the supported slot count")
+		check(a.kit.size() == {"Fulcrum":14,"Outlaw":11}.get(champion,12) and a.cooldowns.size() == a.kit.size(), champion + " has the supported slot count")
 		for ability in a.kit:
 			if ability.kind == "unavailable": continue
 			check(arena.AbilityArt.texture_for(ability.name, champion) != null, ability.name + " has an icon")
@@ -138,7 +138,7 @@ func run() -> void:
 		a.receive(bytes_to_var(var_to_bytes(state)), true)
 		check(a.identity.heat == 70 and a.identity.stars.size() == 1 and a.cooldowns[final_slot] == 8, "Expanded state round-trips for " + champion)
 		arena.update_visuals(0)
-		check(arena.ability_buttons[final_slot].visible, "Second bar exposes the final ability for " + champion)
+		check(arena.ability_buttons[final_slot].visible == (a.kit[final_slot].kind != "unavailable"), "Second bar exposes available abilities and hides retired slots for " + champion)
 	await reset("Ember")
 	arena.default_bindings()
 	var old: Array = []

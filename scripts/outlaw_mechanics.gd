@@ -2,13 +2,18 @@ extends RefCounted
 ## Outlaw's authoritative combo state. Presentation never grants hits or charges.
 const ROLL_SECONDS := .55
 const ROLL_DISTANCE := 6.0
-const BACKFLIP_SPEED := 12.0
+# Height is proportional to launch speed squared. Compensate the shorter
+# airtime horizontally to preserve the requested increase in travel distance.
+const BACKFLIP_SPEED := 12.0 * sqrt(.85 * .93)
+const BACKFLIP_BACKWARD_SPEED := 3.0 * 2.0 * 1.2 / sqrt(.85 * .93)
+const BACKFLIP_AIRTIME := 2.0 * BACKFLIP_SPEED / 20.0 # Matches shared movement gravity.
 const COIN_SECONDS := 1.8
 const COIN_SPEED := 5.0
-const SHOTS := 3
 const MAX_STACKS := 3
+const DETONATION_SHOT_INTERVAL := .12 # Provisional rapid-burst spacing, not a cast time.
+const DETONATION_HEALTH_FRACTION := .1
 const SIGHT_RANGE := 18.0
-const MOBILE_KINDS := ["defense_detonation", "deadeye"]
+const MOBILE_KINDS := ["deadeye"]
 
 static func can_cast_moving(actor, spell: Dictionary) -> bool:
 	return actor.champion == "Outlaw" and (spell.kind in MOBILE_KINDS or spell.kind == "severe")
@@ -30,7 +35,27 @@ static func deadeye_cast(a) -> bool:
 	return mobile_cast(a) and a.kit[a.casting].kind == "deadeye"
 
 static func unkickable(a) -> bool:
-	return a.champion == "Outlaw" and a.casting >= 0 and a.kit[a.casting].kind in ["defense_detonation", "severe", "deadeye"]
+	return a.champion == "Outlaw" and a.casting >= 0 and a.kit[a.casting].kind in ["severe", "deadeye"]
+
+static func detonation_burst_plan(a) -> Dictionary:
+	# Snapshot all currently available stacks; never read live stacks per shot.
+	var count := clampi(int(a.identity.get("defense_detonation", 0)), 0, MAX_STACKS)
+	if a.champion != "Outlaw" or count == 0: return {}
+	var offsets: Array[float] = []
+	for shot in count: offsets.append(shot * DETONATION_SHOT_INTERVAL)
+	return {"shots": count, "offsets": offsets, "health_fraction": DETONATION_HEALTH_FRACTION}
+
+static func reserve_detonation_burst(game, a) -> Dictionary:
+	# Future validated aimed-fire handler only. No input/RPC calls this yet.
+	# Reserve every shot together; newly earned stacks belong to the next burst.
+	if not game.authoritative() or game.phase != "match": return {}
+	if a.hp <= 0 or a.stunned > 0 or a.casting >= 0 or a.gcd > 0 or a.locked > 0: return {}
+	if game.CC.spell_block(a) > 0 or a.identity.roll_left > 0 or a.identity.backflip_active: return {}
+	var burst := detonation_burst_plan(a)
+	if burst.is_empty(): return {}
+	a.identity.defense_detonation = 0
+	a.gcd = game.GCD_DURATION # Firing retains the original GCD; aiming has no cost.
+	return burst
 
 static func raw_los(game, from: Vector3, to: Vector3) -> bool:
 	return game.get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(from, to, 1)).is_empty()
@@ -50,8 +75,6 @@ static func validate(game, a, spell: Dictionary, b) -> String:
 		if not ((a.identity.backflip_combo and backflip_airborne(a)) or a.identity.coin_left > 0):
 			return "Requires Backflip or Coin Toss combo"
 		if trickshot_mode(game, a, b).is_empty(): return "Combo shot is blocked by terrain"
-	if spell.kind == "defense_detonation" and a.identity.defense_detonation < MAX_STACKS:
-		return "Requires 3 Defense Detonation stacks"
 	if spell.kind in ["backflip", "roll", "deadeye"] and not a.is_on_floor():
 		return "Land before using " + spell.name
 	return ""
@@ -63,14 +86,10 @@ static func action(a, name: String) -> void:
 static func begin_channel(game, a, spell: Dictionary, target: int) -> void:
 	if spell.kind not in MOBILE_KINDS: return
 	var marked: Array = []
-	if spell.kind == "deadeye":
-		# Acquire all eligible opponents, including those currently behind cover.
-		# Visibility is decided only when the windup actually finishes.
-		for enemy in game.actors.values():
-			if enemy.hp > 0 and enemy.team != a.team and game.may_harm(a, enemy): marked.append(enemy.actor_id)
-	else:
-		a.identity.defense_detonation = 0
-	a.identity.outlaw_channel = {"kind": spell.kind, "target": target, "marked": marked, "shots": 0}
+	# Deadeye acquires all eligible opponents; visibility is checked at completion.
+	for enemy in game.actors.values():
+		if enemy.hp > 0 and enemy.team != a.team and game.may_harm(a, enemy): marked.append(enemy.actor_id)
+	a.identity.outlaw_channel = {"kind": spell.kind, "target": target, "marked": marked}
 	# Long windups cannot be repeatedly cancelled for free.
 	a.cooldowns[a.casting] = spell.cd
 	action(a, "aim")
@@ -84,25 +103,16 @@ static func tick_channel(game, a, delta: float) -> void:
 	if not mobile_cast(a):
 		a.identity.outlaw_channel.clear()
 		return
-	var spell: Dictionary = a.kit[a.casting]
 	var channel: Dictionary = a.identity.outlaw_channel
 	if channel.is_empty():
 		a.casting = -1
 		return
 	a.cast_left = maxf(0, a.cast_left - delta)
-	if spell.kind == "defense_detonation":
-		var elapsed: float = spell.cast - a.cast_left
-		while channel.shots < SHOTS and elapsed + .00001 >= channel.shots + 1:
-			channel.shots += 1
-			var target = game.actors.get(channel.target)
+	if a.cast_left <= 0:
+		for id in channel.marked:
+			var target = game.actors.get(id)
 			if target != null and target.hp > 0 and target.team != a.team and game.may_harm(a, target) and a.position.distance_to(target.position) <= SIGHT_RANGE and game.has_los(a, target):
-				hit(game, a, target, target.MAX_HEALTH * .1, a.position + Vector3.UP, "gun")
-	else:
-		if a.cast_left <= 0:
-			for id in channel.marked:
-				var target = game.actors.get(id)
-				if target != null and target.hp > 0 and target.team != a.team and game.may_harm(a, target) and a.position.distance_to(target.position) <= SIGHT_RANGE and game.has_los(a, target):
-					hit(game, a, target, target.MAX_HEALTH * .4, a.position + Vector3.UP, "gun")
+				hit(game, a, target, target.MAX_HEALTH * .4, a.position + Vector3.UP, "gun")
 	if a.cast_left <= 0:
 		a.casting = -1
 		a.identity.outlaw_channel.clear()
@@ -127,7 +137,7 @@ static func resolve(game, a, spell: Dictionary, b, camera_yaw: Variant = null) -
 			a.identity.backflip_active = true
 			a.identity.backflip_combo = true
 			a.identity.backflip_elapsed = 0.0
-			var backward: Vector3 = a.basis.z * 3.0
+			var backward: Vector3 = a.basis.z * BACKFLIP_BACKWARD_SPEED
 			a.velocity = Vector3(backward.x, BACKFLIP_SPEED, backward.z)
 			# Leave cached ground contact before the next normal movement sample.
 			a.move_and_collide(Vector3.UP * .04)
@@ -197,7 +207,6 @@ static func roll_motion(game, a, delta: float) -> bool:
 	return true
 
 static func bot(game, a, foe) -> bool:
-	if a.identity.defense_detonation >= MAX_STACKS and game.try_spell(a.actor_id, 8, foe.actor_id): return true
 	if (a.identity.backflip_combo or a.identity.coin_left > 0) and game.try_spell(a.actor_id, 2, foe.actor_id): return true
 	if a.position.distance_to(foe.position) < 3 and game.try_spell(a.actor_id, 1, foe.actor_id): return true
 	if a.cooldowns[7] <= 0 and game.try_spell(a.actor_id, 7, -1): return true

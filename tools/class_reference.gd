@@ -4,7 +4,7 @@ func _initialize() -> void:
 	var kits = load("res://scripts/kits.gd")
 	var text := """# Class abilities
 
-Current implementation, September 9, 2026. Outlaw has ten abilities, ending at Shift+3. Fulcrum has twelve available abilities: Horizon and the direct Anchor stun are removed, with their old default key 3 and 4 slots left empty to preserve all other saved bindings. Gravity Anchor remains on Shift+1, Starfall on Shift+6 and Entropy on Shift+7. Ember, Vanguard and Luminary have twelve abilities, ending at Shift+5. All available slots can be rebound or moved in Edit HUD.
+Current implementation, September 10, 2026. Outlaw has ten available abilities: Defense Detonation on Shift+2 now owns shoulder aiming, with its firing stage still disabled. The separate Aim Test entry is retired and its old Shift+4 slot is empty. Fulcrum has twelve available abilities: Horizon and the direct Anchor stun are removed, with their old default key 3 and 4 slots left empty to preserve all other saved bindings. Gravity Anchor remains on Shift+1, Starfall on Shift+6 and Entropy on Shift+7. Ember, Vanguard and Luminary have twelve abilities, ending at Shift+5. All available slots can be rebound or moved in Edit HUD.
 
 Older saved layouts gain missing abilities in empty slots, or replace a duplicate slot if the bars are full. Existing primary, secondary, and action bindings take priority. Entropy receives Shift+7 only when that key is free; otherwise its migrated slot remains clickable and can be rebound in Settings. A custom binding already attached to that slot is retained.
 

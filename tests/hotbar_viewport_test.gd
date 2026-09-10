@@ -30,7 +30,7 @@ func check_abilities(label: String) -> void:
 		if game.kit_slot(slot) < 0: continue
 		count += 1
 		check(game.ability_buttons[slot].is_visible_in_tree() and screen.encloses(game.ability_buttons[slot].get_global_rect()), label + ": ability %d is visible inside the viewport" % slot)
-	check(count == 10, label + ": all ten Outlaw abilities remain assigned")
+	check(count == 10, label + ": all ten merged Outlaw abilities remain assigned")
 
 func run() -> void:
 	root.disable_3d = true
@@ -113,6 +113,14 @@ func run() -> void:
 	await settle()
 	check_abilities("Resized custom layout")
 	check(game.assignment == assignments and game.binds == bindings, "Resizing preserves ability order and bindings")
+	# Shared assignments stay intact, but Outlaw's retired Aim Test is hidden.
+	assignments[10] = -1; bindings[10] = KEY_F9
+	game.config.set_value("hud","assignment",assignments)
+	game.config.set_value("hud","binds",bindings)
+	game.load_layout(); await settle()
+	check(game.kit_slot(10) == -1 and not game.ability_buttons[10].visible and game.binds[10] == KEY_F9,"Old Aim Test slot stays hidden without overwriting its shared saved key")
+	check(game.assignment[0] == 1 and game.assignment[1] == 0 and game.binds[0] == KEY_F8,"Merging aim into Detonation preserves existing combat ability order and keys")
+	check_abilities("Migrated older layout")
 	game.queue_free()
 	await process_frame
 	print("Hotbar viewport checks: %d passed / %d total" % [checks - failures, checks])
