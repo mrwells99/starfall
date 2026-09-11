@@ -4023,14 +4023,15 @@ func relay_chat(peer: int, message: String) -> void:
 		return
 	chat_last_sent[peer] = now
 	var line := "%s · %s #%d: %s" % ["World" if world_mode else "Match", actors[id].champion, id, clean]
-	chat_message(epoch, line)
+	chat_message(epoch, line, id, clean)
 	if network:
-		chat_message.rpc(epoch, line)
+		chat_message.rpc(epoch, line, id, clean)
 
 @rpc("authority", "call_remote", "reliable", 4)
-func chat_message(round_epoch: int, message: String) -> void:
+func chat_message(round_epoch: int, message: String, speaker_id: int, bubble_text: String) -> void:
 	if round_epoch == epoch and social != null:
 		social.append_message(message)
+		social.show_bubble(speaker_id, bubble_text)
 
 
 @rpc("authority", "call_remote", "reliable")

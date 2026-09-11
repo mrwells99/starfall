@@ -11,6 +11,84 @@ var challenge: Button
 var accept: Button
 var decline: Button
 var lines: Array[String] = []
+const ChatBubble = preload("res://scripts/chat_bubble.gd")
+var bubbles := {}
+var bubble_epoch := -1
+
+func show_bubble(actor_id: int, text: String) -> void:
+	if game.dedicated or not game.actors.has(actor_id): return
+	if bubble_epoch != game.epoch:
+		clear_bubbles()
+	bubble_epoch = game.epoch
+	if not bubbles.has(actor_id):
+		var bubble := ChatBubble.new()
+		add_child(bubble)
+		move_child(bubble, 0)
+		bubbles[actor_id] = bubble
+	bubbles[actor_id].say(text)
+
+func clear_bubbles() -> void:
+	for bubble in bubbles.values():
+		remove_child(bubble)
+		bubble.queue_free()
+	bubbles.clear()
+
+func _process(delta: float) -> void:
+	if game == null or bubbles.is_empty(): return
+	if bubble_epoch != game.epoch:
+		clear_bubbles()
+		return
+	var occupied: Array[Rect2] = []
+	if duel_panel.visible:
+		occupied.append(duel_panel.get_rect())
+	if chat.visible:
+		occupied.append(chat.get_rect())
+	var bounds := Rect2(Vector2(8, 8), size - Vector2(16, 16))
+	for id in bubbles.keys():
+		var bubble = bubbles[id]
+		if not game.actors.has(id) or not bubble.advance(delta):
+			bubbles.erase(id)
+			remove_child(bubble)
+			bubble.queue_free()
+			continue
+		bubble.hide()
+		if game.panel.visible or game.edit_mode: continue
+		var actor = game.actors[id]
+		var anchor: Vector3 = actor.global_position + Vector3(0, 3.5, 0)
+		var camera: Camera3D = game.camera
+		var distance := camera.global_position.distance_to(anchor)
+		if distance > 35 or camera.is_position_behind(anchor): continue
+		var query := PhysicsRayQueryParameters3D.create(camera.global_position, actor.global_position + Vector3(0, 1.7, 0), 1)
+		if not game.get_world_3d().direct_space_state.intersect_ray(query).is_empty(): continue
+		var point: Vector2 = camera.unproject_position(anchor)
+		var base: Vector2 = point - Vector2(bubble.size.x / 2, bubble.size.y + 10) + Vector2(0, 6 * (1 - clampf(bubble.age / 0.18, 0, 1)))
+		# Do not pin off-screen speakers to the edge, or cover their nameplates.
+		if not bounds.encloses(Rect2(base, bubble.size + Vector2(0, 10))): continue
+		var placed := false
+		var shifts: Array = [0, -32, 32, -64, 64, -96, 96]
+		for rect in occupied:
+			for offset in [rect.end.x + 8 - base.x, rect.position.x - 8 - bubble.size.x - base.x]:
+				if absf(offset) <= 192:
+					shifts.append(offset)
+		for rise in [0, 80, 160, 240]:
+			for shift in shifts:
+				var candidate := Rect2(base + Vector2(shift, -rise), bubble.size + Vector2(0, 10))
+				if not bounds.encloses(candidate): continue
+				var overlaps := false
+				for rect in occupied:
+					if rect.grow(6).intersects(candidate):
+						overlaps = true
+						break
+				if overlaps: continue
+				bubble.position = candidate.position
+				occupied.append(candidate)
+				placed = true
+				break
+			if placed: break
+		if not placed: continue
+		bubble.point_to(point)
+		bubble.modulate.a *= clampf((35 - distance) / 5, 0, 1)
+		bubble.show()
 
 func setup(arena) -> void:
 	game = arena
@@ -86,6 +164,7 @@ func append_message(message: String) -> void:
 	log_view.text = "\n".join(lines)
 
 func reset() -> void:
+	clear_bubbles()
 	lines.clear()
 	log_view.clear()
 	entry.clear()

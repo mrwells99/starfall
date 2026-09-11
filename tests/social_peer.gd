@@ -30,7 +30,13 @@ func _process(delta: float) -> bool:
 		push_error("Late join rebuilt existing character")
 		quit(1)
 	for line in arena.social.lines:
-		if "hello from peer" in line: saw_chat = true
+		if "hello from peer" in line and not saw_chat:
+			var speaker: int = arena.duels.get(arena.local_id, -1) if observer else arena.local_id
+			if not arena.social.bubbles.has(speaker) or arena.social.bubbles[speaker].message.text != "hello from peer":
+				push_error("Replicated chat bubble missing or attached to the wrong speaker")
+				quit(1)
+				return false
+			saw_chat = true
 	if observer and arena.actors.size() == 5 and not sent:
 		for id in arena.actors:
 			if id != arena.local_id and not arena.actors[id].training_dummy: arena.selected_id = id
