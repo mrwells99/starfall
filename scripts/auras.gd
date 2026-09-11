@@ -85,6 +85,12 @@ static func active(actor, sources: Array = [], local_source: int = -1) -> Array:
 			"description": "Moves 65% faster. Does not increase jump height or clear stuns.",
 		})
 	var identity: Dictionary = actor.identity
+	if identity.get("roll_haste", 0.0) > 0:
+		out.append({"key":"roll_haste", "name":"Quickstep", "kind":BUFF, "remaining":identity.roll_haste, "color":Color("f2c676"), "source":"Roll", "description":"25% faster movement for 5s after Roll."})
+	if preload("res://scripts/outlaw_mechanics.gd").severe_slowed(actor):
+		out.append({"key":"severe_slow", "name":"Hobbled", "kind":DEBUFF, "remaining":identity.severe_slow, "color":Color("dd6c74"), "source":"Severe", "description":"60% slower movement; walking gait. Lasts 6s."})
+	if preload("res://scripts/outlaw_mechanics.gd").backflip_airborne(actor):
+		out.append({"key":"backflip_guard", "name":"Backflip Guard", "kind":BUFF, "remaining":maxf(.01,1.2-identity.backflip_elapsed), "color":Color("92ceff"), "source":"Backflip", "description":"50% less damage during airborne Backflip."})
 	for source_id in identity.get("severe_bleeds", {}):
 		out.append({"key": "severe_%s" % source_id, "name": "Severe", "kind": DEBUFF, "remaining": identity.severe_bleeds[source_id].left, "color": Color("dd6c74"), "source": "Severe", "description": "Bleeds for 2 damage each second for 5 seconds. Refreshes per caster. DPS Mend removes it."})
 	if identity.get("coin_left", 0.0) > 0:

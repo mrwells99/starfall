@@ -87,5 +87,16 @@ func run() -> void:
 	load_saved_layout(saved)
 	check(arena.kit_slot(arena.TOTAL_SLOTS - 1) == 13 and arena.binds[arena.TOTAL_SLOTS - 1] == KEY_F8, "Full old layout replaces a duplicate slot while retaining its custom key")
 	check(arena.binds.slice(0, 13) == saved.primary.slice(0, 13), "Migrating the new spell preserves the previous thirteen primary bindings")
+	saved = legacy_layout()
+	load_saved_layout(saved)
+	check(arena.assignment.has(14) and arena.binds[arena.assignment.find(14)] == (KEY_1 | KEY_MASK_CTRL),"Legacy bars gain Trinket on Ctrl+1")
+	saved = legacy_layout(); saved.primary[0] = KEY_1 | KEY_MASK_CTRL
+	load_saved_layout(saved)
+	check(arena.binds[0] == (KEY_1 | KEY_MASK_CTRL) and arena.binds[arena.assignment.find(14)] == 0,"Trinket migration preserves a conflicting saved key and remains clickable")
+	for title in arena.Kits.NAMES:
+		arena.roster={1:{"champion":title,"team":0},2:{"champion":"Ember","team":1}}
+		arena.begin_round(); arena.phase="match"; arena.default_bindings(); arena.update_visuals(0)
+		check(arena.kit_slot(14)==14 and arena.ability_buttons[14].visible,title+" exposes Trinket on the hotbar")
+		if title=="Outlaw": check(arena.kit_slot(12)==12 and arena.ability_buttons[12].visible,"Outlaw exposes Boot Kick without moving existing skills")
 	print("Layout migration checks: %d passed / %d total" % [checks - failures, checks])
 	quit(1 if failures else 0)

@@ -39,14 +39,14 @@ func severe_and_roll() -> void:
 	ck(game.champion_choice.item_count == 5, "Outlaw is selectable as the fifth class")
 	ck(game.try_spell(1, 1, 2) and a.casting == 1, "Ordinary Severe starts its short cast")
 	tick(a, .65)
-	ck(b.hp == 85 and b.identity.severe_bleeds.has(1), "Severe hits for integer 15 percent current health and attaches its bleed")
+	ck(b.hp == 80 and b.identity.severe_bleeds.has(1), "Severe hits for integer 20 percent current health and attaches its bleed")
 	for i in 5:
 		game.Outlaw.tick(game, b, 1)
-		ck(b.hp == 85 - (i+1)*2, "Severe bleed tick %d is exactly two damage" % (i+1))
+		ck(b.hp == 80 - (i+1)*2, "Severe bleed tick %d is exactly two damage" % (i+1))
 	ck(b.identity.severe_bleeds.is_empty(), "Severe ends after exactly five ticks")
 	a.gcd = 0; a.cooldowns[1] = 0; b.hp = 73
 	game.try_spell(1, 1, 2); tick(a, .65)
-	ck(b.hp == 62, "15 percent of current 73 HP rounds to 11 damage")
+	ck(b.hp == 58, "20 percent of current 73 HP rounds to 15 damage")
 	a.gcd = 0; a.cooldowns[1] = 0; a.identity.instant_severe = 1
 	b.move_input = Vector2.ZERO; b.gcd = 0
 	game.try_spell(2, 5, -1); tick(b, 2.01)
@@ -76,7 +76,7 @@ func severe_and_roll() -> void:
 	game.try_spell(1, 6, -1); tick(a, game.Outlaw.ROLL_SECONDS)
 	b.position = a.position + Vector3.FORWARD * 2
 	ck(game.proc_ready(a, a.kit[1]), "Instant Severe highlights its hotbar slot")
-	ck(game.try_spell(1, 1, 2) and a.casting == -1 and b.hp == 85, "Roll follow-up Severe fires instantly while moving")
+	ck(game.try_spell(1, 1, 2) and a.casting == -1 and b.hp == 80, "Roll follow-up Severe fires instantly while moving")
 	ck(a.identity.instant_severe == 0 and a.cooldowns[1] == 4 and a.gcd == game.GCD_DURATION, "Successful Severe consumes the buff while retaining its cooldown and GCD")
 	game.Outlaw.tick(game,a,.01)
 	ck(a.identity.roll_animation_left==0,"Instant Severe immediately cancels Roll's cosmetic recovery")
@@ -110,7 +110,7 @@ func moving_severe() -> void:
 		for frame in 31:
 			b.position=a.position+Vector3.FORWARD*2
 			tick(a,1.0/60)
-		ck(a.casting==-1 and b.hp==85 and b.identity.severe_bleeds.has(1), "Moving Severe finishes with its normal damage and bleed")
+		ck(a.casting==-1 and b.hp==80 and b.identity.severe_bleeds.has(1), "Moving Severe finishes with its normal damage and bleed")
 		ck(a.cooldowns[1]>3.9 and a.cooldowns[1]<=4 and a.gcd>0 and a.identity.outlaw_channel.is_empty(), "Severe keeps its cooldown and GCD without entering the gun-channel system")
 	await reset()
 	game.try_spell(1,1,2);a.move_input=Vector2.RIGHT;tick(a,.1)
@@ -229,7 +229,7 @@ func backflip_and_coin() -> void:
 	var before: Vector3 = a.position; game.move_ability(a,Vector3.RIGHT*8)
 	ck(a.position == before and a.velocity == launch, "Backflip also blocks forced displacement")
 	a.gcd = 1.5
-	ck(game.try_spell(1,2,2) and b.hp == 88, "Separate Trickshot fires during Backflip despite global cooldown")
+	ck(game.try_spell(1,2,2) and b.hp == 82, "Separate Trickshot fires during Backflip despite global cooldown")
 	ck(a.identity.defense_detonation == 1 and not a.identity.backflip_combo, "One successful airborne Trickshot earns one stack and consumes its opportunity")
 	ck(not game.try_spell(1,2,2), "A Backflip opportunity cannot be spent twice")
 	tick(a, 1.5)
@@ -254,14 +254,14 @@ func backflip_and_coin() -> void:
 	ck(game.try_spell(1,7,-1), "Coin Toss is usable without a selected enemy")
 	game.Outlaw.tick(game,a,.5)
 	ck(a.identity.coin_left > 1.2 and a.identity.coin_position.y > 2, "Coin travels in a visible physical arc")
-	ck(game.try_spell(1,2,2) and b.hp == 88 and a.identity.coin_left == 0, "Coin Trickshot fires off GCD and consumes the flying coin")
+	ck(game.try_spell(1,2,2) and b.hp == 82 and a.identity.coin_left == 0, "Coin Trickshot fires off GCD and consumes the flying coin")
 	ck(a.identity.defense_detonation == 1, "A successful coin combo awards one stack")
 	await reset()
 	var obstacle := wall(Vector3(0,1.5,-1),Vector3(1,3,.3)); await physics_frame
 	# A real two-segment path around the right edge of a pillar.
 	a.identity.coin_left = 1; a.identity.coin_position = Vector3(2,2,-1)
 	ck(not game.has_los(a,b), "Coin fixture blocks direct player-to-target sight")
-	ck(game.try_spell(1,2,2) and b.hp == 88, "Trickshot can ricochet around cover when both bullet legs are clear")
+	ck(game.try_spell(1,2,2) and b.hp == 82, "Trickshot can ricochet around cover when both bullet legs are clear")
 	a.identity.coin_left = 1; a.identity.coin_position = Vector3(0,1,-.5)
 	ck(not game.try_spell(1,2,2) and a.identity.coin_left == 1, "A blocked coin-to-target leg neither hits nor consumes the coin")
 	a.gcd = 0; a.cooldowns[7] = 0; game.try_spell(1,7,-1)
@@ -363,7 +363,7 @@ func severe_reach() -> void:
 		b.position = a.position + Vector3.FORWARD*3.299
 		ck(game.try_spell(1,1,2),"Severe can start just inside its expanded reach")
 		tick(a,.61)
-		ck(b.hp==85 and b.identity.severe_bleeds.has(1),"Severe lands full damage and bleed within the new reach")
+		ck(b.hp==80 and b.identity.severe_bleeds.has(1),"Severe lands full damage and bleed within the new reach")
 	await reset()
 	b.position = a.position + Vector3.FORWARD*3.2
 	game.try_spell(1,1,2); b.position.z -= .2; tick(a,.61)

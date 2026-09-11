@@ -20,13 +20,16 @@ func run() -> void:
 		check(FileAccess.get_sha256("res://assets/hitboxes/"+title.to_lower()+"_rig.scn") == manifests.classes[title].rig_sha256,title+" rig integrity is verified")
 		var v_art = visible.champion_model.get(title.to_lower()+"_art")
 		var s_art = server.hitbox_pose.art
-		for state in ["idle","forward","left","backpedal","diagonal","jump","landing","cast","recover","roll","roll_recovery","roll_run","backflip"]:
+		for state in ["idle","forward","left","backpedal","diagonal","jump","landing","cast","recover","slow_forward","slow_left","roll","roll_recovery","roll_run","backflip"]:
 			if title != "Outlaw" and state in ["roll","roll_recovery","roll_run","backflip"]: continue
 			var error := 0.0
 			for frame in 48:
 				var t := frame/60.0
 				for actor in [visible,server]:
 					var direction: Vector3 = {"forward":Vector3.FORWARD,"left":Vector3.LEFT,"backpedal":Vector3.BACK,"diagonal":Vector3(1,0,-1).normalized()}.get(state,Vector3.ZERO)
+					actor.identity.severe_slow = 6.0 if state.begins_with("slow_") else 0.0
+					if state == "slow_forward": direction = Vector3.FORWARD * .4
+					if state == "slow_left": direction = Vector3.LEFT * .4
 					if state=="roll_run" and t>=Outlaw.ROLL_SECONDS: direction=Vector3.FORWARD
 					actor.position += direction*(3.8 if state == "backpedal" else 6.5)/60.0
 					actor.presentation_grounded = state not in ["jump","backflip"]
@@ -46,6 +49,8 @@ func run() -> void:
 				for i in visible.body_hitboxes.points.size(): error = maxf(error,visible.body_hitboxes.points[i].distance_to(server.body_hitboxes.points[i]))
 			maximum_error = maxf(maximum_error,error)
 			check(error < .0005,title+" "+state+" server/visible hitbox error under 0.5 mm; measured "+str(error))
+			if state.begins_with("slow_"):
+				check(v_art.clip.begins_with("Walk") or v_art.clip.begins_with("Strafe"),title+" uses a walking gait during Severe's slow")
 		if title == "Vanguard":
 			v_art.strike(); s_art.strike()
 			for frame in 30:

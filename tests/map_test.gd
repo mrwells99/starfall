@@ -7,6 +7,11 @@ var failures := 0
 var checks := 0
 var arena
 
+class TestConfig extends "res://scripts/user_config.gd":
+	func load_config() -> void: pass
+	func save_config() -> void: pass
+	func apply_display() -> void: pass
+
 func check(condition: bool, description: String) -> void:
 	checks += 1
 	if not condition:
@@ -143,6 +148,8 @@ func run() -> void:
 		DisplayServer.window_set_size(Vector2i(1280, 800))
 	test_navigation()
 	arena = load("res://arena.tscn").instantiate()
+	# A saved "Passive opponents" preference must not disable this navigation test.
+	arena.config = TestConfig.new()
 	root.add_child(arena)
 	arena.set_physics_process(false)
 	arena.mode = 1

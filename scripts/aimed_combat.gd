@@ -119,7 +119,7 @@ func trace(game, shooter, origin: Vector3, direction: Vector3, distance: float, 
 		if actor == shooter or actor.hp <= 0: continue
 		var state := sample(actor,stamp)
 		if state.is_empty(): continue
-		var hit := Bodies.trace(origin,direction,closest,state.points,actor.body_hitboxes.radii)
+		var hit := Bodies.trace_aim(origin,direction,closest,state.points,actor.body_hitboxes.radii,state.root)
 		if hit.is_empty(): continue
 		closest = hit.distance
 		# Allies and protected world bystanders stop a shot without receiving damage.
@@ -174,7 +174,7 @@ func fire_from_camera(game, slot: int) -> void:
 	var distance := camera_origin.distance_to(far_point)
 	for other in game.actors.values():
 		if other == actor or other.hp <= 0 or other.body_hitboxes == null: continue
-		var hit := Bodies.trace(camera_origin,camera_direction,distance,other.body_hitboxes.points,other.body_hitboxes.radii)
+		var hit := Bodies.trace_aim(camera_origin,camera_direction,distance,other.body_hitboxes.points,other.body_hitboxes.radii,other.position)
 		if not hit.is_empty(): far_point = hit.position; distance = hit.distance
 	var origin: Vector3 = firing_origin(actor.body_hitboxes.points)
 	var direction: Vector3 = (far_point-origin).normalized()

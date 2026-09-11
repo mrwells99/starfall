@@ -1636,6 +1636,7 @@ func build_cc_tracker() -> void:
 # already applies — Vanguard ignores it, and defensive or movement abilities
 # still work through it.
 func cc_block_remaining(actor, spell: Dictionary) -> float:
+	if spell.kind == "trinket": return 0.0
 	if spell.get("local_only", false): return actor.stunned
 	if CC.spell_block(actor) > 0: return maxf(actor.stunned, CC.spell_block(actor))
 	if actor.stunned > 0.0:
@@ -1959,7 +1960,7 @@ func load_layout() -> void:
 			if empty >= 0:
 				assignment[empty] = ability
 				if binds[empty] == 0 and controls.secondary[empty] == 0:
-					var preferred := (KEY_1 + ability % BAR_SLOTS) | KEY_MASK_SHIFT
+					var preferred := default_slot_binding(ability)
 					var available := true
 					for action in controls.rows(self):
 						for column in range(2):
@@ -2004,13 +2005,17 @@ func load_layout() -> void:
 	keep_action_bars_on_screen.call_deferred()
 	refresh_binds()
 
-# Two populated bars: keys 1-7 and Shift+1-7. Shorter kits hide unused slots.
+# Preserve class bindings, with the shared trinket on Ctrl+1 in the third bar.
+func default_slot_binding(slot: int) -> int:
+	if slot == Kits.TRINKET_SLOT: return KEY_1 | KEY_MASK_CTRL
+	if slot < BAR_SLOTS: return KEY_1 + slot
+	return (KEY_1 + slot - BAR_SLOTS) | KEY_MASK_SHIFT if slot < Kits.KIT_SIZE else 0
+
 func default_bindings() -> void:
 	binds.resize(TOTAL_SLOTS)
 	assignment.resize(TOTAL_SLOTS)
 	for i in range(TOTAL_SLOTS):
-		var first_bar: bool = i < BAR_SLOTS
-		binds[i] = (KEY_1 + i) if first_bar else ((KEY_1 + i - BAR_SLOTS) | KEY_MASK_SHIFT if i < Kits.KIT_SIZE else 0)
+		binds[i] = default_slot_binding(i)
 		assignment[i] = i if i < Kits.KIT_SIZE else -1
 
 func reset_layout() -> void:
@@ -2491,7 +2496,10 @@ func simulate_movement(actor, delta: float, grounded_override: Variant = null) -
 	if actor.walking or Outlaw.deadeye_cast(actor): speed *= 0.5
 	if actor.sprint > 0 and not Outlaw.deadeye_cast(actor):
 		speed *= 1.65
-	if actor.identity.slow > 0 and actor.identity.immune <= 0 and not airborne_protected:
+	if actor.identity.get("roll_haste", 0.0) > 0 and not Outlaw.deadeye_cast(actor): speed *= 1.25
+	if Outlaw.severe_slowed(actor):
+		speed *= .4
+	elif actor.identity.slow > 0 and actor.identity.immune <= 0 and not airborne_protected:
 		speed *= 0.55
 	if Outlaw.starshot_cast(actor): speed *= Outlaw.STARSHOT_MOVE_SCALE
 	# Airborne movement carries world-space takeoff momentum, including when the
@@ -2718,6 +2726,9 @@ func ability_block_reason(actor, slot: int, requested: int) -> String:
 	if actor.kit[slot].kind == "defense_detonation": return outlaw_aim_test.block_reason(actor)
 	if actor.hp <= 0:
 		return "You are defeated"
+	if actor.kit[slot].kind == "trinket":
+		if actor.cooldowns[slot] > 0: return "Ability is not ready"
+		return "" if CC.remaining(actor,"stun") > 0 else "Requires a stun"
 	if actor.stunned > 0:
 		return "Controlled"
 	if CC.spell_block(actor) > 0:
@@ -2756,13 +2767,19 @@ func try_spell(id: int, slot: int, requested: int, camera_yaw: Variant = null) -
 	var actor = actors[id]
 	if actor.kit[slot].get("local_only", false): return false
 	if aimed_combat.enabled(actor.kit[slot]): return false # Requires validated aim, never a selected-target fallback.
-	if actor.hp <= 0 or actor.stunned > 0:
+	if actor.hp <= 0 or (actor.stunned > 0 and actor.kit[slot].kind != "trinket"):
 		return false
 	var reason := ability_block_reason(actor, slot, requested)
 	if not reason.is_empty():
 		feedback(actor, reason)
 		return false
 	var spell: Dictionary = actor.kit[slot]
+	if spell.kind == "trinket":
+		CC.clear(actor, ["stun"])
+		actor.identity.lasso_knockdown = {}
+		actor.cooldowns[slot] = spell.cd
+		combat_event(actor.actor_id, actor.actor_id, "STUN BROKEN", Color("97edb1"))
+		return true
 	var victim_id := spell_target(actor, slot, requested)
 	if spell.kind == "charge":
 		var victim = actors[victim_id]
@@ -3911,7 +3928,7 @@ func reset_all_keybinds() -> void:
 	controls.actions = controls.DEFAULTS.duplicate(true)
 	controls.secondary.fill(0)
 	for slot in range(TOTAL_SLOTS):
-		binds[slot] = (KEY_1 + slot) if slot < BAR_SLOTS else ((KEY_1 + slot - BAR_SLOTS) | KEY_MASK_SHIFT if slot < Kits.KIT_SIZE else 0)
+		binds[slot] = default_slot_binding(slot)
 	refresh_binds()
 	save_layout()
 

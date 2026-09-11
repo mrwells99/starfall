@@ -33,7 +33,7 @@ static func initialize(actor) -> void:
 	actor.identity.merge({"defense_detonation": 0, "severe_bleeds": {}, "backflip_active": false,
 		"lasso": {}, "lasso_knockdown": {},
 		"backflip_combo": false, "backflip_elapsed": 0.0, "roll_left": 0.0, "roll_direction": Vector3.ZERO,
-		"roll_distance": 0.0, "instant_severe": 0.0,
+		"roll_distance": 0.0, "instant_severe": 0.0, "roll_haste": 0.0, "severe_slow": 0.0,
 		"roll_animation_left": 0.0,
 		"coin_left": 0.0, "coin_origin": Vector3.ZERO, "coin_direction": Vector3.FORWARD,
 		"coin_momentum": Vector3.ZERO,
@@ -41,6 +41,9 @@ static func initialize(actor) -> void:
 
 static func backflip_airborne(a) -> bool:
 	return a.identity.get("backflip_active", false) and (not a.is_on_floor() or a.velocity.y > .1)
+
+static func severe_slowed(a) -> bool:
+	return a.identity.get("severe_slow", 0.0) > 0 and a.identity.immune <= 0 and not preload("res://scripts/crowd_control.gd").airborne_immune(a)
 
 static func mobile_cast(a) -> bool:
 	return a.champion == "Outlaw" and a.casting >= 0 and a.kit[a.casting].kind in MOBILE_KINDS
@@ -156,8 +159,9 @@ static func resolve(game, a, spell: Dictionary, b, camera_yaw: Variant = null) -
 		"starshot": hit(game, a, b, spell.power, a.position + Vector3.UP, "gun")
 		"severe":
 			a.identity.instant_severe = 0.0
-			hit(game, a, b, b.hp * .15, a.position + Vector3.UP, "knife")
+			hit(game, a, b, b.hp * spell.power * .01, a.position + Vector3.UP, "knife")
 			if b.hp > 0 and game.may_harm(a, b):
+				if b.identity.immune <= 0 and not game.CC.airborne_immune(b): b.identity.severe_slow = 6.0
 				var previous: Dictionary = b.identity.severe_bleeds.get(a.actor_id, {})
 				b.identity.severe_bleeds[a.actor_id] = {"left": 5.0, "tick": previous.get("tick", 1.0)}
 		"roll":
@@ -206,6 +210,7 @@ static func resolve(game, a, spell: Dictionary, b, camera_yaw: Variant = null) -
 
 static func tick(game, a, delta: float) -> void:
 	game.ClassMechanics.tick_dots(game, a, a.identity.severe_bleeds, delta, 2, 0)
+	a.identity.severe_slow = maxf(0, a.identity.get("severe_slow", 0.0) - delta)
 	if a.champion != "Outlaw": return
 	# Covers CC, forced movement, manual cancel and death without depending on
 	# which system cleared casting. Runs before the dead-actor early return.
@@ -216,6 +221,7 @@ static func tick(game, a, delta: float) -> void:
 	if a.identity.roll_left <= 0 and (a.casting >= 0 or a.stunned > 0 or a.identity.backflip_active or a.identity.outlaw_action != "roll"):
 		a.identity.roll_animation_left = 0.0
 	a.identity.instant_severe = maxf(0, a.identity.instant_severe - delta)
+	a.identity.roll_haste = maxf(0, a.identity.get("roll_haste", 0.0) - delta)
 	if a.identity.backflip_active:
 		a.identity.backflip_elapsed += delta
 		if a.is_on_floor() and a.velocity.y <= 0:
@@ -246,8 +252,9 @@ static func roll_motion(game, a, delta: float) -> bool:
 	if collision != null:
 		a.identity.roll_left = 0.0
 		a.identity.roll_animation_left = 0.0
-	if a.identity.roll_left <= 0 and a.identity.roll_distance > .01 and game.authoritative():
+	if a.identity.roll_left <= 0 and game.authoritative():
 		a.identity.instant_severe = 1.5
+		a.identity.roll_haste = 5.0
 	a.velocity.x = 0; a.velocity.z = 0
 	a.velocity.y -= 20 * delta
 	a.move_and_slide()
