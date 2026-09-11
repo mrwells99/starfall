@@ -58,10 +58,22 @@ func bursts() -> void:
 		for index in range(1,count): ck(absf(results[index].time-results[index-1].time-.13)<.00001,"Shots retain exactly 130ms separation at their scheduled deadlines")
 		ck(not shot(count-1,aim()) and b.hp==100-count*10,"Replayed or excess shots cannot reuse consumed stacks")
 	await reset()
-	shot(0,aim()); game.outlaw_detonation.tick(game)
+	a.target_id=b.actor_id
+	ck(shot(0,aim()),"Selected-target burst accepts its first aimed shot")
+	game.outlaw_detonation.tick(game)
 	a.identity.defense_detonation=1
-	step(.13); shot(1,Vector3.FORWARD); game.outlaw_detonation.tick(game)
-	step(.13); shot(2,aim()); game.outlaw_detonation.tick(game)
+	step(.13)
+	# A level shoulder ray can clip an animated arm. Aim above the whole body
+	# while staying within the valid shoulder-camera envelope.
+	var miss_direction:=Vector3(0,.3,-1).normalized()
+	var target_pose: Dictionary=game.aimed_combat.sample(b,game.aimed_combat.clock)
+	var target_bounds: AABB=game.aimed_combat.Bodies.bounds_for(target_pose.points,b.body_hitboxes.radii)
+	ck(target_bounds.intersects_segment(origin(),origin()+miss_direction*game.outlaw_detonation.RANGE)==null,"Miss fixture clears the target's entire sampled body bounds")
+	ck(shot(1,miss_direction),"Burst accepts a fresh aim direction away from the selected target")
+	game.outlaw_detonation.tick(game)
+	step(.13)
+	ck(shot(2,aim()),"Burst accepts aiming back at the selected target")
+	game.outlaw_detonation.tick(game)
 	ck(b.hp==80 and results[1].victim==-1,"Each shot uses its own aim; a crosshair miss is not redirected to the selected target")
 	ck(a.identity.defense_detonation==1,"A new combo stack earned during the committed burst is preserved")
 	await reset()
