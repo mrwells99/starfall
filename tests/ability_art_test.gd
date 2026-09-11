@@ -36,6 +36,10 @@ func run() -> void:
 	arena.update_visuals(0)
 	await create_timer(0.3).timeout
 	for slot in range(actor.kit.size()):
+		# Reserved slots keep saved bindings stable and have no ability art.
+		if actor.kit[slot].kind == "unavailable":
+			check(not arena.ability_buttons[slot].visible, "Empty Ember slot stays hidden: %d" % slot)
+			continue
 		var art: TextureRect = arena.ability_images[slot]
 		check(art.texture != null, "Ember art loads: " + actor.kit[slot].name)
 		check(art.mouse_filter == Control.MOUSE_FILTER_IGNORE, "Art passes input to ability button")
