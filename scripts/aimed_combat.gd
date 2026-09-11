@@ -87,8 +87,11 @@ func allowed_age(game, peer: int) -> float:
 	if transport is ENetMultiplayerPeer:
 		var packet_peer: ENetPacketPeer = transport.get_peer(peer)
 		if packet_peer != null: rtt = packet_peer.get_statistic(ENetPacketPeer.PEER_ROUND_TRIP_TIME)*.001
-	# latency_ms is the existing local/test transport delay, set only by the host.
-	return minf(MAX_REWIND,rtt*.5+float(game.latency_ms)*.002+INTERPOLATION_ALLOWANCE+CLOCK_TOLERANCE)
+	# Client aim is based on a received server snapshot, without adding transit
+	# time back into its stamp. Its age on arrival includes snapshot outbound AND
+	# shot inbound travel: one full measured RTT, plus interpolation and jitter.
+	# latency_ms adds simulated delay each way; retain the 250ms rewind ceiling.
+	return minf(MAX_REWIND,rtt+float(game.latency_ms)*.002+INTERPOLATION_ALLOWANCE+CLOCK_TOLERANCE)
 
 func enqueue(game, id: int, peer: int, seq: int, slot: int, direction: Vector3, stamp: float, revision: int) -> bool:
 	if not game.authoritative() or game.phase != "match" or not game.actors.has(id): return false
@@ -147,7 +150,7 @@ func resolve(game, request: Dictionary) -> Dictionary:
 	actor.cooldowns[slot] = spell.cd
 	if not spell.off: actor.gcd = game.GCD_DURATION
 	result.merge({"source":actor.actor_id,"seq":request.seq,"from":origin,"damage":0,"rewind_ms":roundi((clock-stamp)*1000)})
-	if result.victim >= 0:
+	if game.actors.has(result.victim):
 		var victim = game.actors[result.victim]
 		if victim.team != actor.team and game.may_harm(actor,victim):
 			var before: float = victim.hp

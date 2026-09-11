@@ -20,6 +20,13 @@ func go() -> void:
 	ck(arena.phase == "match", "World starts immediately with no countdown")
 	ck(arena.countdown == 0.0, "No countdown in the world")
 	ck(arena.actors.size() == 5, "Players and three stationary training dummies spawn")
+	await physics_frame
+	for center in arena.Layout.cover_centers():
+		var query:=PhysicsRayQueryParameters3D.create(center+Vector3(-4,6,0),center+Vector3(4,6,0),1)
+		ck(not arena.get_world_3d().direct_space_state.intersect_ray(query).is_empty(),"Pillar extension blocks traversal and sight above the visible roof")
+		var pose: Transform3D=arena.actors[1].transform
+		pose.origin=center+Vector3(-4,6,0)
+		ck(arena.actors[1].test_move(pose,Vector3.RIGHT*8),"The full movement capsule cannot cross onto a pillar from above")
 	ck(arena.selected_id == -1, "World arrival does not auto-target players or dummies")
 	arena.panel.hide()
 	arena.update_visuals(0)
@@ -61,7 +68,17 @@ func go() -> void:
 	ck(arena.duel_offers.get(2, -1) == 1, "A challenge is recorded against the target")
 	arena.confirm_duel(2)
 	ck(arena.duels.get(1, -1) == 2 and arena.duels.get(2, -1) == 1, "Accepting pairs both fighters")
+	ck(arena.selected_id==2 and a.target_id==2 and b.target_id==1,"Duel acceptance immediately targets each opponent")
 	arena.selected_id = -100
+	ck(arena.selected_id==2,"A duel cannot change selection to a training dummy")
+	arena.select_party(0)
+	ck(arena.selected_id==2,"A duel cannot change selection to self through party targeting")
+	arena.selected_id=-1
+	ck(arena.selected_id==2,"A duel cannot clear its target")
+	arena.apply_input(1,Vector2.ZERO,0,false,-100)
+	ck(a.target_id==2 and arena.spell_target(a,0,-100)==2,"The authority pins movement and hostile action targets to the opponent")
+	ck(arena.spell_target(a,5,2)==1,"Self-help abilities remain usable with the enemy locked")
+	ck(not arena.may_harm(a,dummy),"Active duel attacks cannot damage a training dummy")
 	var tab := InputEventKey.new()
 	tab.keycode = KEY_TAB
 	tab.physical_keycode = KEY_TAB
@@ -81,10 +98,14 @@ func go() -> void:
 	tab.pressed = true
 	Input.parse_input_event(tab.duplicate())
 	await process_frame
-	ck(arena.selected_id == -1, "Chat typing does not activate duel targeting")
+	ck(arena.selected_id == 2, "Chat typing preserves the locked duel opponent")
 	tab.pressed = false
 	Input.parse_input_event(tab.duplicate())
 	arena.social.entry.release_focus()
+	var escape:=InputEventKey.new(); escape.keycode=KEY_ESCAPE; escape.physical_keycode=KEY_ESCAPE; escape.pressed=true
+	arena._input(escape)
+	ck(arena.panel.visible and arena.selected_id==2,"Escape opens the menu without clearing a locked opponent")
+	arena.panel.hide()
 	arena.damage(a, b, 30.0)
 	ck(b.hp == 70, "Damage lands once a duel is agreed")
 	# A third party still cannot join in.
@@ -109,6 +130,15 @@ func go() -> void:
 	arena.world_mode = false
 	arena.begin_round()
 	ck(not arena.actors.has(-100), "Match arenas never spawn world dummies")
+	ck(arena.selected_id==arena.locked_target_for(arena.local_id) and arena.selected_id!=-1,"A 1v1 arena automatically selects its opponent")
+	var arena_opponent: int=arena.selected_id
+	for candidate in [-1,arena.local_id,-100]:
+		arena.selected_id=candidate
+		ck(arena.selected_id==arena_opponent,"1v1 arena selection stays pinned")
+	arena.mode=3
+	arena.selected_id=arena.local_id
+	ck(arena.selected_id==arena.local_id,"3v3 keeps normal free selection")
+	arena.mode=1
 	arena.dedicated = true
 	arena.world_mode = true
 	arena.begin_round()

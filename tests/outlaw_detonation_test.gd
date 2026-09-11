@@ -107,6 +107,13 @@ func protections() -> void:
 		if mode=="range": b.position.z=-25; step(.016)
 		shot(0,aim()); game.outlaw_detonation.tick(game)
 		ck(b.hp==100,"Burst respects "+mode+" protection")
+	await reset(1)
+	game.world_mode=true; game.actors.erase(b.actor_id)
+	b.actor_id=-101; b.training_dummy=true; game.actors[b.actor_id]=b
+	step(.016)
+	ck(shot(0,aim()),"World training-dummy shot is accepted")
+	game.outlaw_detonation.tick(game)
+	ck(b.hp==90 and results.back().damage==10 and results.back().victim==-101 and a.identity.defense_detonation==0,"Negative world dummy IDs receive damage and consume the shot stack")
 	await reset()
 	shot(0,aim()); game.outlaw_detonation.tick(game); a.stunned=1; step(.13)
 	ck(b.hp==90 and not game.outlaw_detonation.bursts.has(1),"Hard CC cancels unfinished shots without duplicating or refunding spent stacks")

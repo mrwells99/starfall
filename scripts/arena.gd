@@ -65,7 +65,10 @@ func ui_box(fill: Color, edge: Color, radius: int = 6, width: int = 1) -> StyleB
 	return box
 var actors: Dictionary = {}
 var local_id := 1
-var selected_id := -1
+var selected_id := -1:
+	set(value):
+		var opponent: int=locked_target_for(local_id)
+		selected_id=opponent if opponent!=-1 else value
 var focus_id := -1
 var phase := "menu"
 var mode := 1
@@ -2023,6 +2026,7 @@ func reset_layout() -> void:
 	refresh_binds()
 
 func apply_settings() -> void:
+	player_options.apply_sensitivity()
 	if slot_size_field != null and slot_size_field.text.strip_edges().is_valid_int():
 		apply_slot_size(int(slot_size_field.text))
 		slot_size_field.text = str(slot_size)
@@ -2146,6 +2150,23 @@ func assign_local() -> void:
 			selected_id = -1
 		else:
 			cycle_target()
+		sync_target_lock()
+
+func locked_target_for(id: int) -> int:
+	if phase not in ["match","countdown"] or not actors.has(id): return -1
+	if world_mode:
+		var opponent: int=duels.get(id,-1)
+		return opponent if actors.has(opponent) else -1
+	if mode==1:
+		for actor in actors.values():
+			if actor.actor_id!=id and actor.team!=actors[id].team and not actor.training_dummy: return actor.actor_id
+	return -1
+
+func sync_target_lock() -> void:
+	var opponent:=locked_target_for(local_id)
+	if opponent!=-1:
+		selected_id=opponent
+		actors[local_id].target_id=opponent
 
 @rpc("authority", "call_remote", "reliable")
 func round_started(round_epoch: int, size_per_team: int, states: Array) -> void:
@@ -2308,7 +2329,8 @@ func apply_input(id: int, movement: Vector2, yaw: float, jump: bool, selected: i
 	if actor.stunned <= 0 and actor.hp > 0 and actor.charge.is_empty():
 		actor.rotation.y = wrapf(yaw, -PI, PI)
 	actor.jump_queued = (actor.jump_queued or jump) and actor.charge.is_empty()
-	actor.target_id = selected if actors.has(selected) else -1
+	var opponent:=locked_target_for(id)
+	actor.target_id = opponent if opponent!=-1 else (selected if actors.has(selected) else -1)
 	actor.input_age = 0
 
 func peer_actor(peer: int) -> int:
@@ -2501,7 +2523,8 @@ func spell_target(actor, slot: int, requested: int) -> int:
 		if actors.has(requested) and actors[requested].team == actor.team:
 			return requested
 		return actor.actor_id # Enemy or no target: helpful spells fall back to self.
-	return requested
+	var opponent:=locked_target_for(actor.actor_id)
+	return opponent if opponent!=-1 else requested
 
 func validate_spell(actor, slot: int, victim_id: int) -> String:
 	if not actors.has(victim_id) or actors[victim_id].hp <= 0:
@@ -2841,8 +2864,9 @@ func move_ability(actor, motion: Vector3) -> void:
 func may_harm(source, victim) -> bool:
 	if not world_mode:
 		return true
+	if duels.has(source.actor_id): return duels[source.actor_id]==victim.actor_id
 	if victim.training_dummy: return not source.training_dummy
-	return duels.get(source.actor_id, -1) == victim.actor_id
+	return false
 
 func damage(source, victim, amount: float) -> void:
 	if not may_harm(source, victim):
@@ -2918,6 +2942,7 @@ func confirm_duel(target_id: int) -> void:
 	sync_duels()
 	# Both start clean, so a duel is never decided by who was already hurt.
 	for id in [from_id, target_id]:
+		actors[id].target_id=duels[id]
 		actors[id].hp = 100
 		actors[id].reset_identity()
 		actors[id].stunned = 0
@@ -3670,7 +3695,7 @@ func _input(event: InputEvent) -> void:
 			else:
 				action_seq += 1
 				deliver_action(epoch, action_seq, -1, selected_id)
-		elif selected_id != -1:
+		elif selected_id != -1 and locked_target_for(local_id)==-1:
 			selected_id = -1
 		else:
 			panel.show()
@@ -3825,6 +3850,8 @@ func on_unit_frame_input(event: InputEvent, frame: VBoxContainer) -> void:
 
 func enemy_ids() -> Array[int]:
 	var ids: Array[int] = []
+	var opponent:=locked_target_for(local_id)
+	if opponent!=-1: return [opponent]
 	if actors.has(local_id):
 		for actor in actors.values():
 			if actor.team != actors[local_id].team and not actor.training_dummy:
@@ -3922,6 +3949,7 @@ func decline_duel() -> void:
 		dismiss_duel(actor_for_peer(multiplayer.get_remote_sender_id()))
 
 func sync_duels() -> void:
+	sync_target_lock()
 	pending_offer = duel_offers.get(local_id, -1)
 	if network and multiplayer.is_server():
 		duel_state.rpc(epoch, duels, duel_offers)
@@ -3933,6 +3961,7 @@ func duel_state(round_epoch: int, pairs: Dictionary, offers: Dictionary) -> void
 	duels = pairs.duplicate()
 	duel_offers = offers.duplicate()
 	pending_offer = duel_offers.get(local_id, -1)
+	sync_target_lock()
 
 func remove_world_actor(id: int) -> void:
 	if not actors.has(id):

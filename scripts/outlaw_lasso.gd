@@ -15,6 +15,33 @@ const AIR_DRIFT_SCALE := .25
 const FALL_SPEED := 1.5
 const FALL_GRAVITY := 4.0
 const NORMAL_GRAVITY := 20.0
+const ROUTE_CLEARANCE := .03
+
+static func pull_path(a, target: Vector3) -> PackedVector3Array:
+	# Approach at the target's foot height. A diagonal root-to-root pull would
+	# enter the departure floor downhill, or the terrace wall uphill.
+	var away:=Vector3(a.position.x-target.x,0,a.position.z-target.z)
+	away=away.normalized() if away.length()>.001 else a.basis.z
+	var finish:=target+away*CONTACT+Vector3.UP*ROUTE_CLEARANCE
+	var direct:=PackedVector3Array([finish])
+	if clear_path(a,direct): return direct
+	# Only clear the height difference; do not climb arbitrary walls or roofs.
+	# Every leg sweeps the entire movement capsule, including its headroom.
+	var height:=maxf(a.position.y,finish.y)+.08
+	var lifted:=PackedVector3Array([Vector3(a.position.x,height,a.position.z),Vector3(finish.x,height,finish.z),finish])
+	return lifted if clear_path(a,lifted) else PackedVector3Array()
+
+static func clear_path(a, points: PackedVector3Array) -> bool:
+	var previous: Vector3=a.position
+	var length:=0.0
+	for point in points:
+		var pose: Transform3D=a.transform
+		pose.origin=previous
+		var movement:=point-previous
+		if a.test_move(pose,movement,null,.005): return false
+		length+=movement.length()
+		previous=point
+	return length<=PULL_SPEED*TIMEOUT
 
 static func state(a) -> Dictionary:
 	return a.identity.get("lasso", {})
@@ -169,6 +196,8 @@ static func motion(game, a, delta: float) -> bool:
 			return true
 		s.rope = next
 		if next.distance_to(destination) < .01 and game.authoritative():
+			s.path=pull_path(a,b.position); s.destination=b.position
+			if s.path.is_empty(): cancel(game,a); return true
 			s.phase = "pull"; s.elapsed = 0.0
 			var duration: float = game.CC.apply(b,"stun",TIMEOUT + DOWN_TIME,s.source)
 			if duration > 0: b.cc_effects.stun.lasso_owner = a.actor_id
@@ -176,17 +205,33 @@ static func motion(game, a, delta: float) -> bool:
 			a.motion_revision += 1
 			s.revision = a.motion_revision
 		return true
-	var offset: Vector3 = b.position - a.position
-	var distance := offset.length()
-	if distance > CONTACT:
-		var before: Vector3 = a.position
-		var collision = a.move_and_collide(offset.normalized() * minf(PULL_SPEED * delta, distance-CONTACT))
-		a.velocity = (a.position-before) / maxf(delta,.001)
-		var horizontal := Vector3(offset.x,0,offset.z)
-		if horizontal.length() > .001: a.rotation.y = atan2(-offset.x,-offset.z)
-		if collision != null:
+	var before: Vector3=a.position
+	if game.authoritative() and (not s.has("path") or b.position.distance_to(s.get("destination",b.position))>.25):
+		s.path=pull_path(a,b.position); s.destination=b.position
+	var path: PackedVector3Array=s.get("path",PackedVector3Array())
+	var budget:=PULL_SPEED*delta
+	while budget>.0001 and a.position.distance_to(b.position)>CONTACT+.02:
+		if path.is_empty():
+			if game.authoritative():
+				path=pull_path(a,b.position); s.destination=b.position
+				if path.is_empty(): cancel(game,a); return true
+			else: break
+		var offset: Vector3=path[0]-a.position
+		var distance: float=offset.length()
+		if distance<.005: path.remove_at(0); continue
+		var travel:=minf(budget,distance)
+		var collision=a.move_and_collide(offset/distance*travel,false,.005)
+		budget-=travel
+		if collision!=null:
+			# Leave a little swept clearance before ordinary movement resumes.
+			a.move_and_collide(collision.get_normal()*.01)
 			if game.authoritative(): cancel(game,a)
 			return true
+		if travel>=distance-.0001: path.remove_at(0)
+	s.path=path
+	a.velocity=(a.position-before)/maxf(delta,.001)
+	var facing: Vector3=b.position-a.position
+	if Vector2(facing.x,facing.z).length()>.001: a.rotation.y=atan2(-facing.x,-facing.z)
 	if a.position.distance_to(b.position) <= CONTACT + .02:
 		a.velocity = Vector3.ZERO
 		if float(s.elapsed) >= MIN_PULL_TIME and game.authoritative(): impact(game,a,b,s)

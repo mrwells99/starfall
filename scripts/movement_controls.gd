@@ -56,8 +56,9 @@ func input(event: InputEvent) -> bool:
 	if event is InputEventMouseMotion and (left or right):
 		drag_distance += event.screen_relative.length()
 		dragged = dragged or drag_distance > CLICK_DISTANCE
-		game.pivot.rotation.y -= event.screen_relative.x * 0.004 * game.player_options.sensitivity
-		game.arm.rotation.x = clampf(game.arm.rotation.x - event.screen_relative.y * 0.004 * game.player_options.sensitivity * (-1.0 if game.player_options.invert_y else 1.0), -1.15, 0.12)
+		var sensitivity: float = .004 * game.player_options.mouse_sensitivity()
+		game.pivot.rotation.y -= event.screen_relative.x * sensitivity
+		game.arm.rotation.x = clampf(game.arm.rotation.x - event.screen_relative.y * sensitivity * (-1.0 if game.player_options.invert_y else 1.0), -1.15, 0.12)
 		if right: align_facing()
 		follow_delay = 0.4
 		return true

@@ -95,7 +95,7 @@ func tick(game) -> void:
 			cancel(game,id,burst.peer,burst.id); continue
 		var result: Dictionary = game.aimed_combat.trace(game,actor,request.origin,request.direction,RANGE,request.stamp)
 		result.merge({"source":id,"burst":burst.id,"index":request.index,"total":burst.total,"seq":request.seq,"from":request.origin,"damage":0,"fired":true,"done":request.index+1==burst.total,"time":clock})
-		if result.victim >= 0:
+		if game.actors.has(result.victim):
 			var victim = game.actors[result.victim]
 			if victim.team != actor.team and game.may_harm(actor,victim):
 				var before: float = victim.hp

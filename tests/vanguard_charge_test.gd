@@ -79,12 +79,12 @@ func run() -> void:
 	var before: Vector3 = a.position
 	a.gcd = 1.0
 	ck(arena.try_spell(1, 6, 2), "Charge starts off the GCD")
-	ck(b.identity.root == 3.0 and arena.CC.remaining(b, "root") == 3.0, "Successful cast immediately roots the enemy for three seconds")
+	ck(b.identity.root == 1.5 and arena.CC.remaining(b, "root") == 1.5, "Successful cast immediately roots the enemy for 1.5 seconds")
 	ck(a.position == before and b.hp == 100 and not a.charge.is_empty(), "Cast starts travel without teleporting or dealing early damage")
 	ck(a.cooldowns[6] == 12 and a.gcd == 1, "Charge keeps its twelve-second cooldown and leaves the GCD alone")
 	var charge_root := false
 	for aura in arena.Auras.active(b):
-		charge_root = charge_root or (aura.key == "root" and aura.source == "Charge" and aura.remaining == 3)
+		charge_root = charge_root or (aura.key == "root" and aura.source == "Charge" and aura.remaining == 1.5)
 	ck(charge_root, "Root aura identifies Charge as its source")
 	await step()
 	ck(a.position.distance_to(before) > .4 and a.position.distance_to(before) < .6, "Travel is visibly spread over physics frames at 32 meters per second")
@@ -98,7 +98,7 @@ func run() -> void:
 	ck(arena.try_spell(1, 6, 2), "An airborne caster can enter a safe ground route")
 	await finish()
 	await reset(Vector3(0, .025, 6), Vector3(0, .925, -6))
-	ck(arena.try_spell(1, 6, 2) and b.identity.root == 3, "A jumping target can be rooted and approached safely")
+	ck(arena.try_spell(1, 6, 2) and b.identity.root == 1.5, "A jumping target can be rooted and approached safely")
 	await finish()
 	await reset(Vector3(-6, .025, 10), Vector3(-6, .025, 0))
 	ck(not arena.try_spell(1, 6, 2) and a.cooldowns[6] == 0 and b.identity.root == 0, "Initial LOS failure spends nothing and does not root")
