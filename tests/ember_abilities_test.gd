@@ -161,11 +161,32 @@ func test_blink() -> void:
 	a.reset_identity()
 	ck(a.identity.blink_charges == 2, "Round and duel identity reset restores both Blink charges")
 
+func test_blink_while_casting() -> void:
+	await reset()
+	# Settle the capsule so normal grounded cast rules apply.
+	for i in range(10): arena.tick_actor(a, 1.0 / 60.0)
+	ck(arena.try_spell(1, 0, 2), "Firebolt begins before Blink")
+	arena.tick_actor(a, .1)
+	var remaining: float = a.cast_left
+	var gcd: float = a.gcd
+	var start: Vector3 = a.position
+	ck(arena.ability_block_reason(a, 6, -1).is_empty(), "Blink is available in the UI during a cast")
+	ck(arena.try_spell(1, 6, -1, PI / 2), "Blink succeeds during Firebolt")
+	ck(a.position.distance_to(start) > 7.5 and a.identity.blink_charges == 1, "Casting Blink moves Ember and spends one charge")
+	ck(a.casting == 0 and a.cast_target == 2 and a.cast_left == remaining and a.gcd == gcd, "Blink preserves cast target, progress, and GCD")
+	ck(not arena.try_spell(1, 4, -1), "Other off-GCD spells still cannot replace an active cast")
+	a.identity.root = 1
+	ck(not arena.try_spell(1, 6, -1) and a.identity.blink_charges == 1 and a.casting == 0, "Rooted Blink preserves both charge and current cast")
+	a.identity.root = 0
+	for i in range(100): arena.tick_actor(a, 1.0 / 60.0)
+	ck(a.casting == -1 and b.hp < 100, "Firebolt finishes and hits after Blink")
+
 func run() -> void:
 	arena = load("res://arena.tscn").instantiate()
 	root.add_child(arena)
 	arena.set_physics_process(false)
 	await test_flare()
 	await test_blink()
+	await test_blink_while_casting()
 	print("Ember abilities checks: %d passed / %d total" % [checks - failures, checks])
 	quit(1 if failures else 0)

@@ -8,6 +8,7 @@ func reset() -> void:
 	bursts.clear()
 
 func blocked(game, actor) -> bool:
+	if game.Outlaw.Lasso.busy(actor): return true
 	return game.phase != "match" or actor.champion != "Outlaw" or actor.hp <= 0 or actor.stunned > 0 or actor.casting >= 0 or actor.locked > 0 or game.CC.spell_block(actor) > 0 or actor.identity.roll_left > 0 or actor.identity.backflip_active
 
 func camera_valid(game, actor, origin: Vector3, direction: Vector3, stamp: float) -> bool:

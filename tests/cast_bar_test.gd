@@ -50,7 +50,7 @@ func run() -> void:
 			var spell: Dictionary=actor.kit[slot]
 			if spell.cast<=0:continue
 			actor.casting=slot;actor.cast_left=spell.cast*.5
-			var immune: bool=champion=="Outlaw" and spell.kind in ["severe","starshot","deadeye"]
+			var immune: bool=champion=="Outlaw" and spell.kind in ["severe","starshot","deadeye","lasso"]
 			check(game.kick_immune(actor)==immune,"Combat immunity for "+champion+" "+spell.name)
 			paint_and_check(Color("808080") if immune else Color("8b713e"),champion+" "+spell.name)
 	actor.champion="Outlaw";actor.kit=game.Kits.get_kit("Outlaw");actor.casting=5;actor.cast_left=1

@@ -33,8 +33,10 @@ func reconcile(game, actor) -> void:
 	actor.rotation.y = state.yaw
 	# Roll's remaining travel is movement state; rewind it before replaying inputs.
 	# Combat buffs and combo resources remain server-owned.
-	for key in ["roll_left", "roll_direction", "roll_distance", "backflip_active"]:
-		if state.get("identity", {}).has(key): actor.identity[key] = state.identity[key]
+	for key in ["roll_left", "roll_direction", "roll_distance", "backflip_active", "lasso", "lasso_knockdown"]:
+		if state.get("identity", {}).has(key):
+			var value = state.identity[key]
+			actor.identity[key] = value.duplicate(true) if value is Dictionary else value
 	# A position rewind does not update CharacterBody3D's cached floor contact.
 	# Use the server contact for the first replay/prediction step; subsequent
 	# move_and_slide calls provide fresh contact at the replayed position.

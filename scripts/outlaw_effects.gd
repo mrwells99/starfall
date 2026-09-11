@@ -6,6 +6,7 @@ var lines: Array[MeshInstance3D] = []
 var life: Array[float] = []
 var coins: Dictionary = {}
 var marks: Dictionary = {}
+var lassos: Dictionary = {}
 var cursor := 0
 var flashes: Array[MeshInstance3D] = []
 var flash_life: Array[float] = []
@@ -65,8 +66,14 @@ func _process(delta: float) -> void:
 	for id in marks.keys():
 		if not arena.actors.has(id): marks[id].queue_free(); marks.erase(id)
 	var marked: Dictionary = {}
+	for id in lassos.keys():
+		if not arena.actors.has(id): lassos[id].queue_free(); lassos.erase(id)
 	for a in arena.actors.values():
 		if a.champion != "Outlaw": continue
+		if not lassos.has(a.actor_id):
+			var rope = preload("res://scripts/lasso_effect.gd").new()
+			add_child(rope); lassos[a.actor_id] = rope
+		lassos[a.actor_id].update(arena,a)
 		if not coins.has(a.actor_id):
 			var node := MeshInstance3D.new()
 			node.mesh = coin_mesh; node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

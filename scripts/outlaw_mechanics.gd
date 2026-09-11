@@ -21,15 +21,17 @@ const DETONATION_HEALTH_FRACTION := .1
 const SIGHT_RANGE := 18.0
 const MOBILE_KINDS := ["deadeye"]
 const STARSHOT_MOVE_SCALE := .7
+const Lasso = preload("res://scripts/outlaw_lasso.gd")
 
 static func can_cast_moving(actor, spell: Dictionary) -> bool:
-	return actor.champion == "Outlaw" and (spell.kind in MOBILE_KINDS or spell.kind in ["severe", "starshot"])
+	return actor.champion == "Outlaw" and (spell.kind in MOBILE_KINDS or spell.kind in ["severe", "starshot", "lasso"])
 
 static func starshot_cast(actor) -> bool:
 	return actor.champion == "Outlaw" and actor.casting >= 0 and actor.kit[actor.casting].kind == "starshot"
 
 static func initialize(actor) -> void:
 	actor.identity.merge({"defense_detonation": 0, "severe_bleeds": {}, "backflip_active": false,
+		"lasso": {}, "lasso_knockdown": {},
 		"backflip_combo": false, "backflip_elapsed": 0.0, "roll_left": 0.0, "roll_direction": Vector3.ZERO,
 		"roll_distance": 0.0, "instant_severe": 0.0,
 		"roll_animation_left": 0.0,
@@ -47,7 +49,7 @@ static func deadeye_cast(a) -> bool:
 	return mobile_cast(a) and a.kit[a.casting].kind == "deadeye"
 
 static func unkickable(a) -> bool:
-	return a.champion == "Outlaw" and a.casting >= 0 and a.kit[a.casting].kind in ["severe", "starshot", "deadeye"]
+	return a.champion == "Outlaw" and a.casting >= 0 and a.kit[a.casting].kind in ["severe", "starshot", "deadeye", "lasso"]
 
 static func detonation_burst_plan(a) -> Dictionary:
 	# Snapshot all currently available stacks; never read live stacks per shot.
@@ -61,6 +63,7 @@ static func reserve_detonation_burst(game, a) -> Dictionary:
 	# Called only after the authoritative aimed-fire request passes validation.
 	# Reserve every shot together; newly earned stacks belong to the next burst.
 	if not game.authoritative() or game.phase != "match": return {}
+	if Lasso.busy(a): return {}
 	if a.hp <= 0 or a.stunned > 0 or a.casting >= 0 or a.gcd > 0 or a.locked > 0: return {}
 	if game.CC.spell_block(a) > 0 or a.identity.roll_left > 0 or a.identity.backflip_active: return {}
 	var burst := detonation_burst_plan(a)
@@ -83,6 +86,9 @@ static func trickshot_mode(game, a, b) -> String:
 
 static func validate(game, a, spell: Dictionary, b) -> String:
 	if a.champion != "Outlaw": return ""
+	if spell.kind == "lasso":
+		if a.identity.root > 0: return "Rooted"
+		if not a.is_on_floor() and not backflip_airborne(a): return "Requires ground or Backflip"
 	if spell.kind == "trickshot":
 		if not ((a.identity.backflip_combo and backflip_airborne(a)) or a.identity.coin_left > 0):
 			return "Requires Backflip or Coin Toss combo"
@@ -96,6 +102,9 @@ static func action(a, name: String) -> void:
 	a.identity.outlaw_action_serial += 1
 
 static func begin_channel(game, a, spell: Dictionary, target: int) -> void:
+	if spell.kind == "lasso":
+		Lasso.begin(a)
+		return
 	if spell.kind not in MOBILE_KINDS: return
 	var marked: Array = []
 	# Deadeye acquires all eligible opponents; visibility is checked at completion.
@@ -143,6 +152,7 @@ static func tick_channel(game, a, delta: float) -> void:
 static func resolve(game, a, spell: Dictionary, b, camera_yaw: Variant = null) -> bool:
 	if a.champion != "Outlaw": return false
 	match spell.kind:
+		"lasso": Lasso.release(game, a, b)
 		"starshot": hit(game, a, b, spell.power, a.position + Vector3.UP, "gun")
 		"severe":
 			a.identity.instant_severe = 0.0

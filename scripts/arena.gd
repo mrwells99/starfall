@@ -2384,6 +2384,7 @@ func pong(stamp: int) -> void:
 	round_trip_ms = Time.get_ticks_msec() - stamp
 
 func tick_actor(actor, delta: float) -> void:
+	Outlaw.Lasso.tick(self, actor)
 	# Death resets class identity below, so release an unfinished reservation first.
 	if actor.hp <= 0: Outlaw.refund_interrupted_channel(self, actor)
 	ClassMechanics.tick(self, actor, delta)
@@ -2424,7 +2425,10 @@ func tick_actor(actor, delta: float) -> void:
 		Outlaw.tick_channel(self, actor, delta)
 		return
 	if actor.casting >= 0:
-		if (direction.length() > 0.01 or not actor.is_on_floor()) and not Outlaw.can_cast_moving(actor, actor.kit[actor.casting]):
+		if Outlaw.Lasso.casting(actor) and Outlaw.Lasso.state(actor).get("air", false) and actor.is_on_floor():
+			cancel_own_cast(actor, "Lasso cancelled by landing")
+			actor.identity.lasso = {}
+		elif (direction.length() > 0.01 or not actor.is_on_floor()) and not Outlaw.can_cast_moving(actor, actor.kit[actor.casting]):
 			cancel_own_cast(actor, "Cast cancelled by movement")
 		else:
 			actor.cast_left -= delta
@@ -2448,6 +2452,7 @@ func simulate_movement(actor, delta: float, grounded_override: Variant = null) -
 	if not actor.charge.is_empty():
 		VanguardCharge.advance(actor, delta)
 		return actor.velocity.normalized()
+	if Outlaw.Lasso.motion(self, actor, delta): return Vector3.ZERO
 	if Outlaw.roll_motion(self, actor, delta):
 		return actor.identity.roll_direction
 	var grounded: bool = actor.is_on_floor() if grounded_override == null else bool(grounded_override)
@@ -2477,7 +2482,11 @@ func simulate_movement(actor, delta: float, grounded_override: Variant = null) -
 		actor.jump_buffer = 0
 	actor.jump_queued = false
 	actor.jump_buffer = maxf(0.0, actor.jump_buffer - delta)
-	actor.velocity.y -= 20 * delta
+	if Outlaw.Lasso.casting(actor) and Outlaw.Lasso.state(actor).get("air", false):
+		# Preserve the original upward arc; only the descent gets slow-fall.
+		actor.velocity.y = actor.velocity.y - 20.0 * delta if actor.velocity.y > 0 else maxf(-1.5, actor.velocity.y - 4.0 * delta)
+	else:
+		actor.velocity.y -= 20 * delta
 	actor.move_and_slide()
 	return direction
 
@@ -2689,11 +2698,13 @@ func ability_block_reason(actor, slot: int, requested: int) -> String:
 	if CC.spell_block(actor) > 0:
 		return "Disarmed" if actor.cc_effects.has("disarm") else "Silenced"
 	var spell: Dictionary = actor.kit[slot]
-	if actor.casting >= 0:
+	# Blink resolves independently without replacing the active cast or its timer.
+	if actor.casting >= 0 and not (actor.champion == "Ember" and spell.kind == "blink"):
 		return "Already casting"
 	if not actor.charge.is_empty():
 		return "Charging"
 	if actor.identity.get("roll_left", 0.0) > 0: return "Rolling"
+	if Outlaw.Lasso.busy(actor): return "Completing Lasso"
 	var instant_collapse: bool = spell.kind == "collapse" and actor.identity.instant_collapse > 0
 	var own_unavailable: bool = actor.identity.blink_charges <= 0 if spell.kind == "blink" else actor.cooldowns[slot] > 0
 	if own_unavailable or (actor.gcd > 0 and not (spell.off or instant_collapse)):
@@ -3936,6 +3947,7 @@ func remove_world_actor(id: int) -> void:
 	clear_duel_offers(id)
 	respawn_timers.erase(id)
 	var actor = actors[id]
+	if authoritative() and Outlaw.Lasso.busy(actor): Outlaw.Lasso.cancel(self,actor)
 	actors.erase(id)
 	remove_child(actor)
 	actor.queue_free()

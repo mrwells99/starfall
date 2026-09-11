@@ -53,6 +53,7 @@ func block_reason(actor) -> String:
 	if actor.stunned > 0: return "Controlled"
 	if actor.casting >= 0: return "Already casting"
 	if actor.identity.roll_left > 0: return "Rolling"
+	if game.Outlaw.Lasso.busy(actor): return "Completing Lasso"
 	if actor.identity.backflip_active: return "Backflipping"
 	return ""
 

@@ -245,12 +245,13 @@ func receive(data: Dictionary, instant: bool = false) -> void:
 	owner_peer = data.peer
 	hp = data.hp
 	cooldowns = data.cd
-	# A pre-preview server has no trailing local camera utility in its snapshot.
-	# Fill only local slots; never infer a missing combat cooldown.
-	if cooldowns.size() < kit.size() and kit[cooldowns.size()].get("local_only", false):
+	# Older servers may omit newly appended slots. Keep the UI safe, but mark
+	# unsupported combat abilities unavailable until a server supplies their state.
+	if cooldowns.size() < kit.size():
 		cooldowns = cooldowns.duplicate()
-	while cooldowns.size() < kit.size() and kit[cooldowns.size()].get("local_only", false):
-		cooldowns.append(0.0)
+	while cooldowns.size() < kit.size():
+		var missing: Dictionary = kit[cooldowns.size()]
+		cooldowns.append(0.0 if missing.get("local_only", false) else maxf(1.0,missing.cd))
 	gcd = data.gcd
 	casting = data.casting
 	cast_left = data.left

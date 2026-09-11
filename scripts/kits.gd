@@ -49,6 +49,7 @@ static func get_kit(champion: String) -> Array:
 			spell("Deadeye", "deadeye", 40, 0, 3, 90),
 			# Retired Aim Test slot keeps saved layouts and snapshot indices stable.
 			spell("", "unavailable", 0, 0, 0, 0, true).merged({"local_only": true}),
+			spell("Lasso", "lasso", 0, 24, .7, 20),
 		]
 	var kit := [
 		spell("Firebolt", "damage", 16, 28, 1.5, 0),
@@ -128,6 +129,7 @@ static func get_kit(champion: String) -> Array:
 static func summary(ability: Dictionary) -> String:
 	var concepts := {
 		"starshot": "Cast while moving at 70% of your normal movement speed. Kicks cannot interrupt this cast or apply a lockout. Transmute starlight into a gunshot for 8 damage. Hard crowd control can still cancel it; range and line of sight are checked when it finishes.",
+		"lasso": "Swing a celestial lasso during a 0.7s mobile, unkickable cast. The rope flies to the target, then pulls you into a dropkick, stunning them during your approach. Knock them back up to 3m and down for 1.5s; rebound 2m away in 0.28s. Stun diminishing returns apply once to the combo. Landing the dropkick grants one Defense Detonation stack. Usable during Backflip with slowed descent, but landing before cast completion cancels it. Terrain stops travel. Deals no damage.",
 		"severe": "Cast while moving normally; kicks cannot interrupt this cast or apply a lockout. Slash with your Bowie knife for 15% of the enemy's current health, rounded to a whole number. Apply a 5s bleed dealing 2 damage each second. One bleed per caster; reapplication refreshes it. Completing Roll grants a 1s buff for one instant Severe; its own cooldown and global cooldown still apply.",
 		"trickshot": "Instant, off-global-cooldown gunshot for 12 damage. Only usable once during Backflip's airborne combo or while your Coin Toss is still in flight. A coin shot ricochets from the coin to your selected enemy, requiring clear paths to the coin and from the coin to the enemy. A landed combo grants one Defense Detonation stack, up to 3.",
 		"roll": "Roll up to 7.8m over approximately 0.48s in your movement-input direction, including diagonals; with no movement input, roll along camera heading. Stops at terrain. Completing the roll grants a 1s buff for one instant Severe. Off the global cooldown.",
@@ -188,7 +190,7 @@ static func summary(ability: Dictionary) -> String:
 		"pull":
 			return "Drag your target up to %s meters toward you. Works on an enemy or an ally." % ability.power
 		"blink":
-			return "Blink up to %sm in your movement-input direction, including diagonals. With no movement input, blink forward along your camera's heading. Two charges; restores one charge every %ss. Stops at solid terrain. Off the global cooldown." % [ability.power, ability.cd]
+			return "Blink up to %sm in your movement-input direction, including diagonals. With no movement input, blink forward along your camera's heading. Two charges; restores one charge every %ss. Stops at solid terrain. Off the global cooldown; usable while casting without interrupting the cast." % [ability.power, ability.cd]
 		"charge":
 			return "Immediately root an enemy for up to 3s, then rush along a safe route at 32m/s and deal %s damage on arrival. Line of sight is required only when casting. Uses root diminishing returns." % ability.power
 		"sprint":
