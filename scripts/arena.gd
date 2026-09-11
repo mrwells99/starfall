@@ -114,6 +114,7 @@ var snapshot_seq := 0
 var local_yaw := 0.0
 var queued_jump := false
 var movement_controls = preload("res://scripts/movement_controls.gd").new()
+var camera_character_fade = preload("res://scripts/camera_character_fade.gd").new()
 var jump_serial := 0
 var pending_jump_id := 0
 var jump_sent_at := 0
@@ -190,7 +191,11 @@ var recovery
 var chat_last_sent := {}
 var next_world_actor_id := 1
 const TrainingDummies = preload("res://scripts/training_dummies.gd")
-var world_mode := false
+var world_mode := false:
+	set(value):
+		world_mode = value
+		if is_inside_tree():
+			set_world_starwalk(value)
 var duels := {}          # actor_id -> actor_id, server-authoritative pairing
 var duel_offers := {}    # target_id -> challenger_id, pending invitations
 var pending_offer := -1  # client: who has challenged me
@@ -249,6 +254,7 @@ func _ready() -> void:
 	movement_controls.game = self
 	controls.setup(TOTAL_SLOTS)
 	build_arena()
+	set_world_starwalk(world_mode)
 	build_camera()
 	build_ui()
 	recovery = preload("res://scripts/session_recovery.gd").new()
@@ -310,8 +316,15 @@ func build_camera() -> void:
 	arm.spring_length = movement_controls.ZOOM_MAX
 	arm.rotation.x = -0.38
 	arm.collision_mask = 1
+	# Sweep a small volume so steep upward views retract above floors and
+	# ledges instead of letting the near plane clip through them.
+	var camera_clearance := SphereShape3D.new()
+	camera_clearance.radius = 0.20
+	arm.shape = camera_clearance
+	arm.margin = 0.04
 	pivot.add_child(arm)
 	camera = Camera3D.new()
+	camera.near = 0.05
 	camera.current = true
 	arm.add_child(camera)
 	menu_camera = Camera3D.new()
@@ -979,6 +992,7 @@ func spawn_actor(id: int, peer: int, side: int, choice: String, pos: Vector3) ->
 	actor.reset_physics_interpolation()
 
 func clear_actors() -> void:
+	camera_character_fade.reset()
 	outlaw_aim_test.reset()
 	aimed_combat.reset()
 	outlaw_detonation.reset()
@@ -3017,6 +3031,8 @@ func actor_for_peer(peer: int) -> int:
 
 # Brings the defeated back rather than leaving a body in a persistent world.
 func tick_world(delta: float) -> void:
+	if world_starwalk != null:
+		world_starwalk.tick(delta)
 	for id in respawn_timers.keys():
 		respawn_timers[id] -= delta
 		if respawn_timers[id] <= 0.0:
@@ -3402,6 +3418,7 @@ func _process(_delta: float) -> void:
 	if actors.has(follow_id):
 		pivot.global_position = actors[follow_id].get_global_transform_interpolated().origin + Vector3(0, 1.6, 0)
 	outlaw_aim_test.apply_camera()
+	camera_character_fade.update(actors.get(follow_id) if camera.current else null)
 	update_proc_flash()
 
 func proc_ready(actor, spell: Dictionary) -> bool:

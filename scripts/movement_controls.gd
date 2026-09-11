@@ -12,6 +12,9 @@ var zoom_target := ZOOM_MAX
 var zoom_velocity := 0.0
 var follow_delay := 0.0
 const CLICK_DISTANCE := 5.0
+# Stop just short of the poles so yaw stays predictable without flipping.
+const PITCH_MIN := -PI * 0.495
+const PITCH_MAX := PI * 0.495
 const ZOOM_MIN := 3.0
 const ZOOM_MAX := 9.0
 const ZOOM_STEP := .08 # Logarithmic step: proportional, reciprocal in/out, accepts fractional wheel input.
@@ -58,7 +61,7 @@ func input(event: InputEvent) -> bool:
 		dragged = dragged or drag_distance > CLICK_DISTANCE
 		var sensitivity: float = .004 * game.player_options.mouse_sensitivity()
 		game.pivot.rotation.y -= event.screen_relative.x * sensitivity
-		game.arm.rotation.x = clampf(game.arm.rotation.x - event.screen_relative.y * sensitivity * (-1.0 if game.player_options.invert_y else 1.0), -1.15, 0.12)
+		game.arm.rotation.x = clampf(game.arm.rotation.x - event.screen_relative.y * sensitivity * (-1.0 if game.player_options.invert_y else 1.0), PITCH_MIN, PITCH_MAX)
 		if right: align_facing()
 		follow_delay = 0.4
 		return true

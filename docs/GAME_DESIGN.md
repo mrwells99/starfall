@@ -1,5 +1,10 @@
 # Game Design — established source of truth
 
+## World-only Starwalk
+
+The cyan STARWALK gate on the flat landing atop the eastern terrace stairs leads to Ascension: 72 jumps in a rising spiral across floating ruins, climbing 59m above the start. Landing surfaces shrink from roughly 1.8–2m to alternating narrow ledges and final 1.5m stones. Stand inside the launch ring for eight continuous seconds to start; stepping out, dying or entering a duel cancels the countdown. Each player sees their own countdown. All jumps use ordinary forward movement and the existing jump; mobility abilities are optional. Broad islands at 24 and 48 mark the three stages (Shattered Wake, Gravity Well, Crown of Stars) but do not save checkpoints. Entering the gold finish ring celebrates completion and returns the player to the center. Falling below the void threshold also returns living players to the center, clearing travel momentum and interrupting casts while preserving health and ordinary cooldowns (existing interrupted-channel refund rules still apply). Active duel participants cannot use the launch gate. This extension exists only in World, never in arena matches.
+
+
 _Established design lives here. Open questions and rejected ideas are labeled explicitly. If a value here diverges from the code (`scripts/kits.gd`, `scripts/arena.gd`), **the code is authoritative** — update this file to match._
 
 ## Vision
@@ -146,7 +151,7 @@ A / D **strafe** rather than turn — a deliberate divergence from the WoW defau
 
 World mouse gestures only start outside interactive UI. Right-button steering aligns facing immediately; left-button orbit preserves it. Both-button forward movement stops when either button is released. Menus, chat, focus loss, and edit mode cancel active movement gestures and autorun. A held movement key must be released before resuming after cancellation.
 
-Comfort contains resolution-independent mouse sensitivity, invert Y, optional follow-while-moving camera behavior, keyboard turn speed, and the optional landing jump buffer. Free camera remains the default. Wheel zoom eases toward the saved distance while the existing SpringArm handles collision. Autorun stops on forward/backward input; walking resets to running when the character/session is rebuilt. Jump height, gravity, running speed, backpedal speed, and airborne takeoff momentum are unchanged.
+Comfort contains resolution-independent mouse sensitivity, invert Y, optional follow-while-moving camera behavior, keyboard turn speed, and the optional landing jump buffer. Free camera remains the default. Wheel zoom eases toward the saved distance while the existing SpringArm handles collision. Free orbit can look almost straight up or down (±89.1°), including beneath an airborne character. A small camera volume keeps the view above terrain and retracts closer than the ordinary zoom minimum when needed. The followed character’s costume and weapons progressively fade near the camera (invisible within 0.8m, opaque beyond 2.4m per visible surface); other players and gameplay markers retain their normal appearance. Autorun stops on forward/backward input; walking resets to running when the character/session is rebuilt. Jump height, gravity, running speed, backpedal speed, and airborne takeoff momentum are unchanged.
 
 ## Buffs and debuffs
 

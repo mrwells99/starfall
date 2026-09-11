@@ -384,3 +384,17 @@ func _build_inscriptions() -> void:
 			var vein: Array[Vector3] = [Vector3(x-0.3, 2.8, z), Vector3(x-0.17, 2.3, z),
 				Vector3(x+0.12, 1.97, z), Vector3(x-0.05, 1.42, z), Vector3(x+0.28, 0.7, z)]
 			_geo.line_3d(_violet, vein, 0.035)
+
+# This extension is created only for World sessions, including headless hosts.
+var world_starwalk: Node3D
+
+func set_world_starwalk(enabled: bool) -> void:
+	if enabled and world_starwalk == null:
+		world_starwalk = preload("res://scripts/world_starwalk.gd").new()
+		world_starwalk.name = "WorldStarwalk"
+		add_child(world_starwalk)
+		world_starwalk.build(self)
+	elif not enabled and world_starwalk != null:
+		remove_child(world_starwalk)
+		world_starwalk.queue_free()
+		world_starwalk = null
