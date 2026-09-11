@@ -16,8 +16,8 @@ on:
 permissions:
   contents: read
 
-# Never let two deploys race onto the droplet. Builds for older commits are
-# cancelled, but an in-flight deploy is allowed to finish.
+# Keep releases ordered and let an in-flight deployment finish.
+# Independent test groups within each release run in parallel.
 concurrency:
   group: starfall-${{ github.ref }}
   cancel-in-progress: false
@@ -30,10 +30,14 @@ env:
 jobs:
   # ---------------------------------------------------------------- tests ---
   test:
-    name: Tests
+    name: Tests (${{ matrix.suite }})
     runs-on: ubuntu-24.04
     if: github.event.inputs.tag == ''
-    timeout-minutes: 25
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [gameplay, outlaw, world-camera, network-session, network-combat, network-outlaw, presentation]
     steps:
       - uses: actions/checkout@v4
 
@@ -87,53 +91,69 @@ jobs:
           godot --headless --path . --check-only --script tests/network_peer.gd
 
       - name: Test runner rejects hidden script failures
+        if: matrix.suite == 'gameplay'
         run: python3 tests/check_suite_runner_test.py
 
       - name: Arena mesh integrity
+        if: matrix.suite == 'gameplay'
         run: ./tests/check_suite.sh "Arena LOD checks" godot --headless --path . --script tests/arena_lod_test.gd
 
       - name: Combat integration
+        if: matrix.suite == 'gameplay'
         run: ./tests/check_suite.sh "Combat checks" godot --headless --path . --script tests/combat_test.gd
 
       - name: Menu, availability, rematch and frame-budget checks
+        if: matrix.suite == 'gameplay'
         run: ./tests/check_suite.sh "Polish checks" godot --headless --path . --script tests/polish_test.gd
 
       - name: Eliminated player and spectator checks
+        if: matrix.suite == 'gameplay'
         run: ./tests/check_suite.sh "Spectator checks" godot --headless --path . --script tests/spectator_test.gd
 
       - name: Personal resource HUD checks
+        if: matrix.suite == 'gameplay'
         run: ./tests/check_suite.sh "Resource meter checks" godot --headless --path . --script tests/resource_meter_test.gd
 
       - name: Minimal nameplates and thin resource bars
+        if: matrix.suite == 'gameplay'
         run: ./tests/check_suite.sh "Nameplate checks" godot --headless --path . --script tests/nameplate_test.gd
 
       - name: Independent crowd control diminishing returns
+        if: matrix.suite == 'gameplay'
         run: ./tests/check_suite.sh "Diminishing returns checks" godot --headless --path . --script tests/diminishing_returns_test.gd
 
       - name: Movement gestures, ordering, and jump reliability
+        if: matrix.suite == 'gameplay'
         run: ./tests/check_suite.sh "Movement controls checks" godot --headless --path . --script tests/movement_controls_test.gd
 
       - name: Smooth fractional camera zoom
+        if: matrix.suite == 'gameplay'
         run: ./tests/check_suite.sh "Camera zoom checks" godot --headless --path . --script tests/camera_zoom_test.gd
 
       - name: Comfort, practice, and feedback checks
+        if: matrix.suite == 'gameplay'
         run: ./tests/check_suite.sh "Quality of life checks" godot --headless --path . --script tests/quality_of_life_test.gd
 
       - name: Team frames and combat text checks
+        if: matrix.suite == 'gameplay'
         run: ./tests/check_suite.sh "Team HUD checks" godot --headless --path . --script tests/team_hud_test.gd
 
       - name: Champion introduction and practice checks
+        if: matrix.suite == 'gameplay'
         run: ./tests/check_suite.sh "Champion introduction checks" godot --headless --path . --script tests/champion_introduction_test.gd
 
       - name: Fulcrum windows and routed Vanguard Charge
+        if: matrix.suite == 'gameplay'
         run: |
           ./tests/check_suite.sh "Fulcrum Meditation checks" godot --headless --path . --script tests/fulcrum_meditation_test.gd
           ./tests/check_suite.sh "Vanguard Charge checks" godot --headless --path . --script tests/vanguard_charge_test.gd
 
       - name: Aimed Solar Flare and directional Blink charges
+        if: matrix.suite == 'gameplay'
         run: ./tests/check_suite.sh "Ember abilities checks" godot --headless --path . --script tests/ember_abilities_test.gd
 
       - name: Outlaw combos and character presentation
+        if: matrix.suite == 'outlaw'
         run: |
           ./tests/check_suite.sh "Outlaw ability checks" godot --headless --path . --script tests/outlaw_abilities_test.gd
           ./tests/check_suite.sh "Outlaw balance checks" godot --headless --path . --script tests/outlaw_balance_test.gd
@@ -147,28 +167,50 @@ jobs:
           ./tests/check_suite.sh "Lasso pose checks" godot --headless --path . --script tests/lasso_pose_test.gd
 
       - name: Saved ability bars remain on screen
+        if: matrix.suite == 'gameplay'
         run: ./tests/check_suite.sh "Hotbar viewport checks" godot --headless --path . --script tests/hotbar_viewport_test.gd
 
       - name: Kick immunity cast-bar colors
+        if: matrix.suite == 'gameplay'
         run: ./tests/check_suite.sh "Cast bar checks" godot --headless --path . --script tests/cast_bar_test.gd
 
       - name: Body hitbox fit and aimed cooldown foundation
+        if: matrix.suite == 'gameplay'
         run: |
           ./tests/check_suite.sh "Hitbox pose checks" godot --headless --path . --script tests/hitbox_pose_test.gd
           ./tests/check_suite.sh "Expanded hitbox checks" godot --headless --path . --script tests/expanded_hitboxes_test.gd
           ./tests/check_suite.sh "Aimed combat checks" godot --headless --path . --script tests/aimed_combat_test.gd
 
-      # These bind fixed UDP ports and must not overlap — hence one step, in order.
-      - name: Networked suites (sequential)
+      # Each group has its own runner and UDP namespace. Keep scenarios
+      # sequential within a runner so their fixed ports never overlap.
+      - name: network-session scenarios
+        if: matrix.suite == 'network-session'
         run: |
           set -euo pipefail
           python3 tests/run_reconnect.py
+          python3 tests/run_six.py
+          python3 tests/run_dedicated.py
+          python3 tests/run_polish.py
+          python3 tests/run_lobby.py
+          python3 tests/run_world.py
+
+      - name: network-combat scenarios
+        if: matrix.suite == 'network-combat'
+        run: |
+          set -euo pipefail
           python3 tests/run_network.py
           python3 tests/run_network.py --test-team
           python3 tests/run_network.py --test-latency
           python3 tests/run_network.py --test-movement --test-latency --test-drop-jump
           python3 tests/run_charge_network.py --test-latency
           python3 tests/run_ember_network.py --test-latency
+          python3 tests/run_trinket_network.py
+          python3 tests/run_aimed_network.py --test-latency
+
+      - name: network-outlaw scenarios
+        if: matrix.suite == 'network-outlaw'
+        run: |
+          set -euo pipefail
           python3 tests/run_outlaw_network.py --test-latency
           python3 tests/run_detonation_network.py --test-latency
           python3 tests/run_detonation_network.py --test-world --test-rtt-ms=138
@@ -177,17 +219,11 @@ jobs:
           python3 tests/run_lasso_network.py --test-latency --test-air
           python3 tests/run_lasso_network.py --test-latency --test-ledge=up
           python3 tests/run_lasso_network.py --test-latency --test-ledge=down
-          python3 tests/run_trinket_network.py
-          python3 tests/run_aimed_network.py --test-latency
-          python3 tests/run_six.py
-          python3 tests/run_dedicated.py
-          python3 tests/run_polish.py
-          python3 tests/run_lobby.py
-          python3 tests/run_world.py
-          ./tests/check_suite.sh "World checks" godot --headless --path . --script tests/world_test.gd
 
       - name: World Ascension and vertical camera regression checks
+        if: matrix.suite == 'world-camera'
         run: |
+          ./tests/check_suite.sh "World checks" godot --headless --path . --script tests/world_test.gd
           ./tests/check_suite.sh "Starwalk checks" godot --headless --path . --script tests/world_starwalk_test.gd
           ./tests/check_suite.sh "Camera orbit checks" godot --headless --path . --script tests/camera_orbit_test.gd
 
@@ -195,6 +231,7 @@ jobs:
       # --headless. Xvfb gives it a real (virtual) window; Mesa provides the
       # software GL that the gl_compatibility renderer needs.
       - name: Install virtual display for the UI suite
+        if: matrix.suite == 'presentation'
         run: |
           set -euo pipefail
           # All dependencies below come from Ubuntu. Do not refresh unrelated
@@ -211,6 +248,7 @@ jobs:
             libxkbcommon0 fontconfig
 
       - name: UI suite (Xvfb)
+        if: matrix.suite == 'presentation'
         timeout-minutes: 3
         run: |
           ./tests/check_suite.sh "UI checks" \
@@ -219,18 +257,21 @@ jobs:
 
       # Icons and champion models also need a real window.
       - name: Ability art suite (Xvfb)
+        if: matrix.suite == 'presentation'
         run: |
           ./tests/check_suite.sh "Ability art checks" \
             xvfb-run -a --server-args="-screen 0 1280x800x24" \
             godot --path . --rendering-method gl_compatibility --audio-driver Dummy --script tests/ability_art_test.gd
 
       - name: Map suite (Xvfb)
+        if: matrix.suite == 'presentation'
         run: |
           ./tests/check_suite.sh "Map checks" \
             xvfb-run -a --server-args="-screen 0 1280x800x24" \
             godot --path . --rendering-method gl_compatibility --audio-driver Dummy --script tests/map_test.gd
 
       - name: Vanguard presentation suite (Xvfb)
+        if: matrix.suite == 'presentation'
         run: |
           ./tests/check_suite.sh "Model Forge presentation" \
             xvfb-run -a --server-args="-screen 0 1280x800x24" \
@@ -240,7 +281,7 @@ jobs:
       # protocol change without bumping it lets stale clients connect and
       # desync, which is far harder to diagnose than a refused connection.
       - name: Warn if gameplay changed without a VERSION bump
-        if: github.event_name == 'push'
+        if: matrix.suite == 'gameplay' && github.event_name == 'push'
         run: |
           set -euo pipefail
           before="${{ github.event.before }}"

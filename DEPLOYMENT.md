@@ -123,6 +123,19 @@ Then, manually:
 
 ---
 
+## Parallel test groups
+
+The test matrix runs gameplay, Outlaw, World/camera, multiplayer sessions,
+multiplayer combat, multiplayer Outlaw, and presentation on separate Ubuntu
+runners. Every existing test still runs; multiplayer scenarios remain sequential
+within each runner because they bind fixed UDP ports. Each runner imports its
+own assets, and only the presentation group installs Xvfb. A failed group does
+not cancel the others, so their results remain available for diagnosis.
+
+Windows and Linux exports run alongside the test matrix. The server image waits
+for every test group, and production deployment still requires the server image
+and both desktop builds. Releases remain ordered to prevent deployment races.
+
 ## First deploy — order of operations
 
 There is a chicken-and-egg here worth knowing before you push.
