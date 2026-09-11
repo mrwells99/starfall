@@ -141,6 +141,19 @@ func run() -> void:
 	game.mode = 3
 	game.update_visuals(0)
 	check(not target_dr.visible and game.enemy_box.visible, "Team matches show DR on the enemy overview without duplicate target DR")
+	game.world_mode = true
+	game.duels = {1: 4, 4: 1}
+	game.update_frame(game.target_frame, 4, "")
+	check(target_dr.is_visible_in_tree() and target_dr.get_child(5).visible, "World duel opponent shows active target DR regardless of arena mode")
+	await process_frame
+	check(game.aura_chip_at(game.target_frame, target_dr.get_child(5).get_global_rect().get_center()) == target_dr.get_child(5), "World duel target DR supports hover descriptions")
+	game.update_frame(game.target_frame, 5, "")
+	check(not target_dr.visible, "Unrelated World target does not inherit duel opponent DR")
+	game.duels.clear()
+	game.update_frame(game.target_frame, 4, "")
+	check(not target_dr.visible, "World duel target DR hides when the duel ends")
+	game.world_mode = false
+	game.update_visuals(0)
 	for dimensions in [Vector2(1280, 720), Vector2(1366, 768), Vector2(1920, 1080), Vector2(2536, 1427), Vector2(2560, 1440), Vector2(3440, 1440)]:
 		game.ui.size = dimensions
 		await process_frame

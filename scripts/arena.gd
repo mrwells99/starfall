@@ -644,8 +644,8 @@ func build_ui() -> void:
 	target_frame = unit_frame(Vector2(330, 56), RED)
 	focus_frame = unit_frame(Vector2(636, 56), GOLD)
 	# Equal widths and mirrored offsets center the pair at every aspect ratio.
-	# A 152px middle gap fits two compact DR columns per frame in 1v1.
-	for entry in [[player_frame, -297, 221], [target_frame, 76, 221], [focus_frame, 337, 180]]:
+	# The middle gap fits player DR; target DR sits outside the target on its right.
+	for entry in [[player_frame, -297, 221], [target_frame, 76, 221], [focus_frame, 409, 180]]:
 		var frame: VBoxContainer = entry[0]
 		frame.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
 		frame.offset_left = entry[1]
@@ -665,7 +665,7 @@ func build_ui() -> void:
 		frame.get_child(1).add_child(dr)
 		dr.install(self)
 		dr.columns = 2
-		dr.position = Vector2(229 if frame == player_frame else -72, 0)
+		dr.position = Vector2(229, 0)
 	party_box = VBoxContainer.new()
 	party_box.add_theme_constant_override("separation", 1)
 	party_box.position = Vector2(24, 220)
@@ -1019,6 +1019,8 @@ func host_session(dedicated_mode: bool = false, world: bool = false) -> void:
 	mode = mode_choice.get_selected_id()
 	var peer := ENetMultiplayerPeer.new()
 	var max_peers := 6 if private_lobby else (mode * 2 if dedicated else 5)
+	if world_mode:
+		max_peers = Config.WORLD_MAX_PLAYERS
 	var error := peer.create_server(current_port, max_peers)
 	if error != OK:
 		say("Could not host on UDP %d: %s" % [current_port, error_string(error)])
@@ -1309,7 +1311,8 @@ func register_player(choice: String, client_version: String) -> void:
 	if choice not in Kits.NAMES:
 		rejected.rpc_id(peer, "Unknown champion.")
 		return
-	if roster.size() + recovery.reserved_count() >= mode * 2:
+	var player_limit := Config.WORLD_MAX_PLAYERS if world_mode else mode * 2
+	if roster.size() + recovery.reserved_count() >= player_limit:
 		rejected.rpc_id(peer, "That server is full. Try again in a moment.")
 		return
 	# A queue has to hold you for the NEXT round rather than turning you away.
@@ -3337,7 +3340,8 @@ func update_frame(frame: VBoxContainer, id: int, prefix: String) -> void:
 	(health.get_child(0) as Label).text = "%d%%" % ceili(actor.hp)
 	if health.has_node("DiminishingReturns"):
 		var dr = health.get_node("DiminishingReturns")
-		dr.visible = frame == player_frame or (mode == 1 and not world_mode and not friendly)
+		var duel_target: bool = world_mode and duels.get(local_id, -1) == id
+		dr.visible = frame == player_frame or duel_target or (mode == 1 and not world_mode and not friendly)
 		if dr.visible: dr.sync(actor)
 	var cast := frame.get_child(2) as ProgressBar
 	var interrupted: bool = actor.hp > 0 and Time.get_ticks_msec() < int(combat_text.interrupts.get(id, 0))

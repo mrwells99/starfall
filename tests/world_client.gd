@@ -35,6 +35,8 @@ func _process(delta: float) -> bool:
 				return false
 		print("WORLD CLIENT IN: phase=%s actors=%d local=%d" % [arena.phase, arena.actors.size(), arena.local_id])
 		done = true
+		if "--test-hold" in OS.get_cmdline_user_args():
+			return false
 		arena.leave_session("done")
 		quit(0)
 		return false

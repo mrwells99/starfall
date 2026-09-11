@@ -25,7 +25,7 @@ Intended experience:
 
 **Duel · 1v1** — two players, one champion each.
 
-**World** — a persistent hangout on the arena map. One always-running server, no queue, no lobby, no rounds, no timer and no victory. You walk in, you are there, and other people are walking around with you.
+**World** — a persistent hangout on the arena map for up to **10 players** at once. One always-running server, no queue, no lobby, no rounds, no timer and no victory. You walk in, you are there, and other people are walking around with you.
 
 **Damage is refused between people who have not agreed to a duel**, so standing around is safe and every fight is one both people chose. Target someone and use **Challenge to duel**; the recipient sees **Accept** and **Decline**. The sender can cancel a pending challenge. These controls appear only in World mode. **C** to challenge and **Y** to accept remain rebindable shortcuts. Both are restored to full health and cleared of stuns when a duel begins, so it is never decided by who was already hurt. Losing ends the duel and brings you back at full health a few seconds later — there is no death in the world, only a defeat.
 
@@ -131,7 +131,7 @@ A / D **strafe** rather than turn — a deliberate divergence from the WoW defau
 | --- | --- |
 | W / S | Forward / backward |
 | A / D | Strafe |
-| Q / E | Turn; strafe while holding RMB |
+| Q / E | Turn in place, including while holding RMB or aiming |
 | Space | Jump; optional 100 ms pre-landing buffer in Comfort; no hold-to-repeat |
 | Num Lock | Toggle autorun (unless already assigned in an older custom layout) |
 | Home | Recenter camera (unless already assigned) |

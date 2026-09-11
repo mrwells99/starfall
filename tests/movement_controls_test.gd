@@ -40,6 +40,7 @@ func run() -> void:
 	var actor = game.actors[game.local_id]
 	var foe = game.actors[2]
 	check_shift_jump()
+	check_turn_in_place()
 	var motion := InputEventMouseMotion.new()
 	motion.relative = Vector2(900, 0)
 	motion.screen_relative = Vector2(50, 0)
@@ -279,3 +280,22 @@ func check_shift_jump() -> void:
 	game.binds.assign(saved_binds)
 	bindings.secondary = saved_secondary
 	game.queued_jump = false
+
+func check_turn_in_place() -> void:
+	var controls = game.movement_controls
+	for aiming in [false, true]:
+		game.outlaw_aim_test.enabled = aiming
+		for steering in [false, true]:
+			controls.right = steering
+			for entry in [[KEY_Q, 1.0], [KEY_E, -1.0]]:
+				game.local_yaw = 0
+				game.pivot.rotation.y = 0
+				key_event(entry[0], true)
+				var movement: Vector2 = controls.sample(0.1)
+				check(movement == Vector2.ZERO and is_equal_approx(game.local_yaw, entry[1] * 0.1 * game.player_options.turn_speed), "Turn key rotates in place (aim=%s, RMB=%s, key=%s)" % [aiming, steering, entry[0]])
+				key_event(entry[0], false)
+			key_event(KEY_A, true)
+			check(controls.sample(0) == Vector2(-1, 0), "Strafe remains independent (aim=%s, RMB=%s)" % [aiming, steering])
+			key_event(KEY_A, false)
+	game.outlaw_aim_test.enabled = false
+	controls.right = false
