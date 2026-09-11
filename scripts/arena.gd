@@ -3392,7 +3392,7 @@ func update_visuals(delta: float) -> void:
 	if phase == "countdown":
 		notice.text = "Arena opens in %d" % ceili(countdown)
 	for actor in actors.values():
-		actor.visual_tick(delta, camera, actor.actor_id != local_id)
+		actor.visual_tick(delta, camera, actor.actor_id != local_id, cast_bar_color(actor, false, Color("c7a256")))
 	ring.visible = selected_id != local_id and actors.has(selected_id) and actors[selected_id].hp > 0
 	if ring.visible:
 		ring.position = actors[selected_id].position + Vector3(0, 0.08, 0)

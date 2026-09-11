@@ -1,6 +1,7 @@
 extends RefCounted
 
 const INSTANT_PROC_DURATION := 4.0
+const GravityAnchorEffect = preload("res://scripts/gravity_anchor_effect.gd")
 const SolarFlareIndicator = preload("res://scripts/solar_flare_indicator.gd")
 
 static func point_los(game, a: Vector3, b: Vector3) -> bool:
@@ -406,36 +407,14 @@ static func paint(game) -> void:
 			# a successful cast, even when the cone misses every enemy.
 			var just_cast: bool = a.champion == "Ember" and a.cooldowns[8] > float(a.kit[8].cd) - SolarFlareIndicator.VISIBLE_SECONDS
 			flare_outline.visible = just_cast and a.actor_id == game.local_id and a.hp > 0 and game.phase == "match"
-		var marker := a.get_node_or_null("GravityMarker") as Node3D
-		if marker == null:
-			marker = Node3D.new()
-			marker.name = "GravityMarker"
-			a.add_child(marker)
-			marker.top_level = true
-			var mesh := MeshInstance3D.new()
-			var ring := TorusMesh.new()
-			ring.inner_radius = 0.975
-			ring.outer_radius = 1.0
-			mesh.mesh = ring
-			var mat := StandardMaterial3D.new()
-			mat.albedo_color = Color("b98cff")
-			mat.emission_enabled = true
-			mat.emission = Color("9f60ff")
-			mat.emission_energy_multiplier = 0.8
-			mesh.material_override = mat
-			marker.add_child(mesh)
-			var label := Label3D.new()
-			label.name = "Timer"
-			label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-			label.position.y = 0.7
-			label.font_size = 30
-			marker.add_child(label)
-		marker.visible = a.hp > 0 and s.anchor_left > 0
-		if marker.visible:
-			marker.global_position = s.anchor_pos + Vector3.UP * 0.08
+		if a.champion == "Fulcrum":
+			var marker = a.get_node_or_null("GravityMarker")
+			if marker == null:
+				marker = GravityAnchorEffect.new()
+				a.add_child(marker)
 			var radius: float = a.Kits.HEAVY_ORBIT_RADIUS if s.orbit > 0 else (6.0 if a.casting >= 0 and a.kit[a.casting].kind == "collapse" else 1.0)
-			marker.get_child(0).scale = Vector3(radius, 0.2, radius)
-			(marker.get_node("Timer") as Label3D).text = "%s ANCHOR %.1f" % ["ALLY" if game.actors.has(game.local_id) and game.actors[game.local_id].team == a.team else "ENEMY", s.anchor_left]
+			var ally: bool = game.actors.has(game.local_id) and game.actors[game.local_id].team == a.team
+			marker.sync(s.anchor_left, s.anchor_pos, radius, ally, a.hp > 0, game.player_options.reduced_effects)
 		var wake := field_marker(a, "BurningField", Color("ff8a4c"))
 		wake.visible = a.hp > 0 and s.wake > 0
 		if wake.visible:

@@ -53,6 +53,8 @@ func run() -> void:
  actor.presentation_grounded=true
  for i in 12: actor.champion_model.animate(1.0/60.0,actor)
  check(pose.weight == 0 and art.clip == "Idle", "Landing releases the arm layer")
+ # End the remote fixture; the following cadence probes author local displacement.
+ actor.presentation_snapshot_serial=0
  for travel_speed in [1.2,4.0,6.5]:
   var physical_velocity: Vector3 = actor.velocity
   for i in 60:
