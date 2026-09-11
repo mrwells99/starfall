@@ -34,6 +34,9 @@ func TestLinuxLifecycle(t *testing.T) {
 	if !strings.HasSuffix(f.u.Executable(first), "Starfall.x86_64") {
 		t.Fatal("wrong executable")
 	}
+	if err := f.u.Verify(first); err != nil {
+		t.Fatalf("fresh Linux installation failed verification on %s: %v", runtime.GOOS, err)
+	}
 	if i := install(t, f); i.Directory != first.Directory || f.downloads != 1 {
 		t.Fatal("unnecessary download")
 	}
