@@ -34,7 +34,7 @@ These port numbers are **baked into the client** at build time
 The image bundles the pinned Godot binary, the project source, and a
 **pre-built import cache**; it does not use Godot's export pipeline.
 
-The repo has no `export_presets.cfg`. Authored character models and textures are
+Desktop exports have their own presets and download storage. Runtime character models and textures are
 imported during the image build; dedicated actors do not load their presentation
 models at runtime. A stripped server export remains a possible image-size improvement.
 Bundling gets the properties that matter in production: one immutable artifact,
@@ -42,7 +42,10 @@ no writes to the project tree at run time, no import-cache race between
 processes, and a fast start.
 
 A future dedicated export could also reduce image size by excluding client assets.
-The current optimization reduces runtime work and memory, not the Docker image size.
+The Docker build excludes authoring inputs (`art_source`, `assets-source`, and
+unused Godot/Unity/Unreal source libraries). Finished runtime assets remain.
+Read-only permissions are applied in the builder, avoiding an extra runtime
+layer containing a second copy of the project. Originals stay in the repository.
 
 ---
 
@@ -168,7 +171,7 @@ On the server, each deploy:
    belongs to the operator and is never overwritten.
 3. Runs `sudo /usr/local/bin/starfall-deploy`, which performs
    `docker compose pull`, `docker compose up -d --remove-orphans`, waits for all
-   enabled containers to report healthy, prunes images older than a week, and exits
+   enabled containers to report healthy, runs scoped image retention, and exits
    non-zero if the stack did not come up.
 
 Images are tagged `sha-<short commit>`, plus `latest` on `main`. Deploys always
@@ -232,6 +235,53 @@ The deployment builds Windows and Linux launchers/clients and serves them from
 for the one-time HTTPS setup, sharing link, and update behavior. Only exported
 client files are public; the source repository can be private. TCP 80/443 are
 required in addition to the existing game UDP ports.
+
+## Automatic server-image retention
+
+The old `docker image prune` removed dangling images only. Immutable `sha-*`
+release tags accumulated until the 24 GB server disk filled. Retention now runs
+before each pull and after a healthy deployment. It removes only local image
+tags in `ghcr.io/mrwells99/starfall:sha-*`, never using force or system prune.
+
+It protects the running version, the previous successful version, the requested
+release, `.last-tag`, both public client-feed versions, and **every image still
+referenced by a container**, including stopped containers. Same-version retries
+preserve the rollback record. Unknown/malformed state or mixed running releases
+skip cleanup. Cleanup failure is reported but does not trigger a server rollback.
+The root-owned record is `/var/lib/starfall-image-retention/state.json`.
+
+Client downloads, volumes, repository sources and registry images are untouched.
+Retaining a local image makes rollback fast; its matching client archives remain
+in `/opt/starfall/downloads`. Containers that still reference much older images
+can keep extra images on disk intentionally. Client archives are not pruned by
+this image policy; monitor that separate directory as releases accumulate.
+
+**Existing server — one-time activation after deploying these files:**
+
+```bash
+sudo bash /opt/starfall/deploy/install-retention.sh
+```
+
+CI ships the installer and helper to the deploy folder. Root must run the
+installer once because the deploy account intentionally cannot rewrite its
+privileged wrapper. No SSH key change or new sudo permission is needed. The
+installer copies the helper into `/usr/local/libexec/starfall-image-retention`,
+adds the two hooks to `/usr/local/bin/starfall-deploy`, and keeps its original
+as `starfall-deploy.before-retention`. Re-running it is idempotent; unfamiliar
+wrapper layouts are rejected before rewriting. It does not immediately remove
+images or restart services. Fresh `create-deploy-user.sh` setup installs the hooks
+and helper automatically. Later helper code changes also require a reviewed root
+reinstall; CI never executes a deploy-writable cleanup script as root.
+
+Rollback protection is captured before pulling and advanced only after health
+checks. The retained previous version is not overwritten when the same release
+is retried. The existing server/HTTPS rollback flow continues to work.
+
+Local validation: all 24 release/retention tests pass. The trimmed image reports
+950 MB local Docker disk usage (359 MB content) and passes the dedicated-server
+health check with a read-only filesystem, no capabilities, and no external
+network access. Runtime assets/import cache remain present; authoring folders
+are absent. No production cleanup or deployment was performed during validation.
 
 ## How to roll back
 

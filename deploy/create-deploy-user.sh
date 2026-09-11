@@ -87,6 +87,9 @@ if [[ ! -f docker-compose.yml ]]; then
     exit 1
 fi
 
+if [[ -x /usr/local/libexec/starfall-image-retention ]]; then
+    /usr/local/libexec/starfall-image-retention before || echo "Image cleanup skipped; continuing deployment." >&2
+fi
 echo "--- pulling ---"
 docker compose pull
 echo "--- starting ---"
@@ -121,7 +124,9 @@ for attempt in \$(seq 1 30); do
             docker compose ps >&2
             exit 1
         fi
-        docker image prune -f --filter "until=168h" >/dev/null || true
+        if [[ -x /usr/local/libexec/starfall-image-retention ]]; then
+            /usr/local/libexec/starfall-image-retention after || echo "Image cleanup skipped; continuing deployment." >&2
+        fi
         docker compose ps
         exit 0
     fi
@@ -158,6 +163,9 @@ ${DEPLOY_USER} ALL=(root) NOPASSWD: ${STATUS_WRAPPER}
 SUDO
 chmod 0440 /etc/sudoers.d/starfall-deploy
 visudo -cf /etc/sudoers.d/starfall-deploy
+
+# Install retention from the reviewed checkout, never from CI as root.
+bash "$(dirname -- "${BASH_SOURCE[0]}")/install-retention.sh"
 
 echo
 echo "==> Done. ${DEPLOY_USER} can run:"

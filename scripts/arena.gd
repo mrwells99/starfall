@@ -3733,7 +3733,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			focus_id = selected_id
 		if controls.matches("target_focus", pressed_binding) and actors.has(focus_id):
 			selected_id = focus_id
-		if controls.matches("jump", pressed_binding):
+		if controls.matches_jump(self, pressed_binding):
 			queued_jump = true
 
 func _notification(what: int) -> void:
