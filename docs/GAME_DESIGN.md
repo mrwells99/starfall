@@ -293,6 +293,8 @@ _Considered and set aside. Recorded so they aren't relitigated without new reaso
 
 World and match chat goes to everyone in the current server session. Enter opens chat, Enter sends, and Escape cancels typing; **Settings → Keybinds → Open chat** changes the opening key. Typing blocks gameplay hotkeys and movement. Messages identify the class and actor number, show literal text, and keep the latest 100 lines; leaving clears the local history. Messages are limited to 240 characters with a server-enforced send interval. There are no private messages or cross-server channels.
 
+Sent messages also appear above the speaker, including yourself, in a rounded dark-violet speech bubble with an ivory message, lavender outline, soft shadow and small gold accent. Each player has one bubble; sending again replaces it. Text wraps and stays for 4.5–12 seconds according to length, with a brief entrance and soft fade. Bubbles do not intercept clicks and hide behind scenery, off-screen, beyond 35 camera units, and while menus or Edit HUD are open. Leaving or changing rounds clears them.
+
 The personal crowd-control indicator shows a sample icon in Edit HUD even outside a match. Drag it like a unit frame; its position saves with the rest of the HUD.
 
 **Nameplates:** Allies and enemies show health, a very thin class-resource strip and buff/debuff icons. Your own character has no overhead nameplate. Party and enemy arena health bars also have thin resource strips; DR icons remain on the sides and active effects underneath.
