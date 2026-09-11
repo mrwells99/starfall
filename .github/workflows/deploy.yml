@@ -186,6 +186,11 @@ jobs:
           python3 tests/run_world.py
           ./tests/check_suite.sh "World checks" godot --headless --path . --script tests/world_test.gd
 
+      - name: World Ascension and vertical camera regression checks
+        run: |
+          ./tests/check_suite.sh "Starwalk checks" godot --headless --path . --script tests/world_starwalk_test.gd
+          ./tests/check_suite.sh "Camera orbit checks" godot --headless --path . --script tests/camera_orbit_test.gd
+
       # ui_test drives real mouse capture and cursor positioning, so it refuses
       # --headless. Xvfb gives it a real (virtual) window; Mesa provides the
       # software GL that the gl_compatibility renderer needs.
