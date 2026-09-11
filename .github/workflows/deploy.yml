@@ -37,7 +37,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [gameplay, outlaw, world-camera, network-session, network-combat, network-outlaw, presentation]
+        suite: [gameplay, outlaw, world-camera, network-session, network-combat, network-outlaw, ui, ability-art, map]
     steps:
       - uses: actions/checkout@v4
 
@@ -230,8 +230,8 @@ jobs:
       # ui_test drives real mouse capture and cursor positioning, so it refuses
       # --headless. Xvfb gives it a real (virtual) window; Mesa provides the
       # software GL that the gl_compatibility renderer needs.
-      - name: Install virtual display for the UI suite
-        if: matrix.suite == 'presentation'
+      - name: Install virtual display for visual suites
+        if: contains(fromJSON('["ui", "ability-art", "map"]'), matrix.suite)
         run: |
           set -euo pipefail
           # All dependencies below come from Ubuntu. Do not refresh unrelated
@@ -248,7 +248,7 @@ jobs:
             libxkbcommon0 fontconfig
 
       - name: UI suite (Xvfb)
-        if: matrix.suite == 'presentation'
+        if: matrix.suite == 'ui'
         timeout-minutes: 3
         run: |
           ./tests/check_suite.sh "UI checks" \
@@ -257,21 +257,21 @@ jobs:
 
       # Icons and champion models also need a real window.
       - name: Ability art suite (Xvfb)
-        if: matrix.suite == 'presentation'
+        if: matrix.suite == 'ability-art'
         run: |
           ./tests/check_suite.sh "Ability art checks" \
             xvfb-run -a --server-args="-screen 0 1280x800x24" \
             godot --path . --rendering-method gl_compatibility --audio-driver Dummy --script tests/ability_art_test.gd
 
       - name: Map suite (Xvfb)
-        if: matrix.suite == 'presentation'
+        if: matrix.suite == 'map'
         run: |
           ./tests/check_suite.sh "Map checks" \
             xvfb-run -a --server-args="-screen 0 1280x800x24" \
             godot --path . --rendering-method gl_compatibility --audio-driver Dummy --script tests/map_test.gd
 
       - name: Vanguard presentation suite (Xvfb)
-        if: matrix.suite == 'presentation'
+        if: matrix.suite == 'ui'
         run: |
           ./tests/check_suite.sh "Model Forge presentation" \
             xvfb-run -a --server-args="-screen 0 1280x800x24" \
