@@ -61,8 +61,8 @@ func apply(art, host, actor, delta: float) -> void:
 			var direction: Vector3 = k.get("direction",actor.basis.z)
 			art.model.rotation.y = PI + atan2(direction.x,direction.z) - actor.rotation.y
 			var progress: float = clampf(1.0 - float(k.left)/float(k.total),0,1)
-			# Native fall, a brief grounded hold, then a compact reverse recovery.
-			var frame: float = minf(1, progress / .30) if progress < .58 else (1.0-progress)/.42
+			# Give fall/get-up more of the existing stun: 35% fall, 16% hold, 49% rise.
+			var frame: float = minf(1, progress / .35) if progress < .51 else (1.0-progress)/.49
 			sample("Death01",frame)
 		elif next == "cast" or next == "rope":
 			sample("Spell_Simple_Enter",.85,true)

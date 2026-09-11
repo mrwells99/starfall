@@ -35,7 +35,7 @@ func basic() -> void:
 	ck(b.stunned > 1.4 and b.stunned <= 1.5 and b.dr_states.stun.count == 1, "Impact sets a 1.5-second knockdown without a second DR application")
 	var impact: Vector3 = a.position
 	var target_impact: Vector3 = b.position
-	step(.3)
+	step(game.Outlaw.Lasso.REBOUND_TIME + 1.0/60)
 	ck(not game.Outlaw.Lasso.busy(a) and b.stunned > 1.0, "Outlaw recovers much earlier than the target")
 	ck(a.position.distance_to(impact) > 1.9 and b.position.distance_to(target_impact) > 2.5, "Short rebound and knockback create separation")
 	ck(game.try_spell(1,6,-1), "Outlaw can immediately roll after the brief recovery")
@@ -119,11 +119,109 @@ func controls_and_terrain() -> void:
 	game.world_mode = true
 	ck(not game.try_spell(1,11,2), "World bystanders cannot be lassoed")
 
+func airborne_momentum() -> void:
+	for hz in [30,60]:
+		await reset()
+		game.try_spell(1,3,-1); step(.4)
+		var normal: Vector3 = a.velocity
+		ck(game.try_spell(1,11,2), "Airborne Lasso begins at %d Hz" % hz)
+		ck(is_equal_approx(a.velocity.z,normal.z*.25) and a.velocity.y == normal.y, "Lasso slows backward momentum once and preserves upward velocity")
+		var max_drift := 0.0
+		for i in int(hz*.2):
+			game.tick_actor(a,1.0/hz)
+			max_drift=maxf(max_drift,absf(a.velocity.z))
+		ck(is_equal_approx(max_drift,absf(normal.z)*.25), "Air drift stays slowed without compounding over time")
+		game.cancel_own_cast(a,"")
+		ck(is_equal_approx(a.velocity.z,normal.z) and is_equal_approx(a.velocity.y,normal.y-4), "Cancelled windup restores both axes with elapsed normal gravity at %d Hz" % hz)
+		ck(a.identity.lasso.is_empty() and a.cooldowns[11]==0, "Cancelled momentum state clears without spending cooldown")
+	await reset()
+	game.try_spell(1,3,-1); step(.4)
+	var original: Vector3 = a.velocity
+	game.try_spell(1,11,2)
+	b.position.z=-10
+	ck(reach_phase("rope"), "Airborne cast launches the rope while suspended")
+	var slow: Vector3 = a.velocity
+	var position: Vector3 = a.position
+	step(1.0/60)
+	ck(game.Outlaw.Lasso.state(a).phase=="rope" and a.position.z>position.z and a.position.y<position.y, "Airborne caster continues backward drift and descent during rope flight")
+	ck(is_equal_approx(a.velocity.z,original.z*.25) and a.velocity.y>=-1.5 and a.velocity.y<=slow.y, "Rope flight retains the same horizontal slowdown and fall cap")
+	var saved: Vector3 = a.identity.lasso.resume_velocity
+	b.hp=0
+	step(1.0/60)
+	ck(a.identity.lasso.is_empty() and a.velocity.is_equal_approx(saved), "Failed rope restores both stored momentum axes")
+	ck(a.identity.defense_detonation==0, "Failed rope never awards a combo stack")
+	await reset()
+	game.try_spell(1,3,-1); step(.4)
+	original=a.velocity
+	game.try_spell(1,11,2)
+	b.position=Vector3(100,0,0)
+	step(.7)
+	ck(a.identity.lasso.is_empty() and a.casting<0 and is_equal_approx(a.velocity.z,original.z), "Completion range failure immediately restores normal backward momentum")
+	ck(a.velocity.y < -10 and a.cooldowns[11]==0, "Completion failure restores gravity without relaunching upward")
+	await reset()
+	game.try_spell(1,3,-1); step(.4)
+	game.try_spell(1,11,2); step(.1)
+	var packet: Dictionary=a.snapshot()
+	var normal_saved: Vector3=a.identity.lasso.resume_velocity
+	a.receive(bytes_to_var(var_to_bytes(packet)),true)
+	game.cancel_own_cast(a,"")
+	ck(a.velocity.is_equal_approx(normal_saved), "Momentum survives authoritative snapshot serialization")
+	await reset()
+	game.try_spell(1,3,-1); step(.4)
+	game.try_spell(1,11,2)
+	a.motion_revision+=1; a.velocity=Vector3(2,-3,1)
+	game.cancel_own_cast(a,"")
+	ck(a.velocity==Vector3(2,-3,1), "Cancellation preserves a newer forced movement instead of restoring stale momentum")
+	await reset()
+	game.try_spell(1,3,-1); step(.4)
+	game.try_spell(1,11,2)
+	var rear_wall := wall(a.position+Vector3(0,0,.5),Vector3(4,8,.1))
+	await physics_frame
+	step(.3)
+	ck(absf(a.velocity.z)<.01, "Terrain stops the slowed backward drift")
+	game.cancel_own_cast(a,"")
+	ck(absf(a.velocity.z)<.01, "Cancelling does not restore momentum through a wall already hit")
+	rear_wall.queue_free(); await physics_frame
+
+func assert_air_immunity(label: String) -> void:
+	ck(game.CC.airborne_immune(a), label+" retains airborne immunity")
+	for category in game.CC.CATEGORIES:
+		ck(game.CC.apply(a,category,3,"Enemy CC") == 0, label+" rejects "+category)
+	ck(a.cc_effects.is_empty() and a.dr_states.is_empty(), label+" immune attempts add neither CC nor diminishing returns")
+	var before: Vector3=a.position
+	game.move_ability(a,Vector3.RIGHT*3)
+	ck(a.position==before, label+" rejects forced displacement")
+	ck(game.kick_immune(a), label+" cannot be kicked or school-locked")
+
+func airborne_immunity() -> void:
+	await reset()
+	game.try_spell(1,3,-1); step(.4)
+	game.try_spell(1,11,2)
+	assert_air_immunity("Airborne windup")
+	ck(game.try_spell(2,2,1) and a.casting==11 and a.locked==0, "An actual enemy kick cannot interrupt airborne Lasso or lock its school")
+	ck(reach_phase("rope"),"Airborne immunity fixture reaches rope flight")
+	assert_air_immunity("Rope flight")
+	ck(reach_phase("pull"),"Airborne immunity fixture reaches pull")
+	assert_air_immunity("Airborne pull")
+	ck(reach_phase("rebound"),"Airborne immunity fixture reaches rebound")
+	assert_air_immunity("Airborne rebound")
+	step(1)
+	ck(not game.CC.airborne_immune(a) and game.CC.apply(a,"stun",1,"Enemy CC")>0, "Immunity ends after recovery and landing")
+	await reset()
+	game.try_spell(1,11,2)
+	ck(not game.CC.airborne_immune(a) and game.CC.apply(a,"stun",1,"Enemy CC")>0, "Grounded Lasso retains ordinary hard-CC vulnerability")
+	await reset()
+	game.try_spell(1,3,-1); a.position.y=.035; a.velocity.y=-5
+	game.try_spell(1,11,2); step(.12)
+	ck(not game.CC.airborne_immune(a) and a.casting<0, "Landing cancels airborne windup and removes immunity")
+
 func run() -> void:
 	game = load("res://arena.tscn").instantiate()
 	root.add_child(game); game.set_physics_process(false)
 	await basic()
 	await air()
 	await controls_and_terrain()
+	await airborne_momentum()
+	await airborne_immunity()
 	print("Outlaw lasso checks: %d passed / %d total" % [checks-failures,checks])
 	quit(1 if failures else 0)

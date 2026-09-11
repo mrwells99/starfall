@@ -5,12 +5,16 @@ const ROPE_SPEED := 70.0
 const PULL_SPEED := 32.0
 const CONTACT := 1.05
 const MIN_PULL_TIME := .12 # Allow the articulated kick to finish even at melee range.
-const REBOUND_TIME := .28
+const REBOUND_TIME := .4375 # Another 20% slower: previous 0.35s / 0.8 playback speed.
 const REBOUND_DISTANCE := 2.0
 const KNOCK_TIME := .18
 const KNOCK_DISTANCE := 3.0
 const DOWN_TIME := 1.5
 const TIMEOUT := 1.1
+const AIR_DRIFT_SCALE := .25
+const FALL_SPEED := 1.5
+const FALL_GRAVITY := 4.0
+const NORMAL_GRAVITY := 20.0
 
 static func state(a) -> Dictionary:
 	return a.identity.get("lasso", {})
@@ -23,14 +27,46 @@ static func busy(a) -> bool:
 
 static func begin(a) -> void:
 	a.identity.lasso = {"phase":"cast", "air": a.identity.backflip_active, "target":a.cast_target}
+	if a.identity.lasso.air:
+		# Save world momentum once; do not compound the slowdown each frame.
+		a.identity.lasso.resume_velocity = a.velocity
+		a.velocity.x *= AIR_DRIFT_SCALE
+		a.velocity.z *= AIR_DRIFT_SCALE
+		a.motion_revision += 1
+	a.identity.lasso.revision = a.motion_revision
+
+static func air_gravity(a, delta: float) -> bool:
+	var s := state(a)
+	if not s.get("air",false) or s.get("phase","") not in ["cast","rope"]: return false
+	# The unslowed velocity keeps aging while suspended. Restoring an old
+	# positive launch velocity after cancellation would create another jump.
+	var normal: Vector3 = s.get("resume_velocity",a.velocity)
+	normal.y -= NORMAL_GRAVITY * delta
+	s.resume_velocity = normal
+	a.velocity.y = a.velocity.y - NORMAL_GRAVITY * delta if a.velocity.y > 0 else maxf(-FALL_SPEED,a.velocity.y-FALL_GRAVITY*delta)
+	return true
+
+static func air_collisions(a) -> void:
+	var s := state(a)
+	if not s.has("resume_velocity") or s.get("phase","") not in ["cast","rope"]: return
+	var normal: Vector3 = s.resume_velocity
+	for i in a.get_slide_collision_count():
+		var surface: Vector3 = a.get_slide_collision(i).get_normal()
+		if normal.dot(surface) < 0: normal = normal.slide(surface)
+	s.resume_velocity = normal
 
 static func release(game, a, b) -> void:
+	var previous := state(a)
 	a.identity.backflip_active = false
 	a.identity.backflip_combo = false
 	a.identity.roll_animation_left = 0.0
 	a.identity.lasso = {"phase":"rope", "target":b.actor_id, "elapsed":0.0,
 		"rope":a.position + Vector3.UP * 1.2, "factor":0.0, "source":"Lasso"}
-	a.velocity = Vector3.ZERO
+	if previous.get("air",false):
+		a.identity.lasso.air = true
+		a.identity.lasso.resume_velocity = previous.get("resume_velocity",a.velocity)
+	else:
+		a.velocity = Vector3.ZERO
 	a.motion_revision += 1
 	a.identity.lasso.revision = a.motion_revision
 
@@ -42,15 +78,23 @@ static func release_stun(game, a, s: Dictionary) -> void:
 static func cancel(game, a) -> void:
 	var s := state(a)
 	if s.get("phase", "") == "pull": release_stun(game, a, s)
+	if s.get("air",false) and s.get("phase","") in ["cast","rope"]:
+		# Landing, terrain, death and a newer displacement take precedence over
+		# restoring airborne momentum. Never replay a stale launch through them.
+		if a.hp > 0 and (not a.is_on_floor() or a.velocity.y > .1) and a.motion_revision == int(s.get("revision",a.motion_revision)):
+			a.velocity = s.get("resume_velocity",a.velocity)
+			if a.stunned > 0 or a.identity.root > 0 or a.identity.hold > 0:
+				a.velocity.x = 0; a.velocity.z = 0
+	elif s.get("phase","") != "cast":
+		a.velocity = Vector3.ZERO
 	a.identity.lasso = {}
-	a.velocity = Vector3.ZERO
 	a.motion_revision += 1
 
 static func tick(game, a) -> void:
 	var s := state(a)
 	if s.is_empty(): return
 	if s.phase == "cast":
-		if not casting(a): a.identity.lasso = {}
+		if not casting(a): cancel(game,a)
 		return
 	if a.hp <= 0 or a.stunned > 0 or game.CC.spell_block(a) > 0 or a.identity.root > 0 or a.identity.hold > 0 or a.motion_revision != int(s.get("revision",a.motion_revision)):
 		cancel(game, a)
@@ -74,7 +118,7 @@ static func impact(game, a, b, s: Dictionary) -> void:
 			"direction":direction, "travel":KNOCK_TIME, "owner":a.actor_id}
 		b.motion_revision += 1
 	a.identity.defense_detonation = mini(3, a.identity.defense_detonation + 1)
-	a.identity.lasso = {"phase":"rebound", "elapsed":0.0, "direction":-direction}
+	a.identity.lasso = {"phase":"rebound", "elapsed":0.0, "direction":-direction, "air":s.get("air",false)}
 	a.rotation.y = atan2(-direction.x, -direction.z)
 	a.motion_revision += 1
 	a.identity.lasso.revision = a.motion_revision
@@ -113,6 +157,11 @@ static func motion(game, a, delta: float) -> bool:
 		if game.authoritative(): cancel(game,a)
 		return true
 	if phase == "rope":
+		if s.get("air",false):
+			if a.is_on_floor() and a.velocity.y <= 0: a.velocity = Vector3.ZERO
+			air_gravity(a,delta)
+			a.move_and_slide()
+			air_collisions(a)
 		var destination: Vector3 = b.position + Vector3.UP * 1.2
 		var next: Vector3 = s.rope.move_toward(destination, ROPE_SPEED * delta)
 		if not game.Outlaw.raw_los(game, s.rope, next):

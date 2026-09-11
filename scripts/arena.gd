@@ -2427,7 +2427,6 @@ func tick_actor(actor, delta: float) -> void:
 	if actor.casting >= 0:
 		if Outlaw.Lasso.casting(actor) and Outlaw.Lasso.state(actor).get("air", false) and actor.is_on_floor():
 			cancel_own_cast(actor, "Lasso cancelled by landing")
-			actor.identity.lasso = {}
 		elif (direction.length() > 0.01 or not actor.is_on_floor()) and not Outlaw.can_cast_moving(actor, actor.kit[actor.casting]):
 			cancel_own_cast(actor, "Cast cancelled by movement")
 		else:
@@ -2440,6 +2439,7 @@ func tick_actor(actor, delta: float) -> void:
 				if reason.is_empty():
 					resolve_spell(actor, slot, actors.get(victim_id))
 				else:
+					if actor.kit[slot].kind == "lasso": Outlaw.Lasso.cancel(self,actor)
 					feedback(actor, reason)
 
 func simulate_movement(actor, delta: float, grounded_override: Variant = null) -> Vector3:
@@ -2482,12 +2482,10 @@ func simulate_movement(actor, delta: float, grounded_override: Variant = null) -
 		actor.jump_buffer = 0
 	actor.jump_queued = false
 	actor.jump_buffer = maxf(0.0, actor.jump_buffer - delta)
-	if Outlaw.Lasso.casting(actor) and Outlaw.Lasso.state(actor).get("air", false):
-		# Preserve the original upward arc; only the descent gets slow-fall.
-		actor.velocity.y = actor.velocity.y - 20.0 * delta if actor.velocity.y > 0 else maxf(-1.5, actor.velocity.y - 4.0 * delta)
-	else:
+	if not Outlaw.Lasso.air_gravity(actor,delta):
 		actor.velocity.y -= 20 * delta
 	actor.move_and_slide()
+	Outlaw.Lasso.air_collisions(actor)
 	return direction
 
 func has_los(a, b) -> bool:
@@ -2680,6 +2678,7 @@ func cancel_own_cast(actor, message: String) -> void:
 		return
 	var spell: Dictionary = actor.kit[actor.casting]
 	actor.casting = -1
+	if spell.kind == "lasso": Outlaw.Lasso.cancel(self,actor)
 	if not spell.off:
 		actor.gcd = 0.0
 	if not message.is_empty():

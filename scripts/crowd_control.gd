@@ -7,7 +7,9 @@ const FACTORS := [1.0, 0.5, 0.25, 0.0]
 const BREAK_CHANCE := 0.25
 const BREAK_DAMAGE := 20.0 # 20% of the game's fixed 100 maximum HP.
 static func airborne_immune(actor) -> bool:
-	return actor.identity.get("backflip_active", false) and (not actor.is_on_floor() or actor.velocity.y > .1)
+	var lasso: Dictionary = actor.identity.get("lasso", {})
+	var airborne_lasso: bool = lasso.get("air",false) and lasso.get("phase","") in ["cast","rope","pull","rebound"]
+	return (actor.identity.get("backflip_active", false) or airborne_lasso) and (not actor.is_on_floor() or actor.velocity.y > .1)
 static func remaining(actor, category: String) -> float:
 	return float(actor.cc_effects.get(category, {}).get("remaining", 0.0))
 static func apply(actor, category: String, duration: float, source: String) -> float:

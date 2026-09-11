@@ -169,6 +169,7 @@ jobs:
           python3 tests/run_outlaw_network.py --test-latency
           python3 tests/run_detonation_network.py --test-latency
           python3 tests/run_lasso_network.py --test-latency
+          python3 tests/run_lasso_network.py --test-latency --test-air
           python3 tests/run_aimed_network.py --test-latency
           python3 tests/run_six.py
           python3 tests/run_dedicated.py

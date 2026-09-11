@@ -1,4 +1,5 @@
 extends SceneTree
+const Lasso = preload("res://scripts/outlaw_lasso.gd")
 var checks := 0
 var failures := 0
 var maximum_error := 0.0
@@ -24,7 +25,7 @@ func run() -> void:
 					actor.cast_left = .7*(1-progress)
 					actor.presentation_grounded = phase in ["idle","down","cast"]
 					actor.presentation_vertical_speed = 0
-					actor.identity.lasso = {"phase":phase,"elapsed":progress*(.28 if phase=="rebound" else .5)} if phase in ["cast","pull","rebound"] else {}
+					actor.identity.lasso = {"phase":phase,"elapsed":progress*(Lasso.REBOUND_TIME if phase=="rebound" else .5)} if phase in ["cast","pull","rebound"] else {}
 					actor.stunned = 1.5*(1-progress) if phase=="down" else 0
 					actor.identity.lasso_knockdown = {"source":"Lasso test","left":actor.stunned,"total":1.5} if phase=="down" else {}
 					actor.cc_effects = {"stun":{"source":"Lasso test","remaining":actor.stunned}} if phase=="down" else {}
