@@ -136,6 +136,8 @@ func run_class(title: String) -> void:
 	check(art.materials[0].albedo_color == art.base_colors[0], "Hit flash restores appearance")
 	for node in visual.find_children("*", "Node", true, false): check(not node is CollisionObject3D, "No costume collision introduced")
 
+	# End the remote fixture; remaining grip/jump probes supply local poses directly.
+	actor.presentation_snapshot_serial=0
 	actor.flash=0; actor.stunned=0; actor.hp=100; actor.casting=-1
 	actor.presentation_grounded=true
 	art.was_airborne=false; art.transient_left=0

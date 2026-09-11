@@ -19,6 +19,7 @@ var bench_suppress_strikes := false
 var bench_profile_strikes := false
 var bench_retain_strike_material := false
 var bench_pause_unfocused := false
+var bench_anchor_probe := false
 
 func trace_event(kind: String, ability: String, source: int, victim: int, started: int, extra: Dictionary = {}) -> void:
 	var record := {"round": bench_round, "tick": bench_tick, "kind": kind, "ability": ability, "source": source, "victim": victim,
@@ -57,6 +58,13 @@ func bot_think(actor, delta: float) -> void:
 	if not bench_active:
 		actor.move_input = Vector2.ZERO
 		return
+	if bench_anchor_probe and actor.actor_id == 1:
+		actor.move_input = Vector2.ZERO
+		if bench_tick == 1:
+			resolve_spell(actor, 7, actor)
+		if bench_tick == 180:
+			resolve_spell(actor, 9, actor)
+		return
 	var key := "%d:%d" % [bench_tick, actor.actor_id]
 	if bench_replay:
 		if not bench_tape.has(key):
@@ -81,13 +89,13 @@ func bot_think(actor, delta: float) -> void:
 		bench_tape[key] = bench_current
 		bench_current = {}
 
-func try_spell(id: int, slot: int, requested: int) -> bool:
+func try_spell(id: int, slot: int, requested: int, camera_yaw: Variant = null) -> bool:
 	var started := Time.get_ticks_usec()
 	var actor = actors.get(id)
 	var ability: String = actor.kit[slot].name if actor != null and slot >= 0 and slot < actor.kit.size() else "invalid"
 	var command := {"slot": slot, "requested": requested, "move": actor.move_input if actor != null else Vector2.ZERO,
 		"yaw": actor.rotation.y if actor != null else 0.0, "target": actor.target_id if actor != null else -1}
-	var accepted := super.try_spell(id, slot, requested)
+	var accepted := super.try_spell(id, slot, requested, camera_yaw)
 	if not bench_replay and not bench_current.is_empty():
 		command.accepted = accepted
 		bench_current.casts.append(command)
@@ -95,11 +103,11 @@ func try_spell(id: int, slot: int, requested: int) -> bool:
 		trace_event("cast", ability, id, requested, started, {"champion": actor.champion, "cast_time": actor.kit[slot].cast})
 	return accepted
 
-func resolve_spell(actor, slot: int, victim) -> void:
+func resolve_spell(actor, slot: int, victim, camera_yaw: Variant = null) -> void:
 	var started := Time.get_ticks_usec()
 	var previous := bench_context
 	bench_context = actor.kit[slot].name
-	super.resolve_spell(actor, slot, victim)
+	super.resolve_spell(actor, slot, victim, camera_yaw)
 	trace_event("resolve", bench_context, actor.actor_id, victim.actor_id if victim != null else -1, started, {"champion": actor.champion})
 	bench_context = previous
 

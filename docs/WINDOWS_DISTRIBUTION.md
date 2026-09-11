@@ -10,9 +10,9 @@ The intended sharing link, **after the first successful deployment**, is:
 `https://play.leafmods.com/downloads/StarfallLauncher.exe`
 
 The source repository can become private without changing this link. The Linux
-server serves only exported Windows files. The downloads are public; this is
-not an invite-only download system. Linux development still runs directly from
-Godot; CI does not create a Linux client build.
+server serves only exported client files. The downloads are public; this is
+not an invite-only download system. Linux players also have a single-file launcher and a separate update feed; see
+[Linux distribution](LINUX_DISTRIBUTION.md).
 
 ## First deployment on the existing server
 
@@ -75,10 +75,10 @@ be added once a signing identity is available.
 ## Rollback
 
 Use the existing manual deployment workflow with a retained `sha-xxxxxxx` tag.
-CI checks that its Windows archive exists **before** changing the server, then
+CI checks that both desktop archives exist **before** changing the server, then
 promotes that tag's manifest after health checks. Launchers can reuse their
-verified previous installation. Releases predating Windows distribution have
-no paired archive and are rejected by this workflow; any emergency server-only
+verified previous installation. The updated workflow rejects releases predating Linux distribution because
+they do not have both paired archives; any emergency server-only
 rollback needs separate operator coordination with players.
 
 Retained server downloads are deliberately not automatically deleted: deleting

@@ -57,9 +57,7 @@ var nameplate: Label3D
 var team_marker
 var health_mesh: MeshInstance3D
 var health_pivot: Node3D
-var resource_mesh: MeshInstance3D
-var resource_pivot: Node3D
-const ThinResource = preload("res://scripts/thin_resource_bar.gd")
+var nameplate_cast: Node3D
 var aura_icons: Array = []
 var health_back_mat: StandardMaterial3D
 const NAMEPLATE_AURAS := 3
@@ -71,6 +69,9 @@ var net_yaw := 0.0
 # Locally simulated bodies clear this cosmetic snapshot override each step.
 var presentation_grounded: Variant = null
 var presentation_vertical_speed := 0.0
+var presentation_velocity: Variant = null
+# Local receipt counter for cosmetic clocks; never serialized or used by combat.
+var presentation_snapshot_serial := 0
 var last_motion_seq := -1
 var motion_revision := 0
 var last_input_seq := -1
@@ -126,21 +127,9 @@ func setup(id: int, peer: int, side: int, choice: String, presentation: bool = t
 	fill_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	health_mesh.material_override = fill_mat
 	health_pivot.add_child(health_mesh)
-	resource_pivot = Node3D.new()
-	resource_pivot.position.y = -0.1475
-	health_pivot.add_child(resource_pivot)
-	for is_fill in [false, true]:
-		var mesh := MeshInstance3D.new()
-		var quad := QuadMesh.new()
-		quad.size = Vector2(1.54, 0.07)
-		mesh.mesh = quad
-		var material := StandardMaterial3D.new()
-		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		material.albedo_color = ThinResource.COLORS.get(champion, Color.WHITE) if is_fill else Color("17202b")
-		mesh.material_override = material
-		mesh.position.z = 0.012 if is_fill else 0.01
-		resource_pivot.add_child(mesh)
-		if is_fill: resource_mesh = mesh
+	nameplate_cast = load("res://scripts/nameplate_cast.gd").new()
+	health_pivot.add_child(nameplate_cast)
+	nameplate_cast.install()
 	for i in range(NAMEPLATE_AURAS):
 		var holder := Node3D.new()
 		holder.visible = false
@@ -210,7 +199,7 @@ func paint_nameplate_auras(auras: Array, art) -> void:
 			stack_label.text = "×%d" % stacks if stacks > 0 else ""
 		holder.position.x = (i - (mini(auras.size(), NAMEPLATE_AURAS) - 1) * 0.5) * 0.76
 
-func visual_tick(delta: float, camera: Camera3D, show_nameplate: bool = true) -> void:
+func visual_tick(delta: float, camera: Camera3D, show_nameplate: bool = true, cast_tint: Color = Color("c7a256")) -> void:
 	flash = maxf(0, flash - delta)
 	if not training_dummy: champion_model.animate(delta, self)
 	health_mesh.scale.x = maxf(0.001, hp / 100.0)
@@ -218,11 +207,7 @@ func visual_tick(delta: float, camera: Camera3D, show_nameplate: bool = true) ->
 	if camera and (camera.global_position - health_pivot.global_position).cross(Vector3.UP).length() > 0.01:
 		health_pivot.look_at(camera.global_position, Vector3.UP, true)
 	health_pivot.visible = show_nameplate and hp > 0
-	resource_pivot.visible = not training_dummy
-	var amount := ThinResource.value(self)
-	resource_mesh.visible = amount > 0
-	resource_mesh.scale.x = maxf(0.001, amount)
-	resource_mesh.position.x = -0.77 * (1.0 - amount)
+	nameplate_cast.sync(self, cast_tint)
 
 
 func snapshot() -> Dictionary:
@@ -230,12 +215,14 @@ func snapshot() -> Dictionary:
 		"stun_src": stun_from, "lock_src": lock_from, "shield_src": shield_from, "sprint_src": sprint_from, "dr": dr_count, "dr_timer": dr_timer, "dr_states": dr_states.duplicate(true), "cc_effects": cc_effects.duplicate(true), "cast_target": cast_target, "target": target_id, "identity": identity.duplicate(true), "charge": charge.duplicate(true)}
 
 func receive(data: Dictionary, instant: bool = false) -> void:
+	presentation_snapshot_serial += 1
 	identity = data.get("identity", {}).duplicate(true)
 	charge = data.get("charge", {}).duplicate(true)
 	net_position = data.pos
 	net_yaw = data.yaw
 	presentation_grounded = data.get("grounded", null)
 	presentation_vertical_speed = Vector3(data.get("velocity", Vector3.ZERO)).y
+	presentation_velocity = data.get("velocity", null)
 	var teleported: bool = data.get("motion_revision", 0) != motion_revision
 	motion_revision = data.get("motion_revision", 0)
 	if instant or teleported:

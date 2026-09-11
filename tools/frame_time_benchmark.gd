@@ -68,6 +68,7 @@ func run() -> void:
 	game.bench_profile_strikes = flags.has("--profile-strike-vfx")
 	game.bench_retain_strike_material = flags.has("--retain-strike-material")
 	game.bench_pause_unfocused = flags.has("--pause-unfocused")
+	game.bench_anchor_probe = flags.has("--anchor-probe")
 	game.fps_toggle.button_pressed = true
 	RenderingServer.viewport_set_measure_render_time(root.get_viewport_rid(), true)
 	DisplayServer.window_move_to_foreground()

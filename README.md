@@ -14,6 +14,8 @@ A Godot 4.5 arena-combat prototype: **WoW-style controls** (WASD, mouse turn, st
 
 ## For players
 
+Packaged desktop launchers install and update the game without the editor: [Windows](docs/WINDOWS_DISTRIBUTION.md) and [Linux (Ubuntu / Arch)](docs/LINUX_DISTRIBUTION.md). Linux support is prepared locally and awaits its first deployment.
+
 Open `project.godot` in Godot 4.5 and press **F5**, or run `godot --path .`. It opens borderless fullscreen at your monitor's resolution; **F11** or **Alt+Enter** toggles back to a window. Pick a champion → **Online** or **Offline**. Controls and champion abilities are in [`docs/GAME_DESIGN.md`](docs/GAME_DESIGN.md).
 
 The arena now launches with **Forward+ Balanced graphics** and a **60 FPS gameplay limit** by default. Settings offers High (the previous lighting profile), Performance, a frame limit, 3D resolution scaling, and Show FPS. Menus/results use 30 FPS and unfocused windows 15 FPS. Restart the game to pick up the change. Open `scenes/sanctum_corner_preview.tscn` and run the scene for independent before/after and High lighting switches, orbit and zoom. Launch with `--rendering-method gl_compatibility` for Compatibility, or append `-- --sanctum-high` to force the old High profile or `-- --sanctum-base` for the original base-effects comparison. See [`docs/FORWARD_PLUS_ASSESSMENT.md`](docs/FORWARD_PLUS_ASSESSMENT.md) for hardware observations and measurement limits.

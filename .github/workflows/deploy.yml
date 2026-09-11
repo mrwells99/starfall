@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Retained server + Windows release tag (sha-1a2b3c4). Leave blank to build from this ref."
+        description: "Retained server + Windows + Linux release tag (sha-1a2b3c4). Leave blank to build from this ref."
         required: false
         type: string
 
@@ -234,8 +234,7 @@ jobs:
             echo "::warning title=Config.VERSION unchanged::scripts/ changed but Config.VERSION did not. Old clients will still be accepted by the new server."
           fi
 
-  # Build the Windows client alongside the tests, not after the slow server
-  # image build. No Linux client export; developers continue running Godot.
+  # Build both desktop clients alongside tests and the server image.
   windows:
     name: Windows launcher and game
     runs-on: windows-latest
@@ -298,6 +297,54 @@ jobs:
         with:
           name: windows-build-logs
           path: build/*.log
+
+  linux:
+    name: Linux launcher and game
+    runs-on: ubuntu-22.04
+    if: github.event.inputs.tag == ''
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: launcher/go.mod
+          cache: false
+      - name: Test Linux launcher and both updater platforms
+        working-directory: launcher
+        run: go test -race ./...
+      - name: Test release packaging and promotion
+        run: python3 -m unittest discover -s tools/release -p 'test_*.py' -v
+      - name: Build standalone Linux launcher
+        working-directory: launcher
+        run: |
+          mkdir -p ../build/linux
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags='-s -w' -o ../build/StarfallLauncher ./cmd/starfall
+      - uses: actions/cache@v4
+        with:
+          path: ~/starfall-godot-linux
+          key: godot-linux-${{ env.GODOT_VERSION }}-v1
+      - name: Install verified Linux export tools
+        run: python3 tools/release/install_linux_tools.py
+      - name: Import, export, and launch the Linux game
+        run: |
+          set -euo pipefail
+          godot --headless --path . --import 2>&1 | tee build/linux-import.log
+          godot --headless --path . --export-release Linux build/linux/Starfall.x86_64 2>&1 | tee build/linux-export.log
+          timeout 90 build/linux/Starfall.x86_64 --headless --quit-after 120 --log-file "$PWD/build/linux-smoke.log"
+          if grep -E 'SCRIPT ERROR:|^ERROR:' build/linux-import.log build/linux-export.log build/linux-smoke.log; then exit 1; fi
+      - name: Package verified Linux download
+        run: python3 tools/release/package_linux.py --build ${{ github.sha }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-client
+          path: build/release-linux/*
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: linux-build-logs
+          path: build/linux-*.log
 
   # ---------------------------------------------------------------- build ---
   build:
@@ -371,11 +418,11 @@ jobs:
   deploy:
     name: Deploy to droplet
     runs-on: ubuntu-latest
-    needs: [build, windows]
+    needs: [build, windows, linux]
     # Only from main: a successful build or an explicit manual rollback tag.
     if: |
       always() && !cancelled() && github.ref == 'refs/heads/main' &&
-      ((needs.build.result == 'success' && needs.windows.result == 'success') ||
+      ((needs.build.result == 'success' && needs.windows.result == 'success' && needs.linux.result == 'success') ||
        (github.event_name == 'workflow_dispatch' && github.event.inputs.tag != ''))
     timeout-minutes: 15
     # Attach required reviewers / branch restrictions to this environment in
@@ -424,6 +471,12 @@ jobs:
           name: windows-client
           path: build/release
 
+      - uses: actions/download-artifact@v4
+        if: github.event.inputs.tag == ''
+        with:
+          name: linux-client
+          path: build/release-linux
+
       - name: Ship server configuration and release tools
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
@@ -431,7 +484,7 @@ jobs:
         run: |
           set -euo pipefail
           ssh -o StrictHostKeyChecking=yes "${USER_NAME}@${HOST}" \
-            'set -e; mkdir -p /opt/starfall/deploy /opt/starfall/downloads /opt/starfall/incoming-windows; if test -f /opt/starfall/docker-compose.yml; then cp /opt/starfall/docker-compose.yml /opt/starfall/.last-compose.yml; fi; if test -f /opt/starfall/deploy/Caddyfile; then cp /opt/starfall/deploy/Caddyfile /opt/starfall/.last-Caddyfile; fi'
+            'set -e; mkdir -p /opt/starfall/deploy /opt/starfall/downloads /opt/starfall/incoming-windows /opt/starfall/incoming-linux; if test -f /opt/starfall/docker-compose.yml; then cp /opt/starfall/docker-compose.yml /opt/starfall/.last-compose.yml; fi; if test -f /opt/starfall/deploy/Caddyfile; then cp /opt/starfall/deploy/Caddyfile /opt/starfall/.last-Caddyfile; fi'
           scp -o StrictHostKeyChecking=yes docker-compose.yml \
             "${USER_NAME}@${HOST}:/opt/starfall/docker-compose.yml"
           scp -o StrictHostKeyChecking=yes deploy/publish_windows.py \
@@ -452,6 +505,19 @@ jobs:
           ssh -o StrictHostKeyChecking=yes "${USER_NAME}@${HOST}" \
             "python3 /opt/starfall/publish_windows.py stage --source /opt/starfall/incoming-windows --tag '${TAG}'"
 
+      - name: Stage Linux release
+        if: github.event.inputs.tag == ''
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER_NAME: ${{ secrets.DEPLOY_USER }}
+          TAG: ${{ steps.target.outputs.tag }}
+        run: |
+          set -euo pipefail
+          scp -o StrictHostKeyChecking=yes build/release-linux/* \
+            "${USER_NAME}@${HOST}:/opt/starfall/incoming-linux/"
+          ssh -o StrictHostKeyChecking=yes "${USER_NAME}@${HOST}" \
+            "python3 /opt/starfall/publish_windows.py stage --platform linux --source /opt/starfall/incoming-linux --tag '${TAG}'"
+
       - name: Pin tag, pull, and restart
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
@@ -465,8 +531,9 @@ jobs:
           cd /opt/starfall
           test -f .env || { echo "/opt/starfall/.env is missing — run deploy/bootstrap.sh"; exit 1; }
           # Fail before changing the server if this rollback has no matching
-          # Windows client. Never leave players auto-updating to another build.
+          # clients. Never leave players auto-updating to another build.
           python3 publish_windows.py verify --tag "$TAG"
+          python3 publish_windows.py verify --platform linux --tag "$TAG"
 
           # Record what we are replacing so a rollback has something to name.
           previous=$(grep -E '^STARFALL_TAG=' .env | cut -d= -f2- || true)
@@ -487,6 +554,13 @@ jobs:
             if test -n "$previous" && test -f "downloads/releases/${previous}/manifest.json"; then
               python3 publish_windows.py promote --tag "$previous" || true
             fi
+            if test -n "$previous" && test -f "downloads/linux/releases/${previous}/manifest.json"; then
+              python3 publish_windows.py promote --platform linux --tag "$previous" || true
+            else
+              # First Linux deployment rolled back to a Windows-only release.
+              # Do not advertise a Linux build for a different server.
+              rm -f downloads/linux/manifest.json
+            fi
             exit 1
           }
           cp .env .before-windows-deploy.env
@@ -505,7 +579,12 @@ jobs:
             --connect-timeout 10 --max-time 25 \
             "https://play.leafmods.com/downloads/releases/${TAG}/manifest.json" -o /tmp/starfall-release-check.json
           cmp /tmp/starfall-release-check.json "downloads/releases/${TAG}/manifest.json"
+          curl --fail --silent --show-error --retry 6 --retry-all-errors --retry-delay 5 \
+            --connect-timeout 10 --max-time 25 \
+            "https://play.leafmods.com/downloads/linux/releases/${TAG}/manifest.json" -o /tmp/starfall-linux-release-check.json
+          cmp /tmp/starfall-linux-release-check.json "downloads/linux/releases/${TAG}/manifest.json"
           python3 publish_windows.py promote --tag "$TAG"
+          python3 publish_windows.py promote --platform linux --tag "$TAG"
           trap - ERR
           REMOTE
 
@@ -522,6 +601,7 @@ jobs:
           {
             echo "### Deployed \`${{ steps.target.outputs.tag }}\`"
             echo "Windows launcher: https://play.leafmods.com/downloads/StarfallLauncher.exe"
+            echo "Linux launcher: https://play.leafmods.com/downloads/linux/StarfallLauncher"
             echo ""
             echo '```'
             head -40 state.txt

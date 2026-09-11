@@ -51,6 +51,8 @@ type Progress func(message string, percent int)
 type Updater struct {
 	Root, Feed, AssetPrefix string
 	Client                  *http.Client
+	// Linux selects the separate Linux feed and strict file allowlist.
+	Linux bool
 }
 
 func New(root string) *Updater {
@@ -67,18 +69,47 @@ func New(root string) *Updater {
 		}
 		return errors.New("unexpected download host")
 	}
-	return &Updater{root, Feed, AssetPrefix, client}
+	return &Updater{Root: root, Feed: Feed, AssetPrefix: AssetPrefix, Client: client}
 }
 
+// NewLinux uses an independent feed so a Linux client can never install Windows files.
+func NewLinux(root string) *Updater {
+	u := New(root)
+	u.Linux = true
+	u.Feed = "https://play.leafmods.com/downloads/linux/manifest.json"
+	u.AssetPrefix = "https://play.leafmods.com/downloads/linux/releases/"
+	return u
+}
+func (u *Updater) executableName() string {
+	if u.Linux {
+		return "Starfall.x86_64"
+	}
+	return "Starfall.exe"
+}
+func (u *Updater) archiveName() string {
+	if u.Linux {
+		return "Starfall-Linux.zip"
+	}
+	return "Starfall-Windows.zip"
+}
+func (u *Updater) allowedFile(name string) bool {
+	if name == u.executableName() || name == "Starfall.pck" {
+		return true
+	}
+	if u.Linux {
+		return strings.HasSuffix(name, ".so")
+	}
+	return strings.HasSuffix(strings.ToLower(name), ".dll")
+}
 func (u *Updater) validate(m Manifest) error {
 	if m.Schema != 1 {
-		return errors.New("this release needs a newer launcher; download StarfallLauncher.exe again")
+		return errors.New("this release needs a newer launcher; download the launcher again")
 	}
 	if !buildPattern.MatchString(m.Build) || m.ServerTag != "sha-"+m.Build[:7] || len(m.Version) == 0 || len(m.Version) > 64 {
 		return errors.New("invalid release identity")
 	}
 	parsed, err := url.Parse(m.URL)
-	if err != nil || parsed.Scheme != "https" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || m.URL != u.AssetPrefix+m.ServerTag+"/Starfall-Windows.zip" {
+	if err != nil || parsed.Scheme != "https" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || m.URL != u.AssetPrefix+m.ServerTag+"/"+u.archiveName() {
 		return errors.New("unexpected game download address")
 	}
 	if !hashPattern.MatchString(m.SHA256) || m.Size <= 0 || m.Size > maxArchive {
@@ -91,7 +122,7 @@ func (u *Updater) validate(m Manifest) error {
 	seen := map[string]bool{}
 	for name, f := range m.Files {
 		lower := strings.ToLower(name)
-		if !filePattern.MatchString(name) || strings.HasSuffix(name, ".") || seen[lower] || (name != "Starfall.exe" && name != "Starfall.pck" && !strings.HasSuffix(lower, ".dll")) {
+		if !filePattern.MatchString(name) || strings.HasSuffix(name, ".") || seen[lower] || !u.allowedFile(name) {
 			return errors.New("unexpected game filename")
 		}
 		if !hashPattern.MatchString(f.SHA256) || f.Size <= 0 || f.Size > maxInstalled-total {
@@ -100,8 +131,8 @@ func (u *Updater) validate(m Manifest) error {
 		total += f.Size
 		seen[lower] = true
 	}
-	if _, ok := m.Files["Starfall.exe"]; !ok {
-		return errors.New("release is missing Starfall.exe")
+	if _, ok := m.Files[u.executableName()]; !ok {
+		return errors.New("release is missing the game executable")
 	}
 	if _, ok := m.Files["Starfall.pck"]; !ok {
 		return errors.New("release is missing game data")
@@ -125,7 +156,7 @@ func (u *Updater) Latest(ctx context.Context) (Manifest, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == 404 {
-		return m, errors.New("the first Windows release is not available yet; try again after it is published")
+		return m, errors.New("the first release is not available yet; try again after it is published")
 	}
 	if resp.StatusCode != http.StatusOK {
 		return m, fmt.Errorf("update service returned HTTP %d; try again shortly", resp.StatusCode)
@@ -176,7 +207,7 @@ func (u *Updater) Verify(i Installation) error {
 		if err != nil {
 			return err
 		}
-		if !info.Mode().IsRegular() || info.Size() != expected.Size {
+		if !info.Mode().IsRegular() || info.Size() != expected.Size || (u.Linux && name == u.executableName() && info.Mode().Perm()&0100 == 0) {
 			return errors.New("installed game files are incomplete; use Retry to repair")
 		}
 		file, err := os.Open(path)
@@ -193,7 +224,7 @@ func (u *Updater) Verify(i Installation) error {
 	return nil
 }
 func (u *Updater) Executable(i Installation) string {
-	return filepath.Join(u.Root, "versions", i.Directory, "Starfall.exe")
+	return filepath.Join(u.Root, "versions", i.Directory, u.executableName())
 }
 
 // Update returns an error without changing the current installation on any
