@@ -11,6 +11,7 @@ const PATHS := {
 	"Coin Toss": "res://assets/icons/abilities/outlaw/coin_toss.svg",
 	"Defense Detonation": "res://assets/icons/abilities/outlaw/defense_detonation.svg",
 	"Deadeye": "res://assets/icons/abilities/outlaw/deadeye.svg",
+	"Lasso": "res://assets/icons/abilities/outlaw/lasso.svg",
 	"Outlaw/Ward": "res://assets/icons/abilities/outlaw/ward.svg",
 	"Outlaw/Mend": "res://assets/icons/abilities/outlaw/mend.svg",
 	"Kindle": "res://assets/icons/abilities/firebolt.png",

@@ -90,7 +90,12 @@ static func active(actor, sources: Array = [], local_source: int = -1) -> Array:
 	if identity.get("coin_left", 0.0) > 0:
 		out.append({"key": "coin_combo", "name": "Coin Trickshot", "kind": BUFF, "remaining": identity.coin_left, "color": Color("f2c676"), "source": "Coin Toss", "description": "One off-GCD Trickshot while the coin is in flight. Both bullet segments must clear terrain."})
 	if preload("res://scripts/crowd_control.gd").airborne_immune(actor):
-		out.append({"key": "backflip", "name": "Backflip", "kind": BUFF, "remaining": maxf(.01, 1.2 - identity.backflip_elapsed), "color": Color("92ceff"), "source": "Backflip", "description": "Immune to crowd control and displacement until landing. One airborne Trickshot opportunity."})
+		if identity.get("lasso",{}).get("air",false):
+			var lasso: Dictionary = identity.lasso
+			var duration: float = preload("res://scripts/outlaw_lasso.gd").REBOUND_TIME if lasso.phase == "rebound" else preload("res://scripts/outlaw_lasso.gd").TIMEOUT
+			out.append({"key":"airborne_lasso", "name":"Lasso", "kind":BUFF, "remaining":maxf(.01,actor.cast_left if lasso.phase=="cast" else duration-float(lasso.get("elapsed",0))), "color":Color("92ceff"), "source":"Lasso", "description":"Immune to crowd control and displacement while airborne during Lasso. Ends on landing or when the combo finishes."})
+		else:
+			out.append({"key": "backflip", "name": "Backflip", "kind": BUFF, "remaining": maxf(.01, 1.2 - identity.backflip_elapsed), "color": Color("92ceff"), "source": "Backflip", "description": "Immune to crowd control and displacement until landing. One airborne Trickshot opportunity."})
 	for proc in [
 		["instant_severe", "Instant Severe", "Roll", "Roll grants 1 second to use one instant Severe. Severe's range, cooldown and global cooldown still apply. Consumed on successful use."],
 		["instant_collapse", "Instant Collapse", "Collapse", "Inward grants 4s to cast one instant Collapse off the global cooldown. Collapse's own cooldown still applies. Consumed when used."],

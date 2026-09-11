@@ -36,18 +36,20 @@ static func get_kit(champion: String) -> Array:
 	if champion == "Outlaw":
 		return [
 			spell("Starshot", "starshot", 8, 24, .7, 0),
-			spell("Severe", "severe", 15, 4, .6, 4),
+			# Apply the 10% increase after the shared half-metre range rounding.
+			spell("Severe", "severe", 15, 4, .6, 4).merged({"range": 3.0 * 1.1}, true),
 			spell("Trickshot", "trickshot", 12, 24, 0, 0, true),
 			spell("Backflip", "backflip", 12, 0, 0, 12, true),
 			spell("Ward", "shield", 5, 0, 0, 22, true),
 			spell("Mend", "self_heal", 28, 0, 2, 16),
-			spell("Roll", "roll", 6, 0, 0, 10, true),
+			spell("Roll", "roll", 7.8, 0, 0, 10, true),
 			spell("Coin Toss", "coin_toss", 1.8, 0, 0, 14),
-			# Aiming is local; firing remains disconnected until aimed shots exist.
+			# Hotbar aiming is local; a separate validated camera-ray burst spends stacks.
 			spell("Defense Detonation", "defense_detonation", 10, 0, 0, 0, true).merged({"local_only": true}),
 			spell("Deadeye", "deadeye", 40, 0, 3, 90),
 			# Retired Aim Test slot keeps saved layouts and snapshot indices stable.
 			spell("", "unavailable", 0, 0, 0, 0, true).merged({"local_only": true}),
+			spell("Lasso", "lasso", 0, 24, .7, 20),
 		]
 	var kit := [
 		spell("Firebolt", "damage", 16, 28, 1.5, 0),
@@ -126,14 +128,15 @@ static func get_kit(champion: String) -> Array:
 # Numeric effects use the same kit dictionaries that the simulation reads.
 static func summary(ability: Dictionary) -> String:
 	var concepts := {
-		"starshot": "Transmute starlight into a gunshot for 8 damage.",
+		"starshot": "Cast while moving at 70% of your normal movement speed. Kicks cannot interrupt this cast or apply a lockout. Transmute starlight into a gunshot for 8 damage. Hard crowd control can still cancel it; range and line of sight are checked when it finishes.",
+		"lasso": "Swing a celestial lasso during a 0.7s mobile, unkickable cast. The rope flies to the target, then pulls you into a dropkick, stunning them during your approach. Knock them back up to 3m and down for 1.5s; rebound 2m away in approximately 0.44s. Stun diminishing returns apply once to the combo. Landing the dropkick grants one Defense Detonation stack. During Backflip, backward drift slows to 25% and descent slows through windup and rope flight. Failure restores normal airborne momentum; landing before cast completion cancels it. The airborne Lasso combo retains immunity to crowd control and displacement. Terrain stops travel. Deals no damage.",
 		"severe": "Cast while moving normally; kicks cannot interrupt this cast or apply a lockout. Slash with your Bowie knife for 15% of the enemy's current health, rounded to a whole number. Apply a 5s bleed dealing 2 damage each second. One bleed per caster; reapplication refreshes it. Completing Roll grants a 1s buff for one instant Severe; its own cooldown and global cooldown still apply.",
 		"trickshot": "Instant, off-global-cooldown gunshot for 12 damage. Only usable once during Backflip's airborne combo or while your Coin Toss is still in flight. A coin shot ricochets from the coin to your selected enemy, requiring clear paths to the coin and from the coin to the enemy. A landed combo grants one Defense Detonation stack, up to 3.",
-		"roll": "Roll up to 6m over 0.55s in your movement-input direction, including diagonals; with no movement input, roll along camera heading. Stops at terrain. Completing the roll grants a 1s buff for one instant Severe. Off the global cooldown.",
+		"roll": "Roll up to 7.8m over approximately 0.48s in your movement-input direction, including diagonals; with no movement input, roll along camera heading. Stops at terrain. Completing the roll grants a 1s buff for one instant Severe. Off the global cooldown.",
 		"backflip": "Leap backward about 8.6m with a 2.8m rise on level ground, stopping at terrain. Deals no damage. While airborne, become immune to crowd control and forced movement and gain one opportunity to cast Trickshot. The combo window and immunity end when you land. Off the global cooldown.",
-		"coin_toss": "Toss a visible coin along camera heading in a 1.8s arc. While it remains airborne, Trickshot can shoot it and ricochet into an enemy behind your own line-of-sight cover. Both bullet paths must be clear; the coin stops at solid terrain. Tossing alone deals no damage or resource gain.",
-		"defense_detonation": "Raise your gun and enter over-the-shoulder aiming while moving normally. Use Defense Detonation again to leave. No cast time. Firing is not available yet; aiming does not spend stacks. Planned fire: spend all available stacks (1 to 3) together for one rapid aimed burst, one shot per stack for 10% maximum health each.",
-		"deadeye": "Automatically mark every enemy without selecting a target. Wind up for 3s while limited to walking, then hit marked enemies still within 18m and clear line of sight for 40% of their maximum health. Cover is checked at completion. Kicks cannot interrupt it or apply a lockout. Cannot jump during the windup. 90s cooldown.",
+		"coin_toss": "Toss a visible coin along camera heading in a 1.8s arc, adding your movement velocity at release so a forward throw stays ahead while running. While it remains airborne, Trickshot can shoot it and ricochet into an enemy behind your own line-of-sight cover. Both bullet paths must be clear; the coin stops at solid terrain. Tossing alone deals no damage or resource gain.",
+		"defense_detonation": "Raise your gun and aim over your right shoulder. Left-click to spend all available stacks (1 to 3) and fire an aimed burst, 0.13s between shots. Each shot traces the center crosshair for 18m and deals 10% maximum health on a body hit; misses still spend their stack. Move and adjust aim between shots with light recoil. No cast time; firing uses the global cooldown. Aiming ends after the last shot. Use this ability again to leave without firing.",
+		"deadeye": "Automatically mark every enemy without selecting a target. Wind up for 3s while limited to walking, then hit marked enemies still within 18m and clear line of sight for 40% of their maximum health. Cover is checked at completion. Kicks cannot interrupt it or apply a lockout. Cannot jump during the windup. 90s cooldown, refunded if the cast is interrupted or cancelled before completion.",
 		"kindle": "Deal 16 damage. Gain 20 Heat and add a brand (up to 3) for 10s.",
 		"flashpoint": "Consume your brands: 12 + 6 damage per brand. Three brands also deal 10 splash damage within 5m. Gain 10 Heat.",
 		"nova": "Requires 40 Heat. Consume all Heat: 18 + 0.4 damage per Heat to enemies within 5m of the target.",
@@ -187,7 +190,7 @@ static func summary(ability: Dictionary) -> String:
 		"pull":
 			return "Drag your target up to %s meters toward you. Works on an enemy or an ally." % ability.power
 		"blink":
-			return "Blink up to %sm in your movement-input direction, including diagonals. With no movement input, blink forward along your camera's heading. Two charges; restores one charge every %ss. Stops at solid terrain. Off the global cooldown." % [ability.power, ability.cd]
+			return "Blink up to %sm in your movement-input direction, including diagonals. With no movement input, blink forward along your camera's heading. Two charges; restores one charge every %ss. Stops at solid terrain. Off the global cooldown; usable while casting without interrupting the cast." % [ability.power, ability.cd]
 		"charge":
 			return "Immediately root an enemy for up to 3s, then rush along a safe route at 32m/s and deal %s damage on arrival. Line of sight is required only when casting. Uses root diminishing returns." % ability.power
 		"sprint":

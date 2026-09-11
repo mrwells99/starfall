@@ -119,6 +119,29 @@ func roll_and_coin() -> void:
 	a.receive(state)
 	a.champion_model.animate(DT, a)
 	check(not art.roll_clock.playing, "Authoritative Roll cancellation stops its local pose clock")
+	# The lasso branch extends cosmetic Roll beyond the end of physical travel.
+	# Both phases must advance smoothly without restarting at that boundary.
+	state.identity.outlaw_action = "roll"
+	previous = -1.0
+	var reversed := 0
+	held = 0
+	for frame in 36:
+		if frame % 3 == 0:
+			state.identity.roll_left = maxf(0, art.Outlaw.ROLL_SECONDS - frame * DT)
+			state.identity.roll_animation_left = art.Outlaw.ROLL_PRESENTATION_SECONDS - frame * DT
+			a.receive(state)
+		a.champion_model.animate(DT, a)
+		var phase: float = art.player.current_animation_position / art.player.current_animation_length
+		if frame > 6:
+			if is_equal_approx(phase, previous): held += 1
+			if phase < previous: reversed += 1
+		previous = phase
+	check(held == 0 and reversed == 0, "Slower Roll and post-travel recovery share one smooth network clock")
+	check(previous > .5 and previous <= art.Outlaw.ROLL_END_PHASE, "Recovery continues past travel without sampling the standing tail")
+	state.identity.roll_animation_left = 0.0
+	a.receive(state)
+	a.champion_model.animate(DT, a)
+	check(not art.roll_clock.playing, "Finished recovery stops the local Roll clock")
 	var scene := FxArena.new()
 	root.add_child(scene)
 	scene.actors = {1: a}

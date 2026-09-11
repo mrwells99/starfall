@@ -9,7 +9,10 @@ var life: Array[float] = []
 var coins: Dictionary = {}
 var coin_tracks: Dictionary = {}
 var marks: Dictionary = {}
+var lassos: Dictionary = {}
 var cursor := 0
+var flashes: Array[MeshInstance3D] = []
+var flash_life: Array[float] = []
 var coin_mesh := CylinderMesh.new()
 var gold := StandardMaterial3D.new()
 var blue := StandardMaterial3D.new()
@@ -25,10 +28,15 @@ func install(game) -> void:
 	coin_mesh.radial_segments = 16; coin_mesh.material = gold
 	var mesh := CylinderMesh.new()
 	mesh.top_radius = .012; mesh.bottom_radius = .012; mesh.height = 1; mesh.radial_segments = 6
+	var flash_mesh := SphereMesh.new()
+	flash_mesh.radius = .065; flash_mesh.height = .13; flash_mesh.radial_segments = 8; flash_mesh.rings = 4
 	for i in CAPACITY:
 		var beam := MeshInstance3D.new()
 		beam.mesh = mesh; beam.material_override = blue; beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(beam); beam.hide(); lines.append(beam); life.append(0)
+		var flash := MeshInstance3D.new()
+		flash.mesh = flash_mesh; flash.material_override = gold; flash.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(flash); flash.hide(); flashes.append(flash); flash_life.append(0)
 
 func shot(from: Vector3, to: Vector3, tag: String) -> void:
 	if from.distance_squared_to(to) < .0001: return
@@ -39,10 +47,19 @@ func shot(from: Vector3, to: Vector3, tag: String) -> void:
 	beam.scale = Vector3(2.0 if tag == "knife" else 1.0, from.distance_to(to), 1)
 	beam.material_override = red if tag == "knife" else (gold if tag == "ricochet" else blue)
 	beam.show()
+	if tag == "detonation":
+		var flash := flashes[cursor]
+		flash.position = from
+		flash.quaternion = Quaternion(Vector3.UP,(to-from).normalized())
+		flash.scale = Vector3(.7,2.4,.7)
+		flash_life[cursor] = .055; flash.show()
 	cursor = (cursor + 1) % CAPACITY
 
 func _process(delta: float) -> void:
 	for i in CAPACITY:
+		if flash_life[i] > 0:
+			flash_life[i] = maxf(0,flash_life[i]-delta)
+			if flash_life[i] <= 0: flashes[i].hide()
 		if life[i] > 0:
 			life[i] = maxf(0, life[i] - delta)
 			if life[i] <= 0: lines[i].hide()
@@ -53,8 +70,14 @@ func _process(delta: float) -> void:
 	for id in marks.keys():
 		if not arena.actors.has(id): marks[id].queue_free(); marks.erase(id)
 	var marked: Dictionary = {}
+	for id in lassos.keys():
+		if not arena.actors.has(id): lassos[id].queue_free(); lassos.erase(id)
 	for a in arena.actors.values():
 		if a.champion != "Outlaw": continue
+		if not lassos.has(a.actor_id):
+			var rope = preload("res://scripts/lasso_effect.gd").new()
+			add_child(rope); lassos[a.actor_id] = rope
+		lassos[a.actor_id].update(arena,a)
 		if not coins.has(a.actor_id):
 			var node := MeshInstance3D.new()
 			node.mesh = coin_mesh; node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

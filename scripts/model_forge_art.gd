@@ -32,6 +32,7 @@ var previous_cooldowns: Array = []
 var previous_cast_remaining := 0.0
 var jump_pose = preload("res://scripts/model_forge_jump_pose.gd").new()
 var pose_blend = preload("res://scripts/model_forge_pose_blend.gd").new()
+var lasso_pose = preload("res://scripts/lasso_pose.gd").new()
 var network_motion = preload("res://scripts/network_animation_motion.gd").new()
 
 func build(host: Node3D, team_color: Color) -> void:
@@ -77,9 +78,11 @@ func build(host: Node3D, team_color: Color) -> void:
 	player.advance(0)
 	pose_blend.build(skeleton)
 	equipment.build(class_title, skeleton)
+	lasso_pose.build(skeleton)
 	equipment.apply()
 
 func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
+	lasso_pose.capture_if_needed(actor)
 	var charging: bool = not actor.charge.is_empty()
 	var displacement := Vector3.ZERO
 	if initialized and delta > 0:
@@ -176,6 +179,7 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
 		clip = desired
 		player.play(clip_names[clip], 0.0)
 		if locomotion_change: player.seek(phase * player.get_animation(clip_names[clip]).length, false)
+	rate = override_playback_rate(desired, rate)
 	player.speed_scale = lerpf(player.speed_scale, rate, 1.0 - exp(-delta * 18.0)) if is_locomotion(desired) else 1.0
 	if alive and not stunned:
 		player.advance(delta)
@@ -187,6 +191,7 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
 	host.rotation.x = move_toward(host.rotation.x, 0.0 if alive else -PI * 0.5, delta * 5.0)
 	host.rotation.z = sin(Time.get_ticks_msec() * 0.015) * 0.025 if stunned and alive else 0.0
 	# Upload material parameters only when impact/death appearance changes.
+	if class_title != "Outlaw": lasso_pose.apply(self,host,actor,delta)
 	# Rewriting every surface every physics tick scales poorly in team fights.
 	var next_material_state := (1 if actor.flash > 0 else 0) + (2 if not alive else 0)
 	if next_material_state != material_state:
@@ -195,6 +200,9 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
 			materials[i].albedo_color = Color.WHITE if actor.flash > 0 else (base_colors[i] if alive else base_colors[i].lerp(Color("333744"), 0.7))
 			materials[i].emission = Color.WHITE if actor.flash > 0 else base_emissions[i]
 			materials[i].emission_energy_multiplier = 2.0 if actor.flash > 0 else base_emission_energy[i] * (1.0 if alive else .15)
+
+func override_playback_rate(_desired: String, default_rate: float) -> float:
+	return default_rate
 
 func is_locomotion(name: String) -> bool:
 	return name.begins_with("Walk") or name.begins_with("Run") or name.begins_with("Sprint") or name.begins_with("Strafe")

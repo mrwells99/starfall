@@ -53,6 +53,9 @@ func muzzle_position() -> Vector3:
 	# Same hand-local point used to author the revolver's luminous bore in Blender.
 	return skeleton.global_transform * (skeleton.get_bone_global_pose(skeleton.find_bone("DEF-hand.R")) * Vector3(-.030,.413,.085))
 
+func showing_roll(actor) -> bool:
+	return actor.identity.roll_left > 0 or (actor.identity.get("roll_animation_left",0.0) > 0 and actor.casting < 0 and not actor.identity.backflip_active and actor.identity.outlaw_action == "roll")
+
 func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
 	active_actor = actor
 	step_motion = actor.global_basis.inverse() * (actor.global_position - last_position) if initialized else Vector3.ZERO
@@ -65,8 +68,13 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
 		action_serial = actor.identity.outlaw_action_serial
 	shot_left = maxf(0, shot_left - delta); knife_left = maxf(0, knife_left - delta)
 	var gun_cast: bool = actor.casting >= 0 and actor.kit[actor.casting].kind in ["starshot", "deadeye"]
-	var special: bool = actor.identity.roll_left > 0 or actor.identity.backflip_active
-	var next_special: String = "roll" if actor.identity.roll_left > 0 else ("backflip" if actor.identity.backflip_active else "")
+	var lasso_active: bool = not Outlaw.Lasso.state(actor).is_empty() or Outlaw.Lasso.knockdown_active(actor)
+	var special: bool = (showing_roll(actor) or actor.identity.backflip_active) and not lasso_active
+	var next_special: String = ("roll" if showing_roll(actor) else ("backflip" if actor.identity.backflip_active else "")) if special else ""
+	if special_kind == "roll" and next_special.is_empty():
+		# Roll is not a spell release. Hand the final crouch directly to the
+		# current gait (or idle), using the shared final-pose transition blend.
+		transient_left = 0.0
 	if special and next_special != special_kind: special_blend.begin(.08,.08 if next_special == "backflip" else .16)
 	special_kind = next_special
 	if next_special != "backflip" or actor.hp <= 0 or actor.stunned > 0:
@@ -81,11 +89,14 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
 	equipment.shot_time = .32 - shot_left if shot_left > 0 else -1.0
 	super.animate(host, delta, actor)
 	if special and actor.hp > 0 and actor.stunned <= 0:
-		var rolling: bool = actor.identity.roll_left > 0
-		var progress: float = 1.0 - actor.identity.roll_left / Outlaw.ROLL_SECONDS
+		var rolling: bool = showing_roll(actor)
+		var progress: float
 		if rolling:
-			progress = roll_clock.advance(Outlaw.ROLL_SECONDS - actor.identity.roll_left, delta,
-				actor.presentation_snapshot_serial, actor.motion_revision, Outlaw.ROLL_SECONDS) / Outlaw.ROLL_SECONDS
+			# Keep the slower Roll and its crouched recovery on one visual clock,
+			# including the interval after authoritative travel has finished.
+			var reported: float = Outlaw.ROLL_SECONDS - actor.identity.roll_left if actor.identity.roll_left > 0 else Outlaw.ROLL_PRESENTATION_SECONDS - actor.identity.get("roll_animation_left", 0.0)
+			progress = roll_clock.advance(reported, delta, actor.presentation_snapshot_serial,
+				actor.motion_revision, Outlaw.ROLL_PRESENTATION_SECONDS) / Outlaw.ROLL_ANIMATION_SECONDS
 		else:
 			progress = backflip_clock.advance(actor.identity.backflip_elapsed, delta,
 				actor.presentation_snapshot_serial, actor.motion_revision, Outlaw.BACKFLIP_AIRTIME) / Outlaw.BACKFLIP_AIRTIME
@@ -101,6 +112,7 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
 	else:
 		model.rotation.y = lerp_angle(model.rotation.y, PI, minf(1, delta * 25))
 		if actor.hp > 0 and actor.stunned <= 0 and actor.casting < 0: apply_test_aim()
+	lasso_pose.apply(self,host,actor,delta)
 
 func apply_test_aim() -> void:
 	if test_aim_weight <= 0: return
@@ -115,11 +127,22 @@ func apply_test_aim() -> void:
 	var local_correction: Quaternion = basis.get_rotation_quaternion().inverse()*correction*basis.get_rotation_quaternion()
 	skeleton.set_bone_pose_rotation(upper,Quaternion.IDENTITY.slerp(local_correction,test_aim_weight)*skeleton.get_bone_pose_rotation(upper))
 
+func override_playback_rate(desired: String, default_rate: float) -> float:
+	# Moving Starshot keeps the selected leg gait in step with actual travel;
+	# the shared casting path otherwise resets playback to a fixed rate of one.
+	if active_actor == null or active_actor.casting < 0 or active_actor.kit[active_actor.casting].kind not in ["starshot","lasso"] or not is_locomotion(desired): return default_rate
+	if "Backward" in desired:
+		return clampf(filtered_speed / BACKPEDAL_REFERENCE_SPEED * BACKPEDAL_CADENCE_SCALE, .55, 2.5)
+	if desired.begins_with("Walk") or desired.begins_with("Strafe"):
+		return clampf(filtered_speed / 1.35, .55, 2.5)
+	return clampf(filtered_speed / 2.8, .55, 2.5) * RUN_CADENCE_SCALE
+
 func override_clip(desired: String, alive: bool, stunned: bool, _delta: float) -> String:
 	if not alive or stunned or active_actor == null: return desired
-	if active_actor.identity.roll_left > 0 or active_actor.identity.backflip_active: return "Roll"
+	if Outlaw.Lasso.casting(active_actor) and active_actor.identity.backflip_active: return "JumpLoop"
+	if showing_roll(active_actor) or active_actor.identity.backflip_active: return "Roll"
 	var spell_kind: String = active_actor.kit[active_actor.casting].kind if active_actor.casting >= 0 else ""
-	if spell_kind in ["starshot", "deadeye", "severe"] or shot_left > 0 or knife_left > 0:
+	if spell_kind in ["starshot", "deadeye", "severe", "lasso"] or shot_left > 0 or knife_left > 0:
 		if was_airborne: return desired if desired.begins_with("Jump") else "JumpLoop"
 		if filtered_speed <= .12: return "Idle"
 		var sector := posmod(roundi(atan2(step_motion.x, -step_motion.z) / (PI / 4)), 8)

@@ -20,6 +20,7 @@ const BAR_COUNT := 3
 const ClassMechanics = preload("res://scripts/class_mechanics.gd")
 const Outlaw = preload("res://scripts/outlaw_mechanics.gd")
 var aimed_combat = preload("res://scripts/aimed_combat.gd").new()
+var outlaw_detonation = preload("res://scripts/outlaw_detonation.gd").new()
 var hitboxes_enabled := true
 signal aimed_shot_resolved(result: Dictionary)
 var outlaw_fx
@@ -977,6 +978,7 @@ func spawn_actor(id: int, peer: int, side: int, choice: String, pos: Vector3) ->
 func clear_actors() -> void:
 	outlaw_aim_test.reset()
 	aimed_combat.reset()
+	outlaw_detonation.reset()
 	combat_text.clear()
 	spectator.reset()
 	result_info.clear()
@@ -2267,6 +2269,8 @@ func _physics_process(delta: float) -> void:
 	update_visuals(delta)
 	if hitboxes_enabled and phase in ["match", "countdown"]:
 		aimed_combat.tick(self,delta)
+		if not dedicated: outlaw_aim_test.fire_tick(delta)
+		outlaw_detonation.tick(self)
 
 func gather_input(delta: float) -> void:
 	if not actors.has(local_id):
@@ -2380,6 +2384,9 @@ func pong(stamp: int) -> void:
 	round_trip_ms = Time.get_ticks_msec() - stamp
 
 func tick_actor(actor, delta: float) -> void:
+	Outlaw.Lasso.tick(self, actor)
+	# Death resets class identity below, so release an unfinished reservation first.
+	if actor.hp <= 0: Outlaw.refund_interrupted_channel(self, actor)
 	ClassMechanics.tick(self, actor, delta)
 	actor.action_budget = maxf(0, actor.action_budget - delta)
 	actor.input_age += delta
@@ -2418,7 +2425,9 @@ func tick_actor(actor, delta: float) -> void:
 		Outlaw.tick_channel(self, actor, delta)
 		return
 	if actor.casting >= 0:
-		if (direction.length() > 0.01 or not actor.is_on_floor()) and not Outlaw.can_cast_moving(actor, actor.kit[actor.casting]):
+		if Outlaw.Lasso.casting(actor) and Outlaw.Lasso.state(actor).get("air", false) and actor.is_on_floor():
+			cancel_own_cast(actor, "Lasso cancelled by landing")
+		elif (direction.length() > 0.01 or not actor.is_on_floor()) and not Outlaw.can_cast_moving(actor, actor.kit[actor.casting]):
 			cancel_own_cast(actor, "Cast cancelled by movement")
 		else:
 			actor.cast_left -= delta
@@ -2430,6 +2439,7 @@ func tick_actor(actor, delta: float) -> void:
 				if reason.is_empty():
 					resolve_spell(actor, slot, actors.get(victim_id))
 				else:
+					if actor.kit[slot].kind == "lasso": Outlaw.Lasso.cancel(self,actor)
 					feedback(actor, reason)
 
 func simulate_movement(actor, delta: float, grounded_override: Variant = null) -> Vector3:
@@ -2442,6 +2452,7 @@ func simulate_movement(actor, delta: float, grounded_override: Variant = null) -
 	if not actor.charge.is_empty():
 		VanguardCharge.advance(actor, delta)
 		return actor.velocity.normalized()
+	if Outlaw.Lasso.motion(self, actor, delta): return Vector3.ZERO
 	if Outlaw.roll_motion(self, actor, delta):
 		return actor.identity.roll_direction
 	var grounded: bool = actor.is_on_floor() if grounded_override == null else bool(grounded_override)
@@ -2457,6 +2468,7 @@ func simulate_movement(actor, delta: float, grounded_override: Variant = null) -
 		speed *= 1.65
 	if actor.identity.slow > 0 and actor.identity.immune <= 0 and not airborne_protected:
 		speed *= 0.55
+	if Outlaw.starshot_cast(actor): speed *= Outlaw.STARSHOT_MOVE_SCALE
 	# Airborne movement carries world-space takeoff momentum, including when the
 	# player releases movement or turns. Collisions and control effects still stop it.
 	if grounded or immobilized:
@@ -2470,8 +2482,10 @@ func simulate_movement(actor, delta: float, grounded_override: Variant = null) -
 		actor.jump_buffer = 0
 	actor.jump_queued = false
 	actor.jump_buffer = maxf(0.0, actor.jump_buffer - delta)
-	actor.velocity.y -= 20 * delta
+	if not Outlaw.Lasso.air_gravity(actor,delta):
+		actor.velocity.y -= 20 * delta
 	actor.move_and_slide()
+	Outlaw.Lasso.air_collisions(actor)
 	return direction
 
 func has_los(a, b) -> bool:
@@ -2622,6 +2636,38 @@ func report_aimed_shot(round_epoch: int, result: Dictionary) -> void:
 		aimed_combat.reticle.confirm_hit()
 	aimed_shot_resolved.emit(result)
 
+func deliver_detonation(round_epoch: int, seq: int, burst_id: int, index: int, origin: Vector3, direction: Vector3, stamp: float, revision: int) -> void:
+	if latency_ms > 0: await get_tree().create_timer(latency_ms/1000.0).timeout
+	if network and not multiplayer.is_server() and epoch == round_epoch:
+		submit_detonation.rpc_id(1,round_epoch,seq,burst_id,index,origin,direction,stamp,revision)
+
+@rpc("any_peer", "call_remote", "reliable", 1)
+func submit_detonation(round_epoch: int, seq: int, burst_id: int, index: int, origin: Vector3, direction: Vector3, stamp: float, revision: int) -> void:
+	if not network or not multiplayer.is_server() or round_epoch != epoch: return
+	var peer := multiplayer.get_remote_sender_id()
+	outlaw_detonation.enqueue(self,peer_actor(peer),peer,seq,burst_id,index,origin,direction,stamp,revision)
+
+@rpc("any_peer", "call_remote", "reliable", 1)
+func cancel_detonation(round_epoch: int, burst_id: int) -> void:
+	if not network or not multiplayer.is_server() or round_epoch != epoch: return
+	var peer := multiplayer.get_remote_sender_id()
+	outlaw_detonation.cancel(self,peer_actor(peer),peer,burst_id)
+
+func deliver_detonation_cancel(round_epoch: int, burst_id: int) -> void:
+	# Match the shot transport delay so cancellation cannot overtake its start.
+	if latency_ms > 0: await get_tree().create_timer(latency_ms/1000.0).timeout
+	if network and not multiplayer.is_server() and epoch == round_epoch:
+		cancel_detonation.rpc_id(1,round_epoch,burst_id)
+
+@rpc("authority", "call_remote", "reliable")
+func report_detonation_shot(round_epoch: int, result: Dictionary) -> void:
+	if round_epoch != epoch: return
+	var predicted := false
+	if not dedicated and result.source == local_id: predicted = outlaw_aim_test.receive_shot(result)
+	if result.get("fired",false):
+		if not predicted: show_outlaw_effect(round_epoch,result.source,result.victim,result.from,result.position,"detonation")
+		aimed_shot_resolved.emit(result)
+
 # Cancelling a cast before it goes off clears the global cooldown.
 #
 # The GCD is charged when the cast BEGINS, so without this you paid for a spell
@@ -2632,6 +2678,7 @@ func cancel_own_cast(actor, message: String) -> void:
 		return
 	var spell: Dictionary = actor.kit[actor.casting]
 	actor.casting = -1
+	if spell.kind == "lasso": Outlaw.Lasso.cancel(self,actor)
 	if not spell.off:
 		actor.gcd = 0.0
 	if not message.is_empty():
@@ -2650,11 +2697,13 @@ func ability_block_reason(actor, slot: int, requested: int) -> String:
 	if CC.spell_block(actor) > 0:
 		return "Disarmed" if actor.cc_effects.has("disarm") else "Silenced"
 	var spell: Dictionary = actor.kit[slot]
-	if actor.casting >= 0:
+	# Blink resolves independently without replacing the active cast or its timer.
+	if actor.casting >= 0 and not (actor.champion == "Ember" and spell.kind == "blink"):
 		return "Already casting"
 	if not actor.charge.is_empty():
 		return "Charging"
 	if actor.identity.get("roll_left", 0.0) > 0: return "Rolling"
+	if Outlaw.Lasso.busy(actor): return "Completing Lasso"
 	var instant_collapse: bool = spell.kind == "collapse" and actor.identity.instant_collapse > 0
 	var own_unavailable: bool = actor.identity.blink_charges <= 0 if spell.kind == "blink" else actor.cooldowns[slot] > 0
 	if own_unavailable or (actor.gcd > 0 and not (spell.off or instant_collapse)):
@@ -2818,6 +2867,7 @@ func damage(source, victim, amount: float) -> void:
 	combat_event(source.actor_id, victim.actor_id, "−%d" % ceili(actual), RED)
 	if victim.hp == 0:
 		victim.casting = -1
+		Outlaw.refund_interrupted_channel(self, victim)
 		victim.move_input = Vector2.ZERO
 		combat_event(source.actor_id, victim.actor_id, "DEFEATED", GOLD)
 		if world_mode:
@@ -2882,6 +2932,7 @@ func end_duel(loser_id: int, winner_id: int) -> void:
 	sync_duels()
 	for id in [loser_id, winner_id]:
 		if actors.has(id):
+			Outlaw.refund_interrupted_channel(self, actors[id])
 			actors[id].reset_identity()
 	combat_event(winner_id, loser_id, "DUEL WON", GOLD)
 	# Losing a duel is not death: back up shortly, at full health.
@@ -3122,7 +3173,7 @@ func show_outlaw_effect(round_epoch: int, source: int, _victim: int, from: Vecto
 	var presenter = actors[source].champion_model
 	if presenter != null and presenter.outlaw_art != null:
 		presenter.outlaw_art.fire(tag)
-		if tag in ["gun", "ricochet"]: from = presenter.outlaw_art.muzzle_position()
+		if tag in ["gun", "ricochet", "detonation"]: from = presenter.outlaw_art.muzzle_position()
 	if outlaw_fx != null and not player_options.reduced_effects: outlaw_fx.shot(from, to, tag)
 
 @rpc("authority", "call_remote", "reliable")
@@ -3895,6 +3946,7 @@ func remove_world_actor(id: int) -> void:
 	clear_duel_offers(id)
 	respawn_timers.erase(id)
 	var actor = actors[id]
+	if authoritative() and Outlaw.Lasso.busy(actor): Outlaw.Lasso.cancel(self,actor)
 	actors.erase(id)
 	remove_child(actor)
 	actor.queue_free()

@@ -1,7 +1,7 @@
 extends RefCounted
 ## Defense Detonation aiming; legacy filename retained for existing tool references.
-## Firing is intentionally disconnected. Neither toggling nor clicking spends stacks.
-const ARRIVAL_WEIGHT := .995 # Reticle appears once the camera is effectively over the shoulder.
+## Hotbar toggles aiming; left-click commits an authoritative aimed burst.
+const RETICLE_START_WEIGHT := .25 # Show early in the pan, after a camera clearance update.
 const SHOULDER_DISTANCE := 1.65
 const SHOULDER_RIGHT := .55
 const SHOULDER_FOV := 62.0
@@ -23,6 +23,14 @@ var shoulder_right := SHOULDER_RIGHT
 var actor_id := -1
 var camera_shape := SphereShape3D.new()
 var shoulder_ready := false
+var fire_requested := false
+var fire_burst := 0
+var fire_total := 0
+var fire_sent := 0
+var fire_elapsed := 0.0
+var fire_next_time := 0.0
+var recoil_pitch := 0.0
+const RECOIL_PER_SHOT := .00436 # One quarter degree; small enough to control a three-shot burst.
 
 func setup(host) -> void:
 	game = host
@@ -45,6 +53,7 @@ func block_reason(actor) -> String:
 	if actor.stunned > 0: return "Controlled"
 	if actor.casting >= 0: return "Already casting"
 	if actor.identity.roll_left > 0: return "Rolling"
+	if game.Outlaw.Lasso.busy(actor): return "Completing Lasso"
 	if actor.identity.backflip_active: return "Backflipping"
 	return ""
 
@@ -68,14 +77,20 @@ func toggle() -> void:
 		enabled = true
 		shoulder_ready = false
 		game.movement_controls.left = false
-		game.movement_controls.right = false
+		# Keep an owned right-button gesture alive while aiming owns mouse look.
+		# Physical button polling would also pick up presses owned by the UI.
 		game.movement_controls.zoom_velocity = 0.0
 		game.capture_mouse()
 
-func leave() -> void:
+func leave(resume_gesture: bool = true, cancel_fire: bool = true) -> void:
+	if cancel_fire: stop_fire()
 	enabled = false
 	if is_instance_valid(reticle): reticle.hide()
-	if game != null: game.release_mouse()
+	if game != null:
+		if resume_gesture and game.movement_controls.right and game.movement_controls.active() and actor_id == game.local_id:
+			game.capture_mouse()
+		else:
+			game.release_mouse()
 
 func clear_pose() -> void:
 	if game != null and game.actors.has(actor_id):
@@ -93,8 +108,10 @@ func restore_camera() -> void:
 	saved = false
 
 func reset() -> void:
+	stop_fire()
+	recoil_pitch = 0.0
 	clear_pose()
-	if enabled: leave()
+	if enabled: leave(false)
 	progress = 0; weight = 0; transition_velocity = 0; actor_id = -1
 	shoulder_ready = false
 	restore_camera()
@@ -108,13 +125,19 @@ func input(event: InputEvent) -> bool:
 	# Escape reach the arena menu handler and indirectly close the preview.
 	if event is InputEventKey and event.keycode == KEY_ESCAPE: return true
 	if event is InputEventMouseButton:
+		if not event.pressed: game.controls.mouse_held.erase(event.button_index)
+		if event.button_index == MOUSE_BUTTON_RIGHT:
+			# Releases arrive here before normal movement input. Track both edges
+			# without exiting aim or restarting its smoothed facing animation.
+			game.movement_controls.right = event.pressed
+			game.movement_controls.dragged = true
 		# Preserve ordinary GUI activation when the cursor is available.
 		if event.button_index == MOUSE_BUTTON_LEFT and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE:
 			for slot in game.ability_buttons.size():
 				var ability: int = game.kit_slot(slot)
 				var button: Button = game.ability_buttons[slot]
 				if ability >= 0 and game.actors[game.local_id].kit[ability].kind == "defense_detonation" and button.is_visible_in_tree() and button.get_global_rect().has_point(event.position): return false
-		# A preview click never starts a targeting gesture or a shot.
+		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed: request_fire()
 		return event.button_index in [MOUSE_BUTTON_LEFT,MOUSE_BUTTON_RIGHT,MOUSE_BUTTON_WHEEL_UP,MOUSE_BUTTON_WHEEL_DOWN]
 	if event is InputEventMouseMotion:
 		var sensitivity: float = .003 * game.player_options.sensitivity
@@ -122,6 +145,72 @@ func input(event: InputEvent) -> bool:
 		aim_pitch = clampf(aim_pitch-event.screen_relative.y*sensitivity*(-1 if game.player_options.invert_y else 1),-1.0,1.0)
 		return true
 	return false
+
+func request_fire() -> void:
+	if not enabled or not reticle.visible or not ready_to_aim() or fire_burst > 0: return
+	var actor = game.actors[game.local_id]
+	if actor.identity.defense_detonation <= 0:
+		game.notice.text = "Requires a Defense Detonation stack"; game.notice_time = 1.5
+		return
+	if actor.gcd > 0 or actor.locked > 0 or game.CC.spell_block(actor) > 0: return
+	fire_requested = true
+
+func stop_fire() -> void:
+	var previous := fire_burst
+	fire_requested = false; fire_burst = 0; fire_total = 0; fire_sent = 0; fire_elapsed = 0.0; fire_next_time = 0.0
+	if previous <= 0 or game == null: return
+	if game.authoritative(): game.outlaw_detonation.cancel(game,game.local_id,0,previous)
+	elif game.network: game.deliver_detonation_cancel(game.epoch,previous)
+
+func fire_tick(delta: float) -> void:
+	if not enabled or not ready_to_aim():
+		if fire_burst > 0 or fire_requested: stop_fire()
+		return
+	var actor = game.actors[game.local_id]
+	if fire_requested and fire_burst == 0:
+		fire_requested = false
+		fire_total = clampi(int(actor.identity.defense_detonation),0,game.Outlaw.MAX_STACKS)
+		if fire_total == 0: return
+		fire_sent = 0; fire_elapsed = 0.0; fire_next_time = 0.0
+	elif fire_burst > 0: fire_elapsed += delta
+	else: return
+	if fire_elapsed > 2.0:
+		leave(); return
+	if fire_sent >= fire_total or fire_elapsed+.000001 < fire_next_time: return
+	var stamp: float = game.aimed_combat.clock
+	if not game.authoritative():
+		if game.aimed_combat.observed_stamp < 0: stop_fire(); return
+		stamp = maxf(0,game.aimed_combat.observed_stamp+(Time.get_ticks_msec()-game.aimed_combat.observed_at)*.001-game.aimed_combat.INTERPOLATION_ALLOWANCE)
+	var center: Vector2 = game.get_viewport().get_visible_rect().size*.5
+	var origin: Vector3 = game.camera.project_ray_origin(center)
+	var direction: Vector3 = game.camera.project_ray_normal(center).normalized()
+	game.action_seq += 1
+	if fire_burst == 0: fire_burst = game.action_seq
+	var burst := fire_burst
+	var index := fire_sent
+	fire_sent += 1
+	fire_next_time = fire_elapsed+game.Outlaw.DETONATION_SHOT_INTERVAL
+	# Immediate local presentation; authoritative confirmation alone creates a hit marker.
+	var endpoint: Vector3 = game.outlaw_detonation.visual_endpoint(game,actor,origin,direction)
+	game.show_outlaw_effect(game.epoch,actor.actor_id,-1,origin,endpoint,"detonation")
+	recoil_pitch = minf(.012,recoil_pitch+RECOIL_PER_SHOT)
+	if game.authoritative():
+		if not game.outlaw_detonation.enqueue(game,actor.actor_id,0,game.action_seq,burst,index,origin,direction,stamp,actor.motion_revision) and fire_burst == burst: stop_fire()
+	else:
+		game.deliver_detonation(game.epoch,game.action_seq,burst,index,origin,direction,stamp,actor.motion_revision)
+
+func receive_shot(result: Dictionary) -> bool:
+	if result.get("burst",-1) != fire_burst or fire_burst <= 0: return false
+	var predicted: bool = result.get("fired",false) and int(result.get("index",-1)) < fire_sent
+	if result.get("damage",0) > 0: reticle.confirm_hit()
+	if result.has("total"): fire_total = int(result.total)
+	if result.get("done",false):
+		fire_requested = false; fire_burst = 0; fire_total = 0; fire_sent = 0; fire_elapsed = 0.0; fire_next_time = 0.0
+		if result.get("fired",false): leave(true,false)
+		elif result.has("reason"):
+			game.notice.text = result.reason; game.notice_time = 1.5
+			if result.get("committed",false): leave(true,false)
+	return predicted
 
 func advance_transition(delta: float) -> void:
 	if delta <= 0 or not is_finite(delta): return
@@ -142,23 +231,24 @@ func advance_transition(delta: float) -> void:
 
 func tick(delta: float) -> void:
 	if game == null: return
+	recoil_pitch = maxf(0,recoil_pitch-maxf(0,delta)*.022)
 	if saved and (not available() or actor_id != game.local_id):
 		reset()
 	if enabled and not ready_to_aim(): leave()
 	advance_transition(delta)
-	if progress < ARRIVAL_WEIGHT: shoulder_ready = false
+	if progress < RETICLE_START_WEIGHT: shoulder_ready = false
 	if saved and progress == 0:
 		clear_pose(); restore_camera(); actor_id = -1
 	if saved and game.actors.has(actor_id):
 		var art = game.actors[actor_id].champion_model.outlaw_art
 		art.test_aim_weight = weight if ready_to_aim() else 0.0
 		# Compute the final aiming direction, independent of the moving camera boom.
-		art.test_aim_direction = -(game.pivot.basis * Basis(Vector3.RIGHT,aim_pitch)).z
-	reticle.visible = enabled and progress >= ARRIVAL_WEIGHT and shoulder_ready and ready_to_aim()
+		art.test_aim_direction = -(game.pivot.basis * Basis(Vector3.RIGHT,aim_pitch+recoil_pitch)).z
+	reticle.visible = enabled and progress >= RETICLE_START_WEIGHT and shoulder_ready and ready_to_aim()
 
 func physics_tick() -> void:
 	if not saved or game == null: return
-	shoulder_ready = enabled and progress >= ARRIVAL_WEIGHT
+	shoulder_ready = enabled and progress >= RETICLE_START_WEIGHT
 	# Sweep the shoulder offset too; the existing spring arm covers rearward travel.
 	var query := PhysicsShapeQueryParameters3D.new()
 	query.shape = camera_shape
@@ -172,7 +262,7 @@ func apply_camera() -> void:
 	if not saved: return
 	game.arm.position = saved_position.lerp(Vector3(shoulder_right,0,0),weight)
 	game.arm.spring_length = lerpf(saved_length,SHOULDER_DISTANCE,weight)
-	game.arm.rotation.x = lerpf(saved_pitch,aim_pitch,weight)
+	game.arm.rotation.x = lerpf(saved_pitch,clampf(aim_pitch+recoil_pitch,-1.0,1.0),weight)
 	game.arm.shape = camera_shape
 	game.camera.near = .05
 	game.camera.fov = lerpf(saved_fov,SHOULDER_FOV,weight)

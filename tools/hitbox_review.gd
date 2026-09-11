@@ -87,7 +87,7 @@ func show_class(title: String, pose: String) -> void:
 		if pose != "idle":
 			actor.identity.roll_direction = -actor.basis.z
 			for i in (37 if pose == "backflip" else 17):
-				actor.identity.roll_left = .55-float(i)/60 if pose == "roll" else 0
+				actor.identity.roll_left = maxf(0,preload("res://scripts/outlaw_mechanics.gd").ROLL_SECONDS-float(i)/60) if pose == "roll" else 0
 				actor.identity.backflip_active = pose == "backflip"
 				actor.identity.backflip_elapsed = float(i)/60
 				actor.presentation_grounded = pose != "backflip"; actor.velocity.y = 12-float(i)/3; actor.presentation_vertical_speed = actor.velocity.y
