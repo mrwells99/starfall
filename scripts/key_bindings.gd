@@ -20,7 +20,7 @@ const DEFAULTS := {
 const LABELS := {
 	"forward": "Move forward", "backward": "Move backward",
 	"strafe_left": "Strafe left", "strafe_right": "Strafe right",
-	"turn_left": "Turn left / strafe with right mouse", "turn_right": "Turn right / strafe with right mouse",
+	"turn_left": "Turn left", "turn_right": "Turn right",
 	"jump": "Jump", "target_next": "Target next enemy", "target_previous": "Target previous enemy",
 	"autorun": "Toggle autorun", "walk": "Toggle walk / run", "recenter_camera": "Recenter camera",
 	"party_1": "Target party member 1 (self)", "party_2": "Target party member 2", "party_3": "Target party member 3",

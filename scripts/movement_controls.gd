@@ -102,13 +102,12 @@ func sample(delta: float) -> Vector2:
 	if game.outlaw_aim_test.enabled:
 		game.local_yaw = lerp_angle(game.local_yaw,game.pivot.rotation.y,1.0-exp(-30.0*delta))
 	elif right: align_facing()
-	elif game.actors[game.local_id].stunned <= 0:
+	if game.actors[game.local_id].stunned <= 0:
 		var turn: float = (game.controls.held("turn_left") - game.controls.held("turn_right")) * delta * game.player_options.turn_speed
 		game.local_yaw += turn
-		if not left: game.pivot.rotation.y += turn
+		if not left or right or game.outlaw_aim_test.enabled: game.pivot.rotation.y += turn
 	var movement := Vector2(game.controls.held("strafe_right") - game.controls.held("strafe_left"), game.controls.held("backward") - game.controls.held("forward"))
 	if game.controls.held("forward") > 0 or game.controls.held("backward") > 0: autorun = false
-	if right or game.outlaw_aim_test.enabled: movement.x += game.controls.held("turn_right") - game.controls.held("turn_left")
 	if autorun or (left and right): movement.y = -1
 	return movement.limit_length()
 
