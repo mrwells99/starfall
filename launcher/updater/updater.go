@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -207,7 +208,10 @@ func (u *Updater) Verify(i Installation) error {
 		if err != nil {
 			return err
 		}
-		if !info.Mode().IsRegular() || info.Size() != expected.Size || (u.Linux && name == u.executableName() && info.Mode().Perm()&0100 == 0) {
+		// The release platform selects filenames; the host determines filesystem
+		// permission semantics. Windows does not expose Unix execute bits.
+		missingExecute := u.Linux && runtime.GOOS != "windows" && name == u.executableName() && info.Mode().Perm()&0100 == 0
+		if !info.Mode().IsRegular() || info.Size() != expected.Size || missingExecute {
 			return errors.New("installed game files are incomplete; use Retry to repair")
 		}
 		file, err := os.Open(path)
