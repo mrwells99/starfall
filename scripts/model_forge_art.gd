@@ -32,6 +32,7 @@ var previous_cooldowns: Array = []
 var previous_cast_remaining := 0.0
 var jump_pose = preload("res://scripts/model_forge_jump_pose.gd").new()
 var pose_blend = preload("res://scripts/model_forge_pose_blend.gd").new()
+var network_motion = preload("res://scripts/network_animation_motion.gd").new()
 
 func build(host: Node3D, team_color: Color) -> void:
 	if asset == null: asset = preload("res://scripts/character_asset_cache.gd").get_scene(asset_path)
@@ -88,6 +89,7 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
 			displacement = Vector3.ZERO
 	last_position = actor.global_position
 	initialized = true
+	displacement = network_motion.displacement(actor, displacement, delta)
 	var measured := displacement.length() / maxf(delta, 0.0001)
 	filtered_speed = measured
 	var alive: bool = actor.hp > 0
@@ -104,7 +106,7 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
 	previous_gcd = actor.gcd
 	var desired := "Idle"
 	var rate := 1.0
-	var vertical_speed: float = actor.velocity.y if actor.presentation_grounded == null else actor.presentation_vertical_speed
+	var vertical_speed: float = network_motion.vertical(actor, delta)
 	if alive and (not stunned or charging):
 		var previous_transient := transient_left
 		transient_left = maxf(0.0, transient_left - delta)

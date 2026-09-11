@@ -8,6 +8,8 @@ var knife_left := 0.0
 var action_serial := -1
 var step_motion := Vector3.ZERO
 var special_kind := ""
+var backflip_clock = preload("res://scripts/outlaw_backflip_clock.gd").new()
+var roll_clock = preload("res://scripts/snapshot_animation_clock.gd").new()
 var special_blend = preload("res://scripts/model_forge_pose_blend.gd").new()
 var test_aim_weight := 0.0
 var test_aim_direction := Vector3.FORWARD
@@ -54,6 +56,8 @@ func muzzle_position() -> Vector3:
 func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
 	active_actor = actor
 	step_motion = actor.global_basis.inverse() * (actor.global_position - last_position) if initialized else Vector3.ZERO
+	if actor.presentation_snapshot_serial > 0:
+		step_motion = actor.global_basis.inverse() * network_motion.displacement(actor, Vector3.ZERO, delta)
 	if action_serial != actor.identity.outlaw_action_serial:
 		if action_serial >= 0:
 			if actor.identity.outlaw_action == "knife": knife_left = .65
@@ -65,6 +69,10 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
 	var next_special: String = "roll" if actor.identity.roll_left > 0 else ("backflip" if actor.identity.backflip_active else "")
 	if special and next_special != special_kind: special_blend.begin(.08,.08 if next_special == "backflip" else .16)
 	special_kind = next_special
+	if next_special != "backflip" or actor.hp <= 0 or actor.stunned > 0:
+		backflip_clock.reset()
+	if next_special != "roll" or actor.hp <= 0 or actor.stunned > 0:
+		roll_clock.reset()
 	equipment.aim_weight = move_toward(equipment.aim_weight, 1.0 if (gun_cast or shot_left > 0) and not special else 0.0, delta * 12)
 	if not special and actor.hp > 0 and actor.stunned <= 0:
 		equipment.aim_weight = maxf(equipment.aim_weight,test_aim_weight)
@@ -74,7 +82,13 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
 	super.animate(host, delta, actor)
 	if special and actor.hp > 0 and actor.stunned <= 0:
 		var rolling: bool = actor.identity.roll_left > 0
-		var progress: float = 1.0 - actor.identity.roll_left / Outlaw.ROLL_SECONDS if rolling else clampf(actor.identity.backflip_elapsed / Outlaw.BACKFLIP_AIRTIME, 0, 1)
+		var progress: float = 1.0 - actor.identity.roll_left / Outlaw.ROLL_SECONDS
+		if rolling:
+			progress = roll_clock.advance(Outlaw.ROLL_SECONDS - actor.identity.roll_left, delta,
+				actor.presentation_snapshot_serial, actor.motion_revision, Outlaw.ROLL_SECONDS) / Outlaw.ROLL_SECONDS
+		else:
+			progress = backflip_clock.advance(actor.identity.backflip_elapsed, delta,
+				actor.presentation_snapshot_serial, actor.motion_revision, Outlaw.BACKFLIP_AIRTIME) / Outlaw.BACKFLIP_AIRTIME
 		var animation: Animation = player.get_animation(clip_names.Roll)
 		player.seek(animation.length * (progress if rolling else BACKFLIP_ROLL_START * (1.0 - progress)), true)
 		special_blend.apply(delta)
