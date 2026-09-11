@@ -93,7 +93,7 @@ static func validate(game, a, spell: Dictionary, b) -> String:
 		if not ((a.identity.backflip_combo and backflip_airborne(a)) or a.identity.coin_left > 0):
 			return "Requires Backflip or Coin Toss combo"
 		if trickshot_mode(game, a, b).is_empty(): return "Combo shot is blocked by terrain"
-	if spell.kind in ["backflip", "roll", "deadeye"] and not a.is_on_floor():
+	if spell.kind in ["roll", "deadeye"] and not a.is_on_floor():
 		return "Land before using " + spell.name
 	return ""
 
@@ -247,7 +247,7 @@ static func roll_motion(game, a, delta: float) -> bool:
 		a.identity.roll_left = 0.0
 		a.identity.roll_animation_left = 0.0
 	if a.identity.roll_left <= 0 and a.identity.roll_distance > .01 and game.authoritative():
-		a.identity.instant_severe = 1.0
+		a.identity.instant_severe = 1.5
 	a.velocity.x = 0; a.velocity.z = 0
 	a.velocity.y -= 20 * delta
 	a.move_and_slide()

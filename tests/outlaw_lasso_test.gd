@@ -215,6 +215,47 @@ func airborne_immunity() -> void:
 	game.try_spell(1,11,2); step(.12)
 	ck(not game.CC.airborne_immune(a) and a.casting<0, "Landing cancels airborne windup and removes immunity")
 
+func ledges() -> void:
+	for side in [-1.0,1.0]:
+		for uphill in [false,true]:
+			await reset()
+			var lower:=Vector3(10*side,.025,0)
+			var upper:=Vector3(14*side,1.225,0)
+			a.position=lower if uphill else upper; b.position=upper if uphill else lower
+			a.velocity=Vector3.ZERO; b.velocity=Vector3.ZERO
+			a.look_at(Vector3(b.position.x,a.position.y,b.position.z))
+			for i in 10: game.simulate_movement(a,1.0/60); game.simulate_movement(b,1.0/60)
+			var label:="%s terrace %s" % ["Right" if side>0 else "Left","uphill" if uphill else "downhill"]
+			ck(game.try_spell(1,11,2),label+" accepts a visible target at another height")
+			var reached:=reach_phase("rebound")
+			ck(reached,label+" clears the ledge and completes the dropkick")
+			ck(a.identity.defense_detonation==1,label+" awards exactly one successful combo stack")
+			ck(not a.test_move(a.transform,Vector3.ZERO,null,.001,true),label+" never finishes inside terrain")
+			step(game.Outlaw.Lasso.REBOUND_TIME+.05)
+			ck(not game.Outlaw.Lasso.busy(a),label+" releases control after recovery")
+			var before: Vector3=a.position
+			a.move_input=Vector2(0,1); step(.2)
+			ck(a.position.distance_to(before)>.2,label+" can move away after recovery instead of sticking")
+	await reset()
+	a.position=Vector3(0,3,0); b.position=Vector3(0,.025,-.5)
+	a.velocity=Vector3.ZERO; game.simulate_movement(a,1.0/60)
+	a.identity.backflip_active=true; a.identity.backflip_combo=true
+	ck(game.try_spell(1,11,2),"Airborne Lasso can target almost straight down")
+	ck(reach_phase("rebound") and a.identity.defense_detonation==1,"Almost vertical descent completes one dropkick")
+	ck(not a.test_move(a.transform,Vector3.ZERO,null,.001,true),"Downward pull keeps the capsule above the floor")
+	await reset()
+	a.position=Vector3(10,.025,0); b.position=Vector3(14,1.225,0)
+	a.rotation.y=-PI/2; a.velocity=Vector3.ZERO; b.velocity=Vector3.ZERO
+	for i in 10: game.simulate_movement(a,1.0/60); game.simulate_movement(b,1.0/60)
+	var ceiling:=wall(Vector3(11.1,2.55,0),Vector3(1.8,.2,3))
+	await physics_frame
+	var blocked_start: Vector3=a.position
+	ck(game.try_spell(1,11,2) and reach_phase("rope"),"Rope can see beneath a ceiling that blocks full-body clearance")
+	step(.4)
+	ck(not game.Outlaw.Lasso.busy(a) and a.identity.defense_detonation==0 and b.stunned==0,"Insufficient headroom safely cancels without a free stack or stuck target")
+	ck(a.position.distance_to(blocked_start)<.01,"Blocked route leaves Outlaw at the safe departure position")
+	ceiling.queue_free(); await physics_frame
+
 func run() -> void:
 	game = load("res://arena.tscn").instantiate()
 	root.add_child(game); game.set_physics_process(false)
@@ -223,5 +264,6 @@ func run() -> void:
 	await controls_and_terrain()
 	await airborne_momentum()
 	await airborne_immunity()
+	await ledges()
 	print("Outlaw lasso checks: %d passed / %d total" % [checks-failures,checks])
 	quit(1 if failures else 0)

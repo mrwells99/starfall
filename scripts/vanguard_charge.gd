@@ -4,7 +4,7 @@ extends RefCounted
 # locally: advance() moves the capsule but never roots, damages or chooses targets.
 const SPEED := 32.0
 const STOP_DISTANCE := 1.8
-const ROOT_DURATION := 3.0
+const ROOT_DURATION := 1.5
 const REPATH_INTERVAL := .15
 const Layout = preload("res://scripts/arena_layout.gd")
 

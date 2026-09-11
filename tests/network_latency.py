@@ -1,0 +1,57 @@
+"""Bounded localhost UDP relay: delay ENet data and ACKs, so its RTT is real."""
+import heapq
+import select
+import socket
+import threading
+import time
+
+
+class LatencyRelay:
+    def __init__(self, listen_port, server_port, round_trip_ms):
+        self.server = ('127.0.0.1', server_port)
+        self.delay = round_trip_ms / 2000.0
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.socket.bind(('127.0.0.1', listen_port))
+        self.socket.setblocking(False)
+        self.stop = threading.Event()
+        self.error = None
+        self.thread = threading.Thread(target=self.run, daemon=True)
+
+    def __enter__(self):
+        self.thread.start()
+        return self
+
+    def run(self):
+        pending, client = [], None
+        try:
+            while not self.stop.is_set():
+                now = time.monotonic()
+                while pending and pending[0][0] <= now:
+                    _, packet, destination = heapq.heappop(pending)
+                    self.socket.sendto(packet, destination)
+                timeout = min(.01, max(0, pending[0][0] - now)) if pending else .01
+                if select.select([self.socket], [], [], timeout)[0]:
+                    try:
+                        packet, source = self.socket.recvfrom(65535)
+                    except ConnectionResetError:
+                        # Windows reports a late UDP packet to an exited peer as ICMP.
+                        continue
+                    if source == self.server:
+                        destination = client
+                    else:
+                        if client is not None and source != client:
+                            continue
+                        client, destination = source, self.server
+                    if destination is not None:
+                        if len(pending) >= 4096:
+                            raise RuntimeError('Test relay exceeded its packet queue bound')
+                        heapq.heappush(pending, (time.monotonic() + self.delay, packet, destination))
+        except Exception as error:
+            self.error = error
+
+    def __exit__(self, *_):
+        self.stop.set()
+        self.thread.join(timeout=2)
+        self.socket.close()
+        if self.error:
+            raise self.error

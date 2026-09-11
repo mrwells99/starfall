@@ -12,10 +12,13 @@ var airborne := false
 var flipped := false
 var protected_phases := {}
 var protection_ok := true
+var ledge := ""
 func _initialize() -> void:
 	host="--test-host" in OS.get_cmdline_user_args(); call_deferred("setup")
 func setup() -> void:
 	airborne="--test-air" in OS.get_cmdline_user_args()
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--test-ledge="): ledge=arg.get_slice("=",1)
 	arena=load("res://arena.tscn").instantiate(); arena.set_script(load("res://tests/network_fixture_arena.gd")); root.add_child(arena)
 	Engine.max_fps=60; arena.current_port=53196
 	arena.latency_ms=75 if "--test-latency" in OS.get_cmdline_user_args() else 0
@@ -40,10 +43,17 @@ func _process(delta: float) -> bool:
 		placed=true; a.position=Vector3(0,.025,4); b.position=Vector3(0,.025,-10)
 		if airborne: a.position.z=-3; b.position.z=-10
 		a.rotation.y=0; b.rotation.y=PI; a.motion_revision+=1; b.motion_revision+=1
+		if not ledge.is_empty():
+			a.position=Vector3(10,.025,0) if ledge=="up" else Vector3(14,1.225,0)
+			b.position=Vector3(14,1.225,0) if ledge=="up" else Vector3(10,.025,0)
+			a.rotation.y=-PI/2 if ledge=="up" else PI/2
 	if airborne and not host and not flipped and match_time>.7:
 		flipped=true; arena.send_action(arena.assignment.find(3))
 	if not host and not sent and match_time>.7:
 		if not airborne or (a.identity.backflip_active and a.identity.backflip_elapsed>=.2):
+			if not ledge.is_empty():
+				arena.local_yaw=-PI/2 if ledge=="up" else PI/2
+				arena.pivot.rotation.y=arena.local_yaw; a.rotation.y=arena.local_yaw
 			sent=true; arena.selected_id=b.actor_id; arena.send_action(arena.assignment.find(11))
 	var lasso: Dictionary=arena.Outlaw.Lasso.state(a)
 	if airborne and host and lasso.get("air",false) and not a.is_on_floor():

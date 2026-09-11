@@ -51,11 +51,11 @@ func severe_and_roll() -> void:
 	b.move_input = Vector2.ZERO; b.gcd = 0
 	game.try_spell(2, 5, -1); tick(b, 2.01)
 	ck(b.identity.severe_bleeds.is_empty(), "DPS Mend removes Severe")
-	var clear_floor := wall(Vector3(0,19.5,0), Vector3(30,1,30))
+	var clear_floor := wall(Vector3(0,39.5,0), Vector3(30,1,30))
 	await physics_frame
 	for direction in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT, Vector2(1,-1), Vector2(-1,-1), Vector2(1,1), Vector2(-1,1), Vector2.ZERO]:
 		await reset()
-		a.position = Vector3(0,20.025,0); a.velocity = Vector3.ZERO
+		a.position = Vector3(0,40.025,0); a.velocity = Vector3.ZERO
 		for i in 10: game.simulate_movement(a,.016)
 		a.move_input = direction.normalized()
 		var before: Vector3 = a.position
@@ -68,7 +68,7 @@ func severe_and_roll() -> void:
 		tick(a, game.Outlaw.ROLL_SECONDS-.1)
 		var displacement: Vector3 = a.position - before; displacement.y = 0
 		ck(displacement.distance_to(expected*7.8) < .08, "Roll travel %s: actual %s, expected %s" % [direction, displacement, expected*7.8])
-		ck(a.identity.instant_severe > .98 and a.identity.roll_left <= .00001, "Roll completion grants exactly a one-second instant Severe window")
+		ck(a.identity.instant_severe > 1.48 and a.identity.instant_severe<=1.5 and a.identity.roll_left <= .00001, "Roll completion grants a 1.5-second instant Severe window")
 		ck(absf(a.identity.roll_animation_left-(game.Outlaw.ROLL_PRESENTATION_SECONDS-game.Outlaw.ROLL_SECONDS))<.001,"Half-speed Roll keeps only the trimmed cosmetic recovery after unchanged travel and buff timing")
 	clear_floor.queue_free(); await physics_frame
 	await reset()
@@ -81,12 +81,14 @@ func severe_and_roll() -> void:
 	game.Outlaw.tick(game,a,.01)
 	ck(a.identity.roll_animation_left==0,"Instant Severe immediately cancels Roll's cosmetic recovery")
 	await reset()
-	a.identity.instant_severe = 1; b.position.z = -8
-	ck(not game.try_spell(1, 1, 2) and a.identity.instant_severe == 1, "Out-of-range Severe preserves the current buff window")
+	a.identity.instant_severe = 1.5; b.position.z = -8
+	ck(not game.try_spell(1, 1, 2) and a.identity.instant_severe == 1.5, "Out-of-range Severe preserves the current buff window")
 	game.Outlaw.tick(game, a, .6)
-	ck(is_equal_approx(a.identity.instant_severe, .4), "Failed attempts do not refresh the one-second timer")
+	ck(is_equal_approx(a.identity.instant_severe, .9), "Failed attempts do not refresh the 1.5-second timer")
+	game.Outlaw.tick(game, a, .5)
+	ck(is_equal_approx(a.identity.instant_severe,.4) and game.proc_ready(a,a.kit[1]),"Instant Severe remains available beyond the old one-second expiry")
 	game.Outlaw.tick(game, a, .4)
-	ck(a.identity.instant_severe <= .000001 and not game.proc_ready(a, a.kit[1]), "Instant Severe expires at one second")
+	ck(a.identity.instant_severe <= .000001 and not game.proc_ready(a, a.kit[1]), "Instant Severe expires at 1.5 seconds")
 	await reset()
 	var obstacle := wall(Vector3(2,1,0), Vector3(.3,2,4)); await physics_frame
 	a.move_input = Vector2.RIGHT; game.try_spell(1,6,-1); tick(a,game.Outlaw.ROLL_SECONDS)
@@ -236,7 +238,18 @@ func backflip_and_coin() -> void:
 	await reset()
 	a.position.y = 2; a.velocity.y = 0
 	game.simulate_movement(a,.001)
-	ck(not game.try_spell(1,3,-1), "Cannot restart Backflip at an airborne apex")
+	var airborne_origin: Vector3=a.position
+	ck(game.try_spell(1,3,-1), "Backflip can begin at an ordinary airborne apex")
+	ck(a.identity.backflip_active and a.identity.backflip_combo and is_equal_approx(a.velocity.y,game.Outlaw.BACKFLIP_SPEED) and a.position.y>=airborne_origin.y,"Airborne Backflip launches from the current position with its normal combo and upward impulse")
+	ck(not game.try_spell(1,3,-1) and a.cooldowns[3]>0,"The existing cooldown prevents repeatedly chaining airborne Backflips")
+	ck(game.CC.airborne_immune(a),"A jump-to-Backflip transition gains the usual airborne immunity")
+	await reset()
+	a.jump_queued=true; game.simulate_movement(a,1.0/60)
+	ck(not a.is_on_floor() and a.velocity.y>0,"Fixture starts an actual normal jump")
+	ck(game.try_spell(1,3,-1) and a.identity.backflip_active,"Backflip can take over while a normal jump is ascending")
+	await reset()
+	a.position.y=2; a.velocity.y=-2; game.simulate_movement(a,1.0/60)
+	ck(game.try_spell(1,3,-1) and is_equal_approx(a.velocity.y,game.Outlaw.BACKFLIP_SPEED),"Backflip can also launch during jump descent")
 	await reset()
 	ck(game.try_spell(1,7,-1), "Coin Toss is usable without a selected enemy")
 	game.Outlaw.tick(game,a,.5)
@@ -359,11 +372,11 @@ func severe_reach() -> void:
 func coin_momentum() -> void:
 	# Actual movement establishes launch velocity; a clear raised floor keeps
 	# arena pillars from obscuring distance and directional inheritance checks.
-	var floor_body := wall(Vector3(0,19.5,0),Vector3(80,1,80)); await physics_frame
+	var floor_body := wall(Vector3(0,39.5,0),Vector3(80,1,80)); await physics_frame
 	for yaw in [0.0,PI/2]:
 		for direction in [Vector2.ZERO,Vector2.UP,Vector2.DOWN,Vector2.RIGHT,Vector2(1,-1).normalized()]:
 			await reset()
-			a.position = Vector3(0,20.025,0); a.velocity = Vector3.ZERO
+			a.position = Vector3(0,40.025,0); a.velocity = Vector3.ZERO
 			a.rotation.y=yaw; a.move_input=direction
 			for frame in 10: game.simulate_movement(a,1.0/60)
 			var velocity: Vector3=a.velocity

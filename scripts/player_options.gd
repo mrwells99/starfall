@@ -2,6 +2,7 @@ extends RefCounted
 ## Local comfort and practice preferences, kept separate from combat authority.
 var game
 var sensitivity := 1.0
+var ads_sensitivity := 1.0
 var invert_y := false
 var reduced_effects := false
 var ui_scale := 1.0
@@ -17,7 +18,8 @@ var difficulty_choice: OptionButton
 var passive_toggle: CheckButton
 var offline_options: HBoxContainer
 var dialog: AcceptDialog
-var sensitivity_field: SpinBox
+var sensitivity_slider: HSlider
+var ads_sensitivity_slider: HSlider
 var scale_choice: OptionButton
 var invert_toggle: CheckButton
 var reduced_toggle: CheckButton
@@ -43,6 +45,8 @@ func install(arena) -> void:
 	offline_options.add_child(passive_toggle)
 	passive_toggle.toggled.connect(func(on): passive = on; save())
 	game.add_button(game.settings_row, "Comfort", open)
+	sensitivity_slider = add_sensitivity_slider(stack, "General sensitivity", "Mouse look outside aiming abilities.")
+	ads_sensitivity_slider = add_sensitivity_slider(stack, "Aiming sensitivity (ADS)", "Mouse look during aiming abilities, such as Defense Detonation. Independent of general sensitivity.")
 	dialog = AcceptDialog.new()
 	dialog.title = "Comfort settings"
 	dialog.ok_button_text = "Apply"
@@ -61,14 +65,6 @@ func install(arena) -> void:
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	column.add_theme_constant_override("separation", 16)
 	scroll.add_child(column)
-	game.add_label(column, "Mouse sensitivity", 16)
-	sensitivity_field = SpinBox.new()
-	sensitivity_field.min_value = 0.25
-	sensitivity_field.max_value = 3
-	sensitivity_field.step = 0.05
-	column.add_child(sensitivity_field)
-	sensitivity_field.get_line_edit().add_theme_stylebox_override("normal", game.ui_box(game.UI_VOID, game.UI_EDGE))
-	sensitivity_field.get_line_edit().add_theme_color_override("font_color", game.UI_TEXT)
 	invert_toggle = CheckButton.new()
 	invert_toggle.text = "Invert vertical mouse look"
 	column.add_child(invert_toggle)
@@ -95,8 +91,50 @@ func install(arena) -> void:
 	column.add_child(buffer_toggle)
 	game.add_label(column, "Autorun, walk, recenter, and mouse buttons are in Keybinds.", 14)
 	dialog.confirmed.connect(apply)
+
+func add_sensitivity_slider(stack: Control, title: String, hint: String) -> HSlider:
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 12)
+	stack.add_child(row)
+	stack.move_child(row, game.settings_extra[0].get_index())
+	game.settings_extra.append(row)
+	var label: Label = game.add_label(row, title, 16)
+	label.custom_minimum_size.x = 230
+	label.tooltip_text = hint
+	var slider := HSlider.new()
+	slider.min_value = .25
+	slider.max_value = 3.0
+	slider.step = .01
+	slider.value = 1.0
+	slider.custom_minimum_size = Vector2(230, 32)
+	slider.tooltip_text = hint
+	row.add_child(slider)
+	var value: Label = game.add_label(row, "1.00x", 16)
+	value.custom_minimum_size.x = 64
+	slider.value_changed.connect(func(amount): value.text = "%.2fx" % amount)
+	return slider
+
+func load_sensitivity(key: String, fallback: float) -> float:
+	var stored = game.config.get_value("comfort", key, fallback)
+	if not (stored is float or stored is int) or not is_finite(float(stored)): return fallback
+	return clampf(float(stored), .25, 3.0)
+
+func mouse_sensitivity(aiming := false) -> float:
+	return ads_sensitivity if aiming else sensitivity
+
+func apply_sensitivity() -> void:
+	sensitivity = sensitivity_slider.value
+	ads_sensitivity = ads_sensitivity_slider.value
+	game.config.set_value("comfort", "sensitivity", sensitivity)
+	game.config.set_value("comfort", "ads_sensitivity", ads_sensitivity)
+
 func load_preferences() -> void:
-	sensitivity = clampf(float(game.config.get_value("comfort", "sensitivity", 1.0)), 0.25, 3)
+	sensitivity = load_sensitivity("sensitivity", 1.0)
+	# Preserve existing aiming speed until the player sets a separate ADS value.
+	ads_sensitivity = load_sensitivity("ads_sensitivity", sensitivity)
+	sensitivity_slider.value = sensitivity
+	ads_sensitivity_slider.value = ads_sensitivity
 	invert_y = bool(game.config.get_value("comfort", "invert_y", false))
 	reduced_effects = bool(game.config.get_value("comfort", "reduced_effects", false))
 	ui_scale = float(game.config.get_value("comfort", "ui_scale", 1.0))
@@ -114,7 +152,6 @@ func open() -> void:
 	follow_toggle.button_pressed = camera_follow
 	buffer_toggle.button_pressed = jump_buffer
 	turn_field.value = rad_to_deg(turn_speed)
-	sensitivity_field.value = sensitivity
 	invert_toggle.button_pressed = invert_y
 	reduced_toggle.button_pressed = reduced_effects
 	scale_choice.select(SCALES.find(ui_scale))
@@ -123,14 +160,13 @@ func apply() -> void:
 	camera_follow = follow_toggle.button_pressed
 	jump_buffer = buffer_toggle.button_pressed
 	turn_speed = deg_to_rad(turn_field.value)
-	sensitivity = sensitivity_field.value
 	invert_y = invert_toggle.button_pressed
 	reduced_effects = reduced_toggle.button_pressed
 	ui_scale = SCALES[scale_choice.selected]
 	game.get_window().content_scale_factor = ui_scale
 	save()
 func save() -> void:
-	for field in ["sensitivity", "invert_y", "reduced_effects", "ui_scale", "camera_follow", "jump_buffer", "turn_speed"]:
+	for field in ["sensitivity", "ads_sensitivity", "invert_y", "reduced_effects", "ui_scale", "camera_follow", "jump_buffer", "turn_speed"]:
 		game.config.set_value("comfort", field, get(field))
 	game.config.set_value("practice", "difficulty", difficulty)
 	game.config.set_value("practice", "passive", passive)

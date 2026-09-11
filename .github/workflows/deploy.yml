@@ -141,6 +141,7 @@ jobs:
           ./tests/check_suite.sh "Outlaw aim preview checks" godot --headless --path . --script tests/outlaw_aim_test.gd
           ./tests/check_suite.sh "Outlaw detonation checks" godot --headless --path . --script tests/outlaw_detonation_test.gd
           ./tests/check_suite.sh "Outlaw detonation input checks" godot --headless --path . --script tests/outlaw_detonation_input_test.gd
+          ./tests/check_suite.sh "Sensitivity checks" godot --headless --path . --script tests/sensitivity_test.gd
           ./tests/check_suite.sh "Outlaw lasso checks" godot --headless --path . --script tests/outlaw_lasso_test.gd
           ./tests/check_suite.sh "Lasso pose checks" godot --headless --path . --script tests/lasso_pose_test.gd
 
@@ -168,8 +169,12 @@ jobs:
           python3 tests/run_ember_network.py --test-latency
           python3 tests/run_outlaw_network.py --test-latency
           python3 tests/run_detonation_network.py --test-latency
+          python3 tests/run_detonation_network.py --test-world --test-rtt-ms=138
+          python3 tests/run_detonation_network.py --test-world --test-rtt-ms=138 --test-miss
           python3 tests/run_lasso_network.py --test-latency
           python3 tests/run_lasso_network.py --test-latency --test-air
+          python3 tests/run_lasso_network.py --test-latency --test-ledge=up
+          python3 tests/run_lasso_network.py --test-latency --test-ledge=down
           python3 tests/run_aimed_network.py --test-latency
           python3 tests/run_six.py
           python3 tests/run_dedicated.py

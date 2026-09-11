@@ -89,6 +89,11 @@ func combat() -> void:
 	game.world_mode = true
 	check(shoot(direction()) and b.hp == 100,"World bystanders cannot be damaged without duel permission")
 	await reset()
+	game.world_mode = true; game.actors.erase(b.actor_id)
+	b.actor_id = -101; b.training_dummy = true; game.actors[b.actor_id] = b
+	step()
+	check(shoot(direction()) and b.hp == 88 and results.back().damage == 12,"World training-dummy IDs are valid hits rather than the no-hit sentinel")
+	await reset()
 	b.position.z = -25; step()
 	check(shoot(direction()) and b.hp == 100,"Server range cap prevents distant hits")
 	await reset()

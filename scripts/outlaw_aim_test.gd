@@ -140,7 +140,7 @@ func input(event: InputEvent) -> bool:
 		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed: request_fire()
 		return event.button_index in [MOUSE_BUTTON_LEFT,MOUSE_BUTTON_RIGHT,MOUSE_BUTTON_WHEEL_UP,MOUSE_BUTTON_WHEEL_DOWN]
 	if event is InputEventMouseMotion:
-		var sensitivity: float = .003 * game.player_options.sensitivity
+		var sensitivity: float = .003 * game.player_options.mouse_sensitivity(true)
 		game.pivot.rotation.y -= event.screen_relative.x * sensitivity
 		aim_pitch = clampf(aim_pitch-event.screen_relative.y*sensitivity*(-1 if game.player_options.invert_y else 1),-1.0,1.0)
 		return true

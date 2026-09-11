@@ -23,7 +23,9 @@ func _process(delta: float) -> bool:
 		push_error("Social peer timed out: observer=%s phase=%s actors=%s chat=%s duels=%s" % [observer, arena.phase, arena.actors.size(), arena.social.lines, arena.duels])
 		quit(1)
 	if arena == null or arena.phase != "match" or departing: return false
-	if own_body == null: own_body = arena.actors[arena.local_id]
+	if own_body == null:
+		own_body = arena.actors[arena.local_id]
+		print("SOCIAL PEER READY")
 	if arena.actors[arena.local_id] != own_body:
 		push_error("Late join rebuilt existing character")
 		quit(1)
@@ -41,7 +43,15 @@ func _process(delta: float) -> bool:
 		arena.social.submit("hello from peer")
 		accepted = true
 	if arena.duels.has(arena.local_id) and not saw_duel:
+		if arena.selected_id != arena.duels[arena.local_id]:
+			push_error("Accepted network duel did not automatically select its opponent")
+			quit(1)
+			return false
 		arena.selected_id = -100
+		if arena.selected_id != arena.duels[arena.local_id]:
+			push_error("Network duel allowed selecting a training dummy")
+			quit(1)
+			return false
 		var tab := InputEventKey.new()
 		tab.keycode = KEY_TAB
 		tab.physical_keycode = KEY_TAB

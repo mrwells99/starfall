@@ -8,6 +8,7 @@ const GRID_MAX := 17
 const BOUNDARY_THICKNESS := 0.7
 const BOUNDARY_HEIGHT := 3.0
 const COVER_BODY_SIZE := Vector3(4.4, 3.8, 2.8)
+const COVER_BLOCK_HEIGHT := 32.0 # Invisible pillar columns above all reachable jump/flip heights.
 const COVER_BASE_SIZE := Vector3(4.7, 0.4, 3.3)
 const COVER_CLEARANCE := Vector2i(3, 2)
 const TERRACE_INNER := 12.3

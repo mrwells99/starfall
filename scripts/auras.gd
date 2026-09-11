@@ -97,7 +97,7 @@ static func active(actor, sources: Array = [], local_source: int = -1) -> Array:
 		else:
 			out.append({"key": "backflip", "name": "Backflip", "kind": BUFF, "remaining": maxf(.01, 1.2 - identity.backflip_elapsed), "color": Color("92ceff"), "source": "Backflip", "description": "Immune to crowd control and displacement until landing. One airborne Trickshot opportunity."})
 	for proc in [
-		["instant_severe", "Instant Severe", "Roll", "Roll grants 1 second to use one instant Severe. Severe's range, cooldown and global cooldown still apply. Consumed on successful use."],
+		["instant_severe", "Instant Severe", "Roll", "Roll grants 1.5 seconds to use one instant Severe. Severe's range, cooldown and global cooldown still apply. Consumed on successful use."],
 		["instant_collapse", "Instant Collapse", "Collapse", "Inward grants 4s to cast one instant Collapse off the global cooldown. Collapse's own cooldown still applies. Consumed when used."],
 		["instant_graviton", "Instant Graviton", "Graviton", "A landed Collapse grants 4s to cast one instant Graviton. The global cooldown still applies. Consumed when used."],
 	]:
