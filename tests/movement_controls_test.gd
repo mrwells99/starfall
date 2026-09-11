@@ -39,6 +39,7 @@ func run() -> void:
 	var controls = game.movement_controls
 	var actor = game.actors[game.local_id]
 	var foe = game.actors[2]
+	check_shift_jump()
 	var motion := InputEventMouseMotion.new()
 	motion.relative = Vector2(900, 0)
 	motion.screen_relative = Vector2(50, 0)
@@ -234,3 +235,47 @@ func run() -> void:
 	check(game.pending_jump_id == 0 and game.jump_serial == 0 and not controls.autorun, "Round teardown clears transient movement")
 	print("Movement controls checks: %d passed / %d total" % [checks - failures, checks])
 	quit(1 if failures else 0)
+
+func check_shift_jump() -> void:
+	var bindings = game.controls
+	var saved_actions: Dictionary = bindings.actions.duplicate(true)
+	var saved_binds: Array = game.binds.duplicate()
+	var saved_secondary: Array = bindings.secondary.duplicate()
+	bindings.actions.jump = [KEY_SPACE, 0]
+	var chord := KEY_SPACE | KEY_MASK_SHIFT
+	var event := InputEventKey.new()
+	event.physical_keycode = KEY_SPACE
+	event.keycode = KEY_SPACE
+	event.pressed = true
+	event.shift_pressed = true
+	game.queued_jump = false
+	game._unhandled_input(event)
+	check(game.queued_jump, "Unbound Shift+Space still queues the normal Space jump")
+	check(bindings.matches_jump(game, KEY_SPACE), "Plain Space still jumps")
+	bindings.actions.walk[1] = chord
+	check(not bindings.matches_jump(game, chord), "Explicit secondary control binding prevents Shift jump fallback")
+	bindings.actions.walk[1] = 0
+	game.binds[0] = chord
+	check(not bindings.matches_jump(game, chord), "Explicit primary ability binding prevents Shift jump fallback")
+	game.binds[0] = saved_binds[0]
+	bindings.secondary[0] = chord
+	check(not bindings.matches_jump(game, chord), "Explicit secondary ability binding prevents Shift jump fallback")
+	bindings.secondary[0] = saved_secondary[0]
+	bindings.actions.jump = [0, chord]
+	check(bindings.matches_jump(game, chord) and not bindings.matches_jump(game, KEY_SPACE), "Explicit Shift+Space jump remains distinct from unbound Space")
+	bindings.actions.jump = [KEY_J, 0]
+	check(bindings.matches_jump(game, KEY_J | KEY_MASK_SHIFT) and not bindings.matches_jump(game, chord), "Shift fallback follows a rebound jump key")
+	bindings.actions.jump = [KEY_SPACE, 0]
+	check(not bindings.matches_jump(game, chord | KEY_MASK_CTRL), "Shift fallback does not discard other modifiers")
+	game.queued_jump = false
+	event.echo = true
+	game._unhandled_input(event)
+	check(not game.queued_jump, "Shift jump ignores key repeat")
+	event.echo = false
+	event.pressed = false
+	game._unhandled_input(event)
+	check(not game.queued_jump, "Shift jump ignores key release")
+	bindings.actions = saved_actions
+	game.binds.assign(saved_binds)
+	bindings.secondary = saved_secondary
+	game.queued_jump = false

@@ -2,14 +2,10 @@
 #
 # Starfall dedicated server.
 #
-# Strategy: this repo has no export_presets.cfg and no external assets — all
-# geometry is generated at runtime — so a Godot *export* would need ~1 GB of
-# export templates to produce a .pck that is essentially the source we already
-# have. Instead the image bundles the pinned Godot binary, the project source,
-# and a **pre-built import cache**. That gets the properties that actually
-# matter in production (immutable artifact, no writes to the project at run
-# time, no import race between the six server processes, fast start) without
-# the template download. See DEPLOYMENT.md for when to revisit this.
+# Bundle runtime project assets and a pre-built Godot import cache. Authoring
+# sources are excluded by .dockerignore; client downloads are served separately.
+# Set read-only permissions in the builder so the runtime image does not gain
+# a second copy of the whole project from a recursive chmod layer.
 
 ARG ROCKY_VERSION=9
 ARG GODOT_VERSION=4.5.1-stable
@@ -22,7 +18,7 @@ ARG GODOT_VERSION
 # GODOT_VERSION together; the build fails closed if they disagree.
 ARG GODOT_SHA512=5bccbed65a94b82c7c319fdb15719ee8113a6e503976cc54e16f1c61fe95f3d74e5e40b8449b5bb89ff7f424574c20af01a4f5ef08b389e4dc338b245185b0b9
 
-RUN dnf install -y --setopt=install_weak_deps=False unzip wget ca-certificates \
+RUN dnf install -y --setopt=install_weak_deps=False unzip wget ca-certificates fontconfig \
     && dnf clean all && rm -rf /var/cache/dnf
 
 WORKDIR /build
@@ -40,7 +36,8 @@ COPY . /opt/starfall
 # Build the import cache now so the runtime filesystem can stay read-only.
 RUN cd /opt/starfall \
     && HOME=/tmp godot --headless --path /opt/starfall --import \
-    && test -d /opt/starfall/.godot
+    && test -d /opt/starfall/.godot \
+    && chmod -R a-w /opt/starfall
 
 # ---------------------------------------------------------------- runtime ---
 FROM rockylinux/rockylinux:${ROCKY_VERSION}-minimal AS runtime
@@ -57,9 +54,6 @@ RUN groupadd --system --gid 10001 starfall \
 
 COPY --from=builder /usr/local/bin/godot /usr/local/bin/godot
 COPY --from=builder --chown=root:root /opt/starfall /opt/starfall
-
-# The project tree is read-only to the service account: the server only reads it.
-RUN chmod -R a-w /opt/starfall
 
 # Godot writes its user:// data and shader cache under HOME. Point it at a
 # tmpfs mount so the rest of the filesystem can stay read-only.

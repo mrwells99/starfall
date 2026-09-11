@@ -496,7 +496,7 @@ jobs:
             "${USER_NAME}@${HOST}:/opt/starfall/docker-compose.yml"
           scp -o StrictHostKeyChecking=yes deploy/publish_windows.py \
             "${USER_NAME}@${HOST}:/opt/starfall/"
-          scp -o StrictHostKeyChecking=yes deploy/Caddyfile deploy/enable-downloads.sh \
+          scp -o StrictHostKeyChecking=yes deploy/Caddyfile deploy/enable-downloads.sh deploy/install-retention.sh deploy/image_retention.py \
             "${USER_NAME}@${HOST}:/opt/starfall/deploy/"
 
       - name: Stage Windows release

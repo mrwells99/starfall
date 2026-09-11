@@ -105,6 +105,14 @@ func assign(game, action: String, column: int, code: int) -> String:
 func matches(action: String, code: int) -> bool:
 	return code != 0 and actions[action].has(code)
 
+# Holding Shift does not suppress Jump unless that exact chord is assigned.
+func matches_jump(game, code: int) -> bool:
+	if matches("jump", code): return true
+	if not code & KEY_MASK_SHIFT or not matches("jump", code & ~KEY_MASK_SHIFT): return false
+	for pair in actions.values():
+		if pair.has(code): return false
+	return not game.binds.has(code) and not secondary.has(code)
+
 func held(action: String) -> float:
 	for binding in actions[action]:
 		var code: int = binding & KEY_CODE_MASK

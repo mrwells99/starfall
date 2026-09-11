@@ -37,3 +37,12 @@ launcher/
 build/
 tools/release/
 export_presets.cfg
+
+# Authoring inputs are backed up in the repository, not deployed to servers.
+art_source/
+assets-source/
+Godot/
+Unity/
+Unreal Engine/
+.agents/
+.codex/
