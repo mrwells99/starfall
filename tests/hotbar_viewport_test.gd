@@ -25,12 +25,18 @@ func settle() -> void:
 
 func check_abilities(label: String) -> void:
 	var screen := Rect2(Vector2.ZERO, game.ui.size)
-	var count := 0
+	var expected: Array[int] = []
+	var kit: Array = preload("res://scripts/kits.gd").get_kit("Outlaw")
+	for ability in kit.size():
+		if kit[ability].kind != "unavailable": expected.append(ability)
+	var assigned: Array[int] = []
 	for slot in range(game.TOTAL_SLOTS):
-		if game.kit_slot(slot) < 0: continue
-		count += 1
+		var ability: int = game.kit_slot(slot)
+		if ability < 0: continue
+		assigned.append(ability)
 		check(game.ability_buttons[slot].is_visible_in_tree() and screen.encloses(game.ability_buttons[slot].get_global_rect()), label + ": ability %d is visible inside the viewport" % slot)
-	check(count == 10, label + ": all ten merged Outlaw abilities remain assigned")
+	assigned.sort()
+	check(assigned == expected, label + ": all %d available Outlaw abilities remain assigned exactly once" % expected.size())
 
 func run() -> void:
 	root.disable_3d = true
