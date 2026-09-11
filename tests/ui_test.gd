@@ -30,16 +30,19 @@ func mouse_button(point: Vector2, button: MouseButton, pressed: bool) -> void:
 	event.pressed = pressed
 	Input.parse_input_event(event)
 
-func shift_drag(from: Vector2, to: Vector2) -> void:
+func shift_drag(from: int, to: int) -> void:
 	for step in [[from, true], [to, false]]:
+		var point: Vector2 = arena.ability_buttons[step[0]].get_global_rect().get_center()
 		var e := InputEventMouseButton.new()
-		e.position = step[0]
-		e.global_position = step[0]
+		e.position = point
+		e.global_position = point
 		e.button_index = MOUSE_BUTTON_LEFT
 		e.pressed = step[1]
 		e.shift_pressed = true
-		point_mouse(step[0])
+		point_mouse(point)
 		arena.handle_shift_drag(e)
+		# Pressing reveals empty slots; let the containers place them before release.
+		await process_frame
 
 func click(point: Vector2) -> void:
 	point_mouse(point)
@@ -293,9 +296,12 @@ func run() -> void:
 	# --- extra action bars ----------------------------------------------------
 	check(arena.ability_buttons.size() == arena.TOTAL_SLOTS and arena.bar_roots.size() == arena.BAR_COUNT,
 		"Every bar is built")
-	var second: int = arena.BAR_SLOTS * 2
+	check(arena.kit_slot(arena.Kits.TRINKET_SLOT) == arena.Kits.TRINKET_SLOT
+		and arena.binds[arena.Kits.TRINKET_SLOT] == (KEY_1 | KEY_MASK_CTRL),
+		"Third bar starts with the shared trinket bound to Ctrl+1")
+	var second: int = arena.Kits.KIT_SIZE
 	check(arena.assignment[second] == -1 and arena.binds[second] == 0,
-		"Third bar starts empty and unbound")
+		"First unused slot starts empty and unbound")
 	check(arena.kit_slot(second) == -1, "An empty slot resolves to no ability")
 	# Dragging an ability from bar one onto bar two moves it there.
 	arena.swap_slots(0, second)
@@ -306,7 +312,9 @@ func run() -> void:
 	arena.finish_rebind(KEY_Z)
 	check(arena.binds[second] == KEY_Z, "A second-bar slot takes its own keybind")
 	arena.reset_layout()
-	check(arena.kit_slot(0) == 0 and arena.kit_slot(second) == -1, "Reset clears the extra bars")
+	check(arena.kit_slot(0) == 0 and arena.kit_slot(second) == -1
+		and arena.kit_slot(arena.Kits.TRINKET_SLOT) == arena.Kits.TRINKET_SLOT,
+		"Reset clears custom assignments and restores the shared trinket")
 
 	# --- class colours --------------------------------------------------------
 	var Kits = load("res://scripts/kits.gd")
@@ -369,10 +377,9 @@ func run() -> void:
 	arena.update_visuals(0)
 	arena.reset_layout()
 	check(not arena.edit_mode, "Shift-drag does not require edit mode")
-	var far: int = arena.BAR_SLOTS * 2
+	var far: int = arena.Kits.KIT_SIZE
 	var from_rect: Vector2 = arena.ability_buttons[0].get_global_rect().get_center()
-	var to_rect: Vector2 = arena.ability_buttons[far].get_global_rect().get_center()
-	shift_drag(from_rect, to_rect)
+	await shift_drag(0, far)
 	check(arena.kit_slot(far) == 0 and arena.kit_slot(0) == -1,
 		"Shift-dragging moves an ability onto another bar mid-match")
 	# Without shift the same drag must cast, not rearrange.
@@ -386,7 +393,7 @@ func run() -> void:
 	check(not arena.handle_shift_drag(plain), "A plain click is left alone for the ability to handle")
 
 	# Hovering a slot on another bar must not read past the end of the kit.
-	# With three bars there are 21 positions and 7 abilities, and a shift-drag
+	# With three bars there are more positions than abilities, and a shift-drag
 	# makes the empty ones visible — which is how this crashed.
 	arena.reset_layout()
 	# Leaving edit mode reopened the menu panel, and the tooltip is suppressed
@@ -394,6 +401,9 @@ func run() -> void:
 	arena.panel.hide()
 	arena.drag_slot = 0
 	arena.update_visuals(0)
+	# Revealing empty buttons queues a container layout; wait before reading
+	# their rectangles or the mouse can land over the occupied trinket slot.
+	await process_frame
 	var empty_slot := arena.ability_buttons[arena.BAR_SLOTS * 2 + 4] as Button
 	check(empty_slot.is_visible_in_tree(), "Empty slots are visible while dragging")
 	point_mouse(empty_slot.get_global_rect().get_center())
