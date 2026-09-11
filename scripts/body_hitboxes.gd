@@ -1,6 +1,7 @@
 extends RefCounted
 ## Damage volumes are independent of terrain/movement collision. Dimensions in meters.
 const PARTS := ["pelvis", "abdomen", "chest", "neck", "head", "shoulder.L", "upper_arm.L", "forearm.L", "hand.L", "thigh.L", "shin.L", "foot.L", "shoulder.R", "upper_arm.R", "forearm.R", "hand.R", "thigh.R", "shin.R", "foot.R"]
+const AIM_SCALE := Vector3(2.0, 1.25, 2.0)
 var rig: Skeleton3D
 var indices := {}
 var radii := PackedFloat32Array()
@@ -90,3 +91,15 @@ static func trace(origin: Vector3, direction: Vector3, limit: float, samples: Pa
 		if distance < closest:
 			closest = distance; part = i
 	return {"distance":closest,"part":PARTS[part],"position":origin+direction*closest} if part >= 0 else {}
+
+static func trace_aim(origin: Vector3, direction: Vector3, limit: float, samples: PackedVector3Array, sizes: PackedFloat32Array, root: Vector3) -> Dictionary:
+	# Scale the complete animated body around its feet. Inverse-transforming the
+	# ray preserves exact elliptical capsules without more shapes or history data.
+	var scaled_direction := direction / AIM_SCALE
+	var factor := scaled_direction.length()
+	if factor < .000001: return {}
+	var hit := trace(root + (origin-root)/AIM_SCALE, scaled_direction/factor, limit*factor, samples, sizes)
+	if hit.is_empty(): return hit
+	hit.distance /= factor
+	hit.position = origin + direction * hit.distance
+	return hit

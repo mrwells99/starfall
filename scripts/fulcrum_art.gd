@@ -103,8 +103,9 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
    transient_clip = "CastExit"; transient_left = player.get_animation(clip_names["CastExit"]).length
   if filtered_speed > 0.12:
    var local_motion := actor.global_basis.inverse() * displacement
-   var running := filtered_speed > 1.8
-   var sprinting := filtered_speed > 5.5
+   var forced_walk: bool = preload("res://scripts/outlaw_mechanics.gd").severe_slowed(actor)
+   var running := filtered_speed > 1.8 and not forced_walk
+   var sprinting := filtered_speed > 5.5 and not forced_walk
    var prefix := "Sprint" if sprinting else ("Run" if running else "Walk")
    # Eight sectors in actor-local space: forward, diagonals, sides, back.
    var angle := atan2(local_motion.x, -local_motion.z)

@@ -194,6 +194,7 @@ static func resolve(game, a, spell: Dictionary, b) -> bool:
 			b.stun_from = ""
 			b.identity.root = 0.0
 			b.identity.slow = 0.0
+			b.identity.severe_slow = 0.0
 			b.identity.disorient = false
 			if consume_star(a, b.actor_id):
 				b.identity.immune = 3.0
@@ -458,6 +459,8 @@ static func field_marker(a, node_name: String, tint: Color) -> MeshInstance3D:
 
 static func damage_multiplier(source, victim) -> float:
 	var multiplier := 0.4 if victim.shield > 0 else 1.0
+	if victim.champion == "Outlaw" and preload("res://scripts/outlaw_mechanics.gd").backflip_airborne(victim):
+		multiplier = minf(multiplier, .5)
 	if victim.identity.hold > 0 and (-victim.basis.z).dot((source.position - victim.position).normalized()) >= 0:
 		multiplier = minf(multiplier, 0.3)
 	return multiplier

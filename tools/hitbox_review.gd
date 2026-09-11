@@ -8,6 +8,8 @@ var actors := []
 var overlay: Node3D
 var view_labels := []
 var legend: Label
+var expanded := false
+var output := "res://artifacts/aimed-combat/review/"
 
 func _initialize() -> void: call_deferred("run")
 
@@ -39,6 +41,8 @@ func capsule(parent: Node3D, start: Vector3, end: Vector3, radius: float, head: 
 	item.add_child(wire)
 
 func run() -> void:
+	expanded = "--aim-expanded" in OS.get_cmdline_user_args()
+	if expanded: output = "res://artifacts/outlaw-balance-trinket-hitboxes/review/"
 	Engine.max_fps = 30
 	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS,true)
 	DisplayServer.window_set_current_screen(0)
@@ -61,7 +65,11 @@ func run() -> void:
 		var label := Label.new(); label.position = Vector2(400+side*790,132); label.text = "FRONT" if side == 0 else "SIDE"; label.add_theme_font_size_override("font_size",20); ui.add_child(label)
 		view_labels.append(label)
 	legend = Label.new(); legend.position = Vector2(45,914); legend.text = "CYAN · body      GOLD · head (same damage)\nOverlay is visible through clothing to show the actual volumes."; legend.add_theme_font_size_override("font_size",19); ui.add_child(legend)
-	DirAccess.make_dir_recursive_absolute("res://artifacts/aimed-combat/review")
+	if expanded:
+		camera.size = 3.7
+		subtitle.text = "AIMING VOLUMES  /  2x horizontal width and depth  /  1.25x height"
+		legend.text = "CYAN · body      GOLD · head (same damage)\nOnly aimed damage volumes are enlarged; character size and movement collision stay the same."
+	DirAccess.make_dir_recursive_absolute(output)
 	for title in ["Ember","Luminary","Fulcrum","Vanguard","Outlaw"]:
 		await show_class(title,"idle")
 		await capture(title.to_lower())
@@ -72,6 +80,7 @@ func run() -> void:
 	quit()
 
 func show_class(title: String, pose: String) -> void:
+	if expanded: camera.size = 4.2 if pose != "idle" else 3.7
 	for actor in actors: actor.free()
 	actors.clear()
 	if overlay != null: overlay.free()
@@ -79,7 +88,7 @@ func show_class(title: String, pose: String) -> void:
 	heading.text = title.to_upper()+"  /  "+pose.to_upper()
 	for side in 2:
 		var actor = load("res://scripts/combatant.gd").new(); stage.add_child(actor); actor.setup(side+1,1,0,title)
-		actor.position.x = 1.03 if side == 0 else -1.03
+		actor.position.x = (1.5 if expanded else 1.03) * (1 if side == 0 else -1)
 		actor.rotation.y = 0 if side == 0 else PI*.5
 		actor.health_pivot.hide(); actor.team_marker.hide(); actor.presentation_grounded = true
 		actors.append(actor)
@@ -94,28 +103,33 @@ func show_class(title: String, pose: String) -> void:
 				actor.champion_model.animate(1.0/60,actor)
 			actor.position.y = .65
 		actor.setup_hitboxes(); actor.body_hitboxes.update()
-		for i in Bodies.PARTS.size(): capsule(overlay,actor.body_hitboxes.points[i*2],actor.body_hitboxes.points[i*2+1],actor.body_hitboxes.radii[i],i == 4)
+		draw_body(actor)
 	await process_frame
 
 func capture(title: String) -> void:
 	await process_frame; await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("res://artifacts/aimed-combat/review/"+title+".png")
+	root.get_texture().get_image().save_png(output+title+".png")
+
+func draw_body(actor) -> void:
+	var group := Node3D.new(); overlay.add_child(group)
+	for i in Bodies.PARTS.size(): capsule(group,actor.body_hitboxes.points[i*2],actor.body_hitboxes.points[i*2+1],actor.body_hitboxes.radii[i],i == 4)
+	if expanded: group.transform = Transform3D(Basis.from_scale(Bodies.AIM_SCALE), actor.position-actor.position*Bodies.AIM_SCALE)
 
 func overview(ui: CanvasLayer) -> void:
 	for actor in actors: actor.free()
 	actors.clear(); overlay.free(); overlay = Node3D.new(); stage.add_child(overlay)
 	for label in view_labels: label.hide()
 	DisplayServer.window_set_size(Vector2i(1800,850)); root.content_scale_size = Vector2i(1800,850)
-	heading.text = "STARFALL  /  MAIN-BODY HITBOX FIT"
+	heading.text = "STARFALL  /  EXPANDED AIMING HITBOXES" if expanded else "STARFALL  /  MAIN-BODY HITBOX FIT"
 	legend.position.y = 776
-	camera.size = 3.05
+	camera.size = 4.8 if expanded else 3.05
 	for index in 5:
 		var title: String = ["Ember","Luminary","Fulcrum","Vanguard","Outlaw"][index]
 		var actor = load("res://scripts/combatant.gd").new(); stage.add_child(actor); actor.setup(index+1,1,0,title)
-		actor.position.x = 2.15-index*1.075; actor.health_pivot.hide(); actor.team_marker.hide(); actor.presentation_grounded = true
+		actor.position.x = (3.8-index*1.9) if expanded else (2.15-index*1.075); actor.health_pivot.hide(); actor.team_marker.hide(); actor.presentation_grounded = true
 		actors.append(actor)
 		for frame in 24: actor.champion_model.animate(1.0/60,actor)
 		actor.setup_hitboxes(); actor.body_hitboxes.update()
-		for i in Bodies.PARTS.size(): capsule(overlay,actor.body_hitboxes.points[i*2],actor.body_hitboxes.points[i*2+1],actor.body_hitboxes.radii[i],i == 4)
+		draw_body(actor)
 		var label := Label.new(); label.text = title.to_upper(); label.add_theme_font_size_override("font_size",21); label.position = Vector2(camera.unproject_position(actor.position).x-55,134); ui.add_child(label)
 	await process_frame

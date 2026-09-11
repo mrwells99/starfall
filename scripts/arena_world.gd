@@ -68,10 +68,9 @@ func _box_collision(pos: Vector3, size: Vector3) -> void:
 func _build_collision() -> void:
 	_box_collision(Vector3(0, -0.4, 0), Vector3(36, 0.8, 36))
 	for pos in Layout.cover_centers():
-		_box_collision(pos + Vector3.UP * 0.2, Layout.COVER_BASE_SIZE)
-		_box_collision(pos + Vector3.UP * Layout.COVER_BODY_SIZE.y * 0.5, Layout.COVER_BODY_SIZE)
-		var extension:=Layout.COVER_BLOCK_HEIGHT-Layout.COVER_BODY_SIZE.y
-		_box_collision(pos+Vector3.UP*(Layout.COVER_BODY_SIZE.y+extension*.5),Vector3(Layout.COVER_BODY_SIZE.x,extension,Layout.COVER_BODY_SIZE.z))
+		# One flush column fills the inset above the plinth. No lips or seams can
+		# catch a capsule during ordinary movement, Roll, Lasso or Charge.
+		_box_collision(pos + Vector3.UP * Layout.COVER_BLOCK_HEIGHT * .5, Vector3(Layout.COVER_BASE_SIZE.x, Layout.COVER_BLOCK_HEIGHT, Layout.COVER_BASE_SIZE.z))
 	for edge in [-Layout.HALF_EXTENT, Layout.HALF_EXTENT]:
 		_box_collision(Vector3(edge, 1.5, 0), Vector3(0.7, 3, 36.7))
 		_box_collision(Vector3(0, 1.5, edge), Vector3(36.7, 3, 0.7))

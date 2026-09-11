@@ -1,8 +1,8 @@
 # Class abilities
 
-Current implementation, September 10, 2026. Outlaw has eleven available abilities: Defense Detonation on Shift+2 owns shoulder aiming and fires an aimed burst on left-click; Lasso is on Shift+5. The separate Aim Test entry is retired and its old Shift+4 slot is empty. Fulcrum has twelve available abilities: Horizon and the direct Anchor stun are removed, with their old default key 3 and 4 slots left empty to preserve all other saved bindings. Gravity Anchor remains on Shift+1, Starfall on Shift+6 and Entropy on Shift+7. Ember, Vanguard and Luminary have twelve abilities, ending at Shift+5. All available slots can be rebound or moved in Edit HUD.
+Current implementation, September 10, 2026, version **0.11.1**. All five classes have thirteen available abilities, including **Trinket on Ctrl+1**. Outlaw adds **Boot Kick on Shift+6**; Defense Detonation remains Shift+2 and Lasso Shift+5. Its retired Aim Test slot stays empty. Fulcrum's removed Horizon and direct Anchor slots stay empty; Gravity Anchor, Starfall and Entropy retain Shift+1, Shift+6 and Shift+7. All available abilities can be moved or rebound in Edit HUD.
 
-Older saved layouts gain missing abilities in empty slots, or replace a duplicate slot if the bars are full. Existing primary, secondary, and action bindings take priority. Entropy receives Shift+7 only when that key is free; otherwise its migrated slot remains clickable and can be rebound in Settings. A custom binding already attached to that slot is retained.
+Older saved layouts gain missing abilities in empty slots, or replace a duplicate slot if the bars are full. Existing primary, secondary, and action bindings take priority. Entropy receives Shift+7 and Trinket receives Ctrl+1 only when the respective key is free; otherwise its migrated slot remains clickable and can be rebound in Settings. A custom binding already attached to that slot is retained.
 
 Range is the actual maximum distance to the selected target. Self-targeted abilities show their stored 0m range; their effect radii, anchor limits, or movement distances are listed separately. Cast times below are the ordinary values; the effect descriptions explain temporary instant-cast buffs. Outlaw's provisional cooldowns and unspecified tuning are documented in OUTLAW_CLASS.md.
 
@@ -22,6 +22,7 @@ Range is the actual maximum distance to the selected target. Self-targeted abili
 | Shift+3 | Cinderstep | Requires and spends 20 Heat. Dash 6m and leave a 5s burning trail that slows enemies by 45%. | Self (0.0 m) | Instant | 18.0s (off GCD) |
 | Shift+4 | Stoke | Generate 30 Heat. Maximum 100 Heat. | Self (0.0 m) | 1.5s | 12.0s |
 | Shift+5 | Burning Wake | Create a 5m burning field at your feet for 5s. It slows enemies by 45% and deals 4 damage each second. | Self (0.0 m) | Instant | 18.0s |
+| Ctrl+1 | Trinket | Instantly break your current stun. Does not remove other control or reset stun diminishing returns. | Self | Instant | 120s (off GCD) |
 
 ## Vanguard
 
@@ -39,6 +40,7 @@ Range is the actual maximum distance to the selected target. Self-targeted abili
 | Shift+3 | Challenge | For 6s, this enemy attacking your allies grants you 15 Resolve per hit, at most once per second. | 16.5 m | Instant | 16.0s |
 | Shift+4 | Earthsplitter | Deal 12 damage and stun enemies in a narrow 8m forward line for up to 1s. Shares stun diminishing returns. | 6.0 m | 0.7s | 18.0s |
 | Shift+5 | Unbroken | Spend 40 Resolve to gain 4s of 60% damage reduction. | Self (0.0 m) | Instant | 20.0s (off GCD) |
+| Ctrl+1 | Trinket | Instantly break your current stun. Does not remove other control or reset stun diminishing returns. | Self | Instant | 120s (off GCD) |
 
 ## Luminary
 
@@ -56,6 +58,7 @@ Range is the actual maximum distance to the selected target. Self-targeted abili
 | Shift+3 | Last Light | For 4s, the first lethal hit leaves the ally at 1 HP and consumes this protection. Further damage can kill. | 18.0 m | Instant | 45.0s (off GCD) |
 | Shift+4 | Mend | Restore up to 28.0 of your own health. For DPS classes, completing the cast also removes attached damage-over-time effects. Ground hazards can still hurt you. | Self (0.0 m) | 2.0s | 16.0s |
 | Shift+5 | Starfall | Deal 16 damage and heal each of your starred allies for 8 per star within 18m and line of sight. | 18.0 m | 1.5s | 12.0s |
+| Ctrl+1 | Trinket | Instantly break your current stun. Does not remove other control or reset stun diminishing returns. | Self | Instant | 120s (off GCD) |
 
 ## Fulcrum
 
@@ -73,28 +76,35 @@ Range is the actual maximum distance to the selected target. Self-targeted abili
 | Shift+5 | Collapse | Consume your anchor: deal 22 damage within 6m and root for up to 2s. At 75+ Meditation, stun for up to 3s instead; Meditation is not spent. Inward grants a 4s buff for one instant Collapse off the global cooldown, consumed on use. Its own cooldown still applies. Hitting an enemy grants a 4s buff for one instant Graviton, consumed on use. Works through line-of-sight blockers. Root and stun use separate diminishing returns. | Self (0.0 m) | 1.5s | 18.0s |
 | Shift+6 | Starfall | Requires at least 50 Meditation. After a 2s cast, spend all Meditation to deal 20 + 0.4 damage per Meditation (40–60) to enemies within 5m of the target. Interrupted casts spend nothing. | 18.0 m | 2.0s | 12.0s |
 | Shift+7 | Entropy | Instantly apply a 15s DoT: 2 damage and 5 Meditation each second. One stack per caster; reapplying refreshes without delaying the next tick. Meditation caps at 100. | 18.0 m | Instant | 0.0s |
+| Ctrl+1 | Trinket | Instantly break your current stun. Does not remove other control or reset stun diminishing returns. | Self | Instant | 120s (off GCD) |
 
 ## Outlaw
 
 | Key | Ability | Effect | Range | Cast | Cooldown |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Starshot | Cast while moving at 70% of your normal movement speed. Kicks cannot interrupt this cast or apply a lockout. Transmute starlight into a gunshot for 8 damage. Hard crowd control can still cancel it; range and line of sight are checked when it finishes. | 18.0 m | 0.7s | 0.0s |
-| 2 | Severe | Cast while moving normally; kicks cannot interrupt this cast or apply a lockout. Slash with your Bowie knife for 15% of the enemy's current health, rounded to a whole number. Apply a 5s bleed dealing 2 damage each second. One bleed per caster; reapplication refreshes it. Completing Roll grants a 1.5s buff for one instant Severe; its own cooldown and global cooldown still apply. | 3.3 m | 0.6s | 4.0s |
-| 3 | Trickshot | Instant, off-global-cooldown gunshot for 12 damage. Only usable once during Backflip's airborne combo or while your Coin Toss is still in flight. A coin shot ricochets from the coin to your selected enemy, requiring clear paths to the coin and from the coin to the enemy. A landed combo grants one Defense Detonation stack, up to 3. | 18.0 m | Instant | 0.0s (off GCD) |
-| 4 | Backflip | Leap backward about 8.6m with a 2.8m rise on level ground, stopping at terrain. Deals no damage. While airborne, become immune to crowd control and forced movement and gain one opportunity to cast Trickshot. The combo window and immunity end when you land. Off the global cooldown. | Self (0.0 m) | Instant | 12.0s (off GCD) |
-| 5 | Ward | Take 60% less damage for 5.0 seconds. | Self (0.0 m) | Instant | 22.0s (off GCD) |
-| 6 | Mend | Restore up to 28.0 of your own health. For DPS classes, completing the cast also removes attached damage-over-time effects. Ground hazards can still hurt you. | Self (0.0 m) | 2.0s | 16.0s |
-| 7 | Roll | Roll up to 7.8m over approximately 0.48s in your movement-input direction, including diagonals; with no movement input, roll along camera heading. Stops at terrain. Completing the roll grants a 1.5s buff for one instant Severe. Off the global cooldown. | Self (0.0 m) | Instant | 10.0s (off GCD) |
-| Shift+1 | Coin Toss | Toss a visible coin along camera heading in a 1.8s arc, adding your movement velocity at release so a forward throw stays ahead while running. While it remains airborne, Trickshot can shoot it and ricochet into an enemy behind your own line-of-sight cover. Both bullet paths must be clear; the coin stops at solid terrain. Tossing alone deals no damage or resource gain. | Self (0.0 m) | Instant | 14.0s |
-| Shift+2 | Defense Detonation | Raise your gun and aim over your right shoulder. Left-click to spend all available stacks (1 to 3) and fire an aimed burst, 0.13s between shots. Each shot traces the center crosshair for 18m and deals 10% maximum health on a body hit; misses still spend their stack. Move and adjust aim between shots with light recoil. No cast time; firing uses the global cooldown. Aiming ends after the last shot. Use this ability again to leave without firing. | Self (0.0 m) | Instant | 0.0s (off GCD) |
-| Shift+3 | Deadeye | Automatically mark every enemy without selecting a target. Wind up for 3s while limited to walking, then hit marked enemies still within 18m and clear line of sight for 40% of their maximum health. Cover is checked at completion. Kicks cannot interrupt it or apply a lockout. Cannot jump during the windup. 90s cooldown, refunded if the cast is interrupted or cancelled before completion. | 18 m sight at completion | 3.0s | 90.0s |
-| Shift+5 | Lasso | Swing a celestial lasso during a 0.7s mobile, unkickable cast. The rope flies to the target, then pulls you into a dropkick, stunning them during your approach. Knock them back up to 3m and down for 1.5s; rebound 2m away in approximately 0.44s. Stun diminishing returns apply once to the combo. Landing the dropkick grants one Defense Detonation stack. During Backflip, backward drift slows to 25% and descent slows through windup and rope flight. Failure restores normal airborne momentum; landing before cast completion cancels it. The airborne Lasso combo retains immunity to crowd control and displacement. Terrain stops travel. Deals no damage. | 18.0 m | 0.7s | 20.0s |
+| 1 | Starshot | Fire for 8 damage. Unkickable; cast while moving 30% slower. | 18m | 0.7s | 0s |
+| 2 | Severe | Slash for 20% current health. Bleed for 2 damage each second for 5s and slow by 60% for 6s. Unkickable; cast while moving. Instant for 1.5s after Roll. | 3.3m | 0.6s | 4s |
+| 3 | Trickshot | Deal 18 damage during airborne Backflip or a flying Coin Toss. Coin shots ricochet around cover through clear paths. One use per combo; a hit grants 1 Defense Detonation stack (max 3). | 18m | Instant | 0s (off GCD) |
+| 4 | Backflip | Leap backward; usable while jumping. While airborne: 50% less damage, CC immunity, and one Trickshot opportunity. Ends on landing. | Self | Instant | 12s (off GCD) |
+| 5 | Ward | Take 60% less damage for 5.0 seconds. | Self | Instant | 22s (off GCD) |
+| 6 | Mend | Heal 28 health and remove attached bleeds and damage-over-time effects. | Self | 2s | 16s |
+| 7 | Roll | Roll 7.8m in your movement direction; camera-forward if stationary. Gain 25% move speed for 5s and one instant Severe for 1.5s on completion, even against a wall. | Self | Instant | 10s (off GCD) |
+| Shift+1 | Coin Toss | Throw a coin for up to 1.8s, carrying your momentum. Trickshot can ricochet from it around cover. Terrain or a successful shot ends the combo. | Self | Instant | 14s |
+| Shift+2 | Defense Detonation | Aim over your shoulder. Left-click spends all stacks (1–3), firing every 0.13s for 10% maximum health per hit. Misses spend stacks. Firing uses GCD; last shot exits aim. Press again to cancel. | Self | Instant | 0s (off GCD) |
+| Shift+3 | Deadeye | Mark all enemies. Walk during an unkickable 3s cast; hit those within 18m and clear sight at completion for 40% maximum health. Cannot jump. Interrupted casts refund cooldown. | 18m sight at completion | 3s | 90s |
+| Shift+5 | Lasso | Unkickable moving cast: lasso into a dropkick, stun during travel, then knock back and knock down for 1.5s. Rebound; gain 1 Defense Detonation stack. Usable during Backflip with slowed drift and CC immunity; landing cancels the cast. | 18m | 0.7s | 20s |
+| Shift+6 | Boot Kick | Interrupt a cast within 3m and lock out spells for 4s. | 3m | Instant | 12s (off GCD) |
+| Ctrl+1 | Trinket | Break your current stun instantly. Usable while stunned; 2-minute cooldown. | Self | Instant | 120s (off GCD) |
 
 ## Shared rules
 
 Accepted world duels and 1v1 arenas automatically select and lock the opponent. Clicks, target cycling, party/focus shortcuts and Escape cannot switch or clear that selection; Escape can still open the menu. Hostile action targets are also pinned by the authority. Self/helpful abilities retain their normal self fallback. During a world duel, attacks cannot damage unrelated players or training dummies; free world selection resumes when the duel ends. 3v3 retains free targeting.
 
-The four pillar collision columns extend invisibly to 32m above the arena floor, preventing players from reaching or standing on pillar tops. The visible pillar models are unchanged. The same collision applies on clients and dedicated servers.
+Each pillar now uses one flush collision column matching its outer base footprint from the floor to 32m. This fills the recessed collision lip and removes seams that could catch movement, Roll, Lasso or Charge. The visible stone remains unchanged; clients and servers use identical collision.
+
+Aimed attacks use each character's animated body hitboxes expanded to **2× horizontal width/depth and 1.25× height**, around the character's feet. Movement capsules, anatomy, cloth/weapon exclusions and base hitbox rigs are unchanged. The camera preview and server rewind trace use the same expansion.
+
+Trinket breaks the stun category only, including Lasso knockdown, instantly and off GCD. It works through stun, silence and spell lockout, but cannot be spent while unstunned or dead. Roots, slows, other control and stun diminishing returns remain. Its cooldown is 120s. Both client and server must run version 0.11.1 for this kit and aiming-volume update.
 
 Base positive cast ranges are reduced by 25%, rounded to the nearest 0.5m, and capped at 18m. Severe then receives its explicit 10% increase from 3m to 3.3m, without another rounding pass. Opposing arena spawn lines are 20m apart, so direct targeted spells cannot reach the opposing spawn at the start. This does not prevent self abilities or change separately specified effect radii and displacement distances. Luminary healing links and Intercede's ongoing protection require allies within 18m and line of sight.
 

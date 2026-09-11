@@ -147,7 +147,7 @@ func override_clip(desired: String, alive: bool, stunned: bool, _delta: float) -
 		if filtered_speed <= .12: return "Idle"
 		var sector := posmod(roundi(atan2(step_motion.x, -step_motion.z) / (PI / 4)), 8)
 		var suffixes := ["", "ForwardRight", "Right", "BackwardRight", "Backward", "BackwardLeft", "Left", "ForwardLeft"]
-		var prefix := "Walk" if sector in [3, 4, 5] or spell_kind == "deadeye" or active_actor.walking else "Run"
+		var prefix := "Walk" if sector in [3, 4, 5] or spell_kind == "deadeye" or active_actor.walking or Outlaw.severe_slowed(active_actor) else "Run"
 		# Forge v2 names the two sideways walking clips StrafeLeft/StrafeRight.
 		if prefix == "Walk" and sector in [2, 6]: return "StrafeRight" if sector == 2 else "StrafeLeft"
 		return prefix + suffixes[sector]

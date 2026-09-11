@@ -1,8 +1,9 @@
 extends RefCounted
 
-const SELF_KINDS := ["shield", "self_heal", "blink", "sprint", "cinder", "stoke", "wake", "hold", "unbroken", "anchor", "orbit", "collapse", "flare_cc", "roll", "backflip", "coin_toss", "deadeye", "defense_detonation"]
+const SELF_KINDS := ["shield", "self_heal", "blink", "sprint", "cinder", "stoke", "wake", "hold", "unbroken", "anchor", "orbit", "collapse", "flare_cc", "roll", "backflip", "coin_toss", "deadeye", "defense_detonation", "trinket"]
 const ALLY_KINDS := ["heal", "ally_shield", "dispel", "falling", "absolution", "stitch", "star", "pilgrim", "last", "intercede", "swap"]
-const KIT_SIZE := 14 # Fulcrum includes Entropy; other kits have twelve.
+const KIT_SIZE := 15
+const TRINKET_SLOT := 14 # Shared slot; preserve all existing class indices.
 const MAX_CAST_RANGE := 18.0
 const RANGE_SCALE := 0.75
 const STARFALL_RADIUS := 5.0
@@ -33,12 +34,19 @@ static func spell(title: String, kind: String, power: float, reach: float, cast:
 	return {"name": title, "kind": kind, "power": power, "range": cast_range, "cast": cast, "cd": cd, "off": off}
 
 static func get_kit(champion: String) -> Array:
+	var kit := class_kit(champion)
+	while kit.size() < TRINKET_SLOT:
+		kit.append(spell("", "unavailable", 0, 0, 0, 0, true).merged({"local_only": true}))
+	kit.append(spell("Trinket", "trinket", 0, 0, 0, 120, true))
+	return kit
+
+static func class_kit(champion: String) -> Array:
 	if champion == "Outlaw":
 		return [
 			spell("Starshot", "starshot", 8, 24, .7, 0),
 			# Apply the 10% increase after the shared half-metre range rounding.
-			spell("Severe", "severe", 15, 4, .6, 4).merged({"range": 3.0 * 1.1}, true),
-			spell("Trickshot", "trickshot", 12, 24, 0, 0, true),
+			spell("Severe", "severe", 20, 4, .6, 4).merged({"range": 3.0 * 1.1}, true),
+			spell("Trickshot", "trickshot", 18, 24, 0, 0, true),
 			spell("Backflip", "backflip", 12, 0, 0, 12, true),
 			spell("Ward", "shield", 5, 0, 0, 22, true),
 			spell("Mend", "self_heal", 28, 0, 2, 16),
@@ -50,6 +58,7 @@ static func get_kit(champion: String) -> Array:
 			# Retired Aim Test slot keeps saved layouts and snapshot indices stable.
 			spell("", "unavailable", 0, 0, 0, 0, true).merged({"local_only": true}),
 			spell("Lasso", "lasso", 0, 24, .7, 20),
+			spell("Boot Kick", "interrupt", 4, 4, 0, 12, true),
 		]
 	var kit := [
 		spell("Firebolt", "damage", 16, 28, 1.5, 0),
@@ -128,15 +137,15 @@ static func get_kit(champion: String) -> Array:
 # Numeric effects use the same kit dictionaries that the simulation reads.
 static func summary(ability: Dictionary) -> String:
 	var concepts := {
-		"starshot": "Cast while moving at 70% of your normal movement speed. Kicks cannot interrupt this cast or apply a lockout. Transmute starlight into a gunshot for 8 damage. Hard crowd control can still cancel it; range and line of sight are checked when it finishes.",
-		"lasso": "Swing a celestial lasso during a 0.7s mobile, unkickable cast. The rope flies to the target, then pulls you into a dropkick, stunning them during your approach. Knock them back up to 3m and down for 1.5s; rebound 2m away in approximately 0.44s. Stun diminishing returns apply once to the combo. Landing the dropkick grants one Defense Detonation stack. During Backflip, backward drift slows to 25% and descent slows through windup and rope flight. Failure restores normal airborne momentum; landing before cast completion cancels it. The airborne Lasso combo retains immunity to crowd control and displacement. Terrain stops travel. Deals no damage.",
-		"severe": "Cast while moving normally; kicks cannot interrupt this cast or apply a lockout. Slash with your Bowie knife for 15% of the enemy's current health, rounded to a whole number. Apply a 5s bleed dealing 2 damage each second. One bleed per caster; reapplication refreshes it. Completing Roll grants a 1.5s buff for one instant Severe; its own cooldown and global cooldown still apply.",
-		"trickshot": "Instant, off-global-cooldown gunshot for 12 damage. Only usable once during Backflip's airborne combo or while your Coin Toss is still in flight. A coin shot ricochets from the coin to your selected enemy, requiring clear paths to the coin and from the coin to the enemy. A landed combo grants one Defense Detonation stack, up to 3.",
-		"roll": "Roll up to 7.8m over approximately 0.48s in your movement-input direction, including diagonals; with no movement input, roll along camera heading. Stops at terrain. Completing the roll grants a 1.5s buff for one instant Severe. Off the global cooldown.",
-		"backflip": "Leap backward about 8.6m with a 2.8m rise on level ground, stopping at terrain. Usable during a normal jump. Deals no damage. While airborne, become immune to crowd control and forced movement and gain one opportunity to cast Trickshot. The combo window and immunity end when you land. Off the global cooldown.",
-		"coin_toss": "Toss a visible coin along camera heading in a 1.8s arc, adding your movement velocity at release so a forward throw stays ahead while running. While it remains airborne, Trickshot can shoot it and ricochet into an enemy behind your own line-of-sight cover. Both bullet paths must be clear; the coin stops at solid terrain. Tossing alone deals no damage or resource gain.",
-		"defense_detonation": "Raise your gun and aim over your right shoulder. Left-click to spend all available stacks (1 to 3) and fire an aimed burst, 0.13s between shots. Each shot traces the center crosshair for 18m and deals 10% maximum health on a body hit; misses still spend their stack. Move and adjust aim between shots with light recoil. No cast time; firing uses the global cooldown. Aiming ends after the last shot. Use this ability again to leave without firing.",
-		"deadeye": "Automatically mark every enemy without selecting a target. Wind up for 3s while limited to walking, then hit marked enemies still within 18m and clear line of sight for 40% of their maximum health. Cover is checked at completion. Kicks cannot interrupt it or apply a lockout. Cannot jump during the windup. 90s cooldown, refunded if the cast is interrupted or cancelled before completion.",
+		"starshot": "Fire for 8 damage. Unkickable; cast while moving 30% slower.",
+		"lasso": "Unkickable moving cast: lasso into a dropkick, stun during travel, then knock back and knock down for 1.5s. Rebound; gain 1 Defense Detonation stack. Usable during Backflip with slowed drift and CC immunity; landing cancels the cast.",
+		"severe": "Slash for 20% current health. Bleed for 2 damage each second for 5s and slow by 60% for 6s. Unkickable; cast while moving. Instant for 1.5s after Roll.",
+		"trickshot": "Deal 18 damage during airborne Backflip or a flying Coin Toss. Coin shots ricochet around cover through clear paths. One use per combo; a hit grants 1 Defense Detonation stack (max 3).",
+		"roll": "Roll 7.8m in your movement direction; camera-forward if stationary. Gain 25% move speed for 5s and one instant Severe for 1.5s on completion, even against a wall.",
+		"backflip": "Leap backward; usable while jumping. While airborne: 50% less damage, CC immunity, and one Trickshot opportunity. Ends on landing.",
+		"coin_toss": "Throw a coin for up to 1.8s, carrying your momentum. Trickshot can ricochet from it around cover. Terrain or a successful shot ends the combo.",
+		"defense_detonation": "Aim over your shoulder. Left-click spends all stacks (1–3), firing every 0.13s for 10% maximum health per hit. Misses spend stacks. Firing uses GCD; last shot exits aim. Press again to cancel.",
+		"deadeye": "Mark all enemies. Walk during an unkickable 3s cast; hit those within 18m and clear sight at completion for 40% maximum health. Cannot jump. Interrupted casts refund cooldown.",
 		"kindle": "Deal 16 damage. Gain 20 Heat and add a brand (up to 3) for 10s.",
 		"flashpoint": "Consume your brands: 12 + 6 damage per brand. Three brands also deal 10 splash damage within 5m. Gain 10 Heat.",
 		"nova": "Requires 40 Heat. Consume all Heat: 18 + 0.4 damage per Heat to enemies within 5m of the target.",
@@ -171,6 +180,8 @@ static func summary(ability: Dictionary) -> String:
 	if concepts.has(ability.kind):
 		return concepts[ability.kind]
 	match ability.kind:
+		"trinket":
+			return "Break your current stun instantly. Usable while stunned; 2-minute cooldown."
 		"damage":
 			return "Deal %s damage to an enemy." % ability.power
 		"heal":
@@ -199,11 +210,15 @@ static func summary(ability: Dictionary) -> String:
 
 static func description(ability: Dictionary, champion: String) -> String:
 	var self_only: bool = ability.kind in SELF_KINDS
-	var lines: Array[String] = [ability.name, "", summary(ability), ""]
+	var effect := summary(ability)
+	if champion == "Outlaw":
+		if ability.kind == "self_heal": effect = "Heal 28 health and remove attached bleeds and damage-over-time effects."
+		elif ability.kind == "interrupt": effect = "Interrupt a cast within 3m and lock out spells for 4s."
+	var lines: Array[String] = [ability.name, "", effect, ""]
 	lines.append("%s  ·  Range %s" % [
 		"Instant" if ability.cast <= 0 else "%ss cast" % ability.cast,
 		"4 m cone" if ability.kind == "flare_cc" else ("Self" if self_only else "%s m" % ability.range)])
-	lines.append("%s %s  ·  Cost: see effect" % ["Charge recharge" if ability.kind == "blink" else "Cooldown", "None" if ability.cd <= 0 else "%ss" % ability.cd])
+	lines.append("%s %s%s" % ["Charge recharge" if ability.kind == "blink" else "Cooldown", "None" if ability.cd <= 0 else "%ss" % ability.cd, "" if champion == "Outlaw" else "  ·  Cost: see effect"])
 	# Only worth a line when it is the exception: most abilities trigger the GCD.
 	if ability.off:
 		lines.append("Off the global cooldown.")

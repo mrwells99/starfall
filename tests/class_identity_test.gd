@@ -124,7 +124,7 @@ func run() -> void:
 	for champion in arena.Kits.NAMES:
 		await reset(champion)
 		a = arena.actors[1]
-		check(a.kit.size() == {"Fulcrum":14,"Outlaw":11}.get(champion,12) and a.cooldowns.size() == a.kit.size(), champion + " has the supported slot count")
+		check(a.kit.size() == arena.Kits.KIT_SIZE and a.cooldowns.size() == a.kit.size(), champion + " has the supported slot count")
 		for ability in a.kit:
 			if ability.kind == "unavailable": continue
 			check(arena.AbilityArt.texture_for(ability.name, champion) != null, ability.name + " has an icon")

@@ -136,6 +136,7 @@ jobs:
       - name: Outlaw combos and character presentation
         run: |
           ./tests/check_suite.sh "Outlaw ability checks" godot --headless --path . --script tests/outlaw_abilities_test.gd
+          ./tests/check_suite.sh "Outlaw balance checks" godot --headless --path . --script tests/outlaw_balance_test.gd
           ./tests/check_suite.sh "Outlaw presentation checks" godot --headless --path . --script tests/outlaw_presentation_test.gd
           ./tests/check_suite.sh "Outlaw local match checks" godot --headless --path . --script tests/outlaw_local_match_test.gd
           ./tests/check_suite.sh "Outlaw aim preview checks" godot --headless --path . --script tests/outlaw_aim_test.gd
@@ -154,6 +155,7 @@ jobs:
       - name: Body hitbox fit and aimed cooldown foundation
         run: |
           ./tests/check_suite.sh "Hitbox pose checks" godot --headless --path . --script tests/hitbox_pose_test.gd
+          ./tests/check_suite.sh "Expanded hitbox checks" godot --headless --path . --script tests/expanded_hitboxes_test.gd
           ./tests/check_suite.sh "Aimed combat checks" godot --headless --path . --script tests/aimed_combat_test.gd
 
       # These bind fixed UDP ports and must not overlap — hence one step, in order.
@@ -175,6 +177,7 @@ jobs:
           python3 tests/run_lasso_network.py --test-latency --test-air
           python3 tests/run_lasso_network.py --test-latency --test-ledge=up
           python3 tests/run_lasso_network.py --test-latency --test-ledge=down
+          python3 tests/run_trinket_network.py
           python3 tests/run_aimed_network.py --test-latency
           python3 tests/run_six.py
           python3 tests/run_dedicated.py
