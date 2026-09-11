@@ -35,11 +35,17 @@ func run() -> void:
 	arena = load("res://arena.tscn").instantiate()
 	root.add_child(arena)
 	arena.set_physics_process(false)
+	# Team arenas retain free targeting; 1v1 arenas lock onto their opponent.
+	await reset("Ember", 3)
+	check(not arena.try_spell(1, 0, -1), "Offensive spells require a target in 3v3")
 	await reset()
 	var player = arena.actors[1]
 	var enemy = arena.actors[2]
 	check(arena.validate_spell(player, 0, 2).is_empty(), "Open enemy in range is valid")
-	check(not arena.try_spell(1, 0, -1), "Offensive spells require target")
+	check(arena.try_spell(1, 0, -1) and player.casting == 0 and player.cast_target == enemy.actor_id,
+		"1v1 offensive casts use the locked opponent when no target is supplied")
+	# Clear the accepted cast so the next denial specifically tests facing.
+	arena.cancel_own_cast(player, "")
 	player.rotation.y = PI
 	check(not arena.try_spell(1, 0, 2), "Facing is enforced")
 	player.rotation.y = 0
@@ -95,7 +101,7 @@ func run() -> void:
 	enemy = arena.actors[2]
 	check(not arena.try_spell(1, 0, 2), "Melee rejects distant target")
 	check(arena.try_spell(1, 6, 2), "Charge available at range")
-	check(enemy.identity.root == 3 and enemy.hp == 100, "Charge roots immediately and defers damage until arrival")
+	check(enemy.identity.root == 1.5 and enemy.hp == 100, "Charge roots for 1.5 seconds immediately and defers damage until arrival")
 	for frame in range(90):
 		if player.charge.is_empty(): break
 		arena.tick_actor(player, 1.0 / 60.0)
