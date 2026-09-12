@@ -131,7 +131,9 @@ bpy.ops.import_scene.gltf(filepath=str(SEED/'art_source/fulcrum_ual/AnimationLib
 source_rig=next(o for o in bpy.data.objects if o not in before and o.type=='ARMATURE')
 source_actions={a.name:a for a in bpy.data.actions if a not in existing}
 print('NULL_AVAILABLE_SOURCE_CLIPS',list(source_actions),flush=True)
-extra_clips={'KnifeStrike':'Sword_Attack'}
+# Sword_Attack reads poorly with Null's reverse-gripped pair. Punch_Cross gives
+# both blades a compact, committed cross-cut without touching the v2 base clips.
+extra_clips={'KnifeStrike':'Punch_Cross'}
 for label,words in [('StealthIdle',['crouch','idle']),('StealthWalk',['crouch','fwd'])]:
     names=[n for n in source_actions if all(w in n.lower() for w in words)]
     if not names and label=='StealthWalk':names=[n for n in source_actions if 'crouch' in n.lower() and 'walk' in n.lower()]

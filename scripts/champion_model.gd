@@ -30,6 +30,7 @@ const OutlawArt = preload("res://scripts/outlaw_art.gd")
 var outlaw_art: RefCounted
 const NullArt = preload("res://scripts/null_art.gd")
 var null_art: RefCounted
+var mend_regen_effect: Node3D
 
 func paint(hex: String, luminous: bool = false, metal: float = 0.0) -> StandardMaterial3D:
 	var mat := StandardMaterial3D.new()
@@ -119,22 +120,27 @@ func build(champion: String, team_color: Color) -> void:
 	if champion == "Outlaw":
 		outlaw_art = OutlawArt.new()
 		outlaw_art.build(self, team_color)
+		_install_mend_regen_effect()
 		return
 	if champion == "Fulcrum":
 		fulcrum_art = FulcrumArt.new()
 		fulcrum_art.build(self, team_color)
+		_install_mend_regen_effect()
 		return
 	if champion == "Luminary":
 		luminary_art = LuminaryArt.new()
 		luminary_art.build(self, team_color)
+		_install_mend_regen_effect()
 		return
 	if champion == "Ember":
 		ember_art = EmberArt.new()
 		ember_art.build(self, team_color)
+		_install_mend_regen_effect()
 		return
 	if champion == "Vanguard":
 		vanguard_art = VanguardAuthored.new()
 		vanguard_art.build(self, team_color)
+		_install_mend_regen_effect()
 		return
 	var identity := paint(team_color.to_html(false))
 	var dark := paint("171a30")
@@ -191,8 +197,18 @@ func build(champion: String, team_color: Color) -> void:
 		var head := ring(scepter, Vector3(0, 0.75, 0), 0.13, 0.025, gold)
 		head.rotation.x = PI * 0.5
 		gem(scepter, Vector3(0, 0.75, 0), Vector3(0.12, 0.24, 0.12), glow)
+	_install_mend_regen_effect()
+
+func _install_mend_regen_effect() -> void:
+	# One retained effect per visible combatant; dedicated servers never create a
+	# ChampionModel and therefore allocate no meshes, lights or materials here.
+	mend_regen_effect = preload("res://scripts/null_regen_effect.gd").new()
+	mend_regen_effect.name = "MendRegenEffect"
+	add_child(mend_regen_effect)
 
 func animate(delta: float, actor: CharacterBody3D) -> void:
+	if mend_regen_effect != null:
+		mend_regen_effect.update_mend(actor, delta)
 	if null_art != null:
 		null_art.animate(self,delta,actor)
 		return

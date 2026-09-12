@@ -20,7 +20,8 @@ func run() -> void:
 		check(FileAccess.get_sha256("res://assets/hitboxes/"+title.to_lower()+"_rig.scn") == manifests.classes[title].rig_sha256,title+" rig integrity is verified")
 		var v_art = visible.champion_model.get(title.to_lower()+"_art")
 		var s_art = server.hitbox_pose.art
-		for state in ["idle","forward","left","backpedal","diagonal","jump","landing","cast","recover","slow_forward","slow_left","roll","roll_recovery","roll_run","backflip","stealth","null_lift","null_dive","null_recover","null_stab"]:
+		for state in ["idle","forward","left","backpedal","diagonal","jump","landing","cast","recover","slow_forward","slow_left","roll","roll_recovery","roll_run","backflip","outlaw_mend","outlaw_mend_cancel","stealth","null_lift","null_dive","null_recover","null_stab","null_backstab","null_strike_interrupt"]:
+			if title != "Outlaw" and state.begins_with("outlaw_mend"): continue
 			if title != "Outlaw" and state in ["roll","roll_recovery","roll_run","backflip"]: continue
 			if title!="Null" and (state=="stealth" or state.begins_with("null_")):continue
 			var error := 0.0
@@ -38,10 +39,19 @@ func run() -> void:
 					actor.presentation_vertical_speed = actor.velocity.y
 					actor.casting = 0 if state == "cast" else -1
 					actor.cast_left = maxf(.01,1.5-t) if state == "cast" else 0
+					actor.stunned = 0.0
+					if state.begins_with("outlaw_mend"):
+						for slot in actor.kit.size():
+							if actor.kit[slot].kind == "self_heal": actor.casting = slot
+						actor.cast_left = 2.0-t
+						if state == "outlaw_mend_cancel" and frame >= 20: actor.casting = -1; actor.cast_left = 0
 					if title=="Null":
 						actor.identity.stealth=state=="stealth"
 						actor.identity.null_vantage={"phase":state.trim_prefix("null_"),"elapsed":t,"direction":Vector3(0,-1,-1).normalized()} if state in ["null_lift","null_dive","null_recover"] else {}
-						if state=="null_stab" and frame==1: actor.identity.null_action="stab";actor.identity.null_action_serial+=1
+						if state in ["null_stab","null_backstab","null_strike_interrupt"] and frame==1:
+							actor.identity.null_action="backstab" if state=="null_backstab" else "stab";actor.identity.null_action_serial+=1
+						if state=="null_strike_interrupt" and frame==10:
+							actor.identity.null_action="backstab";actor.identity.null_action_serial+=1
 					if title == "Outlaw":
 						actor.identity.roll_left = maxf(0,Outlaw.ROLL_SECONDS-t) if state in ["roll","roll_run"] else 0
 						actor.identity.roll_animation_left = maxf(0,Outlaw.ROLL_PRESENTATION_SECONDS-t-(Outlaw.ROLL_SECONDS if state=="roll_recovery" else 0)) if state in ["roll","roll_recovery","roll_run"] else 0

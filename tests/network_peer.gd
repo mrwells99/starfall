@@ -129,9 +129,9 @@ func _process(delta: float) -> bool:
 		moved = moved or actor.position.distance_to(initial_position) > 1.0
 		cast_seen = cast_seen or actor.casting >= 0
 		if arena.actors.has(peer_target):
-			damaged = damaged or arena.actors[peer_target].hp < 100
+			damaged = damaged or arena.actors[peer_target].hp < arena.Fighter.MAX_HEALTH
 		if is_host:
-			host_attacked = host_attacked or arena.actors[1].hp < 100 or arena.actors[peer_target].identity.brands.has(1)
+			host_attacked = host_attacked or arena.actors[1].hp < arena.Fighter.MAX_HEALTH or arena.actors[peer_target].identity.brands.has(1)
 			var remote_body = arena.actors[peer_target]
 			host_airborne_reverse_seen = host_airborne_reverse_seen or (not remote_body.is_on_floor() and remote_body.position.y > 0.3 and remote_body.move_input.y > 0 and Vector2(remote_body.velocity.x, remote_body.velocity.z).length() > 6)
 		else:
@@ -170,7 +170,7 @@ func _process(delta: float) -> bool:
 		verify(identity_seen, "Client received authoritative Heat state")
 		verify(extended_seen, "Extended ability input and cooldown replicate")
 		verify(arena.packets_received > 30, "Client received ordered snapshots")
-		verify(arena.actors[arena.local_id].hp == 100, "Rematch reset local health")
+		verify(arena.actors[arena.local_id].hp == arena.Fighter.MAX_HEALTH, "Rematch reset local health")
 		if failures == 0:
 			print("NETWORK CLIENT PASS: movement, casting, damage, snapshots, rematch")
 		arena.leave_session("Test complete")

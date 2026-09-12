@@ -9,7 +9,7 @@ func run() -> void:
 	var actor = load("res://scripts/combatant.gd").new(); root.add_child(actor); actor.setup(1,1,0,"Outlaw")
 	var art = actor.champion_model.outlaw_art
 	var rig: Skeleton3D = art.skeleton
-	ck(rig.get_bone_count()==85 and art.clip_names.size()==36, "Outlaw imports 85 bones and 36 native/derived clips")
+	ck(rig.get_bone_count()==85 and art.clip_names.size()==37, "Outlaw imports 85 bones, 36 original clips and the Mend hand-work clip")
 	for item in [["outlaw.gun","DEF-hand.R"],["outlaw.knife","DEF-hand.L"]]:
 		ck(rig.get_bone_parent(rig.find_bone(item[0]))==rig.find_bone(item[1]), "Equipment remains attached to its actual carrying hand: "+item[0])
 	actor.presentation_grounded = true

@@ -63,7 +63,8 @@ func _process(delta: float) -> bool:
 		elif step == 2 and match_time > 3.1:
 			step = 3; arena.send_action(0)
 	if match_time > (5.0 if host else 4.5):
-		var okay: bool = confirmed == 2 and received_damage == 24 and target.hp == 76
+		# Two 12-power shots at the approved x10 damage / 1500-health scale.
+		var okay: bool = confirmed == 2 and received_damage == 240 and target.hp == 1260
 		if host:
 			okay = okay and shooter.champion_model == null and target.champion_model == null
 			for title in ["outlaw","ember"]: okay = okay and not ResourceLoader.has_cached("res://assets/characters/"+title+".glb")

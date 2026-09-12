@@ -68,8 +68,8 @@ func sync(actor) -> void:
 	strip.position = Vector2(3, 1)
 	var effects: Array = game.Auras.active(actor, game.actors.values(), game.local_id)
 	effects.sort_custom(func(a, b): return priority(a) > priority(b))
-	if actor.hp > 0 and actor.hp <= 30:
-		effects.push_front({"key": "low_hp", "name": "Low health", "source": "Mend", "remaining": 0, "color": Color("ff7d92"), "description": "Health is at or below 30 HP."})
+	if actor.hp > 0 and actor.hp <= actor.MAX_HEALTH * 0.3:
+		effects.push_front({"key": "low_hp", "name": "Low health", "source": "Mend", "remaining": 0, "color": Color("ff7d92"), "description": "Health is at or below 30%% (%d HP)." % roundi(actor.MAX_HEALTH * 0.3)})
 	for i in range(strip.get_child_count()):
 		var chip: PanelContainer = strip.get_child(i)
 		chip.visible = i < effects.size()

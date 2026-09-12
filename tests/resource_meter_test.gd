@@ -1,5 +1,5 @@
 extends SceneTree
-const EXPECTED_RESOURCES := {"Ember": 40, "Vanguard": 40, "Luminary": 2, "Fulcrum": 75, "Outlaw": 2, "Null": null}
+const EXPECTED_RESOURCES := {"Ember": 40, "Vanguard": 40, "Luminary": 2, "Fulcrum": 75, "Outlaw": 2, "Null": 120}
 var checks := 0
 var failures := 0
 func _initialize() -> void: call_deferred("run")
@@ -25,16 +25,14 @@ func run() -> void:
 		actor.identity.meditation = 75.0
 		actor.identity.stars = [{"id": 2, "left": 30.0}, {"id": 3, "left": 30.0}]
 		actor.identity.defense_detonation = 2
+		actor.identity.essence = 120
 		game.selected_id = 4
 		game.focus_id = 5
 		game.update_visuals(0)
 		var meter = game.player_frame.get_child(3).get_node("ResourceMeter")
 		check(EXPECTED_RESOURCES.has(actor.champion), "Resource expectation covers " + actor.champion)
-		if EXPECTED_RESOURCES.get(actor.champion) == null:
-			check(not meter.visible, "Null has no personal resource meter")
-		else:
-			check(meter.visible and meter.champion == actor.champion, "Own meter follows " + actor.champion)
-			check(meter.amount == EXPECTED_RESOURCES[actor.champion], "Meter reads replicated resource for " + actor.champion)
+		check(meter.visible and meter.champion == actor.champion, "Own meter follows " + actor.champion)
+		check(meter.amount == EXPECTED_RESOURCES[actor.champion], "Meter reads replicated resource for " + actor.champion)
 		var before: String = meter.cache
 		game.update_visuals(0)
 		check(meter.cache == before, "Unchanged resource reuses draw state")

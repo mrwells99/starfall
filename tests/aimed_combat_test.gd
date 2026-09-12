@@ -66,47 +66,47 @@ func combat() -> void:
 	check(not game.aimed_combat.reticle.visible,"Menus hide the crosshair")
 	game.panel.hide(); step()
 	check(not game.try_spell(1,0,2),"Aimed ability cannot fall back to tab-target resolution")
-	check(shoot(direction()) and b.hp == 88,"Validated aimed cooldown hits the body for integer damage")
+	check(shoot(direction()) and b.hp == b.MAX_HEALTH - 120,"Validated aimed cooldown hits the body for integer damage")
 	check(game.aimed_combat.reticle.confirmed_left > 0,"Only an authoritative damage result confirms the hit marker")
 	check(a.cooldowns[0] == 4 and a.gcd == game.GCD_DURATION and results.size() == 1,"Successful shot spends one cooldown/GCD and emits one result")
-	check(not shoot(direction()) and b.hp == 88,"Immediate duplicate cannot shoot again")
+	check(not shoot(direction()) and b.hp == b.MAX_HEALTH - 120,"Immediate duplicate cannot shoot again")
 	a.action_budget = 0
-	check(shoot(direction()) and b.hp == 88 and results.size() == 1,"Server cooldown rejects a new request after the packet budget clears")
+	check(shoot(direction()) and b.hp == b.MAX_HEALTH - 120 and results.size() == 1,"Server cooldown rejects a new request after the packet budget clears")
 	await reset()
-	check(shoot(Vector3.UP) and b.hp == 100 and a.cooldowns[0] == 4,"A miss still spends the cooldown")
+	check(shoot(Vector3.UP) and b.hp == b.MAX_HEALTH and a.cooldowns[0] == 4,"A miss still spends the cooldown")
 	await reset()
 	var obstacle := wall(Vector3(0,21,-3)); await physics_frame
-	check(shoot(direction()) and b.hp == 100 and results.back().blocked,"Terrain stops the shot before the target")
+	check(shoot(direction()) and b.hp == b.MAX_HEALTH and results.back().blocked,"Terrain stops the shot before the target")
 	obstacle.free(); await physics_frame
 	await reset()
 	obstacle = wall(game.aimed_combat.firing_origin(a.body_hitboxes.points)); await physics_frame
-	check(shoot(direction()) and b.hp == 100 and results.back().blocked,"Origin inside cover cannot shoot out through it")
+	check(shoot(direction()) and b.hp == b.MAX_HEALTH and results.back().blocked,"Origin inside cover cannot shoot out through it")
 	obstacle.free(); await physics_frame
 	await reset()
 	b.team = a.team
-	check(shoot(direction()) and b.hp == 100,"Friendly bodies stop bullets without friendly fire")
+	check(shoot(direction()) and b.hp == b.MAX_HEALTH,"Friendly bodies stop bullets without friendly fire")
 	await reset()
 	game.world_mode = true
-	check(shoot(direction()) and b.hp == 100,"World bystanders cannot be damaged without duel permission")
+	check(shoot(direction()) and b.hp == b.MAX_HEALTH,"World bystanders cannot be damaged without duel permission")
 	await reset()
 	game.world_mode = true; game.actors.erase(b.actor_id)
 	b.actor_id = -101; b.training_dummy = true; game.actors[b.actor_id] = b
 	step()
-	check(shoot(direction()) and b.hp == 88 and results.back().damage == 12,"World training-dummy IDs are valid hits rather than the no-hit sentinel")
+	check(shoot(direction()) and b.hp == b.MAX_HEALTH - 120 and results.back().damage == 120,"World training-dummy IDs are valid hits rather than the no-hit sentinel")
 	await reset()
 	b.position.z = -25; step()
-	check(shoot(direction()) and b.hp == 100,"Server range cap prevents distant hits")
+	check(shoot(direction()) and b.hp == b.MAX_HEALTH,"Server range cap prevents distant hits")
 	await reset()
 	a.casting = 1; a.cast_left = .6
-	check(shoot(direction()) and b.hp == 100 and a.cooldowns[0] == 0,"A shot cannot bypass an existing cast")
+	check(shoot(direction()) and b.hp == b.MAX_HEALTH and a.cooldowns[0] == 0,"A shot cannot bypass an existing cast")
 	await reset()
 	game.CC.apply(a,"stun",1,"Test")
-	check(shoot(direction()) and b.hp == 100 and a.cooldowns[0] == 0,"Crowd control is rechecked at shot execution")
+	check(shoot(direction()) and b.hp == b.MAX_HEALTH and a.cooldowns[0] == 0,"Crowd control is rechecked at shot execution")
 	await reset()
 	var source: Vector3 = game.aimed_combat.firing_origin(a.body_hitboxes.points)
 	var head: Vector3 = (b.body_hitboxes.points[8]+b.body_hitboxes.points[9])*.5
 	head = b.position + (head-b.position)*Bodies.AIM_SCALE
-	check(shoot((head-source).normalized()) and b.hp == 88 and results.back().part == "head","Head geometry is accurate without a bonus damage multiplier")
+	check(shoot((head-source).normalized()) and b.hp == b.MAX_HEALTH - 120 and results.back().part == "head","Head geometry is accurate without a bonus damage multiplier")
 
 func security_and_history() -> void:
 	await reset()
@@ -118,22 +118,22 @@ func security_and_history() -> void:
 	check(not game.aimed_combat.enqueue(game,1,2,500,0,aim,game.aimed_combat.clock,a.motion_revision),"Sender cannot fire another player's ability")
 	check(not game.aimed_combat.enqueue(game,1,0,501,0,aim,game.aimed_combat.clock,a.motion_revision+1),"Wrong motion revision is rejected")
 	check(not game.aimed_combat.enqueue(game,1,0,502,1,aim,game.aimed_combat.clock,a.motion_revision),"Ordinary abilities cannot use the hitscan endpoint")
-	check(a.cooldowns[0] == 0 and b.hp == 100,"Rejected network inputs spend no cooldown and cause no damage")
+	check(a.cooldowns[0] == 0 and b.hp == b.MAX_HEALTH,"Rejected network inputs spend no cooldown and cause no damage")
 	await reset()
 	aim = direction(); stamp = game.aimed_combat.clock
 	b.position.x += 2
 	for i in 6: step()
-	check(shoot(aim,stamp) and b.hp == 88,"Bounded rewind hits the body as it was at shot time")
+	check(shoot(aim,stamp) and b.hp == b.MAX_HEALTH - 120,"Bounded rewind hits the body as it was at shot time")
 	check(b.position.x == 2,"Lag compensation never moves the live physics body")
 	await reset()
 	aim = direction(); stamp = game.aimed_combat.clock
 	b.position.x += 2; b.motion_revision += 1
 	for i in 6: step()
-	check(shoot(aim,stamp) and b.hp == 100,"History cannot hit across a teleport revision")
+	check(shoot(aim,stamp) and b.hp == b.MAX_HEALTH,"History cannot hit across a teleport revision")
 	await reset()
 	aim = direction(); stamp = game.aimed_combat.clock
-	b.hp = 0; step(); b.hp = 100; step()
-	check(shoot(aim,stamp) and b.hp == 100,"A new life cannot be hit using pre-death history")
+	b.hp = 0; step(); b.hp = b.MAX_HEALTH; step()
+	check(shoot(aim,stamp) and b.hp == b.MAX_HEALTH,"A new life cannot be hit using pre-death history")
 	await reset()
 	for i in 100: step()
 	check(game.aimed_combat.history[1].size() <= game.aimed_combat.MAX_SAMPLES,"History has a hard sample/memory bound")

@@ -40,10 +40,13 @@ func _process(delta: float) -> bool:
 			stage = 1
 		elif stage == 1 and game.actors[2].owner_peer == 0:
 			if game.recovery.reserved_count() != 1: fail("Disconnected player did not reserve their actor")
+			if game.peer_actor(old_peer) != -1: fail("Disconnected peer retained an actor lookup")
 			stage = 2
 		elif stage == 2 and game.actors[2].owner_peer != 0:
 			if game.actors[2].owner_peer == old_peer: fail("Test did not use a new network identity")
 			if not game.recovery.reservations.is_empty(): fail("Ticket was not consumed")
+			if game.peer_actor(old_peer) != -1 or game.peer_actor(game.actors[2].owner_peer) != 2:
+				fail("Reconnect did not transfer the actor lookup to the new peer")
 			stage = 3
 			stage_time = 0
 		elif stage == 3 and stage_time > 1:

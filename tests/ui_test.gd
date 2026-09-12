@@ -175,7 +175,7 @@ func run() -> void:
 	check(arena.ability_tooltip.visible, "Hover shows custom tooltip")
 	# One hover, everything on it. There is no Shift variant any more.
 	var hovered: String = arena.ability_tooltip.label.text
-	check(hovered.contains("Deal 16"), "Hover gives the effect description")
+	check(hovered.contains("Deal 160"), "Hover gives the scaled effect description")
 	check(hovered.contains("Cooldown") and hovered.contains("Range") and hovered.contains("Cost"),
 		"Hover carries cast, range, cooldown and cost")
 	check(hovered.contains("Instant") or hovered.contains("cast"), "Hover states cast time")
@@ -415,7 +415,7 @@ func run() -> void:
 	point_mouse(arena.ability_buttons[arena.BAR_SLOTS * 2 + 4].get_global_rect().get_center())
 	await process_frame
 	arena.update_ability_tooltip()
-	check(arena.ability_tooltip.visible and arena.ability_tooltip.label.text.contains("Deal 16"),
+	check(arena.ability_tooltip.visible and arena.ability_tooltip.label.text.contains("Deal 160"),
 		"A slot on another bar describes the ability actually assigned to it")
 	arena.drag_slot = -1
 	arena.reset_layout()

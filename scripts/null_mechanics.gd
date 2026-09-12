@@ -7,10 +7,12 @@ const LIFT_SECONDS := .5
 const LIFT_SPEED := 10.0
 const DIVE_SPEED := 25.0
 const CONTACT := 1.0
+const REGEN_SECONDS := 6.0
 
 static func initialize(a) -> void:
 	a.identity.merge({"stealth":false,"stealth_serial":0,"stealth_detection":{},"combat_left":0.0,
-		"null_haste":0.0,"null_vantage":{},"null_action":"","null_action_serial":0},true)
+		"null_haste":0.0,"null_vantage":{},"null_action":"","null_action_serial":0,
+		"essence":0.0,"chronoshift_select":false,"chronoshift_locks":{},"chronoshift_uses":{},"null_regen":{}},true)
 
 static func stealthed(a) -> bool:
 	return a != null and a.hp > 0 and a.identity.get("stealth",false)
@@ -67,6 +69,11 @@ static func enter(game, a) -> void:
 
 static func tick(game, a, delta: float) -> void:
 	for field in ["combat_left","null_haste"]: a.identity[field] = maxf(0,float(a.identity.get(field,0))-delta)
+	tick_regen(game,a,delta)
+	var locks: Dictionary = a.identity.get("chronoshift_locks", {})
+	for slot in locks.keys():
+		locks[slot] = maxf(0.0, float(locks[slot]) - delta)
+		if locks[slot] <= 0.0: locks.erase(slot)
 	if not stealthed(a): return
 	var progress: Dictionary = a.identity.stealth_detection
 	for id in progress.keys():
@@ -79,6 +86,30 @@ static func tick(game, a, delta: float) -> void:
 			progress[enemy.actor_id] = minf(DETECT_SECONDS,float(progress.get(enemy.actor_id,0))+delta)
 		else: progress.erase(enemy.actor_id)
 		if not targetable(game,enemy,a) and enemy.target_id == a.actor_id: enemy.target_id = -1
+
+static func tick_regen(game, a, delta: float) -> void:
+	var regen: Dictionary=a.identity.get("null_regen",{})
+	if regen.is_empty(): return
+	if a.hp<=0:
+		a.identity.null_regen={}
+		return
+	var elapsed:=minf(maxf(0.0,delta),float(regen.get("left",0.0)))
+	regen.left=maxf(0.0,float(regen.left)-elapsed)
+	regen.tick=float(regen.get("tick",0.0))+elapsed
+	var healing:=0.0
+	while float(regen.tick)>=1.0:
+		healing+=float(regen.rate)
+		regen.tick=float(regen.tick)-1.0
+	# Preserve the listed total even if the simulation's final step is fractional.
+	if float(regen.left)<=.00001:
+		healing+=float(regen.rate)*float(regen.tick)
+		regen={}
+	a.identity.null_regen=regen
+	if healing<=0: return
+	var amount:=minf(a.MAX_HEALTH-a.hp,healing)
+	if amount<=0: return
+	a.hp+=amount
+	game.combat_event(a.actor_id,a.actor_id,"+%d" % ceili(amount),Color("97edb1"))
 
 static func behind(a, b) -> bool:
 	var offset: Vector3 = a.position-b.position; offset.y=0
@@ -101,13 +132,39 @@ static func landing(game, a, b) -> Variant:
 static func validate(game, a, spell: Dictionary, b) -> String:
 	if a.champion != "Null": return ""
 	if spell.kind == "stealth":
-		if float(a.identity.combat_left)>0: return "In combat"
-		if stealthed(a): return "Already stealthed"
+		if not stealthed(a) and float(a.identity.combat_left)>0: return "In combat"
 	if spell.kind == "backstab" and not behind(a,b): return "Must be behind your target"
 	if spell.kind in ["blindside","vantage"] and a.identity.root>0: return "Rooted"
 	if spell.kind == "blindside" and landing(game,a,b)==null: return "No safe space behind target"
 	if spell.kind == "vantage" and not a.is_on_floor(): return "Land before using Vantage Point"
+	if spell.kind == "chronoshift" and float(a.identity.get("essence", 0.0)) < 100.0: return "Requires 100 Essence"
 	return ""
+
+static func choosing_chronoshift(a) -> bool:
+	return bool(a.identity.get("chronoshift_select", false))
+
+static func select_chronoshift(game, a, slot: int) -> String:
+	if a.champion != "Null" or not choosing_chronoshift(a): return ""
+	if slot < 0 or slot >= a.kit.size(): return "Choose an ability"
+	var spell: Dictionary = a.kit[slot]
+	if spell.kind == "chronoshift" or float(spell.cd) <= 0.0: return "Choose an ability with a cooldown"
+	if float(a.identity.get("chronoshift_locks", {}).get(slot, 0.0)) > 0.0: return "Chronoshift reset is not ready"
+	if a.cooldowns[slot] <= 0.0: return "That ability is already ready"
+	a.identity.essence = maxf(0.0, float(a.identity.essence) - 100.0)
+	a.cooldowns[slot] = 0.0
+	a.identity.chronoshift_locks[slot] = float(spell.cd) * 2.0
+	a.identity.chronoshift_uses[slot] = true
+	a.identity.chronoshift_select = false
+	game.combat_event(a.actor_id, a.actor_id, "CHRONOSHIFT · %s" % spell.name, Color("b9c9d6"))
+	return ""
+
+static func grant_essence(a, spell: Dictionary, slot: int) -> void:
+	if a.champion != "Null" or spell.kind not in ["stab", "backstab", "interrupt", "nerve_lock", "blindside", "vantage"]: return
+	var uses: Dictionary = a.identity.get("chronoshift_uses", {})
+	if uses.has(slot):
+		uses.erase(slot)
+		return
+	a.identity.essence = minf(120.0, float(a.identity.get("essence", 0.0)) + 30.0)
 
 static func action(a, kind: String) -> void:
 	a.identity.null_action=kind; a.identity.null_action_serial+=1
@@ -116,7 +173,7 @@ static func resolve(game, a, spell: Dictionary, b) -> bool:
 	match spell.kind:
 		"stab","backstab":
 			if spell.kind == "backstab" and not behind(a,b): return true
-			action(a,spell.kind); game.damage(a,b,spell.power)
+			action(a,spell.kind); game.damage(a,b,spell.power); grant_essence(a,spell,a.kit.find(spell))
 		"blindside":
 			var point: Variant = landing(game,a,b)
 			if point != null:
@@ -124,16 +181,26 @@ static func resolve(game, a, spell: Dictionary, b) -> bool:
 				a.motion_revision+=1; a.reset_physics_interpolation(); action(a,"blindside")
 				if not game.dedicated and a.actor_id==game.local_id:
 					game.local_yaw=a.rotation.y;game.pivot.rotation.y=a.rotation.y
+				grant_essence(a,spell,a.kit.find(spell))
 		"vantage":
 			action(a,"vantage")
 			a.identity.null_vantage={"phase":"lift","elapsed":0.0,"target":b.actor_id,"power":spell.power,"direction":Vector3.UP}
 			a.velocity=Vector3.UP*LIFT_SPEED; a.jump_queued=false; a.jump_buffer=0
 			a.motion_revision+=1
+			grant_essence(a,spell,a.kit.find(spell))
 		"nerve_lock":
-			action(a,"stab"); game.ClassMechanics.control(game,a,b,4,"Nerve Lock")
+			action(a,"stab"); game.ClassMechanics.control(game,a,b,4,"Nerve Lock"); grant_essence(a,spell,a.kit.find(spell))
 		"null_haste":
 			a.identity.null_haste=6.0
-		"stealth": enter(game,a)
+		"regen_pot":
+			# The pot keeps Mend's total (336 after the global health adjustment),
+			# clears attached DoTs immediately, then delivers six one-second pulses.
+			a.identity.dots.clear()
+			a.identity.entropy_dots.clear()
+			a.identity.severe_bleeds.clear()
+			a.identity.null_regen={"left":REGEN_SECONDS,"tick":0.0,"rate":spell.power*a.HEALTH_SCALE*.8/REGEN_SECONDS}
+		"stealth": break_stealth(game,a) if stealthed(a) else enter(game,a)
+		"chronoshift": a.identity.chronoshift_select = true
 		_: return false
 	return true
 

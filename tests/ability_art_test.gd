@@ -89,6 +89,20 @@ func run() -> void:
 				champion + " has optimized art: " + actor.kit[slot].name)
 		await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_png("res://artifacts/" + champion.to_lower() + "-hotbar.png")
+	actor.champion = "Null"
+	actor.kit = arena.Kits.get_kit("Null")
+	arena.Null.initialize(actor)
+	actor.cooldowns.resize(actor.kit.size())
+	actor.cooldowns.fill(0.0)
+	actor.cooldowns[1] = 12.0
+	actor.identity.chronoshift_select = true
+	actor.identity.chronoshift_locks = {3: 24.0}
+	arena.update_visuals(0)
+	check(arena.cooldown_overlays[1].chronoshift_target, "Chronoshift selection gives an eligible cooldown a gold frame")
+	check(arena.cooldown_overlays[3].chronoshift_locked, "Chronoshift reset lock gives its ability a red frame")
+	var chronoshift_status = arena.player_frame.get_child(3).get_node_or_null("ChronoshiftStatus")
+	var health_bar: Control = arena.player_frame.get_child(1)
+	check(chronoshift_status != null and chronoshift_status.get_global_rect().end.y < health_bar.get_global_rect().position.y, "Chronoshift reset timer sits above the health frame")
 	check(arena.AbilityArt.texture_for("Future ability") == null, "Unknown ability safely falls back")
 	# Model poses are presentation only: collision and combat transform stay put.
 	for fighter in arena.actors.values():

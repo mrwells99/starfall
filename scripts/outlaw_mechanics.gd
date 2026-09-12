@@ -147,7 +147,7 @@ static func tick_channel(game, a, delta: float) -> void:
 		for id in channel.marked:
 			var target = game.actors.get(id)
 			if target != null and target.hp > 0 and target.team != a.team and game.may_harm(a, target) and a.position.distance_to(target.position) <= SIGHT_RANGE and game.has_los(a, target):
-				hit(game, a, target, target.MAX_HEALTH * .4, a.position + Vector3.UP, "gun")
+				hit(game, a, target, target.BASE_MAX_HEALTH * .4, a.position + Vector3.UP, "gun")
 	if a.cast_left <= 0:
 		a.casting = -1
 		a.identity.outlaw_channel.clear()
@@ -159,7 +159,7 @@ static func resolve(game, a, spell: Dictionary, b, camera_yaw: Variant = null) -
 		"starshot": hit(game, a, b, spell.power, a.position + Vector3.UP, "gun")
 		"severe":
 			a.identity.instant_severe = 0.0
-			hit(game, a, b, b.hp * spell.power * .01, a.position + Vector3.UP, "knife")
+			hit(game, a, b, b.hp / b.HEALTH_SCALE * spell.power * .01, a.position + Vector3.UP, "knife")
 			if b.hp > 0 and game.may_harm(a, b):
 				if b.identity.immune <= 0 and not game.CC.airborne_immune(b): b.identity.severe_slow = 6.0
 				var previous: Dictionary = b.identity.severe_bleeds.get(a.actor_id, {})

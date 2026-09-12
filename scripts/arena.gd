@@ -106,6 +106,7 @@ var address: LineEdit
 var start_button: Button
 var network := false
 var roster: Dictionary = {}
+var actors_by_peer: Dictionary = {}
 var status := ""
 var notice_time := 0.0
 var snapshot_timer := 0.0
@@ -556,6 +557,13 @@ func unit_frame(pos: Vector2, color: Color) -> VBoxContainer:
 	meter.name = "ResourceMeter"
 	state.add_child(meter)
 	meter.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var chronoshift = preload("res://scripts/chronoshift_status.gd").new()
+	chronoshift.name = "ChronoshiftStatus"
+	# Its host is not the VBoxContainer itself: that container owns the layout of
+	# direct Control children. ChronoshiftStatus derives its manual offset from
+	# this state line so it can render above the whole health frame.
+	state.add_child(chronoshift)
+	chronoshift.install()
 	var auras := HBoxContainer.new()
 	auras.add_theme_constant_override("separation", 3)
 	auras.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -987,6 +995,8 @@ func spawn_actor(id: int, peer: int, side: int, choice: String, pos: Vector3) ->
 	actor.net_position = pos
 	actor.net_yaw = actor.rotation.y
 	actors[id] = actor
+	actor.owner_peer_changed.connect(_on_actor_owner_changed.bind(actor))
+	_refresh_peer_actor(peer)
 	if hitboxes_enabled: actor.setup_hitboxes()
 	if world_mode:
 		next_world_actor_id = maxi(next_world_actor_id, id + 1)
@@ -1012,6 +1022,7 @@ func clear_actors() -> void:
 		remove_child(actor)
 		actor.queue_free()
 	actors.clear()
+	actors_by_peer.clear()
 	selected_id = -1
 	focus_id = -1
 
@@ -2260,6 +2271,12 @@ func make_snapshot() -> Array:
 	return states
 
 func _physics_process(delta: float) -> void:
+	# ENet polling and registration continue through SceneMultiplayer. World has
+	# no reconnect reservations: an empty roster leaves only its training dummies.
+	# The first admitted player resumes simulation on the next physics tick.
+	if dedicated and world_mode and network and multiplayer.is_server() and roster.is_empty():
+		snapshot_timer = 0.0
+		return
 	if phase == "connecting":
 		connected_seconds += delta
 		if not dedicated:
@@ -2358,10 +2375,32 @@ func apply_input(id: int, movement: Vector2, yaw: float, jump: bool, selected: i
 	actor.input_age = 0
 
 func peer_actor(peer: int) -> int:
+	# Peer zero is shared by bots; retain the original first-match behavior.
+	if peer > 0:
+		var id: int = actors_by_peer.get(peer,-1)
+		var actor = actors.get(id)
+		if is_instance_valid(actor) and actor.owner_peer == peer and actor.actor_id == id:
+			return id
+		# Also supports actors inserted directly by offline/test fixtures.
+		_refresh_peer_actor(peer)
+		return actors_by_peer.get(peer,-1)
 	for actor in actors.values():
 		if actor.owner_peer == peer:
 			return actor.actor_id
 	return -1
+
+func _refresh_peer_actor(peer: int) -> void:
+	if peer <= 0: return
+	actors_by_peer.erase(peer)
+	for actor in actors.values():
+		if actor.owner_peer == peer:
+			actors_by_peer[peer] = actor.actor_id
+			return
+
+func _on_actor_owner_changed(previous: int, current: int, actor) -> void:
+	if actors.get(actor.actor_id) != actor: return
+	_refresh_peer_actor(previous)
+	_refresh_peer_actor(current)
 
 # Input sequence orders both movement packets and action-time movement samples.
 func accept_movement(id: int, seq: int, movement: Vector2, yaw: float, jump_id: int, selected: int, jump_age: int, walking: bool, revision: int, buffer_jump: bool) -> bool:
@@ -2699,6 +2738,38 @@ func report_aimed_shot(round_epoch: int, result: Dictionary) -> void:
 		aimed_combat.reticle.confirm_hit()
 	aimed_shot_resolved.emit(result)
 
+func deliver_aim_mode(round_epoch: int, serial: int, on: bool) -> void:
+	if latency_ms > 0: await get_tree().create_timer(latency_ms/1000.0).timeout
+	if network and not multiplayer.is_server() and epoch == round_epoch:
+		submit_aim_mode.rpc_id(1,round_epoch,serial,on)
+
+@rpc("any_peer", "call_remote", "reliable", 1)
+func submit_aim_mode(round_epoch: int, serial: int, on: bool) -> void:
+	if not network or not multiplayer.is_server() or round_epoch != epoch: return
+	var peer := multiplayer.get_remote_sender_id()
+	var accepted: bool = aimed_combat.tracking.set_mode(self,peer_actor(peer),peer,serial,on)
+	report_aim_mode.rpc_id(peer,round_epoch,serial,on and accepted,aimed_combat.clock)
+
+@rpc("authority", "call_remote", "reliable", 1)
+func report_aim_mode(round_epoch: int, serial: int, on: bool, started: float) -> void:
+	if round_epoch == epoch and not dedicated: outlaw_aim_test.receive_mode(serial,on,started)
+
+func deliver_detonation_charge(round_epoch: int, serial: int) -> void:
+	if latency_ms > 0: await get_tree().create_timer(latency_ms/1000.0).timeout
+	if network and not multiplayer.is_server() and epoch == round_epoch:
+		submit_detonation_charge.rpc_id(1,round_epoch,serial)
+
+@rpc("any_peer", "call_remote", "reliable", 1)
+func submit_detonation_charge(round_epoch: int, serial: int) -> void:
+	if not network or not multiplayer.is_server() or round_epoch != epoch: return
+	var peer := multiplayer.get_remote_sender_id()
+	var accepted: bool = aimed_combat.tracking.begin_charge(self,peer_actor(peer),peer,serial)
+	report_detonation_charge.rpc_id(peer,round_epoch,serial,accepted)
+
+@rpc("authority", "call_remote", "reliable", 1)
+func report_detonation_charge(round_epoch: int, serial: int, accepted: bool) -> void:
+	if round_epoch == epoch and not dedicated: outlaw_aim_test.receive_charge(serial,accepted)
+
 func deliver_detonation(round_epoch: int, seq: int, burst_id: int, index: int, origin: Vector3, direction: Vector3, stamp: float, revision: int) -> void:
 	if latency_ms > 0: await get_tree().create_timer(latency_ms/1000.0).timeout
 	if network and not multiplayer.is_server() and epoch == round_epoch:
@@ -2799,6 +2870,16 @@ func try_spell(id: int, slot: int, requested: int, camera_yaw: Variant = null) -
 	if aimed_combat.enabled(actor.kit[slot]): return false # Requires validated aim, never a selected-target fallback.
 	if actor.hp <= 0 or (actor.stunned > 0 and actor.kit[slot].kind != "trinket"):
 		return false
+	# Chronoshift is a two-press interaction: its key arms the choice, then the
+	# normal keybind of a cooldown selects it. A ready ability instead cancels
+	# selection and proceeds as its normal cast, so it never eats an input.
+	if Null.choosing_chronoshift(actor):
+		if actor.cooldowns[slot] > 0.0:
+			var chronoshift_reason := Null.select_chronoshift(self, actor, slot)
+			if chronoshift_reason.is_empty(): return true
+			feedback(actor, chronoshift_reason)
+			return false
+		actor.identity.chronoshift_select = false
 	var reason := ability_block_reason(actor, slot, requested)
 	if not reason.is_empty():
 		feedback(actor, reason)
@@ -2858,8 +2939,9 @@ func resolve_spell(actor, slot: int, victim, camera_yaw: Variant = null) -> void
 			# Mend always restores its listed amount. Match-only dampening still
 			# prevents healer stalemates; persistent worlds never inherit it.
 			var dampening := 0.0 if world_mode or spell.kind == "self_heal" else clampf((elapsed - 60) / 180.0, 0, 0.7)
-			var amount := minf(100 - victim.hp, spell.power * (1.0 - dampening))
-			victim.hp = minf(100, victim.hp + amount)
+			var healing_scale: float = Fighter.HEALTH_SCALE * (.8 if spell.kind == "self_heal" else 1.0)
+			var amount := minf(victim.MAX_HEALTH - victim.hp, spell.power * healing_scale * (1.0 - dampening))
+			victim.hp = minf(victim.MAX_HEALTH, victim.hp + amount)
 			combat_event(actor.actor_id, victim.actor_id, "+%d" % ceili(amount), Color("97edb1"))
 		"interrupt":
 			if kick_immune(victim):
@@ -2871,6 +2953,7 @@ func resolve_spell(actor, slot: int, victim, camera_yaw: Variant = null) -> void
 				combat_event(actor.actor_id, victim.actor_id, "INTERRUPTED", GOLD)
 			else:
 				feedback(actor, "Interrupt missed — target was not casting")
+			Null.grant_essence(actor, spell, slot)
 		"control":
 			var duration := CC.apply(victim, "stun", spell.power, spell.name)
 			combat_event(actor.actor_id, victim.actor_id, "STUN %.1fs" % duration if duration > 0 else "IMMUNE", GOLD)
@@ -2929,6 +3012,8 @@ func damage(source, victim, amount: float, periodic: bool = false) -> void:
 	if not periodic: Null.direct_hit(self,source,victim)
 	Null.break_stealth(self,victim)
 	amount = ClassMechanics.before_damage(self, source, victim, amount)
+	# Ability powers remain in their authored units; every health hit scales once.
+	amount *= Fighter.DAMAGE_SCALE
 	var reduction := ClassMechanics.damage_multiplier(source, victim)
 	var actual := amount * reduction if victim.training_dummy else minf(victim.hp, amount * reduction)
 	if victim.identity.last > 0 and actual >= victim.hp:
@@ -2997,10 +3082,17 @@ func confirm_duel(target_id: int) -> void:
 	# Both start clean, so a duel is never decided by who was already hurt.
 	for id in [from_id, target_id]:
 		actors[id].target_id=duels[id]
-		actors[id].hp = 100
+		actors[id].hp = actors[id].MAX_HEALTH
 		actors[id].reset_identity()
+		actors[id].cooldowns.fill(0.0)
+		actors[id].gcd = 0.0
+		actors[id].casting = -1
+		actors[id].cast_left = 0.0
+		actors[id].cast_target = -1
 		actors[id].stunned = 0
 		actors[id].locked = 0
+		actors[id].shield = 0.0
+		actors[id].sprint = 0.0
 		actors[id].dr_count = 0
 		actors[id].dr_timer = 0
 	combat_event(from_id, target_id, "DUEL", GOLD)
@@ -3030,11 +3122,7 @@ func admit_to_world() -> void:
 	for actor in actors.values():
 		next_id = maxi(next_id, actor.actor_id + 1)
 	for peer in roster:
-		var present := false
-		for actor in actors.values():
-			if actor.owner_peer == peer:
-				present = true
-		if present:
+		if peer_actor(peer) != -1:
 			continue
 		var entry: Dictionary = roster[peer]
 		spawn_actor(next_id, peer, entry.team, entry.champion, spawn_position(entry.team, next_id))
@@ -3044,10 +3132,7 @@ func admit_to_world() -> void:
 
 # Which actor a peer controls, or -1.
 func actor_for_peer(peer: int) -> int:
-	for actor in actors.values():
-		if actor.owner_peer == peer:
-			return actor.actor_id
-	return -1
+	return peer_actor(peer)
 
 # Brings the defeated back rather than leaving a body in a persistent world.
 func tick_world(delta: float) -> void:
@@ -3059,7 +3144,7 @@ func tick_world(delta: float) -> void:
 			respawn_timers.erase(id)
 			if actors.has(id):
 				var actor = actors[id]
-				actor.hp = 100
+				actor.hp = actor.MAX_HEALTH
 				actor.reset_identity()
 				actor.stunned = 0
 				actor.locked = 0
@@ -3127,6 +3212,42 @@ func _dedicated_rematch(finished_epoch: int = -1) -> void:
 		broadcast_lobby()
 		print("DEDICATED WAITING humans=%d/%d" % [roster.size(), min_players])
 
+func bot_targets(actor, level: int) -> Array:
+	var foe = null
+	var ally = null
+	var enemy_key := INF
+	var ally_health := INF
+	var enemy_tie := false
+	var ally_tie := false
+	for other in actors.values():
+		if other.hp <= 0: continue
+		if other.team == actor.team:
+			if other.hp < ally_health:
+				ally = other; ally_health = other.hp; ally_tie = false
+			elif other.hp == ally_health: ally_tie = true
+		elif Null.targetable(self,actor,other):
+			var priority: float = other.hp if level == 2 else actor.position.distance_squared_to(other.position)
+			if priority < enemy_key:
+				foe = other; enemy_key = priority; enemy_tie = false
+			elif priority == enemy_key: enemy_tie = true
+	# Godot's sort is not stable. On equal best keys, preserve the exact old
+	# sorting sequence (including hard mode's distance-then-health ordering).
+	# The usual unique minimum needs no sorting or candidate arrays.
+	if foe != null and enemy_tie:
+		var enemies: Array = []
+		for other in actors.values():
+			if other.hp > 0 and other.team != actor.team and Null.targetable(self,actor,other): enemies.append(other)
+		enemies.sort_custom(func(a, b): return actor.position.distance_squared_to(a.position) < actor.position.distance_squared_to(b.position))
+		if level == 2: enemies.sort_custom(func(a, b): return a.hp < b.hp)
+		foe = enemies[0]
+	if foe != null and ally_tie:
+		var friends: Array = []
+		for other in actors.values():
+			if other.hp > 0 and other.team == actor.team: friends.append(other)
+		friends.sort_custom(func(a, b): return a.hp < b.hp)
+		ally = friends[0]
+	return [foe,ally]
+
 func bot_think(actor, delta: float) -> void:
 	actor.move_input = Vector2.ZERO
 	if not network and player_options.passive and actors.has(local_id) and actor.team != actors[local_id].team:
@@ -3137,24 +3258,12 @@ func bot_think(actor, delta: float) -> void:
 	actor.path_timer -= delta
 	if actor.stunned > 0:
 		return
-	var enemies: Array = []
-	var friends: Array = []
-	for other in actors.values():
-		if other.hp <= 0:
-			continue
-		if other.team == actor.team:
-			friends.append(other)
-		elif Null.targetable(self,actor,other):
-			enemies.append(other)
-	if enemies.is_empty():
+	var targets := bot_targets(actor,level)
+	var foe = targets[0]
+	var ally = targets[1]
+	if foe == null:
 		return
-	enemies.sort_custom(func(a, b): return actor.position.distance_squared_to(a.position) < actor.position.distance_squared_to(b.position))
-	friends.sort_custom(func(a, b): return a.hp < b.hp)
-	if level == 2:
-		enemies.sort_custom(func(a, b): return a.hp < b.hp)
-	var foe = enemies[0]
-	var ally = friends[0]
-	var destination = ally if actor.champion == "Luminary" and ally.hp < 76 else foe
+	var destination = ally if actor.champion == "Luminary" and ally.hp < ally.MAX_HEALTH * .76 else foe
 	actor.target_id = destination.actor_id
 	var offset: Vector3 = destination.position - actor.position
 	offset.y = 0
@@ -3196,12 +3305,12 @@ func bot_think(actor, delta: float) -> void:
 		return
 	if (level > 0 or randf() < 0.35) and ClassMechanics.bot(self, actor, foe, ally):
 		return
-	if actor.hp < 45 and try_spell(actor.actor_id, 4, actor.actor_id):
+	if actor.hp < actor.MAX_HEALTH * .45 and try_spell(actor.actor_id, 4, actor.actor_id):
 		return
 	if actor.champion == "Luminary":
 		if ally.stunned > 0 and try_spell(actor.actor_id, 2, ally.actor_id):
 			return
-		if ally.hp < 76:
+		if ally.hp < ally.MAX_HEALTH * .76:
 			if try_spell(actor.actor_id, 1, ally.actor_id):
 				return
 			if visible and offset.length() <= float(actor.kit[5].range):
@@ -3217,7 +3326,7 @@ func bot_think(actor, delta: float) -> void:
 			actor.move_input = Vector2.DOWN
 			try_spell(actor.actor_id, 6, actor.actor_id)
 			return
-		if actor.hp < 55 and not visible:
+		if actor.hp < actor.MAX_HEALTH * .55 and not visible:
 			actor.move_input = Vector2.ZERO
 			if try_spell(actor.actor_id, 5, actor.actor_id):
 				return
@@ -3397,7 +3506,7 @@ func update_frame(frame: VBoxContainer, id: int, prefix: String) -> void:
 	# which side someone is on. It has to be bold and it has to be there at full
 	# health, which means drawing it over the fill rather than behind it.
 	paint_bar_edge(health, GOLD if frame == focus_frame else (BLUE if friendly else ENEMY_EDGE), 1 if frame == focus_frame else 2)
-	(health.get_child(0) as Label).text = "%d%%" % ceili(actor.hp)
+	(health.get_child(0) as Label).text = "%d%%" % ceili(100.0 * actor.hp / actor.MAX_HEALTH)
 	if health.has_node("DiminishingReturns"):
 		var dr = health.get_node("DiminishingReturns")
 		var duel_target: bool = world_mode and duels.get(local_id, -1) == id
@@ -3419,9 +3528,11 @@ func update_frame(frame: VBoxContainer, id: int, prefix: String) -> void:
 	(frame.get_child(3) as Label).text = "DEFEATED" if actor.hp <= 0 else ""
 	var state := frame.get_child(3) as Label
 	var meter = state.get_node("ResourceMeter")
-	meter.visible = actor.hp > 0 and not actor.training_dummy and actor.champion!="Null"
+	meter.visible = actor.hp > 0 and not actor.training_dummy
 	state.custom_minimum_size.y = 16 if meter.visible else 18
 	if meter.visible: meter.sync(actor, prefix == "YOU")
+	var chronoshift = state.get_node_or_null("ChronoshiftStatus")
+	if chronoshift != null: chronoshift.sync(actor)
 	var strip := frame.get_child(4) as HBoxContainer
 	var auras := Auras.active(actor, actors.values(), local_id)
 	for i in range(AURA_SLOTS):
@@ -3547,6 +3658,8 @@ func update_visuals(delta: float) -> void:
 		var button := ability_buttons[slot]
 		var ability := kit_slot(slot)
 		cooldown_overlays[slot].set_charges(-1)
+		cooldown_overlays[slot].set_chronoshift_target(false)
+		cooldown_overlays[slot].set_chronoshift_lock(false)
 		# Empty slots stay hidden in play and visible while editing, so there is
 		# somewhere to drop an ability.
 		button.visible = actors.has(local_id) and (ability >= 0 or edit_mode or drag_slot >= 0)
@@ -3581,6 +3694,10 @@ func update_visuals(delta: float) -> void:
 		# answer to "when can I press this" — a 16s cooldown outlives a 2s stun,
 		# and a 4s lockout outlives a spell that is already off cooldown.
 		var held: float = cc_block_remaining(actor, spell)
+		var chronoshift_lock: float = float(actor.identity.get("chronoshift_locks", {}).get(ability, 0.0))
+		var chronoshift_ready: bool = Null.choosing_chronoshift(actor) and actor.cooldowns[ability] > 0.0 and spell.kind != "chronoshift" and chronoshift_lock <= 0.0
+		cooldown_overlays[slot].set_chronoshift_target(chronoshift_ready)
+		cooldown_overlays[slot].set_chronoshift_lock(chronoshift_lock > 0.0)
 		# A slot you cannot press because you are held reads as unusable, not just
 		# as counting down.
 		button.modulate = Color(0.55, 0.58, 0.72) if held > 0.0 else (Color("ffe699") if proc_ready(actor, spell) else Color.WHITE)
@@ -3973,7 +4090,7 @@ func update_ability_tooltip() -> void:
 			var actor = actors[local_id]
 			var text: String = Kits.description(actor.kit[ability], actor.champion)
 			var reason := ability_block_reason(actor, ability, selected_id) if not edit_mode else ""
-			ability_tooltip.present_availability(text, reason, pointer, ui.size)
+			ability_tooltip.present_availability(text, reason, pointer, ui.size, actor.kit[ability], actor.champion)
 			return
 	ability_tooltip.hide()
 
@@ -4051,6 +4168,7 @@ func remove_world_actor(id: int) -> void:
 	var actor = actors[id]
 	if authoritative() and Outlaw.Lasso.busy(actor): Outlaw.Lasso.cancel(self,actor)
 	actors.erase(id)
+	_refresh_peer_actor(actor.owner_peer)
 	remove_child(actor)
 	actor.queue_free()
 	if selected_id == id: selected_id = -1
