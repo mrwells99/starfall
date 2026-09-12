@@ -44,7 +44,7 @@ func run() -> void:
 		check(game.actors[2].health_pivot.visible, "Ally nameplate is visible")
 		check(mine.nameplate == null and not other.nameplate_cast.visible, "Idle nameplates have no name/class text or cast row")
 		var resource = game.roster_bar(game.party_buttons[0]).get_node("ThinResource")
-		check(is_equal_approx(resource.fraction, 2.0/3.0 if mine.champion in ["Luminary","Outlaw"] else 0.5), "Party resource reads " + mine.champion)
+		check(is_equal_approx(resource.fraction, 0.0 if mine.champion == "Null" else (2.0/3.0 if mine.champion in ["Luminary","Outlaw"] else 0.5)), "Party resource reads " + mine.champion)
 		check(resource.size.y == 10, "Roster resource strip is ten pixels tall")
 		check(mine.get("resource_mesh") == null and mine.get("resource_pivot") == null, "Nameplate resource strip is removed")
 		check(mine.health_mesh.mesh.size == Vector2(1.54, 0.11) and mine.health_pivot.get_child(0).mesh.size == Vector2(1.6, 0.16), "Nameplate health geometry keeps its original dimensions")

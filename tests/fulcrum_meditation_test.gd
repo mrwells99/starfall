@@ -463,7 +463,14 @@ func run() -> void:
 		a.hp = 20
 		a.identity.dots[99] = {"left": 8.0, "tick": 1.0}
 		a.identity.entropy_dots[99] = {"left": 15.0, "tick": 1.0}
-		var mend_slot := 10 if champion == "Luminary" else 5
+		var mend_slot := -1
+		for slot in a.kit.size():
+			if a.kit[slot].name == "Mend": mend_slot = slot
+		if champion == "Null":
+			ck(mend_slot == -1, "Null has no Mend in its ambush kit")
+			continue
+		ck(mend_slot >= 0, "Mend exists for " + champion)
+		if mend_slot < 0: continue
 		arena.resolve_spell(a, mend_slot, a)
 		ck(a.hp == 48, "Late-match Mend heals 28 for " + champion)
 		ck(a.identity.dots.has(99) == (champion == "Luminary") and a.identity.entropy_dots.has(99) == (champion == "Luminary"), "Only DPS Mend cleanses both DoT families: " + champion)
