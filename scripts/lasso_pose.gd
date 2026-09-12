@@ -63,6 +63,7 @@ func apply(art, host, actor, delta: float) -> void:
 			var progress: float = clampf(1.0 - float(k.left)/float(k.total),0,1)
 			# Give fall/get-up more of the existing stun: 35% fall, 16% hold, 49% rise.
 			var frame: float = minf(1, progress / .35) if progress < .51 else (1.0-progress)/.49
+			if k.get("null",false): frame = minf(1,progress/.08) if progress<.92 else (1-progress)/.08
 			sample("Death01",frame)
 		elif next == "cast" or next == "rope":
 			sample("Spell_Simple_Enter",.85,true)

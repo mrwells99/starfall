@@ -99,6 +99,7 @@ func tick(game) -> void:
 			var victim = game.actors[result.victim]
 			if victim.team != actor.team and game.may_harm(actor,victim):
 				var before: float = victim.hp
+				game.Null.direct_hit(game,actor,victim)
 				game.damage(actor,victim,roundi(victim.MAX_HEALTH*game.Outlaw.DETONATION_HEALTH_FRACTION))
 				result.damage = roundi(before-victim.hp)
 		game.Outlaw.action(actor,"gun")

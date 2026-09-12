@@ -1,6 +1,6 @@
 extends SceneTree
 ## Offline extraction only. Dedicated servers load the resulting mesh-free rigs.
-const NAMES := ["Ember", "Luminary", "Fulcrum", "Vanguard", "Outlaw"]
+const NAMES := ["Ember", "Luminary", "Fulcrum", "Vanguard", "Outlaw", "Null"]
 const OUT := "res://assets/hitboxes/"
 func _initialize() -> void: call_deferred("run")
 
@@ -16,10 +16,42 @@ func own(node: Node, scene: Node) -> void:
 		child.owner = scene
 		own(child, scene)
 
+func object_end(source: String, start: int) -> int:
+	var depth:=0
+	var quoted:=false
+	var escaped:=false
+	for i in range(start,source.length()):
+		var c:=source[i]
+		if quoted:
+			if escaped: escaped=false
+			elif c=="\\": escaped=true
+			elif c=="\"": quoted=false
+		elif c=="\"": quoted=true
+		elif c=="{": depth+=1
+		elif c=="}":
+			depth-=1
+			if depth==0:return i
+	return -1
+
+func replace_null_entry(source: String, entry: Dictionary) -> String:
+	# Preserve every unrelated class's original numeric precision and formatting.
+	var encoded:=JSON.stringify(entry,"\t").replace("\n","\n\t\t")
+	var key:=source.find('"Null":')
+	if key>=0:
+		var start:=source.find("{",key)
+		return source.left(start)+encoded+source.substr(object_end(source,start)+1)
+	var classes:=source.find("{",source.find('"classes":'))
+	assert(classes>=0)
+	return source.left(classes+1)+'\n\t\t"Null": '+encoded+","+source.substr(classes+1)
+
 func run() -> void:
 	DirAccess.make_dir_recursive_absolute(OUT)
 	var manifest := {"purpose": "Body hit detection only; no meshes, materials, textures or effects", "classes": {}}
+	var original:=""
+	if "--class=null" in OS.get_cmdline_user_args() and FileAccess.file_exists(OUT+"manifest.json"):
+		original=FileAccess.get_file_as_string(OUT+"manifest.json")
 	for title in NAMES:
+		if "--class=null" in OS.get_cmdline_user_args() and title!="Null": continue
 		var path: String = "res://assets/characters/" + title.to_lower() + ".glb"
 		var scene: Node3D = load(path).instantiate(); root.add_child(scene)
 		var rig: Skeleton3D
@@ -69,5 +101,6 @@ func run() -> void:
 		manifest.classes[title] = {"source_sha256":FileAccess.get_sha256(path),"rig_sha256":FileAccess.get_sha256(destination),"bytes":FileAccess.get_file_as_bytes(destination).size(),"bones":rig.get_bone_count(),"keys":keys,"rest":bones}
 		print(title, " hitbox rig: ", manifest.classes[title].bytes, " bytes, ", keys, " keys")
 		scene.free()
-	FileAccess.open(OUT+"manifest.json",FileAccess.WRITE).store_string(JSON.stringify(manifest,"\t"))
+	var output:=replace_null_entry(original,manifest.classes.Null) if not original.is_empty() else JSON.stringify(manifest,"\t")
+	FileAccess.open(OUT+"manifest.json",FileAccess.WRITE).store_string(output)
 	quit()

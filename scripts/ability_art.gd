@@ -3,6 +3,15 @@ extends RefCounted
 # Art is presentation data; it never enters combat kits or network snapshots.
 # Shared ability names intentionally share art (Mend on Ember and Vanguard).
 const PATHS := {
+	"Stab": "res://assets/icons/abilities/null/stab.svg",
+	"Backstab": "res://assets/icons/abilities/null/backstab.svg",
+	"Kick": "res://assets/icons/abilities/null/kick.svg",
+	"Nerve Lock": "res://assets/icons/abilities/null/nerve_lock.svg",
+	"Stealth": "res://assets/icons/abilities/null/stealth.svg",
+	"Haste": "res://assets/icons/abilities/null/haste.svg",
+	"Blindside": "res://assets/icons/abilities/null/blindside.svg",
+	"Vantage Point": "res://assets/icons/abilities/null/vantage_point.svg",
+
 	"Boot Kick": "res://assets/icons/abilities/outlaw/boot_kick.svg",
 	"Trinket": "res://assets/icons/abilities/trinket.svg",
 	"Starshot": "res://assets/icons/abilities/outlaw/starshot.svg",

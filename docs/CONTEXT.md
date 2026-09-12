@@ -1,5 +1,7 @@
 # Context — where Starfall is right now
 
+**Null class (September 11):** sixth selectable class, built with Model Forge v2 and its required animated hitboxes. Twin sentient blades, grey/black armor and unique eternal lore. Eight requested abilities include Backstab, off-GCD Blindside, Vantage Point, Nerve Lock, Haste and observer-specific Stealth. Both outgoing attacks and directly received abilities start the 10-second combat timer; periodic ticks reveal without extending it. Editable source, model, rig, textures, class guide and reversible installation are saved. See [NULL_CLASS.md](NULL_CLASS.md) for exact mechanics, provisional tuning, validation and visual limits. Local implementation; no deployment.
+
 **Vertical camera and proximity fading (September11):** free orbit now reaches ±89.1°, with a terrain-swept camera sphere that allows views from under the character while staying above floors. The followed costume and weapons fade from 2.4m to 0.8m with reversible, camera-local material settings. Normal zoom preference and Outlaw shoulder aiming are preserved. All 156 focused camera/zoom/control checks and the interpolation probe passed. Native Compatibility and Forward+ captures were inspected. See the camera section in `TECHNICAL_ARCHITECTURE.md`.
 
 

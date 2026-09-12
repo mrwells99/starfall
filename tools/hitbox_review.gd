@@ -9,6 +9,7 @@ var overlay: Node3D
 var view_labels := []
 var legend: Label
 var expanded := false
+var null_only := false
 var output := "res://artifacts/aimed-combat/review/"
 
 func _initialize() -> void: call_deferred("run")
@@ -42,6 +43,8 @@ func capsule(parent: Node3D, start: Vector3, end: Vector3, radius: float, head: 
 
 func run() -> void:
 	expanded = "--aim-expanded" in OS.get_cmdline_user_args()
+	null_only = "--class=null" in OS.get_cmdline_user_args()
+	if null_only: output="res://artifacts/null-forge-v2/review/"
 	if expanded: output = "res://artifacts/outlaw-balance-trinket-hitboxes/review/"
 	Engine.max_fps = 30
 	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS,true)
@@ -70,9 +73,18 @@ func run() -> void:
 		subtitle.text = "AIMING VOLUMES  /  2x horizontal width and depth  /  1.25x height"
 		legend.text = "CYAN · body      GOLD · head (same damage)\nOnly aimed damage volumes are enlarged; character size and movement collision stay the same."
 	DirAccess.make_dir_recursive_absolute(output)
-	for title in ["Ember","Luminary","Fulcrum","Vanguard","Outlaw"]:
+	for title in ["Ember","Luminary","Fulcrum","Vanguard","Outlaw","Null"]:
+		if null_only and title!="Null":continue
 		await show_class(title,"idle")
 		await capture(title.to_lower())
+	if null_only:
+		for pose in ["stealth","lift","dive","recover","stab"]:
+			await show_class("Null",pose); await capture("null-"+pose)
+		await show_class("Null","idle"); overlay.hide()
+		subtitle.text="MODEL FORGE V2  /  twin sentient blades  /  charcoal, black and silver"
+		legend.text="Actual runtime model. Use the separate body-hitbox views to inspect damage volumes."
+		await capture("null-model")
+		print("NULL_REVIEW_CAPTURED 7 images");quit();return
 	await show_class("Outlaw","roll"); await capture("outlaw-roll")
 	await show_class("Outlaw","backflip"); await capture("outlaw-backflip")
 	await overview(ui); await capture("all-classes")
@@ -93,7 +105,17 @@ func show_class(title: String, pose: String) -> void:
 		actor.health_pivot.hide(); actor.team_marker.hide(); actor.presentation_grounded = true
 		actors.append(actor)
 		for i in 24: actor.champion_model.animate(1.0/60,actor)
-		if pose != "idle":
+		if title=="Null" and pose!="idle":
+			for i in (6 if pose=="recover" else (15 if pose=="stab" else 30)):
+				actor.identity.stealth=pose=="stealth"
+				if pose=="stealth":actor.position.z-=2.0/60
+				if pose in ["lift","dive","recover"]:
+					actor.identity.null_vantage={"phase":pose,"elapsed":i/60.0,"direction":Vector3(0,-1,-1).normalized()}
+					actor.presentation_grounded=false;actor.presentation_vertical_speed=10 if pose=="lift" else -12
+				if pose=="stab" and i==1:actor.identity.null_action="stab";actor.identity.null_action_serial+=1
+				actor.champion_model.animate(1.0/60,actor)
+			actor.position.z=0
+		elif pose != "idle":
 			actor.identity.roll_direction = -actor.basis.z
 			for i in (37 if pose == "backflip" else 17):
 				actor.identity.roll_left = maxf(0,preload("res://scripts/outlaw_mechanics.gd").ROLL_SECONDS-float(i)/60) if pose == "roll" else 0
@@ -123,10 +145,10 @@ func overview(ui: CanvasLayer) -> void:
 	heading.text = "STARFALL  /  EXPANDED AIMING HITBOXES" if expanded else "STARFALL  /  MAIN-BODY HITBOX FIT"
 	legend.position.y = 776
 	camera.size = 4.8 if expanded else 3.05
-	for index in 5:
-		var title: String = ["Ember","Luminary","Fulcrum","Vanguard","Outlaw"][index]
+	for index in 6:
+		var title: String = ["Ember","Luminary","Fulcrum","Vanguard","Outlaw","Null"][index]
 		var actor = load("res://scripts/combatant.gd").new(); stage.add_child(actor); actor.setup(index+1,1,0,title)
-		actor.position.x = (3.8-index*1.9) if expanded else (2.15-index*1.075); actor.health_pivot.hide(); actor.team_marker.hide(); actor.presentation_grounded = true
+		actor.position.x = (3.8-index*1.52) if expanded else (2.15-index*.86); actor.health_pivot.hide(); actor.team_marker.hide(); actor.presentation_grounded = true
 		actors.append(actor)
 		for frame in 24: actor.champion_model.animate(1.0/60,actor)
 		actor.setup_hitboxes(); actor.body_hitboxes.update()

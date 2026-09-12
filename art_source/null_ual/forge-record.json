@@ -1,0 +1,449 @@
+{
+  "schema": 2,
+  "workflow": "Starfall Model Forge v2",
+  "baseline_manifest_sha256": "ba51084d96ce0202a11984e5c19f845f3fe7fe3c96a03599b04d7ae7f690fa35",
+  "baseline_archive_sha256": "7be9f5dbcbb448090db190235e0ade5ea42b20162e3b4a98039a1f2b740b8bf9",
+  "class_slug": "null",
+  "class_display_name": "Null",
+  "reference_paths": [
+    "art_source/references/null-concept-v2.png"
+  ],
+  "stage_directory": "artifacts/null-forge-v2",
+  "design": {
+    "silhouette": [
+      "faceless pointed hood",
+      "fitted rogue armor",
+      "short ragged tails",
+      "two blades"
+    ],
+    "armor_and_clothing": [
+      "layered black cuirass",
+      "segmented arm and leg plates",
+      "torn mantle",
+      "diagonal harness"
+    ],
+    "palette": [
+      "black",
+      "charcoal",
+      "graphite",
+      "cold silver",
+      "white blade eyes"
+    ],
+    "material_roles": [
+      "woven cloth",
+      "rough dark leather",
+      "rubbed black steel",
+      "polished silver edge",
+      "luminous white slit"
+    ],
+    "face_and_hair_treatment": "Featureless recessed shadow; no human face or hair",
+    "weapon": "Two asymmetric curved sentient blades",
+    "carrying_hands": [
+      "left",
+      "right"
+    ]
+  },
+  "inputs": {
+    "library_sha256": "1b7bf67866360665426bb99e4c71bd619f19b408453c24e30f0c3071601eee5c",
+    "costume_source": "artifacts/null-forge-v2/seed/art_source/fulcrum_ual/fulcrum_ual.blend",
+    "costume_sha256": "cfd6093b348fc52ce271a6d288fa7430aaba03d114b8b5ee70b6548620aafe44",
+    "construction_helper": {
+      "path": "art_source/null_ual/construction.py",
+      "sha256": "cf06126b405adca4230c8e3f55dc2b69b3674e027defd72cc8d4097c1c4c0464"
+    },
+    "reference_sha256": "78ef0df5bd3fbf6f00e6b5bf03806aa66d4335727cd3daf3c06ffd2474eaf528"
+  },
+  "invariants": {
+    "preserve_53_bone_rest_anatomy": true,
+    "preserve_32_clip_core_motion": true,
+    "use_accepted_runtime": true,
+    "excluded_revisions": [
+      "r006",
+      "r007"
+    ]
+  },
+  "intentional_exceptions": {
+    "core_motion_bones": [],
+    "reason": "No inherited core-motion or anatomy exceptions. Extra class clips and hand-parented equipment only.",
+    "new_equipment_controls": [
+      "null.blade.L",
+      "null.blade.R"
+    ],
+    "texture_palette_recipe_changes": [
+      "Five fresh packed neutral maps; texture seed 311",
+      "Removed orb, metallic mask and central stole; refitted ragged tails",
+      "Additional native KnifeStrike, StealthIdle, StealthWalk clips"
+    ]
+  },
+  "tools": {
+    "blender_version": "5.2.1 LTS",
+    "godot_version": "4.7.2 desktop; 4.5.1 server compatibility",
+    "renderer": "gl_compatibility",
+    "python_version": "3.12.14",
+    "seeds": {
+      "textures": 311
+    }
+  },
+  "deliverables": {
+    "builder": "tools/build_null.py",
+    "companions": [
+      "art_source/null_ual/construction.py",
+      "art_source/null_ual/recipe.json",
+      "tools/verify_null.py",
+      "tools/null_compat_stage.py",
+      "tools/null_record.py"
+    ],
+    "editable_blend": "art_source/null.blend",
+    "packed_textures": [
+      "art_source/null_ual/null_ash_woven_fabric.png",
+      "art_source/null_ual/null_fabric_micro_weave.png",
+      "art_source/null_ual/null_rubbed_black_steel.png",
+      "art_source/null_ual/null_steel_roughness.png",
+      "art_source/null_ual/null_worn_charcoal_weave.png"
+    ],
+    "glb": "assets/characters/null.glb",
+    "runtime_modules": [
+      "scripts/null_art.gd",
+      "scripts/null_equipment.gd",
+      "scripts/null_mechanics.gd"
+    ],
+    "viewer": "tools/null_review.gd"
+  },
+  "validation": {
+    "source_checks": {
+      "path": "artifacts/null-forge-v2/verification.json",
+      "sha256": "42974c305644dacb40099c7215b76de5a5e36df73fcff9d3dc588400ef9842f8"
+    },
+    "animation_contract": {
+      "path": "artifacts/null-forge-v2/verify.log",
+      "sha256": "248430e3acc82d0c0ebfa17ac10116f51bc31608869cb11608d9884ff746ffd2"
+    },
+    "skin_checks": "Normalized finite weights; maximum error 2.384185791015625e-07; unchanged mannequin vertices",
+    "materials_export": "Five fresh packed textures, UVs and GLB export verified; final neutral render inspected",
+    "weapon_grip": "Two hand-parented reverse grips, native idle finger pose; same pose-only server attachment layer",
+    "godot_tests": {
+      "abilities": {
+        "path": "artifacts/null-forge-v2/abilities.log",
+        "sha256": "96931bf9c76567fd9e4c0824db8484162c243c5ea788a4884b4a85a7063cf26e",
+        "result": [
+          "Null ability checks",
+          "61",
+          "61"
+        ]
+      },
+      "pose": {
+        "path": "artifacts/null-forge-v2/pose.log",
+        "sha256": "7020317d8493a43b020c164fc894ab1f9615ce1fd38eecbf88e08281ac2389b7",
+        "result": [
+          "Hitbox pose checks",
+          "141",
+          "141"
+        ]
+      },
+      "server": {
+        "path": "artifacts/null-forge-v2/server.log",
+        "sha256": "239be447401cacfc0b14918d61a3a4d629e41329a855fc3711b28f0e8dfcd6c3",
+        "result": [
+          "Server runtime checks",
+          "30",
+          "30"
+        ]
+      },
+      "combat": {
+        "path": "artifacts/null-forge-v2/combat.log",
+        "sha256": "f69107355e8cdc075e38e9bc06db226221eed6299fdc1446b92e6897c98ce3ca",
+        "result": [
+          "Aimed combat checks",
+          "41",
+          "41"
+        ]
+      },
+      "general-combat": {
+        "path": "artifacts/null-forge-v2/general-combat.log",
+        "sha256": "e62a5ef9f2d133a37104be83de348612de5d913bea25db4be07428ad0a4b258f",
+        "result": [
+          "Combat checks",
+          "83",
+          "83"
+        ]
+      },
+      "outlaw-abilities": {
+        "path": "artifacts/null-forge-v2/outlaw-abilities.log",
+        "sha256": "0431a0e5a423c48f493053f437c74226e08640f2d81406629577fc7e8455b3cd",
+        "result": [
+          "Outlaw ability checks",
+          "400",
+          "400"
+        ]
+      },
+      "outlaw-lasso": {
+        "path": "artifacts/null-forge-v2/outlaw-lasso.log",
+        "sha256": "bcc39ecedf4364ed3c3990a4ae4ec3a1651a012b54c30af01b7f6758899f1f40",
+        "result": [
+          "Outlaw lasso checks",
+          "138",
+          "138"
+        ]
+      },
+      "world": {
+        "path": "artifacts/null-forge-v2/world.log",
+        "sha256": "c0ef9fd6b91040f3c7685ffda35ac8ab66a266231cf73814f2440dbf298f8469",
+        "result": [
+          "World checks",
+          "57",
+          "57"
+        ]
+      },
+      "class-identity": {
+        "path": "artifacts/null-forge-v2/class-identity.log",
+        "sha256": "c79d255e10496db7d4e2f3414843cfb792010c41aa232de10cfafd889320df43",
+        "result": [
+          "Class identity checks",
+          "121",
+          "121"
+        ]
+      },
+      "hud": {
+        "path": "artifacts/null-forge-v2/hud.log",
+        "sha256": "6cb27a1866aaedec10579a5c9b8b1108de199b1027fefd91cf778c8a1cc44eb2",
+        "result": [
+          "Team HUD checks",
+          "133",
+          "133"
+        ]
+      },
+      "icons": {
+        "path": "artifacts/null-forge-v2/icons.log",
+        "sha256": "9d55cf1c67b0f68f3533963aa22234efbd93c53fee3336ab50a765665b2e595c",
+        "result": [
+          "Ability art checks",
+          "265",
+          "265"
+        ]
+      },
+      "camera": {
+        "path": "artifacts/null-forge-v2/camera.log",
+        "sha256": "fbb82c56c29522c6db5fc7d260344462f79ab0d0b5af26069d45875b84f4f39d",
+        "result": [
+          "Camera orbit checks",
+          "54",
+          "54"
+        ]
+      },
+      "introduction": {
+        "path": "artifacts/null-forge-v2/introduction.log",
+        "sha256": "8beee735375b6d4669499893f330eea33383aaa83d3c06217bef8a24685aa061",
+        "result": [
+          "Champion introduction checks",
+          "68",
+          "68"
+        ]
+      },
+      "network-owner-latency": {
+        "path": "artifacts/null-forge-v2/network-owner-latency.log",
+        "sha256": "dd5d496eed96b7864fe6ac06518dedd7e554b8c8dcf245012b608dcb008b67bc"
+      },
+      "network-observer-latency": {
+        "path": "artifacts/null-forge-v2/network-observer-latency.log",
+        "sha256": "8a70282ff9b6a684581b3be0b138d0434c4fa42bac1dd40b85c268c69406519f"
+      },
+      "aimed-network": {
+        "path": "artifacts/null-forge-v2/aimed-network.log",
+        "sha256": "4947d618bd8880d28209c3cd93f1361d89f75916f2e297db7e8f64420f747690"
+      }
+    },
+    "visual_review": "Actual runtime front/back/side, walking, running, backpedal, crouch, knife attack, lift/dive/recovery and body hitbox images inspected. Review windows use secondary screen 0, 30 FPS, no focus.",
+    "limitations": [
+      "Procedural model simplifies the reference engraving and ragged layers; owner approval of this 3D interpretation is not claimed.",
+      "Cloth uses inherited garment bones rather than simulation; brief inverted dive can look rigid.",
+      "Stealth uses the native forward crouch clip for all travel directions.",
+      "Unspecified damage/range/cooldowns remain initial tuning; no final damage rotation or cinematic warp VFX.",
+      "Local ENet and isolated engine compatibility checks; no production deployment or human online test."
+    ]
+  },
+  "installation": {
+    "before_manifest": "artifacts/null-forge-v2/before/manifest.json",
+    "installed_manifest": "artifacts/null-forge-v2/installed-manifest.json",
+    "new_paths": [
+      "art_source/null.blend",
+      "art_source/null_ual/construction.py",
+      "art_source/null_ual/forge-record.json",
+      "art_source/null_ual/null_ash_woven_fabric.png",
+      "art_source/null_ual/null_fabric_micro_weave.png",
+      "art_source/null_ual/null_rubbed_black_steel.png",
+      "art_source/null_ual/null_steel_roughness.png",
+      "art_source/null_ual/null_worn_charcoal_weave.png",
+      "art_source/null_ual/recipe.json",
+      "assets/characters/null.glb",
+      "assets/characters/null.glb.import",
+      "assets/characters/null_null_ash_woven_fabric.png",
+      "assets/characters/null_null_ash_woven_fabric.png.import",
+      "assets/characters/null_null_fabric_micro_weave.png",
+      "assets/characters/null_null_fabric_micro_weave.png.import",
+      "assets/characters/null_null_rubbed_black_steel.png",
+      "assets/characters/null_null_rubbed_black_steel.png.import",
+      "assets/characters/null_null_steel_roughness.png",
+      "assets/characters/null_null_steel_roughness.png.import",
+      "assets/characters/null_null_worn_charcoal_weave.png",
+      "assets/characters/null_null_worn_charcoal_weave.png.import",
+      "assets/hitboxes/null_rig.scn",
+      "assets/icons/abilities/null/backstab.svg",
+      "assets/icons/abilities/null/backstab.svg.import",
+      "assets/icons/abilities/null/blindside.svg",
+      "assets/icons/abilities/null/blindside.svg.import",
+      "assets/icons/abilities/null/haste.svg",
+      "assets/icons/abilities/null/haste.svg.import",
+      "assets/icons/abilities/null/kick.svg",
+      "assets/icons/abilities/null/kick.svg.import",
+      "assets/icons/abilities/null/nerve_lock.svg",
+      "assets/icons/abilities/null/nerve_lock.svg.import",
+      "assets/icons/abilities/null/stab.svg",
+      "assets/icons/abilities/null/stab.svg.import",
+      "assets/icons/abilities/null/stealth.svg",
+      "assets/icons/abilities/null/stealth.svg.import",
+      "assets/icons/abilities/null/vantage_point.svg",
+      "assets/icons/abilities/null/vantage_point.svg.import",
+      "docs/NULL_CLASS.md",
+      "scripts/null_art.gd",
+      "scripts/null_art.gd.uid",
+      "scripts/null_equipment.gd",
+      "scripts/null_equipment.gd.uid",
+      "scripts/null_mechanics.gd",
+      "scripts/null_mechanics.gd.uid",
+      "tests/null_abilities_test.gd",
+      "tests/null_abilities_test.gd.uid",
+      "tests/null_network_peer.gd",
+      "tests/null_network_peer.gd.uid",
+      "tests/null_server_compat.gd",
+      "tests/null_server_compat.gd.uid",
+      "tests/run_null_network.py",
+      "tools/build_null.py",
+      "tools/null_compat_stage.py",
+      "tools/null_record.py",
+      "tools/null_review.gd",
+      "tools/null_review.gd.uid",
+      "tools/verify_null.py"
+    ],
+    "owner_feedback": "Owner approved the concept design and supplied the grey/black sheet. Both outgoing attacks and direct incoming abilities start 10s combat. No later 3D-model feedback received.",
+    "rollback": "Hash-check current installed files; restore changed paths from before; remove only listed new paths if unchanged. Preserve later work and all prior concept art."
+  },
+  "workflow_revision": "v2 + hitboxes-v1",
+  "workflow_extensions": {
+    "hitboxes-v1": {
+      "manifest_sha256": "9beb44f8433991e7e8cbecda86710d4e3b8220eb346ae45819a8365e012b2331",
+      "archive_sha256": "11d1a87f284978f02906208d087bed60802093b63dfaf05a6644175791315ba8",
+      "contract_sha256": "c00fc0a9f72dd43814f1b0f54c1f43bd8cb3a1447202638b9f0823e4155d57bd"
+    }
+  },
+  "hitboxes": {
+    "required": true,
+    "profile": "standard",
+    "radii_m": [
+      0.145,
+      0.175,
+      0.205,
+      0.085,
+      0.145,
+      0.105,
+      0.1,
+      0.09,
+      0.07,
+      0.12,
+      0.1,
+      0.085,
+      0.105,
+      0.1,
+      0.09,
+      0.07,
+      0.12,
+      0.1,
+      0.085
+    ],
+    "fit_adjustments": "Standard main-body fit; excludes hood tip, flowing cloak and blades. Existing project AIM_SCALE (2,1.25,2) remains separate from this fitted profile.",
+    "source_glb": "assets/characters/null.glb",
+    "source_sha256": "84cfcba02177260091eeb6711d014f03c1e2622bf82f2b4e018b827fdf6e2f4b",
+    "rig": "assets/hitboxes/null_rig.scn",
+    "rig_sha256": "c7e6de0fc05d98c6c48486222a0130d57ccb16d6d70e87ec201375af172ff510",
+    "rig_manifest": "assets/hitboxes/manifest.json",
+    "definitions": "scripts/body_hitboxes.gd",
+    "definitions_sha256": "ac28abe0edcf98770fccf16dd541a719e673397d524878ee5148e4dd40307bc2",
+    "tests": {
+      "pose": {
+        "path": "artifacts/null-forge-v2/pose.log",
+        "sha256": "7020317d8493a43b020c164fc894ab1f9615ce1fd38eecbf88e08281ac2389b7"
+      },
+      "server": {
+        "path": "artifacts/null-forge-v2/server.log",
+        "sha256": "239be447401cacfc0b14918d61a3a4d629e41329a855fc3711b28f0e8dfcd6c3"
+      },
+      "combat": {
+        "path": "artifacts/null-forge-v2/combat.log",
+        "sha256": "f69107355e8cdc075e38e9bc06db226221eed6299fdc1446b92e6897c98ce3ca"
+      }
+    },
+    "maximum_pose_error_m": 0.0,
+    "checked_poses": [
+      "idle",
+      "forward",
+      "side",
+      "diagonal",
+      "backpedal",
+      "jump",
+      "landing",
+      "cast",
+      "recover",
+      "interrupted transitions",
+      "stealth",
+      "lift",
+      "dive",
+      "recover",
+      "stab"
+    ],
+    "special_moves": [
+      "stealth",
+      "lift",
+      "dive",
+      "recover",
+      "stab"
+    ],
+    "server_compatibility": {
+      "engine_version": "Godot 4.5.1 stable, compared with 4.7.2",
+      "actual_pose_verified": true,
+      "evidence": {
+        "path": "artifacts/null-forge-v2/server-compatibility.log",
+        "sha256": "a74542a84d0ccaa5992e0d7f19e2cd712c3a1ade722215a7ba695d6d8adb68a1"
+      }
+    },
+    "review": {
+      "front_side": {
+        "path": "artifacts/null-forge-v2/review/null.png",
+        "sha256": "9f96f823b13f5ccc699d29d61dfde7b530db51dd5d0a6cce7d9b70d51c12ef70"
+      },
+      "special_moves": {
+        "stealth": {
+          "path": "artifacts/null-forge-v2/review/null-stealth.png",
+          "sha256": "a829a09093cd7ecf56e3245c9d55343121c43b85ae1c5f24918c5e725ffedcfd"
+        },
+        "lift": {
+          "path": "artifacts/null-forge-v2/review/null-lift.png",
+          "sha256": "a822f654e6b4029f44c04068fea778c60db999608cb99204440cbd5e870df5aa"
+        },
+        "dive": {
+          "path": "artifacts/null-forge-v2/review/null-dive.png",
+          "sha256": "7b5b6a267ae01586f6d154d3bacd303ef115cb618bb160a18e21414075272c8c"
+        },
+        "recover": {
+          "path": "artifacts/null-forge-v2/review/null-recover.png",
+          "sha256": "447203b929465721ed27aab9c7409ca8fac17e7a114c473f74c52822c3ad7ddc"
+        },
+        "stab": {
+          "path": "artifacts/null-forge-v2/review/null-stab.png",
+          "sha256": "776054d9572c99e30e6d251fe2211a72dd819f7d6f5b42141b2dcb67eef9441b"
+        }
+      },
+      "reviewed": true,
+      "notes": "Body capsules follow torso, limbs and head through neutral and special poses; cloth and blades remain outside. Gold head capsule has normal damage. Actual renders inspected; no owner acceptance invented."
+    },
+    "performance_notes": "943270 byte mesh-free rig vs 12437852 byte visual GLB; 85 bones, 35 clips, 52782 retained keys. Dedicated resource guards pass. No framerate benchmark claim."
+  }
+}

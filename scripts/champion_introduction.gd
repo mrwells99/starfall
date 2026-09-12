@@ -1,6 +1,7 @@
 extends VBoxContainer
 ## Selection guidance; full ability tooltips reuse the live kit descriptions.
 const GUIDES := {
+	"Null": ["STEALTH & AMBUSH", "An eternal shadow wielding two sentient blades. Fold space behind your prey or dive from above.", "STEALTH · Leave direct combat for 10 seconds to vanish. Nearby enemies can detect you; attacks and damage reveal you.", ["Backstab", "Blindside", "Vantage Point"]],
 	"Ember": ["RANGED BURST", "Build pressure with brands, then cash them in for a fiery burst. Keep space with Blink.", "HEAT · Build with Kindle, Flashpoint and Stoke. Spend it on Supernova or Cinderstep.", ["Kindle", "Flashpoint", "Supernova"]],
 	"Vanguard": ["MELEE PRESSURE", "Stay close, expose your target and deliver a heavy finisher. Protect allies under pressure.", "RESOLVE · Build with Sundering Blow. Spend it on Oathbreaker or your defensive abilities.", ["Sundering Blow", "Oathbreaker", "Intercede"]],
 	"Luminary": ["TEAM HEALER", "Keep allies alive, remove dangerous effects and prepare an emergency save.", "STARS · Place up to three Guiding Stars on allies. Falling Star consumes them to heal.", ["Guiding Star", "Falling Star", "Last Light"]],

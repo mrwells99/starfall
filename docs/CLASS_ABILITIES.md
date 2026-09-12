@@ -1,10 +1,30 @@
 # Class abilities
 
-Current implementation, September 10, 2026, version **0.11.1**. All five classes have thirteen available abilities, including **Trinket on Ctrl+1**. Outlaw adds **Boot Kick on Shift+6**; Defense Detonation remains Shift+2 and Lasso Shift+5. Its retired Aim Test slot stays empty. Fulcrum's removed Horizon and direct Anchor slots stay empty; Gravity Anchor, Starfall and Entropy retain Shift+1, Shift+6 and Shift+7. All available abilities can be moved or rebound in Edit HUD.
+Current local implementation, September 11, 2026. Six selectable classes include the new **Null** kit below. The five established classes retain their abilities, including **Trinket on Ctrl+1**. Outlaw adds **Boot Kick on Shift+6**; Defense Detonation remains Shift+2 and Lasso Shift+5. Its retired Aim Test slot stays empty. Fulcrum's removed Horizon and direct Anchor slots stay empty; Gravity Anchor, Starfall and Entropy retain Shift+1, Shift+6 and Shift+7. All available abilities can be moved or rebound in Edit HUD.
 
 Older saved layouts gain missing abilities in empty slots, or replace a duplicate slot if the bars are full. Existing primary, secondary, and action bindings take priority. Entropy receives Shift+7 and Trinket receives Ctrl+1 only when the respective key is free; otherwise its migrated slot remains clickable and can be rebound in Settings. A custom binding already attached to that slot is retained.
 
 Range is the actual maximum distance to the selected target. Self-targeted abilities show their stored 0m range; their effect radii, anchor limits, or movement distances are listed separately. Cast times below are the ordinary values; the effect descriptions explain temporary instant-cast buffs. Outlaw's provisional cooldowns and unspecified tuning are documented in OUTLAW_CLASS.md.
+
+## Null
+
+| Default key | Ability | Current behavior | Range | Cooldown |
+| --- | --- | --- | --- | --- |
+| 1 | Stab | Instant filler; 12 damage. | 3 m | None; normal GCD |
+| 2 | Backstab | Instant 35 damage; requires the rear 120° of the target. Invalid attempts spend nothing. | 3 m | **30 s** |
+| 3 | Kick | Interrupt and 4-second spell lockout. Off GCD. | 3 m | 12 s |
+| 4 | Nerve Lock | Instant melee stun for **4 seconds**. | 3 m | 20 s |
+| 5 | Stealth | Concealment with proximity detection; details below. Off GCD. | Self | **None** |
+| 6 | Haste | **50% movement speed for 6 seconds**. Off GCD. | Self | **25 s** |
+| 7 | Blindside | Instantly teleport 1.2 m behind the target and face their direction. **Off GCD.** Requires a clear route and safe landing. | 18 m | 15 s |
+| Shift+1 | Vantage Point | Rise vertically for **0.5 seconds**, then dive with both blades. Contact deals 22 damage and a **4-second stun/knockdown**. Brief recovery; no rebound or backflip. | 18 m | 25 s |
+| Ctrl+1 | Trinket | Shared stun break. | Self | 120 s |
+
+All buttons can be moved and rebound through the existing class-specific controls. The user's explicit timings and percentages are preserved. Damage values, ranges, Backstab's rear angle, Kick/Nerve Lock/Blindside/Vantage cooldowns, and auxiliary off-GCD choices are **initial tuning**, not additional user-approved balance decisions. Existing stun diminishing returns, immunities, and Trinket apply; four seconds is the full first stun.
+
+Vantage rises at 10 m/s for 0.5 seconds, then tracks its target at 25 m/s until contact. A swept movement capsule prevents crossing terrain. Death, control, lost target or blocked movement cancels the move. Recovery lasts 0.18 seconds, followed by normal ground/air movement. Damage occurs once on server-confirmed contact. The victim uses a shortened knockdown transition with no Outlaw rebound or long recovery. Motion reference: the jump/dive near 12 seconds in [Death From Above animation](https://www.youtube.com/watch?v=6dBBNWlKVg8).
+
+Full Stealth rules, source assets and verification: [NULL_CLASS.md](NULL_CLASS.md).
 
 ## Ember
 

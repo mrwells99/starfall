@@ -68,7 +68,8 @@ var local_id := 1
 var selected_id := -1:
 	set(value):
 		var opponent: int=locked_target_for(local_id)
-		selected_id=opponent if opponent!=-1 else value
+		var candidate: int = opponent if opponent!=-1 else value
+		selected_id = candidate if not actors.has(local_id) or not actors.has(candidate) or Null.targetable(self,actors[local_id],actors[candidate]) else -1
 var focus_id := -1
 var phase := "menu"
 var mode := 1
@@ -77,6 +78,7 @@ var elapsed := 0.0
 var countdown := 0.0
 var epoch := 0
 var nav = preload("res://scripts/arena_navigation.gd").new()
+const Null = preload("res://scripts/null_mechanics.gd")
 const VanguardCharge = preload("res://scripts/vanguard_charge.gd")
 const BlinkCharges = preload("res://scripts/blink_charges.gd")
 var pivot: Node3D
@@ -782,7 +784,7 @@ func build_ui() -> void:
 	result_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	result_text.add_theme_color_override("font_color", UI_TEXT_DIM)
 	champion_choice = OptionButton.new()
-	for title in ["Ember — ranged damage", "Vanguard — melee damage", "Luminary — healer", "Fulcrum — control", "Outlaw — melee / ranged combos"]:
+	for title in ["Ember — ranged damage", "Vanguard — melee damage", "Luminary — healer", "Fulcrum — control", "Outlaw — melee / ranged combos", "Null — stealth / ambush"]:
 		champion_choice.add_item(title)
 	style_picker(champion_choice)
 	stack.add_child(champion_choice)
@@ -1655,7 +1657,7 @@ func cc_block_remaining(actor, spell: Dictionary) -> float:
 	if CC.spell_block(actor) > 0: return maxf(actor.stunned, CC.spell_block(actor))
 	if actor.stunned > 0.0:
 		return actor.stunned
-	if actor.locked > 0.0 and actor.champion != "Vanguard" and spell.kind not in ["shield", "blink", "sprint", "roll", "backflip"]:
+	if actor.locked > 0.0 and actor.champion not in ["Vanguard","Null"] and spell.kind not in ["shield", "blink", "sprint", "roll", "backflip"]:
 		return actor.locked
 	return 0.0
 
@@ -2178,10 +2180,10 @@ func locked_target_for(id: int) -> int:
 	if phase not in ["match","countdown"] or not actors.has(id): return -1
 	if world_mode:
 		var opponent: int=duels.get(id,-1)
-		return opponent if actors.has(opponent) else -1
+		return opponent if actors.has(opponent) and not Null.stealthed(actors[opponent]) else -1
 	if mode==1:
 		for actor in actors.values():
-			if actor.actor_id!=id and actor.team!=actors[id].team and not actor.training_dummy: return actor.actor_id
+			if actor.actor_id!=id and actor.team!=actors[id].team and not actor.training_dummy and not Null.stealthed(actor): return actor.actor_id
 	return -1
 
 func sync_target_lock() -> void:
@@ -2348,11 +2350,11 @@ func apply_input(id: int, movement: Vector2, yaw: float, jump: bool, selected: i
 		return
 	var actor = actors[id]
 	actor.move_input = movement.limit_length()
-	if actor.stunned <= 0 and actor.hp > 0 and actor.charge.is_empty():
+	if actor.stunned <= 0 and actor.hp > 0 and actor.charge.is_empty() and not Null.busy(actor):
 		actor.rotation.y = wrapf(yaw, -PI, PI)
 	actor.jump_queued = (actor.jump_queued or jump) and actor.charge.is_empty()
 	var opponent:=locked_target_for(id)
-	actor.target_id = opponent if opponent!=-1 else (selected if actors.has(selected) else -1)
+	actor.target_id = opponent if opponent!=-1 else (selected if actors.has(selected) and Null.targetable(self,actor,actors[selected]) else -1)
 	actor.input_age = 0
 
 func peer_actor(peer: int) -> int:
@@ -2406,6 +2408,11 @@ func receive_snapshot(round_epoch: int, seq: int, payload: PackedByteArray, roun
 	packets_received += 1
 	for data in states:
 		if actors.has(data.id):
+			if data.id == local_id and actors[data.id].champion == "Null":
+				var null_state: Dictionary = data.get("identity",{})
+				if null_state.get("null_action","") == "blindside" and int(null_state.get("null_action_serial",0)) != int(actors[data.id].identity.get("null_action_serial",0)):
+					local_yaw = float(data.yaw)
+					pivot.rotation.y = local_yaw
 			if data.id == local_id and int(data.get("motion_revision", 0)) != actors[data.id].motion_revision:
 				pending_jump_id = 0
 				queued_jump = false
@@ -2432,6 +2439,7 @@ func tick_actor(actor, delta: float) -> void:
 	# Death resets class identity below, so release an unfinished reservation first.
 	if actor.hp <= 0: Outlaw.refund_interrupted_channel(self, actor)
 	ClassMechanics.tick(self, actor, delta)
+	Null.tick(self, actor, delta)
 	actor.action_budget = maxf(0, actor.action_budget - delta)
 	actor.input_age += delta
 	if actor.hp <= 0:
@@ -2496,6 +2504,7 @@ func simulate_movement(actor, delta: float, grounded_override: Variant = null) -
 	if not actor.charge.is_empty():
 		VanguardCharge.advance(actor, delta)
 		return actor.velocity.normalized()
+	if Null.motion(self, actor, delta): return Vector3.ZERO
 	if Outlaw.Lasso.motion(self, actor, delta): return Vector3.ZERO
 	if Outlaw.roll_motion(self, actor, delta):
 		return actor.identity.roll_direction
@@ -2516,6 +2525,7 @@ func simulate_movement(actor, delta: float, grounded_override: Variant = null) -
 	elif actor.identity.slow > 0 and actor.identity.immune <= 0 and not airborne_protected:
 		speed *= 0.55
 	if Outlaw.starshot_cast(actor): speed *= Outlaw.STARSHOT_MOVE_SCALE
+	if actor.identity.get("null_haste",0.0)>0: speed *= 1.5
 	# Airborne movement carries world-space takeoff momentum, including when the
 	# player releases movement or turns. Collisions and control effects still stop it.
 	if grounded or immobilized:
@@ -2567,6 +2577,9 @@ func validate_spell(actor, slot: int, victim_id: int) -> String:
 			return "Select another fighter"
 	elif (victim.team == actor.team) != friendly:
 		return "Select an ally" if friendly else "Select an enemy"
+	if not friendly and not Null.targetable(self,actor,victim): return "Target is concealed"
+	var null_reason: String = Null.validate(self,actor,spell,victim)
+	if not null_reason.is_empty(): return null_reason
 	var identity_reason: String = ClassMechanics.validate(self, actor, spell, victim)
 	if not identity_reason.is_empty():
 		return identity_reason
@@ -2638,6 +2651,7 @@ func apply_action_intent(id: int, slot: int, selected: int, move_seq: int, movem
 	var previous_walk: bool = actor.walking
 	var previous_target: int = actor.target_id
 	var previous_age: float = actor.input_age
+	var previous_revision: int = actor.motion_revision
 	if newer_motion:
 		apply_input(id, movement, yaw, false, selected)
 		actor.walking = walking
@@ -2645,7 +2659,8 @@ func apply_action_intent(id: int, slot: int, selected: int, move_seq: int, movem
 		accept_movement(id, move_seq, movement, yaw, 0, selected, 0, walking, actor.motion_revision, false)
 	try_spell(id, slot, selected, camera_yaw)
 	if newer_motion:
-		actor.rotation.y = previous_yaw
+		if actor.motion_revision == previous_revision:
+			actor.rotation.y = previous_yaw
 		actor.move_input = previous_move
 		actor.walking = previous_walk
 		actor.target_id = previous_target
@@ -2755,11 +2770,12 @@ func ability_block_reason(actor, slot: int, requested: int) -> String:
 		return "Charging"
 	if actor.identity.get("roll_left", 0.0) > 0: return "Rolling"
 	if Outlaw.Lasso.busy(actor): return "Completing Lasso"
+	if Null.busy(actor): return "Completing Vantage Point"
 	var instant_collapse: bool = spell.kind == "collapse" and actor.identity.instant_collapse > 0
 	var own_unavailable: bool = actor.identity.blink_charges <= 0 if spell.kind == "blink" else actor.cooldowns[slot] > 0
 	if own_unavailable or (actor.gcd > 0 and not (spell.off or instant_collapse)):
 		return "Ability is not ready"
-	if actor.locked > 0 and actor.champion != "Vanguard" and spell.kind not in ["shield", "blink", "sprint", "roll", "backflip"]:
+	if actor.locked > 0 and actor.champion not in ["Vanguard", "Null"] and spell.kind not in ["shield", "blink", "sprint", "roll", "backflip"]:
 		return "Spell school locked out"
 	if actor.identity.root > 0 and spell.kind in ["blink", "charge", "cinder", "pilgrim", "intercede", "swap", "roll", "backflip"]:
 		return "Rooted"
@@ -2801,10 +2817,12 @@ func try_spell(id: int, slot: int, requested: int, camera_yaw: Variant = null) -
 		if route.is_empty():
 			feedback(actor, "No safe route to target")
 			return false
+		Null.begin_ability(self,actor,spell,victim)
 		actor.cooldowns[slot] = spell.cd
 		actor.identity.hold = 0.0
 		VanguardCharge.start(self, actor, victim, route, spell.power)
 		return true
+	Null.begin_ability(self,actor,spell,actors.get(victim_id))
 	var instant_collapse: bool = spell.kind == "collapse" and actor.identity.instant_collapse > 0
 	var instant_graviton: bool = spell.kind == "graviton" and actor.identity.instant_graviton > 0
 	var instant_severe: bool = spell.kind == "severe" and actor.identity.instant_severe > 0
@@ -2827,7 +2845,7 @@ func resolve_spell(actor, slot: int, victim, camera_yaw: Variant = null) -> void
 		actor.cooldowns[slot] = spell.cd
 	if spell.kind not in Kits.SELF_KINDS and spell.kind not in Kits.ALLY_KINDS:
 		actor.identity.hold = 0.0
-	if Outlaw.resolve(self, actor, spell, victim, camera_yaw) or ClassMechanics.resolve(self, actor, spell, victim):
+	if Null.resolve(self,actor,spell,victim) or Outlaw.resolve(self, actor, spell, victim, camera_yaw) or ClassMechanics.resolve(self, actor, spell, victim):
 		return
 	match spell.kind:
 		"damage":
@@ -2902,12 +2920,14 @@ func may_harm(source, victim) -> bool:
 	if victim.training_dummy: return not source.training_dummy
 	return false
 
-func damage(source, victim, amount: float) -> void:
+func damage(source, victim, amount: float, periodic: bool = false) -> void:
 	if not may_harm(source, victim):
 		feedback(source, "Challenge them to a duel first")
 		return
 	if victim.hp <= 0:
 		return
+	if not periodic: Null.direct_hit(self,source,victim)
+	Null.break_stealth(self,victim)
 	amount = ClassMechanics.before_damage(self, source, victim, amount)
 	var reduction := ClassMechanics.damage_multiplier(source, victim)
 	var actual := amount * reduction if victim.training_dummy else minf(victim.hp, amount * reduction)
@@ -3124,7 +3144,7 @@ func bot_think(actor, delta: float) -> void:
 			continue
 		if other.team == actor.team:
 			friends.append(other)
-		else:
+		elif Null.targetable(self,actor,other):
 			enemies.append(other)
 	if enemies.is_empty():
 		return
@@ -3154,7 +3174,7 @@ func bot_think(actor, delta: float) -> void:
 			var direction: Vector3 = (next - actor.position).normalized()
 			var local: Vector3 = actor.basis.inverse() * direction
 			actor.move_input = Vector2(local.x, local.z)
-	elif actor.casting < 0 and actor.champion not in ["Vanguard", "Outlaw"] and destination == foe and offset.length() < 7:
+	elif actor.casting < 0 and actor.champion not in ["Vanguard", "Outlaw", "Null"] and destination == foe and offset.length() < 7:
 		# Kite toward a clear cell, instead of backing into a pillar.
 		var retreat: Vector3 = actor.position - offset.normalized() * 3
 		var cell: Vector2i = nav.nearest(retreat)
@@ -3165,6 +3185,12 @@ func bot_think(actor, delta: float) -> void:
 	if actor.ai_timer > 0 or actor.casting >= 0:
 		return
 	actor.ai_timer = 0.25 if network else player_options.THINK_INTERVALS[level]
+	if actor.champion == "Null":
+		if not Null.targetable(self,actor,foe): actor.move_input=Vector2.ZERO; return
+		for slot in [2,6,1,7,3,0]:
+			if slot==2 and foe.casting<0: continue
+			if try_spell(actor.actor_id,slot,foe.actor_id): return
+		return
 	if actor.champion == "Outlaw":
 		Outlaw.bot(self, actor, foe)
 		return
@@ -3265,7 +3291,7 @@ func show_event(round_epoch: int, source: int, victim: int, text: String, color:
 			preload("res://scripts/vanguard_strike.gd").spawn(self, actors[source].position, actor.position, actors[source].base_color)
 		elif text == "STARFALL" and actors[source].champion == "Fulcrum":
 			beam(actor.position + Vector3(0, 12, 0), actor.position, Color("dbbaff"))
-		elif actors[source].champion != "Outlaw":
+		elif actors[source].champion not in ["Outlaw", "Null"]:
 			beam(actors[source].position, actor.position, color)
 
 func beam(from: Vector3, to: Vector3, color: Color) -> void:
@@ -3361,6 +3387,7 @@ func update_frame(frame: VBoxContainer, id: int, prefix: String) -> void:
 		return
 	var actor = actors[id]
 	var friendly: bool = actors.has(local_id) and actor.team == actors[local_id].team
+	if not friendly and Null.stealthed(actor): frame.hide(); return
 	frame.get_child(0).hide()
 	var health := frame.get_child(1) as ProgressBar
 	health.value = actor.hp
@@ -3392,7 +3419,7 @@ func update_frame(frame: VBoxContainer, id: int, prefix: String) -> void:
 	(frame.get_child(3) as Label).text = "DEFEATED" if actor.hp <= 0 else ""
 	var state := frame.get_child(3) as Label
 	var meter = state.get_node("ResourceMeter")
-	meter.visible = actor.hp > 0 and not actor.training_dummy
+	meter.visible = actor.hp > 0 and not actor.training_dummy and actor.champion!="Null"
 	state.custom_minimum_size.y = 16 if meter.visible else 18
 	if meter.visible: meter.sync(actor, prefix == "YOU")
 	var strip := frame.get_child(4) as HBoxContainer
@@ -3455,7 +3482,13 @@ func update_visuals(delta: float) -> void:
 	if phase == "countdown":
 		notice.text = "Arena opens in %d" % ceili(countdown)
 	for actor in actors.values():
-		actor.visual_tick(delta, camera, actor.actor_id != local_id, cast_bar_color(actor, false, Color("c7a256")))
+		actor.visual_tick(delta, camera, actor.actor_id != local_id and not Null.stealthed(actor), cast_bar_color(actor, false, Color("c7a256")))
+		if actor.champion == "Null" and actor.champion_model != null and actor.champion_model.null_art != null:
+			actor.champion_model.null_art.visibility_for(actor,actors.get(local_id))
+		if actors.has(local_id) and not Null.targetable(self,actors[local_id],actor):
+			if selected_id==actor.actor_id: selected_id=-1
+			if focus_id==actor.actor_id: focus_id=-1
+		if actor.nameplate != null: actor.nameplate.visible=not Null.stealthed(actor) and actor.hp>0
 	ring.visible = selected_id != local_id and actors.has(selected_id) and actors[selected_id].hp > 0
 	if ring.visible:
 		ring.position = actors[selected_id].position + Vector3(0, 0.08, 0)
@@ -3488,6 +3521,7 @@ func update_visuals(delta: float) -> void:
 		enemy_buttons[i].visible = i < enemies.size()
 		if i < enemies.size():
 			var foe = actors[enemies[i]]
+			enemy_buttons[i].visible = not Null.stealthed(foe)
 			paint_roster_row(enemy_buttons[i], foe, "%d · %s" % [i + 1, "Dummy" if foe.training_dummy else foe.champion], false)
 	for actor in actors.values():
 		var hostile: bool = actors.has(local_id) and actor.team != actors[local_id].team
@@ -3577,7 +3611,9 @@ func sync_hud_visibility() -> void:
 	scoreboard.visible = show_hud
 	notice.visible = show_hud
 	for entry in [[player_frame, local_id], [target_frame, selected_id], [focus_frame, focus_id]]:
-		entry[0].visible = (show_hud and actors.has(entry[1])) or edit_mode
+		var unit = actors.get(entry[1])
+		var concealed: bool = unit != null and actors.has(local_id) and unit.team != actors[local_id].team and Null.stealthed(unit)
+		entry[0].visible = ((show_hud and unit != null) or edit_mode) and not concealed
 	party_box.visible = (show_hud and party_ids().size() > 1) or edit_mode
 	enemy_box.visible = not world_mode and ((show_hud and not enemy_ids().is_empty() and mode != 1) or edit_mode)
 	for bar in bar_roots:
@@ -3656,7 +3692,7 @@ func cycle_target(direction: int = 1) -> void:
 	var candidates: Array[int] = []
 	var duel_opponent: int = duels.get(local_id, -1) if world_mode else -1
 	for actor in actors.values():
-		if actor.actor_id == local_id or actor.hp <= 0:
+		if actor.actor_id == local_id or actor.hp <= 0 or not Null.targetable(self,actors[local_id],actor):
 			continue
 		if world_mode:
 			# Training dummies are click targets, never Tab targets. During a
@@ -3892,7 +3928,7 @@ func enemy_ids() -> Array[int]:
 	if opponent!=-1: return [opponent]
 	if actors.has(local_id):
 		for actor in actors.values():
-			if actor.team != actors[local_id].team and not actor.training_dummy:
+			if actor.team != actors[local_id].team and not actor.training_dummy and Null.targetable(self,actors[local_id],actor):
 				ids.append(actor.actor_id)
 	return ids
 

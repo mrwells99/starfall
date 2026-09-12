@@ -30,6 +30,9 @@ func reset(choice: String = "Ember", team_size: int = 1) -> void:
 	for actor in arena.actors.values():
 		actor.position.z = 6.0 if actor.team == 0 else -6.0
 	await settle()
+	# Navigation checks require active bots, independently of local practice settings.
+	arena.player_options.passive = false
+	arena.player_options.difficulty = 1
 
 func run() -> void:
 	arena = load("res://arena.tscn").instantiate()

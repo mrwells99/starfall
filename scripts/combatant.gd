@@ -266,3 +266,4 @@ func reset_identity() -> void:
 	identity = {"meditation": 0.0, "instant_graviton": 0.0, "instant_collapse": 0.0, "entropy_dots": {}, "dots": {}, "heat": 0.0, "resolve": 0.0, "brands": {}, "stars": [], "anchor_left": 0.0, "anchor_pos": Vector3.ZERO, "orbit": 0.0, "root": 0.0, "slow": 0.0, "immune": 0.0, "last": 0.0, "hold": 0.0, "disorient": false, "guard": -1, "guard_left": 0.0, "guard_budget": 0.0, "challenge": -1, "challenge_left": 0.0, "challenge_tick": 0.0, "exposed": -1, "exposed_left": 0.0, "wake": 0.0, "wake_pos": Vector3.ZERO, "wake_end": Vector3.ZERO, "wake_tick": 0.0}
 	identity.blink_charges = Kits.BLINK_MAX_CHARGES if champion == "Ember" else 0
 	preload("res://scripts/outlaw_mechanics.gd").initialize(self)
+	preload("res://scripts/null_mechanics.gd").initialize(self)

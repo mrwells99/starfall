@@ -1,5 +1,7 @@
 # Game Design — established source of truth
 
+Null is the sixth playable class. See [Null class specification](NULL_CLASS.md) for the eight-ability kit, per-enemy Stealth detection, ten-second combat rule, and initial tuning.
+
 ## World-only Starwalk
 
 The cyan STARWALK gate on the flat landing atop the eastern terrace stairs leads to Ascension: 72 jumps in a rising spiral across floating ruins, climbing 59m above the start. Landing surfaces shrink from roughly 1.8–2m to alternating narrow ledges and final 1.5m stones. Stand inside the launch ring for eight continuous seconds to start; stepping out, dying or entering a duel cancels the countdown. Each player sees their own countdown. All jumps use ordinary forward movement and the existing jump; mobility abilities are optional. Broad islands at 24 and 48 mark the three stages (Shattered Wake, Gravity Well, Crown of Stars) but do not save checkpoints. Entering the gold finish ring celebrates completion and returns the player to the center. Falling below the void threshold also returns living players to the center, clearing travel momentum and interrupting casts while preserving health and ordinary cooldowns (existing interrupted-channel refund rules still apply). Active duel participants cannot use the launch gate. This extension exists only in World, never in arena matches.
