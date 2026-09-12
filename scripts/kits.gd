@@ -1,6 +1,6 @@
 extends RefCounted
 
-const SELF_KINDS := ["shield", "self_heal", "blink", "sprint", "cinder", "stoke", "wake", "hold", "unbroken", "anchor", "orbit", "collapse", "flare_cc", "roll", "backflip", "coin_toss", "deadeye", "defense_detonation", "trinket"]
+const SELF_KINDS := ["shield", "self_heal", "blink", "sprint", "cinder", "stoke", "wake", "hold", "unbroken", "anchor", "orbit", "collapse", "flare_cc", "roll", "backflip", "coin_toss", "deadeye", "defense_detonation", "trinket", "stealth", "null_haste"]
 const ALLY_KINDS := ["heal", "ally_shield", "dispel", "falling", "absolution", "stitch", "star", "pilgrim", "last", "intercede", "swap"]
 const KIT_SIZE := 15
 const TRINKET_SLOT := 14 # Shared slot; preserve all existing class indices.
@@ -13,7 +13,7 @@ const SOLAR_FLARE_RANGE := 4.0
 const SOLAR_FLARE_HALF_ANGLE := PI * .3 # 108 degrees total; 10% narrower than 120.
 const BLINK_MAX_CHARGES := 2
 
-const NAMES = ["Ember", "Vanguard", "Luminary", "Fulcrum", "Outlaw"]
+const NAMES = ["Ember", "Vanguard", "Luminary", "Fulcrum", "Outlaw", "Null"]
 
 # Class colours. Chosen to be distinguishable at a glance against the dark UI
 # and from each other, and to match how each champion already reads: Ember is
@@ -24,6 +24,7 @@ const COLORS := {
 	"Luminary": Color("7ee08a"),
 	"Fulcrum": Color("b98cff"),
 	"Outlaw": Color("d6ae72"),
+	"Null": Color("b9c0c7"),
 }
 
 static func color(champion: String) -> Color:
@@ -41,6 +42,16 @@ static func get_kit(champion: String) -> Array:
 	return kit
 
 static func class_kit(champion: String) -> Array:
+	if champion == "Null":
+		return [
+			spell("Stab", "stab", 12, 4, 0, 0),
+			spell("Backstab", "backstab", 35, 4, 0, 30),
+			spell("Kick", "interrupt", 4, 4, 0, 12, true),
+			spell("Nerve Lock", "nerve_lock", 4, 4, 0, 20),
+			spell("Stealth", "stealth", 0, 0, 0, 0, true),
+			spell("Haste", "null_haste", 6, 0, 0, 25, true),
+			spell("Blindside", "blindside", 0, 24, 0, 15, true),
+			spell("Vantage Point", "vantage", 22, 24, 0, 25)]
 	if champion == "Outlaw":
 		return [
 			spell("Starshot", "starshot", 8, 24, .7, 0),
@@ -137,6 +148,13 @@ static func class_kit(champion: String) -> Array:
 # Numeric effects use the same kit dictionaries that the simulation reads.
 static func summary(ability: Dictionary) -> String:
 	var concepts := {
+		"stab": "Stab your enemy for 12 damage.",
+		"backstab": "Deal 35 damage from behind your target. 30s cooldown.",
+		"blindside": "Instantly teleport behind your target. Off the global cooldown; requires a safe landing.",
+		"vantage": "Rise vertically for 0.5s, then dive at your target with both blades. Contact deals 22 damage and knocks them down with a 4s stun. No rebound.",
+		"nerve_lock": "Stun an enemy in melee range for 4s. Uses stun diminishing returns.",
+		"null_haste": "Move 50% faster for 6s. 25s cooldown.",
+		"stealth": "Requires 10s out of direct combat; no cooldown. You appear at 50% opacity. Enemies must remain within 3.5m for 0.7s to detect and target you; no nameplate. Attacking, aimed abilities or incoming damage break Stealth. Damage-over-time ticks do not extend combat.",
 		"starshot": "Fire for 8 damage. Unkickable; cast while moving 30% slower.",
 		"lasso": "Unkickable moving cast: lasso into a dropkick, stun during travel, then knock back and knock down for 1.5s. Rebound; gain 1 Defense Detonation stack. Usable during Backflip with slowed drift and CC immunity; landing cancels the cast.",
 		"severe": "Slash for 20% current health. Bleed for 2 damage each second for 5s and slow by 60% for 6s. Unkickable; cast while moving. Instant for 1.5s after Roll.",

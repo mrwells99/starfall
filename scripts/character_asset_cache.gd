@@ -7,7 +7,7 @@ static func get_scene(path: String) -> PackedScene:
 	# rather than introducing a first-seen-class load during an active match.
 	if path.begins_with("res://assets/characters/") and not visual_warmed:
 		visual_warmed = true
-		for title in ["ember","luminary","fulcrum","vanguard","outlaw"]:
+		for title in ["ember","luminary","fulcrum","vanguard","outlaw","null"]:
 			var visual_path: String = "res://assets/characters/"+title+".glb"
 			scenes[visual_path] = load(visual_path)
 	if not scenes.has(path): scenes[path] = load(path)

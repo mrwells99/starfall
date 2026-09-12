@@ -19,11 +19,13 @@ func run() -> void:
 	check(Engine.max_fps == Engine.physics_ticks_per_second, "Server frame loop is bounded at physics frequency")
 	check(Engine.physics_ticks_per_second == 60, "Combat remains at 60 Hz")
 	arena.mode = 3
+	arena.roster = {1:{"champion":"Null","team":0},2:{"champion":"Ember","team":1}}
 	arena.begin_round()
+	check(arena.actors[1].champion == "Null", "Null exercises the actual dedicated rig path")
 	for actor in arena.actors.values():
 		check(actor.champion_model == null, "Server actor has no presentation model")
 		check(actor.get_child(0) is CollisionShape3D and actor.hitbox_pose != null and actor.hitbox_pose.find_children("*","MeshInstance3D",true,false).is_empty(), "Movement capsule and lightweight hitbox rig retained without visual children")
-	for champion in ["ember", "vanguard", "luminary", "fulcrum", "outlaw"]:
+	for champion in ["ember", "vanguard", "luminary", "fulcrum", "outlaw", "null"]:
 		check(not ResourceLoader.has_cached("res://assets/characters/%s.glb" % champion), "Server does not load authored model: " + champion)
 	var before := get_node_count()
 	arena.combat_event(-1, arena.actors.keys()[0], "TEST", Color.WHITE)

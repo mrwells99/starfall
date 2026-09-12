@@ -174,6 +174,10 @@ jobs:
         if: matrix.suite == 'gameplay'
         run: ./tests/check_suite.sh "Cast bar checks" godot --headless --path . --script tests/cast_bar_test.gd
 
+      - name: Null stealth, ambush and dive mechanics
+        if: matrix.suite == 'gameplay'
+        run: ./tests/check_suite.sh "Null ability checks" godot --headless --path . --script tests/null_abilities_test.gd
+
       - name: Body hitbox fit and aimed cooldown foundation
         if: matrix.suite == 'gameplay'
         run: |
@@ -206,6 +210,8 @@ jobs:
           python3 tests/run_ember_network.py --test-latency
           python3 tests/run_trinket_network.py
           python3 tests/run_aimed_network.py --test-latency
+          python3 tests/run_null_network.py --test-latency
+          python3 tests/run_null_network.py --test-observer --test-latency
 
       - name: network-outlaw scenarios
         if: matrix.suite == 'network-outlaw'

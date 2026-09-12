@@ -2,7 +2,7 @@ extends Node3D
 ## Same accepted animator, using an offline-extracted rig with zero render resources.
 var torso: MeshInstance3D
 var art
-const SCRIPTS := {"Ember":"ember_art", "Luminary":"luminary_art", "Fulcrum":"fulcrum_art", "Vanguard":"vanguard_authored", "Outlaw":"outlaw_art"}
+const SCRIPTS := {"Ember":"ember_art", "Luminary":"luminary_art", "Fulcrum":"fulcrum_art", "Vanguard":"vanguard_authored", "Outlaw":"outlaw_art", "Null":"null_art"}
 
 func build(title: String) -> void:
 	name = "ServerHitboxPose"

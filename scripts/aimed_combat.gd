@@ -147,6 +147,7 @@ func resolve(game, request: Dictionary) -> Dictionary:
 	var origin: Vector3 = firing_origin(shooter_state.points)
 	var direction: Vector3 = request.direction
 	var result := trace(game,actor,origin,direction,spell.range,stamp)
+	game.Null.begin_ability(game,actor,spell,null)
 	actor.cooldowns[slot] = spell.cd
 	if not spell.off: actor.gcd = game.GCD_DURATION
 	result.merge({"source":actor.actor_id,"seq":request.seq,"from":origin,"damage":0,"rewind_ms":roundi((clock-stamp)*1000)})
@@ -154,6 +155,7 @@ func resolve(game, request: Dictionary) -> Dictionary:
 		var victim = game.actors[result.victim]
 		if victim.team != actor.team and game.may_harm(actor,victim):
 			var before: float = victim.hp
+			game.Null.direct_hit(game,actor,victim)
 			game.damage(actor,victim,roundi(spell.power))
 			result.damage = roundi(before-victim.hp)
 	game.report_aimed_shot(game.epoch,result)

@@ -1,5 +1,7 @@
 # Art Direction — established source of truth
 
+Null's approved reference is [the neutral grey/black sheet](../art_source/references/null-concept-v2.png). His editable Forge v2 model, twin blades and review record are described in [NULL_CLASS.md](NULL_CLASS.md). The earlier Hollowkin species lore is retired.
+
 _Established theme and current prototype art. Character designs remain an initial art pass, subject to playtest and visual review._
 
 ## Theme — Cosmic Gladiators (established 2026-09-07)

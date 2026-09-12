@@ -128,6 +128,7 @@ static func tick(game, a) -> void:
 
 static func knockdown_active(a) -> bool:
 	var k: Dictionary = a.identity.get("lasso_knockdown", {})
+	if k.get("null",false): return a.hp>0 and a.cc_effects.get("stun",{}).get("source","")=="Vantage Point"
 	return not k.is_empty() and a.hp > 0 and a.cc_effects.get("stun", {}).get("source", "") == k.get("source", "") and a.cc_effects.stun.get("lasso_owner",-1) == k.get("owner",-1)
 
 static func impact(game, a, b, s: Dictionary) -> void:

@@ -40,8 +40,9 @@ func install(owner_actor) -> void:
 	ground.hide()
 	brackets.hide()
 func sync(hostile: bool, personal: bool, selected: bool) -> void:
-	ground.visible = not personal and actor.hp > 0
-	brackets.visible = selected and not personal and actor.hp > 0
+	var concealed: bool=actor.identity.get("stealth",false)
+	ground.visible = not personal and actor.hp > 0 and not concealed
+	brackets.visible = selected and not personal and actor.hp > 0 and not concealed
 	if last_hostile != int(hostile):
 		last_hostile = int(hostile)
 		var tint: Color = Badge.ENEMY if hostile else Badge.ALLY

@@ -36,7 +36,7 @@ func wall(at: Vector3, dimensions: Vector3) -> StaticBody3D:
 func severe_and_roll() -> void:
 	await reset()
 	ck(a.champion_model.outlaw_art != null, "Outlaw uses its actual authored model")
-	ck(game.champion_choice.item_count == 5, "Outlaw is selectable as the fifth class")
+	ck(game.champion_choice.item_count == game.Kits.NAMES.size(), "Outlaw is selectable as the fifth class")
 	ck(game.try_spell(1, 1, 2) and a.casting == 1, "Ordinary Severe starts its short cast")
 	tick(a, .65)
 	ck(b.hp == 80 and b.identity.severe_bleeds.has(1), "Severe hits for integer 20 percent current health and attaches its bleed")

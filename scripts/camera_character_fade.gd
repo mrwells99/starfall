@@ -29,7 +29,7 @@ func update(actor: Node3D) -> void:
 	_model_id = presenter.get_instance_id()
 	_remember_owned(presenter.get("materials"))
 	var costume_roots: Array[Node3D] = []
-	for property_name in ["ember_art", "vanguard_art", "luminary_art", "fulcrum_art", "outlaw_art"]:
+	for property_name in ["ember_art", "vanguard_art", "luminary_art", "fulcrum_art", "outlaw_art", "null_art"]:
 		var art: Variant = presenter.get(property_name)
 		if not is_instance_valid(art):
 			continue

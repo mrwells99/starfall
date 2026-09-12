@@ -33,7 +33,7 @@ func reconcile(game, actor) -> void:
 	actor.rotation.y = state.yaw
 	# Roll's remaining travel is movement state; rewind it before replaying inputs.
 	# Combat buffs and combo resources remain server-owned.
-	for key in ["roll_left", "roll_direction", "roll_distance", "backflip_active", "lasso", "lasso_knockdown"]:
+	for key in ["roll_left", "roll_direction", "roll_distance", "backflip_active", "lasso", "lasso_knockdown", "null_vantage"]:
 		if state.get("identity", {}).has(key):
 			var value = state.identity[key]
 			actor.identity[key] = value.duplicate(true) if value is Dictionary else value

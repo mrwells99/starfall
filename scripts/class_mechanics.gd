@@ -77,8 +77,10 @@ static func heal(game, a, b, amount: float) -> void:
 	game.combat_event(a.actor_id, b.actor_id, "+%d" % ceili(amount), Color("97edb1"))
 
 static func control(game, a, b, duration: float, title: String, root_only: bool = false, breaks: bool = false) -> void:
-	if not game.may_harm(a, b) or b.hp <= 0 or (root_only and b.identity.immune > 0):
+	if not game.may_harm(a, b) or b.hp <= 0:
 		return
+	game.Null.direct_hit(game,a,b)
+	if root_only and b.identity.immune > 0: return
 	var category := "root" if root_only else ("incapacitate" if breaks else "stun")
 	if game.CC.apply(b, category, duration, title) <= 0:
 		game.combat_event(a.actor_id, b.actor_id, "IMMUNE", game.GOLD)
@@ -307,7 +309,7 @@ static func tick(game, a, delta: float) -> void:
 				if b.identity.immune <= 0 and not game.CC.airborne_immune(b):
 					b.identity.slow = 0.2
 				if pulse:
-					game.damage(a, b, 4)
+					game.damage(a, b, 4, true)
 
 static func tick_dots(game, a, dots: Dictionary, delta: float, tick_damage: float, meditation: float) -> void:
 	for source_id in dots.keys():
@@ -322,7 +324,7 @@ static func tick_dots(game, a, dots: Dictionary, delta: float, tick_damage: floa
 		while dot.tick <= 0.00001 and a.hp > 0 and game.may_harm(source, a):
 			dot.tick += 1.0
 			source.identity.meditation = minf(100, source.identity.meditation + meditation)
-			game.damage(source, a, tick_damage * int(dot.get("stacks", 1)))
+			game.damage(source, a, tick_damage * int(dot.get("stacks", 1)), true)
 		# Lethal damage can reset identity when a world duel ends.
 		if a.hp <= 0 or dot.left <= 0:
 			dots.erase(source_id)
@@ -345,6 +347,7 @@ static func before_damage(game, source, victim, amount: float) -> float:
 			if guarded >= a.hp and s.last > 0:
 				guarded = maxf(0, a.hp - 1)
 				s.last = 0.0
+			if guarded>0: game.Null.break_stealth(game,a)
 			a.hp = maxf(0, a.hp - guarded)
 			if a.hp <= 0:
 				a.casting = -1

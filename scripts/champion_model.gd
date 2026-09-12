@@ -28,6 +28,8 @@ const FulcrumArt = preload("res://scripts/fulcrum_art.gd")
 var fulcrum_art: RefCounted
 const OutlawArt = preload("res://scripts/outlaw_art.gd")
 var outlaw_art: RefCounted
+const NullArt = preload("res://scripts/null_art.gd")
+var null_art: RefCounted
 
 func paint(hex: String, luminous: bool = false, metal: float = 0.0) -> StandardMaterial3D:
 	var mat := StandardMaterial3D.new()
@@ -110,6 +112,10 @@ func ring(parent: Node3D, at: Vector3, radius: float, width: float, mat: Materia
 func build(champion: String, team_color: Color) -> void:
 	archetype = champion
 	name = "ChampionModel"
+	if champion == "Null":
+		null_art = NullArt.new()
+		null_art.build(self,team_color)
+		return
 	if champion == "Outlaw":
 		outlaw_art = OutlawArt.new()
 		outlaw_art.build(self, team_color)
@@ -187,6 +193,9 @@ func build(champion: String, team_color: Color) -> void:
 		gem(scepter, Vector3(0, 0.75, 0), Vector3(0.12, 0.24, 0.12), glow)
 
 func animate(delta: float, actor: CharacterBody3D) -> void:
+	if null_art != null:
+		null_art.animate(self,delta,actor)
+		return
 	if outlaw_art != null:
 		outlaw_art.animate(self, delta, actor)
 		return

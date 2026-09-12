@@ -85,6 +85,10 @@ static func active(actor, sources: Array = [], local_source: int = -1) -> Array:
 			"description": "Moves 65% faster. Does not increase jump height or clear stuns.",
 		})
 	var identity: Dictionary = actor.identity
+	if identity.get("stealth",false):
+		out.append({"key":"stealth", "name":"Stealth", "kind":BUFF, "remaining":0.0, "source":"Stealth", "color":Color("b9c0c7"), "description":"Hidden until detected within 3.5m for 0.7s. Attacks and damage break concealment."})
+	if identity.get("null_haste",0.0)>0:
+		out.append({"key":"null_haste", "name":"Haste", "kind":BUFF, "remaining":identity.null_haste, "source":"Haste", "color":Color("b9c0c7"), "description":"Move 50% faster for 6s."})
 	if identity.get("roll_haste", 0.0) > 0:
 		out.append({"key":"roll_haste", "name":"Quickstep", "kind":BUFF, "remaining":identity.roll_haste, "color":Color("f2c676"), "source":"Roll", "description":"25% faster movement for 5s after Roll."})
 	if preload("res://scripts/outlaw_mechanics.gd").severe_slowed(actor):
