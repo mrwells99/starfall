@@ -22,7 +22,9 @@ func reset(count:=3) -> void:
 	a.position=Vector3(0,20,0); b.position=Vector3(0,20,-6)
 	a.rotation.y=0; b.rotation.y=PI; a.identity.defense_detonation=count
 	seq=0; results.clear()
-	for i in 18: step(1.0/60)
+	game.aimed_combat.tracking.set_mode(game,1,0,1,true)
+	game.aimed_combat.tracking.begin_charge(game,1,0,1)
+	for i in 40: step(1.0/60)
 	await physics_frame
 func step(delta: float) -> void:
 	for actor in game.actors.values():
@@ -33,6 +35,7 @@ func step(delta: float) -> void:
 	game.aimed_combat.tick(game,delta)
 	game.outlaw_detonation.tick(game)
 func origin() -> Vector3: return a.position+Vector3(.55,1.6,1.65)
+func hit_damage() -> float: return b.BASE_MAX_HEALTH*game.Outlaw.DETONATION_HEALTH_FRACTION*b.DAMAGE_SCALE
 func aim() -> Vector3: return (game.aimed_combat.firing_origin(b.body_hitboxes.points)-origin()).normalized()
 func shot(index: int, direction: Vector3, burst:=1, at: Variant=null, revision: Variant=null, from: Variant=null, peer:=0) -> bool:
 	seq+=1
@@ -52,11 +55,11 @@ func bursts() -> void:
 			step(.13)
 			ck(shot(index,aim()),"Next burst shot accepts fresh aim")
 			game.outlaw_detonation.tick(game)
-		ck(results.size()==count and b.hp==100-count*10,"Each aimed body hit deals ten percent maximum health")
+		ck(results.size()==count and b.hp==b.MAX_HEALTH-count*hit_damage(),"Each aimed body hit deals ten percent maximum health")
 		ck(results[0].from==captured_origin,"Damage ray originates at the submitted camera, not the gun or chest")
 		ck(results.back().done and not game.outlaw_detonation.bursts.has(1),"Final shot finishes and cleans up the burst")
 		for index in range(1,count): ck(absf(results[index].time-results[index-1].time-.13)<.00001,"Shots retain exactly 130ms separation at their scheduled deadlines")
-		ck(not shot(count-1,aim()) and b.hp==100-count*10,"Replayed or excess shots cannot reuse consumed stacks")
+		ck(not shot(count-1,aim()) and b.hp==b.MAX_HEALTH-count*hit_damage(),"Replayed or excess shots cannot reuse consumed stacks")
 	await reset()
 	a.target_id=b.actor_id
 	ck(shot(0,aim()),"Selected-target burst accepts its first aimed shot")
@@ -74,7 +77,7 @@ func bursts() -> void:
 	step(.13)
 	ck(shot(2,aim()),"Burst accepts aiming back at the selected target")
 	game.outlaw_detonation.tick(game)
-	ck(b.hp==80 and results[1].victim==-1,"Each shot uses its own aim; a crosshair miss is not redirected to the selected target")
+	ck(b.hp==b.MAX_HEALTH-2*hit_damage() and results[1].victim==-1,"Each shot uses its own aim; a crosshair miss is not redirected to the selected target")
 	ck(a.identity.defense_detonation==1,"A new combo stack earned during the committed burst is preserved")
 	await reset()
 	shot(0,aim()); game.outlaw_detonation.tick(game)
@@ -91,13 +94,13 @@ func protections() -> void:
 	var target: Vector3=game.aimed_combat.firing_origin(b.body_hitboxes.points)
 	ck(not game.Outlaw.raw_los(game,chest,target),"Fixture blocks a chest-to-target shot while the camera can see around it")
 	shot(0,aim()); game.outlaw_detonation.tick(game)
-	ck(b.hp==90,"The camera ray hits accurately instead of retargeting damage from the chest or gun")
+	ck(b.hp==b.MAX_HEALTH-hit_damage(),"The camera ray hits accurately instead of retargeting damage from the chest or gun")
 	var pool_index: int=posmod(game.outlaw_fx.cursor-1,game.outlaw_fx.CAPACITY)
 	ck(game.outlaw_fx.flashes[pool_index].position.distance_to(a.champion_model.outlaw_art.muzzle_position())<.001,"Cosmetic muzzle flash comes from the actual gun")
 	ck(game.outlaw_fx.flashes[pool_index].position.distance_to(results[0].from)>.5,"Cosmetic muzzle position is separate from the damage-ray origin")
 	cover.free(); await physics_frame
 	await reset(0)
-	ck(not shot(0,aim()) and b.hp==100,"Zero stacks cannot create a free shot")
+	ck(not shot(0,aim()) and b.hp==b.MAX_HEALTH,"Zero stacks cannot create a free shot")
 	for state in ["cast","stun","roll","backflip","gcd","dead"]:
 		await reset()
 		if state=="cast": a.casting=0
@@ -110,7 +113,7 @@ func protections() -> void:
 	await reset()
 	var wall:=obstacle(Vector3(0,21,-3)); await physics_frame
 	shot(0,aim()); game.outlaw_detonation.tick(game)
-	ck(b.hp==100 and results[0].blocked and a.identity.defense_detonation==0,"Terrain blocks a camera-ray shot; misses still spend the committed burst")
+	ck(b.hp==b.MAX_HEALTH and results[0].blocked and a.identity.defense_detonation==0,"Terrain blocks a camera-ray shot; misses still spend the committed burst")
 	wall.free(); await physics_frame
 	for mode in ["friendly","bystander","range"]:
 		await reset(1)
@@ -118,17 +121,17 @@ func protections() -> void:
 		if mode=="bystander": game.world_mode=true
 		if mode=="range": b.position.z=-25; step(.016)
 		shot(0,aim()); game.outlaw_detonation.tick(game)
-		ck(b.hp==100,"Burst respects "+mode+" protection")
+		ck(b.hp==b.MAX_HEALTH,"Burst respects "+mode+" protection")
 	await reset(1)
 	game.world_mode=true; game.actors.erase(b.actor_id)
 	b.actor_id=-101; b.training_dummy=true; game.actors[b.actor_id]=b
 	step(.016)
 	ck(shot(0,aim()),"World training-dummy shot is accepted")
 	game.outlaw_detonation.tick(game)
-	ck(b.hp==90 and results.back().damage==10 and results.back().victim==-101 and a.identity.defense_detonation==0,"Negative world dummy IDs receive damage and consume the shot stack")
+	ck(b.hp==b.MAX_HEALTH-hit_damage() and results.back().damage==hit_damage() and results.back().victim==-101 and a.identity.defense_detonation==0,"Negative world dummy IDs receive damage and consume the shot stack")
 	await reset()
 	shot(0,aim()); game.outlaw_detonation.tick(game); a.stunned=1; step(.13)
-	ck(b.hp==90 and not game.outlaw_detonation.bursts.has(1),"Hard CC cancels unfinished shots without duplicating or refunding spent stacks")
+	ck(b.hp==b.MAX_HEALTH-hit_damage() and not game.outlaw_detonation.bursts.has(1),"Hard CC cancels unfinished shots without duplicating or refunding spent stacks")
 	await reset()
 	shot(0,aim()); game.outlaw_detonation.tick(game); step(1.26)
 	ck(not game.outlaw_detonation.bursts.has(1),"Missing follow-up packets cannot retain an unbounded reservation")
@@ -150,7 +153,7 @@ func invalid_requests() -> void:
 	for i in 6: step(1.0/60)
 	ck(shot(0,direction,1,stamp),"Valid bounded rewind accepts the displayed target's old pose")
 	game.outlaw_detonation.tick(game)
-	ck(b.hp==90 and b.position.x==2,"Rewind hits the historical hitbox without moving the live body")
+	ck(b.hp==b.MAX_HEALTH-hit_damage() and b.position.x==2,"Rewind hits the historical hitbox without moving the live body")
 	await reset()
 	shot(0,aim()); game.clear_actors()
 	ck(game.outlaw_detonation.bursts.is_empty(),"Round teardown discards queued bursts")

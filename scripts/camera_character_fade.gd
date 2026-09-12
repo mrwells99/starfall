@@ -34,6 +34,16 @@ func update(actor: Node3D) -> void:
 		if not is_instance_valid(art):
 			continue
 		_remember_owned(art.get("materials"))
+		if property_name == "null_art":
+			# Null swaps retained solid/fading variants. Prepare and restore camera
+			# distance fade on both so switching Stealth never loses ownership or
+			# introduces a new shader configuration during the transition.
+			for variants in [art.solid_materials, art.fade_materials]:
+				_remember_owned(variants)
+				for material in variants: _fade_material(material)
+			# Queue the exact transparent, camera-faded variant during character
+			# setup. This keeps its first renderer submission off the first Stealth.
+			art.prewarm_stealth_pipeline(presenter)
 		var costume := art.get("model") as Node3D
 		if is_instance_valid(costume):
 			costume_roots.append(costume)
@@ -86,6 +96,9 @@ func _remember_owned(materials: Variant) -> void:
 func _fade_subtree(node: Node) -> void:
 	if node is MeshInstance3D:
 		var mesh := node as MeshInstance3D
+		# A character's shadow remains visible when the follow camera hides its
+		# costume. Null's separate shadow material is controlled only by Stealth.
+		if mesh.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY: return
 		if mesh.material_override != null:
 			_fade_property(mesh, "material_override")
 		elif mesh.mesh != null:

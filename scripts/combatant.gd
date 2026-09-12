@@ -1,16 +1,27 @@
 extends CharacterBody3D
 
 var actor_id := 0
-var owner_peer := 0
+signal owner_peer_changed(previous: int, current: int)
+var owner_peer := 0:
+	set(value):
+		if owner_peer == value: return
+		var previous := owner_peer
+		owner_peer = value
+		owner_peer_changed.emit(previous,value)
 var team := 0
 var champion := "Ember"
-const MAX_HEALTH := 100.0
+const BASE_MAX_HEALTH := 100.0
+const HEALTH_SCALE := 15.0
+const DAMAGE_SCALE := 10.0
+const MAX_HEALTH := BASE_MAX_HEALTH * HEALTH_SCALE
 var hp := MAX_HEALTH
 var kit: Array = []
 const Auras = preload("res://scripts/auras.gd")
 const Kits = preload("res://scripts/kits.gd")
 var cooldowns: Array = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 var identity: Dictionary = {}
+# Local lifecycle bookkeeping, never part of the replicated ability state.
+var death_identity_cleaned := false
 var charge: Dictionary = {}
 var gcd := 0.0
 var casting := -1
@@ -58,6 +69,7 @@ var team_marker
 var health_mesh: MeshInstance3D
 var health_pivot: Node3D
 var nameplate_cast: Node3D
+var chronoshift_nameplate: Node3D
 var aura_icons: Array = []
 var health_back_mat: StandardMaterial3D
 const NAMEPLATE_AURAS := 3
@@ -130,6 +142,9 @@ func setup(id: int, peer: int, side: int, choice: String, presentation: bool = t
 	nameplate_cast = load("res://scripts/nameplate_cast.gd").new()
 	health_pivot.add_child(nameplate_cast)
 	nameplate_cast.install()
+	chronoshift_nameplate = load("res://scripts/chronoshift_nameplate.gd").new()
+	health_pivot.add_child(chronoshift_nameplate)
+	chronoshift_nameplate.install()
 	for i in range(NAMEPLATE_AURAS):
 		var holder := Node3D.new()
 		holder.visible = false
@@ -202,12 +217,13 @@ func paint_nameplate_auras(auras: Array, art) -> void:
 func visual_tick(delta: float, camera: Camera3D, show_nameplate: bool = true, cast_tint: Color = Color("c7a256")) -> void:
 	flash = maxf(0, flash - delta)
 	if not training_dummy: champion_model.animate(delta, self)
-	health_mesh.scale.x = maxf(0.001, hp / 100.0)
-	health_mesh.position.x = -0.77 * (1.0 - hp / 100.0)
+	health_mesh.scale.x = maxf(0.001, hp / MAX_HEALTH)
+	health_mesh.position.x = -0.77 * (1.0 - hp / MAX_HEALTH)
 	if camera and (camera.global_position - health_pivot.global_position).cross(Vector3.UP).length() > 0.01:
 		health_pivot.look_at(camera.global_position, Vector3.UP, true)
 	health_pivot.visible = show_nameplate and hp > 0
 	nameplate_cast.sync(self, cast_tint)
+	chronoshift_nameplate.sync(self)
 
 
 func snapshot() -> Dictionary:
@@ -257,6 +273,7 @@ func receive(data: Dictionary, instant: bool = false) -> void:
 	target_id = data.target
 
 func reset_identity() -> void:
+	death_identity_cleaned = hp <= 0
 	charge.clear()
 	jump_queued = false
 	jump_buffer = 0

@@ -8,21 +8,21 @@ Coin Toss advances along its existing arc between packets with a visual terrain 
 
 ## Kit
 
-**Current balance, version 0.11.1:** Severe deals rounded 20% current HP plus its existing 2/s bleed for 5s, and slows by 60% for 6s. Affected characters use walking/strafe animation at 40% movement speed; this does not add another forced-walking speed penalty. The strongest slow applies. Roll grants 25% speed for 5s and one instant Severe for 1.5s even when a wall stops it at zero distance. Airborne Backflip reduces damage by 50%; stronger existing protection takes precedence. Trickshot deals 18. Boot Kick interrupts within 3m, locks spells for 4s and has a 12s cooldown, off GCD. Every class gains the 120s stun-breaking Trinket. Both client and server need this version.
+**Current balance, version 0.11.1:** Severe deals rounded 20% current HP plus its existing 20/s bleed for 5s, and slows by 60% for 6s. Affected characters use walking/strafe animation at 40% movement speed; this does not add another forced-walking speed penalty. The strongest slow applies. Roll grants 25% speed for 5s and one instant Severe for 1.5s even when a wall stops it at zero distance. Airborne Backflip reduces damage by 50%; stronger existing protection takes precedence. Trickshot deals 180. Boot Kick interrupts within 3m, locks spells for 4s and has a 12s cooldown, off GCD. Every class gains the 120s stun-breaking Trinket. Both client and server need this version.
 
 Existing class slots stay fixed. Boot Kick is kit index 12 (Shift+6), Trinket is shared index 14 (Ctrl+1); unavailable indices 10 and 13 stay hidden. Saved layouts preserve existing bindings and add missing abilities without overwriting key conflicts. In-game Outlaw descriptions are condensed; range, cast, cooldown and off-GCD metadata remain visible.
 
 | Default key | Ability | Current behavior |
 | --- | --- | --- |
-| 1 | Starshot | Fire for 8 damage. Unkickable; cast while moving 30% slower. |
-| 2 | Severe | Slash for 20% current health. Bleed for 2 damage each second for 5s and slow by 60% for 6s. Unkickable; cast while moving. Instant for 1.5s after Roll. |
-| 3 | Trickshot | Deal 18 damage during airborne Backflip or a flying Coin Toss. Coin shots ricochet around cover through clear paths. One use per combo; a hit grants 1 Defense Detonation stack (max 3). |
+| 1 | Starshot | Fire for 80 damage. Unkickable; cast while moving 30% slower. |
+| 2 | Severe | Slash for 20% current health. Bleed for 20 damage each second for 5s and slow by 60% for 6s. Unkickable; cast while moving. Instant for 1.5s after Roll. |
+| 3 | Trickshot | Deal 180 damage during airborne Backflip or a flying Coin Toss. Coin shots ricochet around cover through clear paths. One use per combo; a hit grants 1 Defense Detonation stack (max 3). |
 | 4 | Backflip | Leap backward; usable while jumping. While airborne: 50% less damage, CC immunity, and one Trickshot opportunity. Ends on landing. |
 | 5 | Ward | Take 60% less damage for 5.0 seconds. |
-| 6 | Mend | Heal 28 health and remove attached bleeds and damage-over-time effects. |
+| 6 | Mend | Heal 336 health and remove attached bleeds and damage-over-time effects. |
 | 7 | Roll | Roll 7.8m in your movement direction; camera-forward if stationary. Gain 25% move speed for 5s and one instant Severe for 1.5s on completion, even against a wall. |
 | Shift+1 | Coin Toss | Throw a coin for up to 1.8s, carrying your momentum. Trickshot can ricochet from it around cover. Terrain or a successful shot ends the combo. |
-| Shift+2 | Defense Detonation | Aim over your shoulder. Left-click spends all stacks (1–3), firing every 0.13s for 10% maximum health per hit. Misses spend stacks. Firing uses GCD; last shot exits aim. Press again to cancel. |
+| Shift+2 | Defense Detonation | Aim over your shoulder. Left-click charges for 0.6s, then spends all stacks (1–3), firing every 0.13s for 100 base damage per hit. Misses spend stacks. Firing uses GCD; last shot exits aim. Press again to cancel. |
 | Shift+3 | Deadeye | Mark all enemies. Walk during an unkickable 3s cast; hit those within 18m and clear sight at completion for 40% maximum health. Cannot jump. Interrupted casts refund cooldown. |
 | Shift+5 | Lasso | Unkickable moving cast: lasso into a dropkick, stun during travel, then knock back and knock down for 1.5s. Rebound; gain 1 Defense Detonation stack. Usable during Backflip with slowed drift and CC immunity; landing cancels the cast. |
 | Shift+6 | Boot Kick | Interrupt a cast within 3m and lock out spells for 4s. |
@@ -52,7 +52,7 @@ September 10 combat follow-up validation: 383/383 ability checks pass on Godot 4
 
 The first half-speed Roll pass preserved the full source clip; its approval and backups are in `artifacts/outlaw-roll-animation-half/`. The subsequent approved direction removes the final stand-to-idle frames: `ROLL_END_PHASE=0.63` shortens presentation to about 0.601s while the sampling denominator stays 0.953s, preserving speed through every retained frame. The exit clears stale spell-release presentation and uses the shared 0.10s final-pose blend directly into the measured gait. Running, sideways movement and reversed backpedal all avoid intervening idle/cast frames. Travel, Severe's proc timing and Backflip sampling are unchanged. Desktop checks pass 1,543/1,543 presentation, 393/393 abilities and 99/99 hitbox parity with zero endpoint difference. Scoped backups and rendered roll-to-run review: `artifacts/outlaw-roll-run-exit/`.
 
-Values explicitly requested by the owner are preserved, including Trickshot's current 18 damage. Unspecified ranges, cooldowns, windups and Starshot damage are initial tuning choices. Severe's ordinary short cast makes the requested Roll instant-cast buff meaningful. Roll has one cooldown rather than Ember's two stored Blink casts.
+Values explicitly requested by the owner are preserved, including Trickshot's current 180 damage. Unspecified ranges, cooldowns, windups and Starshot damage are initial tuning choices. Severe's ordinary short cast makes the requested Roll instant-cast buff meaningful. Roll has one cooldown rather than Ember's two stored Blink casts.
 
 Severe's moving cast preserves ordinary movement speed, the existing global cooldown and Roll's 1.5-second instant follow-up. Completion still checks melee range and terrain; hard crowd control can still cancel it. Its windup retains directional locomotion, followed by the knife strike. Kick-immune casts, including Severe, Starshot and Deadeye, show neutral gray fills on personal, target, focus, party and enemy cast bars. Defense Detonation no longer has a cast bar. The color uses the same immunity predicate as combat and also follows temporary airborne kick immunity.
 

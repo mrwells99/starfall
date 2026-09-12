@@ -14,12 +14,17 @@ var observed_stamp := -1.0
 var observed_at := 0
 var sample_usec := 0
 var reticle: Control
+var tracking = preload("res://scripts/aim_tracking.gd").new()
 
 static func enabled(spell: Dictionary) -> bool:
 	return spell.get("aim_mode","") == "hitscan"
 
+func tracking_required(game) -> bool:
+	return tracking.required(game)
+
 func reset() -> void:
 	clock = 0; history.clear(); pending.clear(); local_slot = -1; observed_stamp = -1
+	tracking.reset()
 	if is_instance_valid(reticle): reticle.hide()
 
 func observe(stamp: float) -> void:
@@ -29,6 +34,14 @@ func observe(stamp: float) -> void:
 func tick(game, delta: float) -> void:
 	sync_reticle(game)
 	clock += delta
+	tracking.tick(game,delta)
+	if not tracking_required(game):
+		# Only shot geometry/history stops. Ordinary movement/collision, combat,
+		# snapshots, and client character animation run elsewhere as before.
+		history.clear(); pending.clear(); local_slot = -1; sample_usec = 0
+		if game.authoritative():
+			for actor in game.actors.values(): actor.aim_stamp = clock
+		return
 	var started := Time.get_ticks_usec()
 	for id in history.keys():
 		if not game.actors.has(id): history.erase(id)

@@ -72,7 +72,7 @@ static func heal(game, a, b, amount: float) -> void:
 	if b.hp <= 0 or not can_help(game, a, b):
 		return
 	var dampening := 0.0 if game.world_mode else clampf((game.elapsed - 60) / 180.0, 0, 0.7)
-	amount = minf(100 - b.hp, amount * (1 - dampening))
+	amount = minf(b.MAX_HEALTH - b.hp, amount * b.HEALTH_SCALE * (1 - dampening))
 	b.hp += amount
 	game.combat_event(a.actor_id, b.actor_id, "+%d" % ceili(amount), Color("97edb1"))
 
@@ -273,8 +273,9 @@ static func resolve(game, a, spell: Dictionary, b) -> bool:
 static func tick(game, a, delta: float) -> void:
 	var s: Dictionary = a.identity
 	if a.hp <= 0:
-		a.reset_identity()
+		if not a.death_identity_cleaned: a.reset_identity()
 		return
+	a.death_identity_cleaned = false
 	# Each family is attached to the victim; both can coexist and Mend clears both.
 	tick_dots(game, a, s.dots, delta, 3.0, 0.0)
 	tick_dots(game, a, a.identity.entropy_dots, delta, 2.0, 5.0)
@@ -342,8 +343,9 @@ static func before_damage(game, source, victim, amount: float) -> float:
 			var redirected: float = minf(s.guard_budget, amount * 0.3)
 			s.guard_budget -= redirected
 			s.resolve = minf(100, s.resolve + redirected)
-			# Direct capped damage avoids recursive chains between two guardians.
-			var guarded: float = redirected * damage_multiplier(source, a)
+			# Keep the budget/resource in authored units, then scale the direct
+			# health hit once without recursive chains between two guardians.
+			var guarded: float = redirected * damage_multiplier(source, a) * game.Fighter.DAMAGE_SCALE
 			if guarded >= a.hp and s.last > 0:
 				guarded = maxf(0, a.hp - 1)
 				s.last = 0.0
@@ -389,11 +391,11 @@ static func bot(game, a, foe, ally) -> bool:
 		a.move_input = Vector2.ZERO
 		return game.try_spell(a.actor_id, 7, foe.actor_id)
 	if a.champion == "Luminary":
-		if ally.hp < 22 and game.try_spell(a.actor_id, 9, ally.actor_id):
+		if ally.hp < ally.MAX_HEALTH * .22 and game.try_spell(a.actor_id, 9, ally.actor_id):
 			return true
-		if star_count(a, ally.actor_id) == 0 and ally.hp > 45:
+		if star_count(a, ally.actor_id) == 0 and ally.hp > ally.MAX_HEALTH * .45:
 			return game.try_spell(a.actor_id, 7, ally.actor_id)
-	if a.champion == "Vanguard" and ally != a and ally.hp < 45:
+	if a.champion == "Vanguard" and ally != a and ally.hp < ally.MAX_HEALTH * .45:
 		return game.try_spell(a.actor_id, 7, ally.actor_id)
 	return false
 

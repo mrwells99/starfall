@@ -4,6 +4,8 @@ const PARTS := ["pelvis", "abdomen", "chest", "neck", "head", "shoulder.L", "upp
 const AIM_SCALE := Vector3(2.0, 1.25, 2.0)
 var rig: Skeleton3D
 var indices := {}
+var core_bones := PackedInt32Array()
+var limb_bones := PackedInt32Array()
 var radii := PackedFloat32Array()
 var points := PackedVector3Array()
 var bounds := AABB()
@@ -11,6 +13,11 @@ var bounds := AABB()
 func setup(skeleton: Skeleton3D, title: String) -> void:
 	rig = skeleton
 	for i in rig.get_bone_count(): indices[rig.get_bone_name(i)] = i
+	core_bones = PackedInt32Array([indices["DEF-spine.001"], indices["DEF-spine.002"], indices["DEF-spine.003"], indices["DEF-neck"], indices["DEF-head"]])
+	limb_bones.clear()
+	for side in ["L", "R"]:
+		for name in ["upper_arm", "forearm", "hand", "thigh", "shin", "foot", "toe"]:
+			limb_bones.append(indices["DEF-"+name+"."+side])
 	# About 2–4 cm of forgiveness around the main body; Vanguard includes its thicker plate.
 	var heavy := title == "Vanguard"
 	radii = PackedFloat32Array([.175 if heavy else .145, .205 if heavy else .175, .245 if heavy else .205, .085, .155 if heavy else .145])
@@ -27,21 +34,40 @@ func segment(index: int, start: Vector3, end: Vector3) -> void:
 
 func update() -> void:
 	rig.force_update_all_bone_transforms()
-	segment(0,bone("thigh.L"),bone("thigh.R"))
-	segment(1,bone("spine.001"),bone("spine.002"))
-	segment(2,bone("spine.002"),bone("spine.003",Vector3(0,.075,0)))
-	segment(3,bone("neck"),bone("head"))
-	segment(4,bone("head",Vector3(0,.07,0)),bone("head",Vector3(0,.14,0)))
+	# Read each bone once in this update, after all animation layers have run.
+	# Only bone indices persist between ticks; positions are always fresh.
+	var world := rig.global_transform
+	var left_thigh := world * rig.get_bone_global_pose(limb_bones[3]).origin
+	var right_thigh := world * rig.get_bone_global_pose(limb_bones[10]).origin
+	var spine_one := world * rig.get_bone_global_pose(core_bones[0]).origin
+	var spine_two := world * rig.get_bone_global_pose(core_bones[1]).origin
+	var chest := rig.get_bone_global_pose(core_bones[2])
+	var neck := world * rig.get_bone_global_pose(core_bones[3]).origin
+	var head := rig.get_bone_global_pose(core_bones[4])
+	segment(0,left_thigh,right_thigh)
+	segment(1,spine_one,spine_two)
+	segment(2,spine_two,world * (chest * Vector3(0,.075,0)))
+	segment(3,neck,world * head.origin)
+	segment(4,world * (head * Vector3(0,.07,0)),world * (head * Vector3(0,.14,0)))
 	for side in 2:
-		var suffix: String = ".L" if side == 0 else ".R"
+		var base := side*7
+		var upper := rig.get_bone_global_pose(limb_bones[base])
+		var upper_origin := world * upper.origin
+		var forearm := world * rig.get_bone_global_pose(limb_bones[base+1]).origin
+		var hand := rig.get_bone_global_pose(limb_bones[base+2])
+		var hand_origin := world * hand.origin
+		var thigh := left_thigh if side == 0 else right_thigh
+		var shin := world * rig.get_bone_global_pose(limb_bones[base+4]).origin
+		var foot := world * rig.get_bone_global_pose(limb_bones[base+5]).origin
+		var toe := world * rig.get_bone_global_pose(limb_bones[base+6]).origin
 		var k := 5 + side*7
-		segment(k,bone("upper_arm"+suffix),bone("upper_arm"+suffix,Vector3(0,.045,0)))
-		segment(k+1,bone("upper_arm"+suffix),bone("forearm"+suffix))
-		segment(k+2,bone("forearm"+suffix),bone("hand"+suffix))
-		segment(k+3,bone("hand"+suffix),bone("hand"+suffix,Vector3(0,.08,0)))
-		segment(k+4,bone("thigh"+suffix),bone("shin"+suffix))
-		segment(k+5,bone("shin"+suffix),bone("foot"+suffix))
-		segment(k+6,bone("foot"+suffix),bone("toe"+suffix))
+		segment(k,upper_origin,world * (upper * Vector3(0,.045,0)))
+		segment(k+1,upper_origin,forearm)
+		segment(k+2,forearm,hand_origin)
+		segment(k+3,hand_origin,world * (hand * Vector3(0,.08,0)))
+		segment(k+4,thigh,shin)
+		segment(k+5,shin,foot)
+		segment(k+6,foot,toe)
 	bounds = bounds_for(points,radii)
 
 static func bounds_for(samples: PackedVector3Array, sizes: PackedFloat32Array) -> AABB:

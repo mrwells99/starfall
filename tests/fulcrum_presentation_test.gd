@@ -29,7 +29,7 @@ func run() -> void:
 		check(not "hair" in material.resource_name.to_lower() and not "eyewhite" in material.resource_name.to_lower(), "No exposed face or hair")
 	check(has_mask, "Original sealed mask material remains")
 	var singles := ["CastEnter", "CastRelease", "CastExit", "JumpStart", "JumpLand"]
-	check(art.clip_names.size() == 32, "All selected and derived presets are available")
+	check(art.clip_names.size() == 33, "All selected/derived presets plus Mend hand-work are available")
 	for name in art.clip_names:
 		var animation: Animation = art.player.get_animation(art.clip_names[name])
 		check(animation.length > .3 and animation.get_track_count() > 20, "Complete skeletal clip: " + name)

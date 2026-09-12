@@ -44,6 +44,7 @@ func build(host: Node3D, team_color: Color) -> void:
 	player.play(clip_names.Idle); player.advance(0); equipment.apply()
 	pose_blend.build(skeleton)
 	special_blend.build(skeleton)
+	clip_names.Mend = preload("res://scripts/outlaw_mend_animation.gd").install(player,skeleton)
 
 func fire(tag: String) -> void:
 	if tag == "knife": knife_left = .65
@@ -70,6 +71,8 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
 	var gun_cast: bool = actor.casting >= 0 and actor.kit[actor.casting].kind in ["starshot", "deadeye"]
 	var lasso_active: bool = not Outlaw.Lasso.state(actor).is_empty() or Outlaw.Lasso.knockdown_active(actor)
 	var special: bool = (showing_roll(actor) or actor.identity.backflip_active) and not lasso_active
+	var mending: bool = actor.casting >= 0 and actor.kit[actor.casting].kind == "self_heal" and actor.hp > 0 and actor.stunned <= 0 and not special and not lasso_active
+	equipment.handwork_weight = move_toward(equipment.handwork_weight,1.0 if mending else 0.0,delta/0.20)
 	var next_special: String = ("roll" if showing_roll(actor) else ("backflip" if actor.identity.backflip_active else "")) if special else ""
 	if special_kind == "roll" and next_special.is_empty():
 		# Roll is not a spell release. Hand the final crouch directly to the
@@ -81,10 +84,10 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
 		backflip_clock.reset()
 	if next_special != "roll" or actor.hp <= 0 or actor.stunned > 0:
 		roll_clock.reset()
-	equipment.aim_weight = move_toward(equipment.aim_weight, 1.0 if (gun_cast or shot_left > 0) and not special else 0.0, delta * 12)
-	if not special and actor.hp > 0 and actor.stunned <= 0:
+	equipment.aim_weight = move_toward(equipment.aim_weight, 1.0 if (gun_cast or shot_left > 0) and not special and not mending else 0.0, delta * 12)
+	if not special and not mending and actor.hp > 0 and actor.stunned <= 0:
 		equipment.aim_weight = maxf(equipment.aim_weight,test_aim_weight)
-	equipment.knife_weight = move_toward(equipment.knife_weight, 1.0 if knife_left > 0 else 0.0, delta * 15)
+	equipment.knife_weight = move_toward(equipment.knife_weight, 1.0 if knife_left > 0 and not mending else 0.0, delta * 15)
 	equipment.knife_time = .65 - knife_left
 	equipment.shot_time = .32 - shot_left if shot_left > 0 else -1.0
 	super.animate(host, delta, actor)
@@ -142,6 +145,13 @@ func override_clip(desired: String, alive: bool, stunned: bool, _delta: float) -
 	if Outlaw.Lasso.casting(active_actor) and active_actor.identity.backflip_active: return "JumpLoop"
 	if showing_roll(active_actor) or active_actor.identity.backflip_active: return "Roll"
 	var spell_kind: String = active_actor.kit[active_actor.casting].kind if active_actor.casting >= 0 else ""
+	if spell_kind == "self_heal": return "Mend"
+	if clip == "Mend" and active_actor.casting < 0:
+		# Heal completion/cancellation returns to the current stance, not the
+		# unrelated forward magic-projectile release from the generic cast set.
+		transient_left = 0.0
+		if was_airborne: return "JumpLoop"
+		if filtered_speed <= .12: return "Idle"
 	if spell_kind in ["starshot", "deadeye", "severe", "lasso"] or shot_left > 0 or knife_left > 0:
 		if was_airborne: return desired if desired.begins_with("Jump") else "JumpLoop"
 		if filtered_speed <= .12: return "Idle"
@@ -152,3 +162,8 @@ func override_clip(desired: String, alive: bool, stunned: bool, _delta: float) -
 		if prefix == "Walk" and sector in [2, 6]: return "StrafeRight" if sector == 2 else "StrafeLeft"
 		return prefix + suffixes[sector]
 	return desired
+
+func transition_duration(previous: String, next: String) -> float:
+	if next == "Mend": return .22
+	if previous == "Mend": return .24
+	return super.transition_duration(previous,next)

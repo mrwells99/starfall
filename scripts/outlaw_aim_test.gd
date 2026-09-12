@@ -30,6 +30,12 @@ var fire_sent := 0
 var fire_elapsed := 0.0
 var fire_next_time := 0.0
 var recoil_pitch := 0.0
+const CHARGE_SECONDS := .6
+var charge_elapsed := 0.0
+var charge_confirmed := false
+var mode_serial := 0
+var mode_confirmed := false
+var server_mode_started := -1.0
 const RECOIL_PER_SHOT := .00436 # One quarter degree; small enough to control a three-shot burst.
 
 func setup(host) -> void:
@@ -75,6 +81,7 @@ func toggle() -> void:
 			saved = true
 		actor_id = game.local_id
 		enabled = true
+		notify_mode(true)
 		shoulder_ready = false
 		game.movement_controls.left = false
 		# Keep an owned right-button gesture alive while aiming owns mouse look.
@@ -84,6 +91,7 @@ func toggle() -> void:
 
 func leave(resume_gesture: bool = true, cancel_fire: bool = true) -> void:
 	if cancel_fire: stop_fire()
+	if enabled: notify_mode(false)
 	enabled = false
 	if is_instance_valid(reticle): reticle.hide()
 	if game != null:
@@ -91,6 +99,35 @@ func leave(resume_gesture: bool = true, cancel_fire: bool = true) -> void:
 			game.capture_mouse()
 		else:
 			game.release_mouse()
+
+func notify_mode(on: bool) -> void:
+	mode_serial += 1
+	mode_confirmed = false; server_mode_started = -1.0
+	if game.authoritative():
+		mode_confirmed = game.aimed_combat.tracking.set_mode(game,game.local_id,0,mode_serial,on) and on
+	elif game.network:
+		game.deliver_aim_mode(game.epoch,mode_serial,on)
+
+func receive_mode(serial: int, on: bool, started: float) -> void:
+	if serial != mode_serial or not enabled: return
+	if not on:
+		leave(); return
+	mode_confirmed = true
+	server_mode_started = started
+
+func mode_ready() -> bool:
+	if not enabled or not mode_confirmed: return false
+	if not game.authoritative():
+		# If aim-on was delayed/retransmitted, do not shoot using a snapshot from
+		# before tracking began. Keep the camera responsive while it catches up.
+		var stamp: float = game.aimed_combat.observed_stamp+(Time.get_ticks_msec()-game.aimed_combat.observed_at)*.001-game.aimed_combat.INTERPOLATION_ALLOWANCE
+		if stamp < server_mode_started+.05: return false
+	return true
+
+func receive_charge(serial: int, accepted: bool) -> void:
+	if serial != mode_serial or not enabled or not fire_requested: return
+	charge_confirmed = accepted
+	if not accepted: stop_fire()
 
 func clear_pose() -> void:
 	if game != null and game.actors.has(actor_id):
@@ -147,17 +184,24 @@ func input(event: InputEvent) -> bool:
 	return false
 
 func request_fire() -> void:
-	if not enabled or not reticle.visible or not ready_to_aim() or fire_burst > 0: return
+	if not enabled or not reticle.visible or not ready_to_aim() or fire_burst > 0 or fire_requested: return
 	var actor = game.actors[game.local_id]
 	if actor.identity.defense_detonation <= 0:
 		game.notice.text = "Requires a Defense Detonation stack"; game.notice_time = 1.5
 		return
 	if actor.gcd > 0 or actor.locked > 0 or game.CC.spell_block(actor) > 0: return
 	fire_requested = true
+	charge_elapsed = 0.0; charge_confirmed = false
+	if game.authoritative():
+		charge_confirmed = game.aimed_combat.tracking.begin_charge(game,actor.actor_id,0,mode_serial)
+		if not charge_confirmed: fire_requested = false
+	elif game.network:
+		game.deliver_detonation_charge(game.epoch,mode_serial)
 
 func stop_fire() -> void:
 	var previous := fire_burst
 	fire_requested = false; fire_burst = 0; fire_total = 0; fire_sent = 0; fire_elapsed = 0.0; fire_next_time = 0.0
+	charge_elapsed = 0.0; charge_confirmed = false
 	if previous <= 0 or game == null: return
 	if game.authoritative(): game.outlaw_detonation.cancel(game,game.local_id,0,previous)
 	elif game.network: game.deliver_detonation_cancel(game.epoch,previous)
@@ -168,6 +212,8 @@ func fire_tick(delta: float) -> void:
 		return
 	var actor = game.actors[game.local_id]
 	if fire_requested and fire_burst == 0:
+		charge_elapsed = minf(CHARGE_SECONDS,charge_elapsed+maxf(0,delta))
+		if charge_elapsed+.000001 < CHARGE_SECONDS or not mode_ready() or not charge_confirmed: return
 		fire_requested = false
 		fire_total = clampi(int(actor.identity.defense_detonation),0,game.Outlaw.MAX_STACKS)
 		if fire_total == 0: return
@@ -206,6 +252,7 @@ func receive_shot(result: Dictionary) -> bool:
 	if result.has("total"): fire_total = int(result.total)
 	if result.get("done",false):
 		fire_requested = false; fire_burst = 0; fire_total = 0; fire_sent = 0; fire_elapsed = 0.0; fire_next_time = 0.0
+		charge_elapsed = 0.0; charge_confirmed = false
 		if result.get("fired",false): leave(true,false)
 		elif result.has("reason"):
 			game.notice.text = result.reason; game.notice_time = 1.5
@@ -245,6 +292,8 @@ func tick(delta: float) -> void:
 		# Compute the final aiming direction, independent of the moving camera boom.
 		art.test_aim_direction = -(game.pivot.basis * Basis(Vector3.RIGHT,aim_pitch+recoil_pitch)).z
 	reticle.visible = enabled and progress >= RETICLE_START_WEIGHT and shoulder_ready and ready_to_aim()
+	reticle.charge_progress = minf(.98,charge_elapsed/CHARGE_SECONDS) if fire_requested else 1.0
+	if enabled: reticle.queue_redraw()
 
 func physics_tick() -> void:
 	if not saved or game == null: return

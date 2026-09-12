@@ -2,8 +2,8 @@
 	"classes": {
 		"Null": {
 			"bones": 85,
-			"bytes": 943270,
-			"keys": 52782,
+			"bytes": 935172,
+			"keys": 52379,
 			"rest": {
 				"DEF-foot.L": [
 					0.0889999940991402,
@@ -116,8 +116,8 @@
 					-0.065400242805481
 				]
 			},
-			"rig_sha256": "c7e6de0fc05d98c6c48486222a0130d57ccb16d6d70e87ec201375af172ff510",
-			"source_sha256": "84cfcba02177260091eeb6711d014f03c1e2622bf82f2b4e018b827fdf6e2f4b"
+			"rig_sha256": "6ecc67b535d5efc2829ccfb96ee9f78396613a8dcfd822df2080d9a97d2390f4",
+			"source_sha256": "4143ca7cdcf0cd3d6d5d04b50c31396e44756a79540e09e67df310dc4b4116f6"
 		},
 		"Ember": {
 			"bones": 73,

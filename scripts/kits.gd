@@ -1,12 +1,15 @@
 extends RefCounted
 
-const SELF_KINDS := ["shield", "self_heal", "blink", "sprint", "cinder", "stoke", "wake", "hold", "unbroken", "anchor", "orbit", "collapse", "flare_cc", "roll", "backflip", "coin_toss", "deadeye", "defense_detonation", "trinket", "stealth", "null_haste"]
+const SELF_KINDS := ["shield", "self_heal", "regen_pot", "blink", "sprint", "cinder", "stoke", "wake", "hold", "unbroken", "anchor", "orbit", "collapse", "flare_cc", "roll", "backflip", "coin_toss", "deadeye", "defense_detonation", "trinket", "stealth", "null_haste", "chronoshift"]
 const ALLY_KINDS := ["heal", "ally_shield", "dispel", "falling", "absolution", "stitch", "star", "pilgrim", "last", "intercede", "swap"]
 const KIT_SIZE := 15
 const TRINKET_SLOT := 14 # Shared slot; preserve all existing class indices.
 const MAX_CAST_RANGE := 18.0
 const RANGE_SCALE := 0.75
 const STARFALL_RADIUS := 5.0
+const DISPLAY_DAMAGE_SCALE := 10.0
+const DISPLAY_HEAL_SCALE := 15.0
+const DISPLAY_MEND_SCALE := DISPLAY_HEAL_SCALE * .8
 const HEAVY_ORBIT_RADIUS := 6.0
 const ANCHOR_CONTROL_RADIUS := HEAVY_ORBIT_RADIUS * 1.5
 const SOLAR_FLARE_RANGE := 4.0
@@ -44,14 +47,16 @@ static func get_kit(champion: String) -> Array:
 static func class_kit(champion: String) -> Array:
 	if champion == "Null":
 		return [
-			spell("Stab", "stab", 12, 4, 0, 0),
-			spell("Backstab", "backstab", 35, 4, 0, 30),
+			spell("Temporal Strike", "stab", 12, 4, 0, 0),
+			spell("Backstab", "backstab", 24.5, 4, 0, 30),
 			spell("Kick", "interrupt", 4, 4, 0, 12, true),
-			spell("Nerve Lock", "nerve_lock", 4, 4, 0, 20),
+			spell("Nerve Lock", "nerve_lock", 4, 3.5, 0, 20),
 			spell("Stealth", "stealth", 0, 0, 0, 0, true),
 			spell("Haste", "null_haste", 6, 0, 0, 25, true),
 			spell("Blindside", "blindside", 0, 24, 0, 15, true),
-			spell("Vantage Point", "vantage", 22, 24, 0, 25)]
+			spell("Vantage Point", "vantage", 22, 24, 0, 25),
+			spell("Regen Pot", "regen_pot", 28, 0, 0, 40, true),
+			spell("Chronoshift", "chronoshift", 0, 0, 0, 0, true)]
 	if champion == "Outlaw":
 		return [
 			spell("Starshot", "starshot", 8, 24, .7, 0),
@@ -60,7 +65,7 @@ static func class_kit(champion: String) -> Array:
 			spell("Trickshot", "trickshot", 18, 24, 0, 0, true),
 			spell("Backflip", "backflip", 12, 0, 0, 12, true),
 			spell("Ward", "shield", 5, 0, 0, 22, true),
-			spell("Mend", "self_heal", 28, 0, 2, 16),
+			spell("Mend", "self_heal", 28, 0, 2, 30),
 			spell("Roll", "roll", 7.8, 0, 0, 10, true),
 			spell("Coin Toss", "coin_toss", 1.8, 0, 0, 14),
 			# Hotbar aiming is local; a separate validated camera-ray burst spends stacks.
@@ -77,7 +82,7 @@ static func class_kit(champion: String) -> Array:
 		spell("Disrupt", "interrupt", 4, 22, 0, 12, true),
 		spell("Stasis", "control", 4, 20, 0.8, 16),
 		spell("Ward", "shield", 5, 0, 0, 22, true),
-		spell("Mend", "self_heal", 28, 0, 2, 16),
+		spell("Mend", "self_heal", 28, 0, 2, 30),
 		spell("Blink", "blink", 8, 0, 0, 14, true)
 	]
 	if champion == "Vanguard":
@@ -129,7 +134,7 @@ static func class_kit(champion: String) -> Array:
 			spell("Guiding Star", "star", 1, 28, 0, 0),
 			spell("Pilgrim's Step", "pilgrim", 0, 22, 0, 16, true),
 			spell("Last Light", "last", 4, 28, 0, 45, true),
-			spell("Mend", "self_heal", 28, 0, 2, 16),
+			spell("Mend", "self_heal", 28, 0, 2, 30),
 			spell("Starfall", "starfall", 16, 28, 1.5, 12)])
 	else:
 		kit[0] = spell("Graviton", "graviton", 6, 24, 1.3, 0)
@@ -148,52 +153,53 @@ static func class_kit(champion: String) -> Array:
 # Numeric effects use the same kit dictionaries that the simulation reads.
 static func summary(ability: Dictionary) -> String:
 	var concepts := {
-		"stab": "Stab your enemy for 12 damage.",
-		"backstab": "Deal 35 damage from behind your target. 30s cooldown.",
+		"stab": "Strike your enemy for 120 damage.",
+		"backstab": "Deal 245 damage from behind your target. 30s cooldown.",
 		"blindside": "Instantly teleport behind your target. Off the global cooldown; requires a safe landing.",
-		"vantage": "Rise vertically for 0.5s, then dive at your target with both blades. Contact deals 22 damage and knocks them down with a 4s stun. No rebound.",
-		"nerve_lock": "Stun an enemy in melee range for 4s. Uses stun diminishing returns.",
+		"vantage": "Rise vertically for 0.5s, then dive at your target with both blades. Contact deals 220 damage and knocks them down with a 4s stun. No rebound.",
+		"nerve_lock": "Stun an enemy within 3.5m for 4s. Uses stun diminishing returns.",
+		"chronoshift": "Choose an ability by pressing its normal keybind to refresh its normal cooldown. That ability cannot be refreshed by Chronoshift again for twice its own cooldown. Costs 100 Essence.",
 		"null_haste": "Move 50% faster for 6s. 25s cooldown.",
-		"stealth": "Requires 10s out of direct combat; no cooldown. You appear at 50% opacity. Enemies must remain within 3.5m for 0.7s to detect and target you; no nameplate. Attacking, aimed abilities or incoming damage break Stealth. Damage-over-time ticks do not extend combat.",
-		"starshot": "Fire for 8 damage. Unkickable; cast while moving 30% slower.",
+		"stealth": "Requires 10s out of direct combat; no cooldown. Press again to end Stealth. You appear at 50% opacity. Enemies must remain within 3.5m for 0.7s to detect and target you; no nameplate. Attacking, aimed abilities or incoming damage break Stealth. Damage-over-time ticks do not extend combat.",
+		"starshot": "Fire for 80 damage. Unkickable; cast while moving 30% slower.",
 		"lasso": "Unkickable moving cast: lasso into a dropkick, stun during travel, then knock back and knock down for 1.5s. Rebound; gain 1 Defense Detonation stack. Usable during Backflip with slowed drift and CC immunity; landing cancels the cast.",
-		"severe": "Slash for 20% current health. Bleed for 2 damage each second for 5s and slow by 60% for 6s. Unkickable; cast while moving. Instant for 1.5s after Roll.",
-		"trickshot": "Deal 18 damage during airborne Backflip or a flying Coin Toss. Coin shots ricochet around cover through clear paths. One use per combo; a hit grants 1 Defense Detonation stack (max 3).",
+		"severe": "Slash for 20% current health. Bleed for 20 damage each second for 5s and slow by 60% for 6s. Unkickable; cast while moving. Instant for 1.5s after Roll.",
+		"trickshot": "Deal 180 damage during airborne Backflip or a flying Coin Toss. Coin shots ricochet around cover through clear paths. One use per combo; a hit grants 1 Defense Detonation stack (max 3).",
 		"roll": "Roll 7.8m in your movement direction; camera-forward if stationary. Gain 25% move speed for 5s and one instant Severe for 1.5s on completion, even against a wall.",
 		"backflip": "Leap backward; usable while jumping. While airborne: 50% less damage, CC immunity, and one Trickshot opportunity. Ends on landing.",
 		"coin_toss": "Throw a coin for up to 1.8s, carrying your momentum. Trickshot can ricochet from it around cover. Terrain or a successful shot ends the combo.",
-		"defense_detonation": "Aim over your shoulder. Left-click spends all stacks (1–3), firing every 0.13s for 10% maximum health per hit. Misses spend stacks. Firing uses GCD; last shot exits aim. Press again to cancel.",
+		"defense_detonation": "Aim over your shoulder. Left-click charges for 0.6s, then spends all stacks (1–3), firing every 0.13s for 100 base damage per hit. Misses spend stacks. Firing uses GCD; last shot exits aim. Press again to cancel.",
 		"deadeye": "Mark all enemies. Walk during an unkickable 3s cast; hit those within 18m and clear sight at completion for 40% maximum health. Cannot jump. Interrupted casts refund cooldown.",
-		"kindle": "Deal 16 damage. Gain 20 Heat and add a brand (up to 3) for 10s.",
-		"flashpoint": "Consume your brands: 12 + 6 damage per brand. Three brands also deal 10 splash damage within 5m. Gain 10 Heat.",
-		"nova": "Requires 40 Heat. Consume all Heat: 18 + 0.4 damage per Heat to enemies within 5m of the target.",
+		"kindle": "Deal 160 damage. Gain 20 Heat and add a brand (up to 3) for 10s.",
+		"flashpoint": "Consume your brands: 120 + 60 damage per brand. Three brands also deal 100 splash damage within 5m. Gain 10 Heat.",
+		"nova": "Requires 40 Heat. Consume all Heat: 180 + 4 damage per Heat to enemies within 5m of the target.",
 		"flare_cc": "Aim a 4m, 108-degree cone in front of you. No selected target is needed. Incapacitate enemies you hit for up to 3s. Terrain blocks the effect. Any damage breaks it; uses incapacitate diminishing returns.",
 		"cinder": "Requires and spends 20 Heat. Dash 6m and leave a 5s burning trail that slows enemies by 45%.",
 		"stoke": "Generate 30 Heat. Maximum 100 Heat.",
-		"wake": "Create a 5m burning field at your feet for 5s. It slows enemies by 45% and deals 4 damage each second.",
-		"sunder": "Deal 13 damage and gain 20 Resolve (maximum 100). Expose this enemy to your next Oathbreaker for 6s.",
-		"oath": "Spend all Resolve: deal 15 + 0.3 damage per Resolve, plus 8 against your exposed target.",
-		"intercede": "Rush to another ally. For 5s redirect 30% of their damage to yourself, up to 30 total, while within 18m and line of sight. Redirected damage grants Resolve.",
+		"wake": "Create a 5m burning field at your feet for 5s. It slows enemies by 45% and deals 40 damage each second.",
+		"sunder": "Deal 130 damage and gain 20 Resolve (maximum 100). Expose this enemy to your next Oathbreaker for 6s.",
+		"oath": "Spend all Resolve: deal 150 + 3 damage per Resolve, plus 80 against your exposed target.",
+		"intercede": "Rush to another ally. For 5s redirect 30% of their damage to yourself, up to 300 damage total, while within 18m and line of sight. Redirected damage grants Resolve.",
 		"hold": "For 4s, stand still and take 70% less frontal damage; resist displacement. Turning is allowed. Attacking ends this stance. Does not stack with stronger reduction.",
 		"challenge": "For 6s, this enemy attacking your allies grants you 15 Resolve per hit, at most once per second.",
-		"earth": "Deal 12 damage and stun enemies in a narrow 8m forward line for up to 1s. Shares stun diminishing returns.",
+		"earth": "Deal 120 damage and stun enemies in a narrow 8m forward line for up to 1s. Shares stun diminishing returns.",
 		"unbroken": "Spend 40 Resolve to gain 4s of 60% damage reduction.",
-		"falling": "Heal 18. Consume one of your stars on the target to heal 16 more.",
+		"falling": "Heal 270. Consume one of your stars on the target to heal 240 more.",
 		"absolution": "Remove stun, root and slow. Consume one of your stars to grant 3s immunity to roots and slows.",
-		"stitch": "Heal 27. A starred target echoes 9 healing to one other starred ally within 18m and line of sight.",
+		"stitch": "Heal 405. A starred target echoes 135 healing to one other starred ally within 18m and line of sight.",
 		"star": "Place a star on an ally or yourself for 30s. Maximum 3 total per Luminary; placing a fourth moves your oldest star.",
 		"pilgrim": "Consume your star on another ally to rush toward them. Stops at terrain.",
 		"last": "For 4s, the first lethal hit leaves the ally at 1 HP and consumes this protection. Further damage can kill.",
-		"starfall": "Deal 16 damage and heal each of your starred allies for 8 per star within 18m and line of sight.",
+		"starfall": "Deal 160 damage and heal each of your starred allies for 120 per star within 18m and line of sight.",
 		"anchor": "Place a visible gravity anchor on the ground up to 10m ahead, stopping before walls. Lasts 20s. Replacing it ends its orbit.",
 		"inward": "Pull an enemy up to 8m toward your anchor. Target must be within 9m of the anchor (1.5 times Heavy Orbit's radius); caster and anchor must remain within 18m. Moving the enemy cancels their current cast without a spell lockout. Grants a 4s buff for one instant, off-global-cooldown Collapse, consumed on use; its own cooldown still applies. Works through line-of-sight blockers; movement stops at solid terrain.",
 		"outward": "Push an enemy up to 8m away from your anchor. Target must be within 9m of the anchor (1.5 times Heavy Orbit's radius); caster and anchor must remain within 18m. Moving the enemy cancels their current cast without a spell lockout. Works through line-of-sight blockers; movement stops at solid terrain.",
 		"orbit": "Your anchor creates a 6m slowing field for 6s, even through line-of-sight blockers. Enemies inside move 45% slower.",
 		"swap": "Exchange positions with another ally. Both routes must be clear; cannot cross terrain.",
-		"graviton": "Deal 6 damage and apply an 11s DoT: 3 damage each second per stack, up to 2 stacks per caster. Reapplying refreshes both stacks without delaying the next tick. Generates no Meditation. A landed Collapse grants a 4s buff for one instant Graviton, consumed on use.",
-		"entropy": "Instantly apply a 15s DoT: 2 damage and 5 Meditation each second. One stack per caster; reapplying refreshes without delaying the next tick. Meditation caps at 100.",
-		"gravity_starfall": "Requires at least 50 Meditation. After a 2s cast, spend all Meditation to deal 20 + 0.4 damage per Meditation (40–60) to enemies within 5m of the target. Interrupted casts spend nothing.",
-		"collapse": "Consume your anchor: deal 22 damage within 6m and root for up to 2s. At 75+ Meditation, stun for up to 3s instead; Meditation is not spent. Inward grants a 4s buff for one instant Collapse off the global cooldown, consumed on use. Its own cooldown still applies. Hitting an enemy grants a 4s buff for one instant Graviton, consumed on use. Works through line-of-sight blockers. Root and stun use separate diminishing returns."
+		"graviton": "Deal 60 damage and apply an 11s DoT: 30 damage each second per stack, up to 2 stacks per caster. Reapplying refreshes both stacks without delaying the next tick. Generates no Meditation. A landed Collapse grants a 4s buff for one instant Graviton, consumed on use.",
+		"entropy": "Instantly apply a 15s DoT: 20 damage and 5 Meditation each second. One stack per caster; reapplying refreshes without delaying the next tick. Meditation caps at 100.",
+		"gravity_starfall": "Requires at least 50 Meditation. After a 2s cast, spend all Meditation to deal 200 + 4 damage per Meditation (400–600) to enemies within 5m of the target. Interrupted casts spend nothing.",
+		"collapse": "Consume your anchor: deal 220 damage within 6m and root for up to 2s. At 75+ Meditation, stun for up to 3s instead; Meditation is not spent. Inward grants a 4s buff for one instant Collapse off the global cooldown, consumed on use. Its own cooldown still applies. Hitting an enemy grants a 4s buff for one instant Graviton, consumed on use. Works through line-of-sight blockers. Root and stun use separate diminishing returns."
 	}
 	if concepts.has(ability.kind):
 		return concepts[ability.kind]
@@ -201,11 +207,13 @@ static func summary(ability: Dictionary) -> String:
 		"trinket":
 			return "Break your current stun instantly. Usable while stunned; 2-minute cooldown."
 		"damage":
-			return "Deal %s damage to an enemy." % ability.power
+			return "Deal %s damage to an enemy." % display_number(float(ability.power)*DISPLAY_DAMAGE_SCALE)
 		"heal":
-			return "Restore up to %s health to an ally or yourself." % ability.power
+			return "Restore up to %s health to an ally or yourself." % display_number(float(ability.power)*DISPLAY_HEAL_SCALE)
 		"self_heal":
-			return "Restore up to %s of your own health. For DPS classes, completing the cast also removes attached damage-over-time effects. Ground hazards can still hurt you." % ability.power
+			return "Restore up to %s of your own health. For DPS classes, completing the cast also removes attached damage-over-time effects. Ground hazards can still hurt you." % display_number(float(ability.power)*DISPLAY_MEND_SCALE)
+		"regen_pot":
+			return "Remove attached damage-over-time effects, then regenerate %s health over 6 seconds." % display_number(float(ability.power)*DISPLAY_MEND_SCALE)
 		"interrupt":
 			return "Interrupt an enemy's cast and lock out their spells for %s seconds." % ability.power
 		"control":
@@ -221,7 +229,7 @@ static func summary(ability: Dictionary) -> String:
 		"blink":
 			return "Blink up to %sm in your movement-input direction, including diagonals. With no movement input, blink forward along your camera's heading. Two charges; restores one charge every %ss. Stops at solid terrain. Off the global cooldown; usable while casting without interrupting the cast." % [ability.power, ability.cd]
 		"charge":
-			return "Immediately root an enemy for up to 1.5s, then rush along a safe route at 32m/s and deal %s damage on arrival. Line of sight is required only when casting. Uses root diminishing returns." % ability.power
+			return "Immediately root an enemy for up to 1.5s, then rush along a safe route at 32m/s and deal %s damage on arrival. Line of sight is required only when casting. Uses root diminishing returns." % display_number(float(ability.power)*DISPLAY_DAMAGE_SCALE)
 		"sprint":
 			return "Move 65%% faster for %s seconds." % ability.power
 	return ""
@@ -230,7 +238,7 @@ static func description(ability: Dictionary, champion: String) -> String:
 	var self_only: bool = ability.kind in SELF_KINDS
 	var effect := summary(ability)
 	if champion == "Outlaw":
-		if ability.kind == "self_heal": effect = "Heal 28 health and remove attached bleeds and damage-over-time effects."
+		if ability.kind == "self_heal": effect = "Heal 336 health and remove attached bleeds and damage-over-time effects."
 		elif ability.kind == "interrupt": effect = "Interrupt a cast within 3m and lock out spells for 4s."
 	var lines: Array[String] = [ability.name, "", effect, ""]
 	lines.append("%s  ·  Range %s" % [
@@ -242,4 +250,9 @@ static func description(ability: Dictionary, champion: String) -> String:
 		lines.append("Off the global cooldown.")
 	if champion == "Vanguard" and ability.kind == "interrupt":
 		lines.append("Vanguard ignores spell lockout.")
+	if champion == "Null" and ability.kind in ["stab", "backstab", "interrupt", "nerve_lock", "blindside", "vantage"]:
+		lines.append("Successful cast: gain 30 Essence.")
 	return "\n".join(lines)
+
+static func display_number(value: float) -> String:
+	return str(int(roundi(value))) if is_equal_approx(value,roundf(value)) else "%.1f" % value

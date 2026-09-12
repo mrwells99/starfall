@@ -92,8 +92,8 @@ func _process(delta: float) -> bool:
 		for i in results.size():
 			damage+=int(results[i].damage)
 			if i>0: timing=timing and results[i].time-results[i-1].time>=.13-.0001
-		var expected_damage:=0 if miss else 30
-		var okay: bool=results.size()==3 and damage==expected_damage and target.hp==100-expected_damage and shooter.identity.defense_detonation==0 and timing
+		var expected_damage:=0 if miss else roundi(3*target.BASE_MAX_HEALTH*arena.Outlaw.DETONATION_HEALTH_FRACTION*target.DAMAGE_SCALE)
+		var okay: bool=results.size()==3 and damage==expected_damage and target.hp==target.MAX_HEALTH-expected_damage and shooter.identity.defense_detonation==0 and timing
 		if host:
 			okay=okay and shooter.champion_model==null and target.champion_model==null and not ResourceLoader.has_cached("res://assets/characters/outlaw.glb")
 			var transport: ENetMultiplayerPeer=arena.multiplayer.multiplayer_peer

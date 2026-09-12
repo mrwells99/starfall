@@ -11,6 +11,9 @@ var uppers: Array[int] = []
 var forearms: Array[int] = []
 var upper_lengths: Array[float] = []
 var forearm_lengths: Array[float] = []
+var handwork_weight := 0.0
+var weapon_scale := Vector3.ONE
+var staff_grip: Dictionary = {}
 
 func build(title: String, rig: Skeleton3D) -> void:
  class_title = title
@@ -19,6 +22,12 @@ func build(title: String, rig: Skeleton3D) -> void:
  hands = [rig.find_bone("DEF-hand.L"), rig.find_bone("DEF-hand.R")]
  weapon = rig.find_bone("staff" if title == "Luminary" else "weapon")
  assert(weapon >= 0 and hands[0] >= 0 and hands[1] >= 0)
+ weapon_scale = rig.get_bone_pose_scale(weapon)
+ if title == "Luminary":
+  for bone in rig.get_bone_count():
+   var name := String(rig.get_bone_name(bone))
+   if name.ends_with(".R") and (name.begins_with("DEF-f_") or name.begins_with("DEF-thumb")):
+    staff_grip[bone] = rig.get_bone_pose_rotation(bone)
  if title == "Vanguard":
   var inverse := rig.get_bone_global_pose(weapon).affine_inverse()
   for index in hands:
@@ -38,6 +47,8 @@ func midpoint() -> Vector3:
 
 func capture() -> void:
  if class_title == "Vanguard":
+  # Undo only our temporary Mend concealment before evaluating the rigid grip.
+  skeleton.set_bone_pose_scale(weapon,weapon_scale)
   raw_offset = skeleton.get_bone_global_pose(weapon).origin - midpoint()
 
 func follow_jump() -> void:
@@ -59,6 +70,7 @@ func aim(index: int, child: int, target: Vector3) -> void:
 
 func apply() -> void:
  if weapon < 0: return
+ if class_title == "Vanguard": skeleton.set_bone_pose_scale(weapon,weapon_scale)
  var pose := skeleton.get_bone_global_pose(weapon)
  if class_title == "Luminary":
   var hand := skeleton.get_bone_global_pose(hands[1])
@@ -66,7 +78,14 @@ func apply() -> void:
   # Blender's +Z staff becomes Godot +Y. Keep the upright authored basis.
   pose.basis = skeleton.get_bone_global_rest(weapon).basis
   set_global(weapon,pose)
+  for bone in staff_grip:
+   skeleton.set_bone_pose_rotation(bone,skeleton.get_bone_pose_rotation(bone).slerp(staff_grip[bone],handwork_weight))
   return
+ # Mend frees both arms. Save the authored pose before the usual two-hand
+ # solve, then blend the solve away with the cast's entry/recovery weight.
+ var work_pose: Dictionary = {}
+ if handwork_weight > 0:
+  for bone in uppers+forearms+hands: work_pose[bone] = skeleton.get_bone_pose(bone)
  # A short reach projection moves the rigid weapon, never scales either arm.
  for iteration in 8:
   var projected := false
@@ -97,3 +116,6 @@ func apply() -> void:
   aim(upper,fore,origin+axis*along+bend*height)
   aim(fore,hands[side],wrist)
   set_global(hands[side],Transform3D(pose.basis*hand_rotations[side],wrist))
+ for bone in work_pose:
+  skeleton.set_bone_pose(bone,skeleton.get_bone_pose(bone).interpolate_with(work_pose[bone],handwork_weight))
+ skeleton.set_bone_pose_scale(weapon,weapon_scale*(1.0-.999*handwork_weight))

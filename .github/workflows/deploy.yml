@@ -126,6 +126,10 @@ jobs:
         if: matrix.suite == 'gameplay'
         run: ./tests/check_suite.sh "Movement controls checks" godot --headless --path . --script tests/movement_controls_test.gd
 
+      - name: Peer lookup lifecycle and unchanged bot selection
+        if: matrix.suite == 'gameplay'
+        run: ./tests/check_suite.sh "Lookup bot optimization checks" godot --headless --path . --script tests/lookup_bot_optimization_test.gd
+
       - name: Smooth fractional camera zoom
         if: matrix.suite == 'gameplay'
         run: ./tests/check_suite.sh "Camera zoom checks" godot --headless --path . --script tests/camera_zoom_test.gd
@@ -182,8 +186,11 @@ jobs:
         if: matrix.suite == 'gameplay'
         run: |
           ./tests/check_suite.sh "Hitbox pose checks" godot --headless --path . --script tests/hitbox_pose_test.gd
+          ./tests/check_suite.sh "Hitbox optimization checks" godot --headless --path . --script tests/hitbox_optimization_test.gd
           ./tests/check_suite.sh "Expanded hitbox checks" godot --headless --path . --script tests/expanded_hitboxes_test.gd
           ./tests/check_suite.sh "Aimed combat checks" godot --headless --path . --script tests/aimed_combat_test.gd
+          ./tests/check_suite.sh "Hitbox roster checks" godot --headless --path . --script tests/hitbox_roster_test.gd
+          ./tests/check_suite.sh "Aim tracking checks" godot --headless --path . --script tests/aim_tracking_test.gd
 
       # Each group has its own runner and UDP namespace. Keep scenarios
       # sequential within a runner so their fixed ports never overlap.

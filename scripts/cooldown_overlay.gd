@@ -18,6 +18,8 @@ extends Control
 
 const SWEEP_COLOR := Color(0.02, 0.03, 0.05, 0.74)
 const GCD_COLOR := Color(0.10, 0.14, 0.22, 0.62)
+const CHRONOSHIFT_GOLD := Color("ffd86b")
+const CHRONOSHIFT_LOCK_RED := Color("ff5969")
 const SEGMENTS := 48
 
 var remaining := 0.0
@@ -30,6 +32,9 @@ var key_label: Label
 var availability_label: Label
 var availability_reason := ""
 var availability_color := Color.WHITE
+var chronoshift_target := false
+var chronoshift_locked := false
+var chronoshift_pulse := 0.0
 
 func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -95,6 +100,16 @@ func set_charges(count: int) -> void:
 	charge_label.visible = count >= 0
 	charge_label.text = str(count) if count >= 0 else ""
 
+func set_chronoshift_target(active: bool) -> void:
+	if chronoshift_target == active: return
+	chronoshift_target = active
+	queue_redraw()
+
+func set_chronoshift_lock(active: bool) -> void:
+	if chronoshift_locked == active: return
+	chronoshift_locked = active
+	queue_redraw()
+
 # Short text plus color, never color alone. Cooldowns/CC keep their existing
 # sweeps; their full reason remains available in the shared tooltip.
 func set_availability(reason: String) -> void:
@@ -141,6 +156,9 @@ func sync(new_remaining: float, new_duration: float, gcd: bool, recharging: bool
 	_refresh()
 
 func _process(delta: float) -> void:
+	if chronoshift_target or chronoshift_locked:
+		chronoshift_pulse += delta
+		queue_redraw()
 	if remaining <= 0.0:
 		return
 	remaining = maxf(0.0, remaining - delta)
@@ -163,6 +181,13 @@ static func format_time(t: float) -> String:
 	return "%.1f" % t
 
 func _draw() -> void:
+	if chronoshift_target or chronoshift_locked:
+		# Multiple inset lines read as a warm glow without obscuring the icon or
+		# its regular cooldown sweep. Gold is a selectable reset; red is its lock.
+		var pulse := 0.70 + sin(chronoshift_pulse * 6.0) * 0.18
+		var chronoshift_color := CHRONOSHIFT_LOCK_RED if chronoshift_locked else CHRONOSHIFT_GOLD
+		draw_rect(Rect2(Vector2(1, 1), size - Vector2(2, 2)), Color(chronoshift_color, pulse * 0.28), false, 5.0)
+		draw_rect(Rect2(Vector2(2, 2), size - Vector2(4, 4)), Color(chronoshift_color, pulse), false, 2.0)
 	if availability_label.visible:
 		# A quiet inset frame and status strip preserve the ability illustration.
 		draw_rect(Rect2(Vector2(1, 1), size - Vector2(2, 2)), Color(availability_color, 0.6), false, 1.0)

@@ -80,6 +80,8 @@ func build(host: Node3D, team_color: Color) -> void:
 	equipment.build(class_title, skeleton)
 	lasso_pose.build(skeleton)
 	equipment.apply()
+	if class_title in ["Ember","Luminary","Vanguard"]:
+		clip_names.Mend = preload("res://scripts/outlaw_mend_animation.gd").install(player,skeleton)
 
 func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
 	lasso_pose.capture_if_needed(actor)
@@ -170,13 +172,21 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
 		was_casting = casting
 	previous_cast_remaining = actor.cast_left
 	desired = override_clip(desired, alive, stunned, delta)
+	if clip_names.has("Mend") and class_title != "Outlaw":
+		var mending: bool = casting and actor.kit[actor.casting].kind == "self_heal" and not stunned
+		equipment.handwork_weight = move_toward(equipment.handwork_weight,1.0 if mending else 0.0,delta/.22)
+		if mending: desired = "Mend"
+		elif clip == "Mend" and not casting and alive and not stunned:
+			transient_left = 0.0
+			if was_airborne: desired = "JumpLoop"
+			elif filtered_speed <= .12: desired = "Idle"
 	if desired != clip:
 		var phase := player.current_animation_position / maxf(player.current_animation_length, .001)
 		var locomotion_change := is_locomotion(clip) and is_locomotion(desired)
 		# A little extra easing for the torso/head when entering or changing jump
 		# clips. Keep the same authored poses and the existing arm transition.
 		var jump_transition := desired.begins_with("Jump") or clip.begins_with("Jump")
-		pose_blend.begin(pose_blend.duration_for(clip, desired), JUMP_BODY_BLEND_SECONDS if jump_transition else 0.0)
+		pose_blend.begin(transition_duration(clip, desired), JUMP_BODY_BLEND_SECONDS if jump_transition else 0.0)
 		clip = desired
 		player.play(clip_names[clip], 0.0)
 		if locomotion_change: player.seek(phase * player.get_animation(clip_names[clip]).length, false)
@@ -207,6 +217,11 @@ func override_playback_rate(_desired: String, default_rate: float) -> float:
 
 func is_locomotion(name: String) -> bool:
 	return name.begins_with("Walk") or name.begins_with("Run") or name.begins_with("Sprint") or name.begins_with("Strafe")
+
+func transition_duration(previous: String, next: String) -> float:
+	if next == "Mend": return .22
+	if previous == "Mend": return .24
+	return pose_blend.duration_for(previous, next)
 
 func override_clip(desired: String, _alive: bool, _stunned: bool, _delta: float) -> String:
 	return desired

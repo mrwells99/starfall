@@ -10,14 +10,16 @@ The approved reference is [the grey and black class sheet](../art_source/referen
 
 | Default key | Ability | Current behavior | Range | Cooldown |
 | --- | --- | --- | --- | --- |
-| 1 | Stab | Instant filler; 12 damage. | 3 m | None; normal GCD |
-| 2 | Backstab | Instant 35 damage; requires the rear 120° of the target. Invalid attempts spend nothing. | 3 m | **30 s** |
+| 1 | Temporal Strike | Instant filler; 120 damage. | 3 m | None; normal GCD |
+| 2 | Backstab | Instant 245 damage; requires the rear 120° of the target. Invalid attempts spend nothing. | 3 m | **30 s** |
 | 3 | Kick | Interrupt and 4-second spell lockout. Off GCD. | 3 m | 12 s |
 | 4 | Nerve Lock | Instant melee stun for **4 seconds**. | 3 m | 20 s |
 | 5 | Stealth | Concealment with proximity detection; details below. Off GCD. | Self | **None** |
 | 6 | Haste | **50% movement speed for 6 seconds**. Off GCD. | Self | **25 s** |
 | 7 | Blindside | Instantly teleport 1.2 m behind the target and face their direction. **Off GCD.** Requires a clear route and safe landing. | 18 m | 15 s |
-| Shift+1 | Vantage Point | Rise vertically for **0.5 seconds**, then dive with both blades. Contact deals 22 damage and a **4-second stun/knockdown**. Brief recovery; no rebound or backflip. | 18 m | 25 s |
+| Shift+1 | Vantage Point | Rise vertically for **0.5 seconds**, then dive with both blades. Contact deals 220 damage and a **4-second stun/knockdown**. Brief recovery; no rebound or backflip. | 18 m | 25 s |
+| Shift+2 | Regen Pot | Cleanse attached damage-over-time effects, then regenerate **336 health over 6 seconds**. Off GCD. | Self | 16 s |
+| Shift+3 | Chronoshift | Press an ability's normal keybind to refresh its normal cooldown for **100 Essence**. That ability cannot be refreshed again for twice its own cooldown. | Self | None |
 | Ctrl+1 | Trinket | Shared stun break. | Self | 120 s |
 
 All buttons can be moved and rebound through the existing class-specific controls. The user's explicit timings and percentages are preserved. Damage values, ranges, Backstab's rear angle, Kick/Nerve Lock/Blindside/Vantage cooldowns, and auxiliary off-GCD choices are **initial tuning**, not additional user-approved balance decisions. Existing stun diminishing returns, immunities, and Trinket apply; four seconds is the full first stun.

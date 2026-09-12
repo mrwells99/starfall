@@ -79,7 +79,7 @@
     "blender_version": "5.2.1 LTS",
     "godot_version": "4.7.2 desktop; 4.5.1 server compatibility",
     "renderer": "gl_compatibility",
-    "python_version": "3.12.14",
+    "python_version": "3.13.14",
     "seeds": {
       "textures": 311
     }
@@ -291,12 +291,16 @@
       "assets/icons/abilities/null/backstab.svg.import",
       "assets/icons/abilities/null/blindside.svg",
       "assets/icons/abilities/null/blindside.svg.import",
+      "assets/icons/abilities/null/chronoshift.svg",
+      "assets/icons/abilities/null/chronoshift.svg.import",
       "assets/icons/abilities/null/haste.svg",
       "assets/icons/abilities/null/haste.svg.import",
       "assets/icons/abilities/null/kick.svg",
       "assets/icons/abilities/null/kick.svg.import",
       "assets/icons/abilities/null/nerve_lock.svg",
       "assets/icons/abilities/null/nerve_lock.svg.import",
+      "assets/icons/abilities/null/regen_pot.svg",
+      "assets/icons/abilities/null/regen_pot.svg.import",
       "assets/icons/abilities/null/stab.svg",
       "assets/icons/abilities/null/stab.svg.import",
       "assets/icons/abilities/null/stealth.svg",
@@ -361,9 +365,9 @@
     ],
     "fit_adjustments": "Standard main-body fit; excludes hood tip, flowing cloak and blades. Existing project AIM_SCALE (2,1.25,2) remains separate from this fitted profile.",
     "source_glb": "assets/characters/null.glb",
-    "source_sha256": "84cfcba02177260091eeb6711d014f03c1e2622bf82f2b4e018b827fdf6e2f4b",
+    "source_sha256": "4143ca7cdcf0cd3d6d5d04b50c31396e44756a79540e09e67df310dc4b4116f6",
     "rig": "assets/hitboxes/null_rig.scn",
-    "rig_sha256": "c7e6de0fc05d98c6c48486222a0130d57ccb16d6d70e87ec201375af172ff510",
+    "rig_sha256": "6ecc67b535d5efc2829ccfb96ee9f78396613a8dcfd822df2080d9a97d2390f4",
     "rig_manifest": "assets/hitboxes/manifest.json",
     "definitions": "scripts/body_hitboxes.gd",
     "definitions_sha256": "ac28abe0edcf98770fccf16dd541a719e673397d524878ee5148e4dd40307bc2",
@@ -444,6 +448,6 @@
       "reviewed": true,
       "notes": "Body capsules follow torso, limbs and head through neutral and special poses; cloth and blades remain outside. Gold head capsule has normal damage. Actual renders inspected; no owner acceptance invented."
     },
-    "performance_notes": "943270 byte mesh-free rig vs 12437852 byte visual GLB; 85 bones, 35 clips, 52782 retained keys. Dedicated resource guards pass. No framerate benchmark claim."
+    "performance_notes": "935172 byte mesh-free rig vs 12430544 byte visual GLB; 85 bones, 35 clips, 52782 retained keys. Dedicated resource guards pass. No framerate benchmark claim."
   }
 }

@@ -12,7 +12,7 @@
 
 ## Vanguard Charge
 
-Charge roots the target immediately on acceptance for up to 3 seconds, using the existing root immunity and diminishing returns rules. Vanguard then travels continuously at 32m/s and stops in melee range, dealing the existing 6 damage once on arrival. Its 12-second cooldown and off-GCD behavior remain.
+Charge roots the target immediately on acceptance for up to 3 seconds, using the existing root immunity and diminishing returns rules. Vanguard then travels continuously at 32m/s and stops in melee range, dealing 60 damage once on arrival. Its 12-second cooldown and off-GCD behavior remain.
 
 Initial validation still checks target, range, facing, LOS and caster control. A safe route is also required before cooldown or root is spent. After acceptance, LOS, range and facing are not revalidated. Input, jump requests, other casts and later control do not overwrite the committed route. Target death, disappearance or loss of world-duel permission releases the charger without applying delayed damage.
 

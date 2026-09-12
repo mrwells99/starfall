@@ -1388,7 +1388,7 @@
   "texture_seed": 311,
   "grips": "Two hand-parented reverse grips; native idle fist applied by shared visible/server runtime",
   "extras": {
-    "KnifeStrike": "Sword_Attack",
+    "KnifeStrike": "Punch_Cross",
     "StealthIdle": "Crouch_Idle_Loop",
     "StealthWalk": "Crouch_Fwd_Loop"
   },

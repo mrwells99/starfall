@@ -50,9 +50,9 @@ static func active(actor, sources: Array = [], local_source: int = -1) -> Array:
 	for source_id in actor.identity.dots:
 		var dot: Dictionary = actor.identity.dots[source_id]
 		var stacks := int(dot.get("stacks", 1))
-		out.append({"key": "graviton_%s" % source_id, "name": "Graviton ×%d" % stacks, "kind": DEBUFF, "remaining": dot.left, "color": Color("b98cff"), "source": "Graviton", "description": "%d damage each second (%d/2 stacks). Generates no Meditation. DPS Mend removes this DoT." % [3 * stacks, stacks]})
+		out.append({"key": "graviton_%s" % source_id, "name": "Graviton ×%d" % stacks, "kind": DEBUFF, "remaining": dot.left, "color": Color("b98cff"), "source": "Graviton", "description": "%d damage each second (%d/2 stacks). Generates no Meditation. DPS Mend removes this DoT." % [30 * stacks, stacks]})
 	for source_id in actor.identity.entropy_dots:
-		out.append({"key": "entropy_%s" % source_id, "name": "Entropy", "kind": DEBUFF, "remaining": actor.identity.entropy_dots[source_id].left, "color": Color("d395ff"), "source": "Entropy", "description": "2 damage and 5 Meditation for its caster each second. Cannot stack per caster. DPS Mend removes this DoT."})
+		out.append({"key": "entropy_%s" % source_id, "name": "Entropy", "kind": DEBUFF, "remaining": actor.identity.entropy_dots[source_id].left, "color": Color("d395ff"), "source": "Entropy", "description": "20 damage and 5 Meditation for its caster each second. Cannot stack per caster. DPS Mend removes this DoT."})
 	if actor.stunned > 0:
 		out.append({
 			"key": "stun", "name": "Stunned", "kind": DEBUFF,
@@ -89,6 +89,9 @@ static func active(actor, sources: Array = [], local_source: int = -1) -> Array:
 		out.append({"key":"stealth", "name":"Stealth", "kind":BUFF, "remaining":0.0, "source":"Stealth", "color":Color("b9c0c7"), "description":"Hidden until detected within 3.5m for 0.7s. Attacks and damage break concealment."})
 	if identity.get("null_haste",0.0)>0:
 		out.append({"key":"null_haste", "name":"Haste", "kind":BUFF, "remaining":identity.null_haste, "source":"Haste", "color":Color("b9c0c7"), "description":"Move 50% faster for 6s."})
+	var regen: Dictionary=identity.get("null_regen",{})
+	if float(regen.get("left",0.0))>0:
+		out.append({"key":"null_regen", "name":"Regen Pot", "kind":BUFF, "remaining":regen.left, "source":"Regen Pot", "color":Color("97edb1"), "description":"Cleansed attached damage-over-time effects, then regenerates 336 health over 6 seconds."})
 	if identity.get("roll_haste", 0.0) > 0:
 		out.append({"key":"roll_haste", "name":"Quickstep", "kind":BUFF, "remaining":identity.roll_haste, "color":Color("f2c676"), "source":"Roll", "description":"25% faster movement for 5s after Roll."})
 	if preload("res://scripts/outlaw_mechanics.gd").severe_slowed(actor):
@@ -96,7 +99,7 @@ static func active(actor, sources: Array = [], local_source: int = -1) -> Array:
 	if preload("res://scripts/outlaw_mechanics.gd").backflip_airborne(actor):
 		out.append({"key":"backflip_guard", "name":"Backflip Guard", "kind":BUFF, "remaining":maxf(.01,1.2-identity.backflip_elapsed), "color":Color("92ceff"), "source":"Backflip", "description":"50% less damage during airborne Backflip."})
 	for source_id in identity.get("severe_bleeds", {}):
-		out.append({"key": "severe_%s" % source_id, "name": "Severe", "kind": DEBUFF, "remaining": identity.severe_bleeds[source_id].left, "color": Color("dd6c74"), "source": "Severe", "description": "Bleeds for 2 damage each second for 5 seconds. Refreshes per caster. DPS Mend removes it."})
+		out.append({"key": "severe_%s" % source_id, "name": "Severe", "kind": DEBUFF, "remaining": identity.severe_bleeds[source_id].left, "color": Color("dd6c74"), "source": "Severe", "description": "Bleeds for 20 damage each second for 5 seconds. Refreshes per caster. DPS Mend removes it."})
 	if identity.get("coin_left", 0.0) > 0:
 		out.append({"key": "coin_combo", "name": "Coin Trickshot", "kind": BUFF, "remaining": identity.coin_left, "color": Color("f2c676"), "source": "Coin Toss", "description": "One off-GCD Trickshot while the coin is in flight. Both bullet segments must clear terrain."})
 	if preload("res://scripts/crowd_control.gd").airborne_immune(actor):

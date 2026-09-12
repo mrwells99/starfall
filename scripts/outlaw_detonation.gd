@@ -51,11 +51,13 @@ func enqueue(game, id: int, peer: int, seq: int, burst_id: int, index: int, orig
 	var clock: float = game.aimed_combat.clock
 	if not is_finite(stamp) or stamp < 0 or clock-stamp > game.aimed_combat.allowed_age(game,peer) or stamp-clock > game.aimed_combat.CLOCK_TOLERANCE: return reject(game,id,peer,burst_id,"Shot timing expired")
 	if revision != actor.motion_revision or blocked(game,actor): return reject(game,id,peer,burst_id,"Cannot fire right now")
+	if index == 0 and not game.aimed_combat.tracking.ready(game,id): return reject(game,id,peer,burst_id,"Defense Detonation is still charging")
 	if not camera_valid(game,actor,origin,direction,stamp): return reject(game,id,peer,burst_id,"Camera shot is blocked")
 	if index == 0:
 		if burst_id != seq or bursts.has(id) or actor.action_budget > 0: return false
 		var plan: Dictionary = game.Outlaw.reserve_detonation_burst(game,actor)
 		if plan.is_empty(): return reject(game,id,peer,burst_id,"Requires a stack and an available global cooldown")
+		game.aimed_combat.tracking.consume_charge(id)
 		bursts[id] = {"id":burst_id,"total":plan.shots,"next":0,"fired":0,"start":clock,"last_fire":clock-game.Outlaw.DETONATION_SHOT_INTERVAL,"stamp":stamp,"revision":revision,"epoch":game.epoch,"peer":peer,"pending":[]}
 		actor.action_budget = .05
 	if not bursts.has(id): return false
@@ -100,7 +102,7 @@ func tick(game) -> void:
 			if victim.team != actor.team and game.may_harm(actor,victim):
 				var before: float = victim.hp
 				game.Null.direct_hit(game,actor,victim)
-				game.damage(actor,victim,roundi(victim.MAX_HEALTH*game.Outlaw.DETONATION_HEALTH_FRACTION))
+				game.damage(actor,victim,roundi(victim.BASE_MAX_HEALTH*game.Outlaw.DETONATION_HEALTH_FRACTION))
 				result.damage = roundi(before-victim.hp)
 		game.Outlaw.action(actor,"gun")
 		burst.last_fire = clock

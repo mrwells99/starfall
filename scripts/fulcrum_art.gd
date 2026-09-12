@@ -28,6 +28,7 @@ var jump_pose = preload("res://scripts/fulcrum_jump_pose.gd").new()
 var pose_blend = preload("res://scripts/fulcrum_pose_blend.gd").new()
 var lasso_pose = preload("res://scripts/lasso_pose.gd").new()
 var network_motion = preload("res://scripts/network_animation_motion.gd").new()
+var mend_focus_offset := Vector3.ZERO
 
 func build(host: Node3D, team_color: Color) -> void:
  if asset == null: asset = preload("res://scripts/character_asset_cache.gd").get_scene("res://assets/characters/fulcrum.glb")
@@ -67,6 +68,8 @@ func build(host: Node3D, team_color: Color) -> void:
  player.advance(0)
  pose_blend.build(skeleton)
  lasso_pose.build(skeleton)
+ clip_names.Mend = preload("res://scripts/outlaw_mend_animation.gd").install(player,skeleton)
+ mend_focus_offset = skeleton.get_bone_global_pose(jump_pose.focus).origin - skeleton.get_bone_global_pose(jump_pose.hand).origin
 
 func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
  lasso_pose.capture_if_needed(actor)
@@ -152,13 +155,20 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
   desired = clip
   was_casting = casting
  previous_cast_remaining = actor.cast_left
+ if alive and not stunned:
+  if casting and actor.kit[actor.casting].kind == "self_heal": desired = "Mend"
+  elif clip == "Mend" and not casting:
+   transient_left = 0.0
+   if was_airborne: desired = "JumpLoop"
+   elif filtered_speed <= .12: desired = "Idle"
  if desired != clip:
   var phase := player.current_animation_position / maxf(player.current_animation_length, .001)
   var locomotion_change := is_locomotion(clip) and is_locomotion(desired)
   # A little extra easing for the torso/head when entering or changing jump
   # clips. Keep the same authored poses and the existing arm transition.
   var jump_transition := desired.begins_with("Jump") or clip.begins_with("Jump")
-  pose_blend.begin(pose_blend.duration_for(clip, desired), JUMP_BODY_BLEND_SECONDS if jump_transition else 0.0)
+  var seconds: float = .22 if desired == "Mend" else (.24 if clip == "Mend" else pose_blend.duration_for(clip, desired))
+  pose_blend.begin(seconds, JUMP_BODY_BLEND_SECONDS if jump_transition else 0.0)
   clip = desired
   player.play(clip_names[clip], 0.0)
   if locomotion_change: player.seek(phase * player.get_animation(clip_names[clip]).length, false)
@@ -166,6 +176,11 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
  if alive and not stunned:
   player.advance(delta)
   jump_pose.apply(vertical_speed, was_airborne, delta, casting)
+  if clip == "Mend":
+   var focus: int = jump_pose.focus
+   var target: Vector3 = skeleton.get_bone_global_pose(jump_pose.hand).origin + mend_focus_offset
+   var parent := skeleton.get_bone_parent(focus)
+   skeleton.set_bone_pose_position(focus,skeleton.get_bone_global_pose(parent).affine_inverse()*target if parent >= 0 else target)
   pose_blend.apply(delta)
  host.rotation.x = move_toward(host.rotation.x, 0.0 if alive else -PI * 0.5, delta * 5.0)
  host.rotation.z = sin(Time.get_ticks_msec() * 0.015) * 0.025 if stunned and alive else 0.0
