@@ -11,6 +11,7 @@ func _initialize() -> void:
 func run() -> void:
 	var actor = load("res://scripts/combatant.gd").new()
 	root.add_child(actor); actor.setup(1, 1, 0, "Fulcrum")
+	actor.presentation_grounded=true
 	var visual = actor.champion_model
 	var art = visual.fulcrum_art
 	check(art.skeleton.get_bone_count() == 83, "UAL anatomy plus costume/weapon controls imported")
@@ -29,7 +30,7 @@ func run() -> void:
 		check(not "hair" in material.resource_name.to_lower() and not "eyewhite" in material.resource_name.to_lower(), "No exposed face or hair")
 	check(has_mask, "Original sealed mask material remains")
 	var singles := ["CastEnter", "CastRelease", "CastExit", "JumpStart", "JumpLand"]
-	check(art.clip_names.size() == 33, "All selected/derived presets plus Mend hand-work are available")
+	check(art.clip_names.size() == 50, "All selected/derived presets plus Mend hand-work are available")
 	for name in art.clip_names:
 		var animation: Animation = art.player.get_animation(art.clip_names[name])
 		check(animation.length > .3 and animation.get_track_count() > 20, "Complete skeletal clip: " + name)
@@ -41,19 +42,19 @@ func run() -> void:
 	art.player.play(art.clip_names["Idle"]); art.clip = "Idle"
 	visual.animate(.016, actor)
 	var directions := [Vector3.FORWARD, Vector3(1,0,-1).normalized(), Vector3.RIGHT, Vector3(1,0,1).normalized(), Vector3.BACK, Vector3(-1,0,1).normalized(), Vector3.LEFT, Vector3(-1,0,-1).normalized()]
-	var walks := ["Walk", "WalkForwardRight", "StrafeRight", "WalkBackwardRight", "WalkBackward", "WalkBackwardLeft", "StrafeLeft", "WalkForwardLeft"]
-	var runs := ["Run", "RunForwardRight", "RunRight", "WalkBackwardRight", "WalkBackward", "WalkBackwardLeft", "RunLeft", "RunForwardLeft"]
+	var walks := ["MeasuredForward", "MeasuredForwardRight", "MeasuredRight", "MeasuredBackwardRight", "MeasuredBackward", "MeasuredBackwardLeft", "MeasuredLeft", "MeasuredForwardLeft"]
+	var runs := ["TravelForward", "TravelForwardRight", "TravelRight", "TravelBackwardRight", "TravelBackward", "TravelBackwardLeft", "TravelLeft", "TravelForwardLeft"]
 	for running in [false, true]:
 		for i in 8:
-			actor.position += directions[i] * (4.0 if running else 1.2) / 60.0
+			actor.position += directions[i] * (6.1425 if running else 1.2) / 60.0
 			visual.animate(1.0/60.0, actor)
 			check(art.clip == (runs[i] if running else walks[i]), "Eight-way motion reacts immediately: " + str(i))
 	visual.animate(.016, actor)
-	check(art.clip == "Idle", "Releasing movement selects idle immediately")
+	check(art.clip == "Ready", "Releasing movement selects idle immediately")
 	for i in 8:
 		actor.position += directions[i] * 6.5 / 60.0
 		visual.animate(1.0/60.0,actor)
-		check(art.clip == runs[i].replace("Run","Sprint"), "Full game speed selects directional sprint: " + str(i))
+		check(art.clip == runs[i], "Full game speed selects directional sprint: " + str(i))
 	# Backward intent is actor-local, including when the character has turned.
 	actor.rotation.y = PI/2
 	for direction_index in [3,4,5]:
@@ -61,8 +62,8 @@ func run() -> void:
 		for i in 60:
 			actor.position += actor.basis * directions[direction_index] * 3.8 / 60.0
 			visual.animate(1.0/60.0,actor)
-		check(art.clip == walks[direction_index], "Turned character backpedals with the reversed walk in all three directions")
-		check(absf(art.player.speed_scale-1.15)<.005, "Normal backpedaling plays the walking clip 15 percent faster")
+		check(art.clip == runs[direction_index], "Turned character backpedals with the reversed walk in all three directions")
+		check(absf(art.player.speed_scale-preload("res://scripts/null_locomotion.gd").playback_rate(runs[direction_index],3.8,1.0))<.005, "Backpedaling uses the approved shared cadence")
 		check(actor.velocity == original_velocity, "Backpedal animation never changes physical velocity")
 	actor.rotation.y = 0
 	visual.animate(.016,actor)
@@ -73,7 +74,7 @@ func run() -> void:
 	actor.casting = -1; visual.animate(.016, actor)
 	check(art.clip == "CastRelease", "Completed cast uses preset release")
 	for i in 65: visual.animate(1.0/60.0, actor)
-	check(art.clip == "Idle", "Cast recovery returns to idle")
+	check(art.clip == "Ready", "Cast recovery returns to idle")
 	actor.casting = 0; actor.cast_left = 1.2; visual.animate(.016,actor)
 	actor.casting = -1; actor.cast_left = 0; visual.animate(.016,actor)
 	check(art.clip == "CastExit", "Interrupted cast exits without a release gesture")
@@ -81,28 +82,29 @@ func run() -> void:
 	actor.gcd = 1.0; visual.animate(.016, actor)
 	check(art.clip == "CastRelease", "Instant cast GCD event also produces a release")
 	actor.position += Vector3.LEFT/60.0; visual.animate(1.0/60.0, actor)
-	check(art.clip == "StrafeLeft", "Movement is not held up by cosmetic recovery")
+	check(art.clip == "MeasuredLeft", "Movement is not held up by cosmetic recovery")
 	art.transient_left = 0
+	actor.presentation_grounded=false
 	actor.velocity.y = 4; visual.animate(.016, actor)
-	check(art.clip == "JumpStart", "Jump begins with source takeoff")
+	check(art.shared_movement.jump.omni_jump.airborne_previous and art.shared_movement.jump.omni_jump.jump_age<.03, "Shared jump begins with takeoff blending")
 	for i in 16: visual.animate(1.0/60.0, actor)
 	actor.velocity.y = 0; visual.animate(.016, actor)
-	check(art.clip == "JumpLoop", "Apex remains airborne rather than landing at zero vertical speed")
+	check(art.shared_movement.jump.omni_jump.airborne_previous and art.shared_movement.jump.omni_jump.landing_age>1, "Apex remains airborne rather than landing at zero vertical speed")
 	actor.velocity.y = -3; visual.animate(.016, actor)
-	check(art.clip == "JumpLoop", "Descending uses airborne loop")
+	check(art.shared_movement.jump.omni_jump.airborne_previous, "Descending uses approved airborne pose")
 	# Remote bodies never move_and_slide; snapshots must drive takeoff/landing.
 	var remote_state: Dictionary = actor.snapshot()
 	actor.velocity = Vector3.ZERO
 	remote_state.grounded = true; actor.receive(remote_state); visual.animate(.016,actor)
-	check(art.clip == "JumpLand", "Remote grounded snapshot exits the airborne loop")
+	check(not art.shared_movement.jump.omni_jump.airborne_previous and art.shared_movement.jump.omni_jump.landing_age<.03, "Remote grounded snapshot starts landing release")
 	for i in 12: visual.animate(1.0/60.0,actor)
-	check(art.clip == "Idle", "Remote landing recovers to idle")
+	check(art.clip == "Ready", "Remote landing recovers to idle")
 	remote_state.grounded = false; actor.receive(remote_state); visual.animate(.016,actor)
-	check(art.clip == "JumpStart", "Remote snapshot starts a jump without local physics velocity")
+	check(art.shared_movement.jump.omni_jump.airborne_previous and art.shared_movement.jump.omni_jump.jump_age<.03, "Remote snapshot starts a jump without local physics velocity")
 	for i in 16: visual.animate(1.0/60.0,actor)
-	check(art.clip == "JumpLoop", "Remote airborne snapshot holds the jump through its apex")
+	check(art.shared_movement.jump.omni_jump.airborne_previous and art.shared_movement.jump.omni_jump.landing_age>1, "Remote airborne snapshot holds the jump through its apex")
 	remote_state.grounded = true; actor.receive(remote_state)
-	actor.presentation_grounded = null
+	actor.presentation_grounded = true
 	actor.velocity = Vector3.ZERO; art.was_airborne = false; art.transient_left = 0
 	visual.animate(.037, actor)
 	actor.stunned = 1; visual.animate(.016, actor)

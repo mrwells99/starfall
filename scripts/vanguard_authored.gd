@@ -43,6 +43,10 @@ func make_ring(host: Node3D, color: Color, radius: float) -> MeshInstance3D:
 
 func strike() -> void:
  attack_left = .64
+ if shared_movement!=null:
+  shared_movement.pending_target=""
+  pose_blend.inertial_enabled=false
+  pose_blend.clear_velocity_history()
  pose_blend.begin(.055)
  clip = "Strike"
  player.play(clip_names[clip], 0)

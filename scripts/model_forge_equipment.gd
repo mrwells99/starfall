@@ -14,6 +14,7 @@ var forearm_lengths: Array[float] = []
 var handwork_weight := 0.0
 var weapon_scale := Vector3.ONE
 var staff_grip: Dictionary = {}
+var precise_aim := false
 
 func build(title: String, rig: Skeleton3D) -> void:
  class_title = title
@@ -65,7 +66,13 @@ func aim(index: int, child: int, target: Vector3) -> void:
  var pose := skeleton.get_bone_global_pose(index)
  var current := (skeleton.get_bone_global_pose(child).origin-pose.origin).normalized()
  var desired := (target-pose.origin).normalized()
- pose.basis = Basis(Quaternion(current,desired))*pose.basis
+ var rotation := Quaternion(current,desired)
+ # Tiny shared-jump grip corrections must not fall into from/to's parallel dead zone.
+ if precise_aim:
+  var axis := current.cross(desired)
+  if axis.length_squared() > 1e-16:
+   rotation = Quaternion(axis.normalized(),atan2(axis.length(),current.dot(desired)))
+ pose.basis = Basis(rotation)*pose.basis
  set_global(index,pose)
 
 func apply() -> void:

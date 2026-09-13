@@ -132,6 +132,9 @@ static func knockdown_active(a) -> bool:
 	return not k.is_empty() and a.hp > 0 and a.cc_effects.get("stun", {}).get("source", "") == k.get("source", "") and a.cc_effects.stun.get("lasso_owner",-1) == k.get("owner",-1)
 
 static func impact(game, a, b, s: Dictionary) -> void:
+	if game.Null.Smoke.separates(game,a,b):
+		cancel(game,a)
+		return
 	var direction: Vector3 = b.position - a.position
 	direction.y = 0
 	direction = direction.normalized() if direction.length() > .001 else -a.basis.z
@@ -197,6 +200,7 @@ static func motion(game, a, delta: float) -> bool:
 			return true
 		s.rope = next
 		if next.distance_to(destination) < .01 and game.authoritative():
+			if game.Null.Smoke.separates(game,a,b): cancel(game,a); return true
 			s.path=pull_path(a,b.position); s.destination=b.position
 			if s.path.is_empty(): cancel(game,a); return true
 			s.phase = "pull"; s.elapsed = 0.0

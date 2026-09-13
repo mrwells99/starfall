@@ -2519,7 +2519,7 @@ func tick_actor(actor, delta: float) -> void:
 	if actor.casting >= 0:
 		if Outlaw.Lasso.casting(actor) and Outlaw.Lasso.state(actor).get("air", false) and actor.is_on_floor():
 			cancel_own_cast(actor, "Lasso cancelled by landing")
-		elif (direction.length() > 0.01 or not actor.is_on_floor()) and not Outlaw.can_cast_moving(actor, actor.kit[actor.casting]):
+		elif (direction.length() > 0.01 or not actor.is_on_floor()) and not (Outlaw.can_cast_moving(actor, actor.kit[actor.casting]) or Null.can_cast_moving(actor, actor.kit[actor.casting])):
 			cancel_own_cast(actor, "Cast cancelled by movement")
 		else:
 			actor.cast_left -= delta
@@ -2619,6 +2619,7 @@ func validate_spell(actor, slot: int, victim_id: int) -> String:
 	elif (victim.team == actor.team) != friendly:
 		return "Select an ally" if friendly else "Select an enemy"
 	if not friendly and not Null.targetable(self,actor,victim): return "Target is concealed"
+	if Null.Smoke.separates(self,actor,victim): return "Smoke Bomb blocks this target"
 	var null_reason: String = Null.validate(self,actor,spell,victim)
 	if not null_reason.is_empty(): return null_reason
 	var identity_reason: String = ClassMechanics.validate(self, actor, spell, victim)
@@ -2857,7 +2858,7 @@ func ability_block_reason(actor, slot: int, requested: int) -> String:
 		return reason
 	var instant_graviton: bool = spell.kind == "graviton" and actor.identity.instant_graviton > 0
 	var instant_severe: bool = spell.kind == "severe" and actor.identity.instant_severe > 0
-	if float(spell.cast) > 0 and not instant_graviton and not instant_collapse and not instant_severe and not Outlaw.can_cast_moving(actor, spell):
+	if float(spell.cast) > 0 and not instant_graviton and not instant_collapse and not instant_severe and not (Outlaw.can_cast_moving(actor, spell) or Null.can_cast_moving(actor, spell)):
 		if actor.move_input.length() > 0.01 or not actor.is_on_floor():
 			return "Stand still to cast"
 	return ""
@@ -2921,6 +2922,7 @@ func try_spell(id: int, slot: int, requested: int, camera_yaw: Variant = null) -
 	return true
 
 func resolve_spell(actor, slot: int, victim, camera_yaw: Variant = null) -> void:
+	if Null.Smoke.separates(self,actor,victim): return
 	var spell: Dictionary = actor.kit[slot]
 	if spell.kind == "blink":
 		if not BlinkCharges.spend(actor, slot): return
@@ -3006,6 +3008,8 @@ func may_harm(source, victim) -> bool:
 	return false
 
 func damage(source, victim, amount: float, periodic: bool = false) -> void:
+	# Attached DoTs persist. Ground fields filter their recipients before ticking.
+	if not periodic and Null.Smoke.separates(self,source,victim): return
 	if not may_harm(source, victim):
 		feedback(source, "Challenge them to a duel first")
 		return
@@ -3368,6 +3372,15 @@ func outlaw_effect(source: int, victim: int, from: Vector3, to: Vector3, tag: St
 @rpc("authority", "call_remote", "reliable")
 func show_outlaw_effect(round_epoch: int, source: int, _victim: int, from: Vector3, to: Vector3, tag: String) -> void:
 	if round_epoch != epoch or dedicated or not actors.has(source): return
+	if tag == "blindside_smoke":
+		if not player_options.reduced_effects:
+			var smoke := preload("res://scripts/blindside_smoke_effect.gd").new()
+			add_child(smoke)
+			smoke.start(from, to)
+			var arrival := preload("res://scripts/blindside_smoke_effect.gd").new()
+			add_child(arrival)
+			arrival.start(to, to)
+		return
 	var presenter = actors[source].champion_model
 	if presenter != null and presenter.outlaw_art != null:
 		presenter.outlaw_art.fire(tag)
@@ -3485,7 +3498,8 @@ func show_edit_previews() -> void:
 		button.text = "" if art != null else spell.name
 
 func kick_immune(actor) -> bool:
-	return Outlaw.unkickable(actor) or CC.airborne_immune(actor)
+	var blindside: bool = actor.champion == "Null" and actor.casting >= 0 and actor.kit[actor.casting].kind == "blindside"
+	return blindside or Outlaw.unkickable(actor) or CC.airborne_immune(actor)
 
 func cast_bar_color(actor, interrupted: bool, normal: Color) -> Color:
 	if interrupted: return Color("854657")
@@ -3501,14 +3515,15 @@ func update_frame(frame: VBoxContainer, id: int, prefix: String) -> void:
 	if not friendly and Null.stealthed(actor): frame.hide(); return
 	frame.get_child(0).hide()
 	var health := frame.get_child(1) as ProgressBar
-	health.value = actor.hp
+	health.step = 0.0
+	health.value = clampf(100.0 * actor.hp / actor.MAX_HEALTH, 0.0, 100.0)
 	var fill := health.get_theme_stylebox("fill") as StyleBoxFlat
 	fill.bg_color = hud_health_color(actor.champion)
 	# Class colour fills the bar, so the border is the only thing left saying
 	# which side someone is on. It has to be bold and it has to be there at full
 	# health, which means drawing it over the fill rather than behind it.
 	paint_bar_edge(health, GOLD if frame == focus_frame else (BLUE if friendly else ENEMY_EDGE), 1 if frame == focus_frame else 2)
-	(health.get_child(0) as Label).text = "%d%%" % ceili(100.0 * actor.hp / actor.MAX_HEALTH)
+	(health.get_child(0) as Label).text = "%d%%" % ceili(health.value)
 	if health.has_node("DiminishingReturns"):
 		var dr = health.get_node("DiminishingReturns")
 		var duel_target: bool = world_mode and duels.get(local_id, -1) == id
@@ -3780,11 +3795,12 @@ func paint_roster_row(button: Button, actor, _title: String, friendly: bool) -> 
 	var bar := roster_bar(button)
 	if bar == null:
 		return
-	bar.value = actor.hp
+	bar.step = 0.0
+	bar.value = clampf(100.0 * actor.hp / actor.MAX_HEALTH, 0.0, 100.0)
 	var fill := bar.get_theme_stylebox("fill") as StyleBoxFlat
 	fill.bg_color = hud_health_color(actor.champion)
 	paint_bar_edge(bar, BLUE if friendly else ENEMY_EDGE, 2 if actor.actor_id == selected_id else 1)
-	(bar.get_child(0) as Label).text = "%d%%" % ceili(actor.hp)
+	(bar.get_child(0) as Label).text = "%d%%" % ceili(bar.value)
 	bar.get_node("ThinResource").sync(actor)
 	button.get_node("Details").sync(actor)
 	if button.has_node("DiminishingReturns"): button.get_node("DiminishingReturns").sync(actor)

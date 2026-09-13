@@ -16,10 +16,11 @@ The approved reference is [the grey and black class sheet](../art_source/referen
 | 4 | Nerve Lock | Instant melee stun for **4 seconds**. | 3 m | 20 s |
 | 5 | Stealth | Concealment with proximity detection; details below. Off GCD. | Self | **None** |
 | 6 | Haste | **50% movement speed for 6 seconds**. Off GCD. | Self | **25 s** |
-| 7 | Blindside | Instantly teleport 1.2 m behind the target and face their direction. **Off GCD.** Requires a clear route and safe landing. | 18 m | 15 s |
+| 7 | Blindside | An **unkickable 0.28 s** mobile wind-up with a gray cast bar, then teleport 1.2 m behind the target and face their direction. Preserves existing Stealth through wind-up and teleport. **Off GCD.** Requires a clear route and safe landing at completion. | 18 m | 15 s |
 | Shift+1 | Vantage Point | Usable while jumping. Rise for **0.5 seconds**, then ease into a dive with both blades and accelerate toward contact; longer dives travel faster. Contact deals 220 damage and a **4-second stun/knockdown**. Brief recovery; no rebound or backflip. | 18 m | 25 s |
-| Shift+2 | Regen Pot | Cleanse attached damage-over-time effects, then regenerate **336 health over 6 seconds**. Off GCD. | Self | 16 s |
+| Shift+2 | Regen Pot | Cleanse attached damage-over-time effects, then regenerate **336 health over 6 seconds**. Off GCD. | Self | 40 s |
 | Shift+3 | Chronoshift | Press an ability's normal keybind to refresh its normal cooldown for **100 Essence**. That ability cannot be refreshed again for twice its own cooldown. | Self | None |
+| Shift+4 | Smoke Bomb | Drop a fixed cloud. Abilities cannot cross its inside/outside boundary; both inside or both outside can interact normally. Off GCD. | 3 m radius | 30 s |
 | Ctrl+1 | Trinket | Shared stun break. | Self | 120 s |
 
 All buttons can be moved and rebound through the existing class-specific controls. The user's explicit timings and percentages are preserved. Damage values, ranges, Backstab's rear angle, Kick/Nerve Lock/Blindside/Vantage cooldowns, and auxiliary off-GCD choices are **initial tuning**, not additional user-approved balance decisions. Existing stun diminishing returns, immunities, and Trinket apply; four seconds is the full first stun.
@@ -30,12 +31,28 @@ A swept movement capsule prevents crossing terrain. Death, control, lost target 
 
 ## Stealth and combat
 
+### Smoke Bomb — initial playable version, September 13
+
+Smoke lasts 6 seconds in a finite 3m-radius volume centered at the cast position (actor-root distance, matching existing radius-based abilities). The owner reduced its original 5m radius and visual dimensions by 40% and slightly darkened its smoke. Duration and cooldown remain unchanged; no ability was replaced. The rule applies equally to Null, teammates and opponents. Target selection and physical line-of-sight queries remain unchanged: a ray passing through smoke between two outside actors is still valid. Each overlapping cloud checks membership separately.
+
+Direct casts validate before spending and again at completion. Area damage/control, ground-field ticks, secondary healing, Deadeye, aimed hits and Detonation also filter recipients. Vantage and Lasso recheck when their effects land; ordinary movement is not blocked. Attached DoTs/bleeds continue and smoke is not a cleanse. A refreshed recast replaces that Null's cloud; expiry, death and round/duel reset remove it. Chronoshift works normally (60s reset lock for this 30s ability). Smoke is a self utility and does not independently break Stealth; the fixed cloud is visible to everyone and does not follow its owner.
+
+Cloud position/lifetime use the existing identity snapshots, with no new RPC or hitbox-tracking mode. Client-only retained smoke billboards have no colliders, lights or shadows; reduced-effects mode keeps the boundary ring. Matching updated clients/server are required. No publication performed.
+
+### Attack selection — September 13
+
+Owner retained smoothed **H (low turning strike)** for Backstab and restored **original Temporal Strike**. Nerve Lock's existing presentation is unchanged. `null_strike_pose.gd` uses the legacy bank for Temporal Strike and `null_backstab_h.res` for Backstab. H retains its .56s presentation with mild baked curve smoothing, .105s entry and .20s recovery. Existing moving lower body, twin-blade grip, gameplay hit timing and source GLB remain unchanged. All ten source-led choices and J's trial remain saved locally; do not reinstall J without a new request.
+
+Local attack evidence/rollback: `local_resources/animation_cache/entries/starfall/strike-study/ual53/hj-smooth-v1/`. Smoke evidence/rollback: `local_resources/animation_cache/entries/starfall/null-smoke-bomb/r001/`.
+
+### Concealment
+
 - Null sees his own model at 50% opacity and uses crouched idle/walking animation. Allies also see the faded model.
 - Enemies initially see no model and cannot target him. Each enemy must stay within **3.5 m for 0.7 continuous seconds**, with line of sight, to detect him. Leaving range or losing sight resets that enemy's detection.
 - A detecting enemy sees Null at 50% opacity with no overhead nameplate, health bar, target/focus health frame, or enemy roster health bar. An exclamation mark appears over Null while detected. Null sees this warning if any enemy detects him.
 - Entering Stealth clears hostile selection and cancels enemy casts aimed at Null. It suspends mandatory targeting in 1v1 and World duels. Detection allows manual Tab selection; detection itself does not reselect him. Revealing restores normal automatic duel targeting.
-- Attacking, using an aimed ability, being attacked, or taking damage breaks Stealth. Area control also reveals him. Failed validation does not spend an ability or break concealment.
-- Both **attacking and being directly targeted** start/reset the **10-second combat timer**, as clarified by the user. Stealth is unavailable while that timer is positive.
+- Attacking, using an aimed ability, being attacked, or taking damage breaks Stealth. Blindside preserves existing Stealth; its combat flagging is unchanged. Area control also reveals him. Failed validation does not spend an ability or break concealment.
+- Both **attacking and being directly targeted** start/reset the **8-second combat timer**. Stealth is unavailable while that timer is positive.
 - DoT and bleed ticks reveal Null but do **not** refresh the combat timer. He can re-enter Stealth between ticks when otherwise out of combat.
 - The authority decides concealment, detection, targeting, combat timers, damage and movement. Clients display the replicated state and predict movement; client visibility does not authorize attacks.
 
@@ -54,7 +71,11 @@ Known visual limits: cloth follows the inherited garment rig rather than cloth s
 
 ## Approved movement hybrid — September 12
 
-**Current transition choice:** Null refined B remains the movement standard via `scripts/null_living_art.gd` on both rigs. The .31s burst smoothing and r014 independent bounded carry remain. r015 adds a right-biased soft horizontal planting envelope only during rapid interruptions: nominal L .48m / R .46m, .04m shoulder, .08s entry and final .10s release into authored stride. Actual follow-through also respects this envelope. Ordinary loops/transitions, upper-body life, sources, equipment, travel and abilities stay unchanged. Both actual engine versions pass reach/feedback/parity checks; owner feel review pending. Record/rollback: `local_resources/animation_cache/entries/starfall/wasd-study/ual53/r015-foot-reach/`. Explicit pre-follow-through restore point retained locally.
+**Latest idle timing:** an additional 15% speed-up is applied through `null_ready.gd`'s `PLAYBACK_SCALE = 1.15` (about 9.074 seconds per loop). Only normal idle timing and its corresponding phase samples change; the selected baked pose/sway and all other animations remain intact. Simple tuning: no new previews or test runs requested.
+
+**Ordinary idle, September 13:** owner selected K+ for Null only. `scripts/null_ready.gd` installs `assets/animations/null_ready.res` through the existing visible/compact presenter: the same stance with smooth breathing and continuous weight transfer, 15% faster and 20% wider laterally than preview K. Its 10.4348-second loop and baked idle transition features are separate from the shared movement library. Other characters, stealth idle/movement, all travel loops, refined B smoothing, equipment and abilities remain unchanged. Local choice, previews and rollback: `local_resources/animation_cache/entries/starfall/null-idle/ual53/r003/install/`.
+
+**Current transition choice:** Null refined B remains the movement standard via `scripts/null_living_art.gd` on both rigs. The .31s burst smoothing and r014 independent bounded carry remain. r015 adds a right-biased soft horizontal planting envelope only during rapid interruptions: nominal L .48m / R .46m, .04m shoulder, .08s entry and final .10s release into authored stride. Actual follow-through also respects this envelope. Ordinary loops/transitions, upper-body life, sources, equipment, travel and abilities stay unchanged. Both actual engine versions pass reach/feedback/parity checks. The owner explicitly approved this result and requested the all-character rollout, installed September 13 without changing Null. Record/rollback: `local_resources/animation_cache/entries/starfall/wasd-study/ual53/r015-foot-reach/`; weapon-adapted distribution: `local_resources/animation_cache/entries/starfall/shared-movement/ual53/r001/`. Explicit pre-follow-through restore point retained locally.
 
 The owner approved “okay apply the hybrid to null.” The locally installed `assets/animations/null_locomotion.res` contains 26 portable loops: eight normal, eight slower, eight low-stance directions, and two idles. It combines the approved remake's pelvis/legs with Null's existing upper-body style and captured blade grip; current non-core garment/equipment motion is preserved. `scripts/null_locomotion.gd` installs the same library for visible and compact server presenters, with cached path remapping and cadence fitted to measured movement, walking, slows and Haste. The ordinary production jump, pose-blend, strike, Vantage and equipment pipeline remains in use—not the preview's mesh-assisted contact solver.
 
@@ -65,3 +86,11 @@ Physics, movement speed, collision, ability events and stealth visibility are un
 Verify both frozen packages, then extract Model Forge v2 to the empty `artifacts/null-forge-v2/seed` folder with `tools/model_forge_snapshot.py --extract`. `tools/build_null.py` reads that recovered source and writes isolated candidates. Verify candidates before installation. Copy the Blender source, GLB, recipe and texture maps together, import with the desktop engine, then run `tools/build_hitbox_rigs.gd -- --class=null` to regenerate only Null's server rig. Keep the complete presenter/kit/authority integration with its matching assets. Re-run the recorded checks; tool-version differences can change output bytes.
 
 Before-edit copies and SHA-256 hashes are in `artifacts/null-forge-v2/before/manifest.json`; the matching installed inventory is `artifacts/null-forge-v2/installed-manifest.json`. Restore only listed changed paths from their before copies and remove only listed new paths after verifying their current hashes still match the installation. Preserve any later edits. The prior concept archive is excluded from model rollback. Nothing was published or deployed.
+
+### Current ordinary jump — September 13
+
+Null uses the selected omni-jump B body and softer airborne feet, with the subsequently approved Arm B counterbalance and rightward torso correction. Right/right-diagonal jumps now mirror the successful left jump's upper-body response; all accepted lower-body keys remain unchanged. Arms gather, counterbalance and recover through separate phases. This is a portable 18-clip normal/stealth bank, shared by visible and compact server presenters through `null_jump_art.gd`; actor travel, gravity, movement speed, ability timing and ground movement/idle are unchanged. Outlaw keeps the original B comparison. Arm A and the prior Null bank remain saved locally for fast reversal. Installation record: `local_resources/animation_cache/entries/starfall/omni-jump/ual53/r003-arms/install/class-record.json`.
+
+Current ordinary jumps: all six characters now use the approved Null Living balance B body motion, .28s takeoff/.38s moving/.54s idle landing smoothing and contact-ended long-fall life. Only carrying arms/fingers and final weapon attachment differ (Outlaw gun right, Luminary staff right, Fulcrum orb left, Vanguard two-handed hammer; Ember unarmed). Null's stealth torso/head directional rotation is reduced by 80% toward its existing standing-low flight pose; normal jumps, lower-body keys, ground locomotion, K+ idle, gameplay and source GLBs are unchanged. New Subtle continuity A and original r003 Arm A remain saved for Null. Local rollout/rollback and class records: `local_resources/animation_cache/entries/starfall/shared-jump/ual53/living-b-v1/`.
+
+Historical elbow-only and boundary revisions remain saved under r005-elbow-fall/ and boundary-smoothing-v1/; the Living balance record above supersedes their presenter settings.

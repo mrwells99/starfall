@@ -72,7 +72,7 @@ func setup_pair() -> void:
 	arts = [visible.champion_model.null_art, server_art]
 	for art in arts:
 		check(art.transition_style == 2, "Owner-selected softer B transitions are live")
-		check(art.get_script().resource_path == "res://scripts/null_living_art.gd", "Actual visible/server actor uses approved refined B presenter")
+		check(art.get_script().resource_path == "res://scripts/null_jump_art.gd", "Actual visible/server actor retains refined B movement with selected jump layer")
 	for i in 2:
 		actors[i].position = Vector3(1.5, 2.0, -3.0)
 		actors[i].rotation.y = .71
@@ -235,7 +235,7 @@ func special_reentry() -> void:
 	for frame in 36:
 		set_motion(0, 6.1425, false, false, false, true, 7.0 - 20.0 * frame * STEP)
 		animate("jump")
-		check(arts[0].clip in ["JumpStart", "JumpLoop"], "Jump clips retain precedence over locomotion")
+		check(arts[0].omni_jump.allowed and arts[0].omni_jump.airborne_previous and arts[0].omni_jump.jump_frames>0, "Approved directional jump layer has precedence over the advancing movement base")
 	settle("moving-land-reentry", 0, 6.1425, "TravelForward")
 	for action in ["stab", "backstab"]:
 		for frame in 50:

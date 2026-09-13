@@ -69,15 +69,22 @@ func run() -> void:
  blend.duration=0; blend.elapsed=0; art.initialized=false
  actor.champion_model.animate(.016,actor)
  var motions := [Vector3.FORWARD,Vector3.LEFT,Vector3.RIGHT,Vector3.BACK,Vector3.ZERO]
- var expected := ["Sprint","SprintLeft","SprintRight","WalkBackward","Idle"]
+ var expected := ["TravelForward","TravelLeft","TravelRight","TravelBackward","Ready"]
  for i in motions.size():
   actor.position+=motions[i]*6.5*.001
   var physical_transform: Transform3D = actor.transform
   var physical_velocity: Vector3 = actor.velocity
   var before := read_pose(rig)
+  var clean_carry:Dictionary=blend.follow_base_pose.duplicate()
   actor.champion_model.animate(.001,actor)
   check(art.clip==expected[i],"New direction selects its clip in the same update")
-  check(difference(before,read_pose(rig))<.01,"First transition frame moves gently despite immediate input selection")
+  # Refined B retains momentum instead of forcing the old near-stationary
+  # first frame. Its seed must still be the displayed pose, without cosmetic
+  # carry entering the next pulse. Shared movement tests compare advancing
+  # tiny/normal/rapid-input frames directly to the approved Null reference.
+  if blend.burst_guard_active:
+   for bone in clean_carry:before[bone]=clean_carry[bone]
+  check(difference(before,blend.from_pose)<.001,"Transition captures the displayed base pose without recycling carry")
   check(actor.transform==physical_transform and actor.velocity==physical_velocity,"Smoothing never delays or modifies physical movement")
  actor.casting=0; actor.champion_model.animate(.001,actor)
  check(art.clip=="CastEnter" and blend.duration==.12,"Casting uses the final-pose transition")

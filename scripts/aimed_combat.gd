@@ -166,7 +166,7 @@ func resolve(game, request: Dictionary) -> Dictionary:
 	result.merge({"source":actor.actor_id,"seq":request.seq,"from":origin,"damage":0,"rewind_ms":roundi((clock-stamp)*1000)})
 	if game.actors.has(result.victim):
 		var victim = game.actors[result.victim]
-		if victim.team != actor.team and game.may_harm(actor,victim):
+		if victim.team != actor.team and game.may_harm(actor,victim) and not game.Null.Smoke.separates(game,actor,victim):
 			var before: float = victim.hp
 			game.Null.direct_hit(game,actor,victim)
 			game.damage(actor,victim,roundi(spell.power))

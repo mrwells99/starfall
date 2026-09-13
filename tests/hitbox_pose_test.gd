@@ -20,7 +20,7 @@ func run() -> void:
 		check(FileAccess.get_sha256("res://assets/hitboxes/"+title.to_lower()+"_rig.scn") == manifests.classes[title].rig_sha256,title+" rig integrity is verified")
 		var v_art = visible.champion_model.get(title.to_lower()+"_art")
 		var s_art = server.hitbox_pose.art
-		for state in ["idle","forward","left","backpedal","diagonal","jump","landing","cast","recover","slow_forward","slow_left","roll","roll_recovery","roll_run","backflip","outlaw_mend","outlaw_mend_cancel","stealth","null_lift","null_dive","null_recover","null_stab","null_backstab","null_strike_interrupt"]:
+		for state in ["idle","forward","left","backpedal","diagonal","jump","landing","cast","recover","slow_forward","slow_left","roll","roll_recovery","roll_run","backflip","outlaw_mend","outlaw_mend_cancel","stealth","null_lift","null_dive","null_recover","null_stab","null_backstab","null_strike_interrupt","null_blindside","null_blindside_move","null_blindside_air","null_blindside_cancel"]:
 			if title != "Outlaw" and state.begins_with("outlaw_mend"): continue
 			if title != "Outlaw" and state in ["roll","roll_recovery","roll_run","backflip"]: continue
 			if title!="Null" and (state=="stealth" or state.begins_with("null_")):continue
@@ -48,6 +48,13 @@ func run() -> void:
 						actor.cast_left = 2.0-t
 						if state == "outlaw_mend_cancel" and frame >= 20: actor.casting = -1; actor.cast_left = 0
 					if title=="Null":
+						if state.begins_with("null_blindside"):
+							var end:float=.15 if state=="null_blindside_cancel" else .28
+							actor.casting=6 if t<end else -1
+							actor.cast_left=maxf(0,end-t)
+							if state=="null_blindside_move":actor.position+=Vector3.LEFT*.06
+							if state=="null_blindside_air":
+								actor.presentation_grounded=false;actor.velocity.y=7-20*t;actor.presentation_vertical_speed=actor.velocity.y
 						actor.identity.stealth=state=="stealth"
 						actor.identity.null_vantage={"phase":state.trim_prefix("null_"),"elapsed":t,"direction":Vector3(0,-1,-1).normalized()} if state in ["null_lift","null_dive","null_recover"] else {}
 						if state in ["null_stab","null_backstab","null_strike_interrupt"] and frame==1:
@@ -67,7 +74,7 @@ func run() -> void:
 			maximum_error = maxf(maximum_error,error)
 			check(error < .0005,title+" "+state+" server/visible hitbox error under 0.5 mm; measured "+str(error))
 			if state.begins_with("slow_"):
-				var slower_gait: bool = v_art.clip.begins_with("Measured") if title in ["Null","Outlaw"] else (v_art.clip.begins_with("Walk") or v_art.clip.begins_with("Strafe"))
+				var slower_gait: bool = v_art.clip.begins_with("Measured")
 				check(slower_gait,title+" uses its approved slower gait during Severe's slow")
 		if title == "Vanguard":
 			v_art.strike(); s_art.strike()

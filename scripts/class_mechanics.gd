@@ -1,6 +1,7 @@
 extends RefCounted
 
 const INSTANT_PROC_DURATION := 4.0
+const Smoke = preload("res://scripts/smoke_bomb.gd")
 const GravityAnchorEffect = preload("res://scripts/gravity_anchor_effect.gd")
 const SolarFlareIndicator = preload("res://scripts/solar_flare_indicator.gd")
 
@@ -8,6 +9,7 @@ static func point_los(game, a: Vector3, b: Vector3) -> bool:
 	return game.get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(a + Vector3.UP, b + Vector3.UP, 1)).is_empty()
 
 static func can_help(game, a, b) -> bool:
+	if Smoke.separates(game,a,b): return false
 	if not game.world_mode or a == b:
 		return true
 	return not game.duels.has(a.actor_id) and not game.duels.has(b.actor_id)
@@ -64,7 +66,7 @@ static func validate(game, a, spell: Dictionary, b) -> String:
 static func enemies(game, a, center: Vector3, radius: float, requires_sight: bool = true) -> Array:
 	var out: Array = []
 	for b in game.actors.values():
-		if b.hp > 0 and b.team != a.team and game.may_harm(a, b) and center.distance_to(b.position) <= radius and (not requires_sight or point_los(game, center, b.position)):
+		if b.hp > 0 and b.team != a.team and game.may_harm(a, b) and center.distance_to(b.position) <= radius and not Smoke.separates(game,a,b) and (not requires_sight or point_los(game, center, b.position)):
 			out.append(b)
 	return out
 
@@ -77,6 +79,7 @@ static func heal(game, a, b, amount: float) -> void:
 	game.combat_event(a.actor_id, b.actor_id, "+%d" % ceili(amount), Color("97edb1"))
 
 static func control(game, a, b, duration: float, title: String, root_only: bool = false, breaks: bool = false) -> void:
+	if Smoke.separates(game,a,b): return
 	if not game.may_harm(a, b) or b.hp <= 0:
 		return
 	game.Null.direct_hit(game,a,b)
@@ -88,6 +91,7 @@ static func control(game, a, b, duration: float, title: String, root_only: bool 
 	game.combat_event(a.actor_id, b.actor_id, title.to_upper(), game.GOLD)
 
 static func resolve(game, a, spell: Dictionary, b) -> bool:
+	if Smoke.separates(game,a,b): return true
 	var s: Dictionary = a.identity
 	match spell.kind:
 		"graviton":
@@ -187,7 +191,7 @@ static func resolve(game, a, spell: Dictionary, b) -> bool:
 			heal(game, a, b, 27)
 			if star_count(a, b.actor_id) > 0:
 				for other in game.actors.values():
-					if other != b and other.team == a.team and star_count(a, other.actor_id) > 0 and a.position.distance_to(other.position) <= a.Kits.MAX_CAST_RANGE and game.has_los(a, other):
+					if other != b and other.team == a.team and star_count(a, other.actor_id) > 0 and a.position.distance_to(other.position) <= a.Kits.MAX_CAST_RANGE and game.has_los(a, other) and can_help(game,a,other):
 						heal(game, a, other, 9)
 						break
 		"absolution":
@@ -302,7 +306,7 @@ static func tick(game, a, delta: float) -> void:
 		if pulse:
 			s.wake_tick = 1.0
 		for b in game.actors.values():
-			if b.hp <= 0 or b.team == a.team or not game.may_harm(a, b):
+			if b.hp <= 0 or b.team == a.team or not game.may_harm(a, b) or Smoke.separates(game,a,b):
 				continue
 			var nearest: Vector3 = Geometry3D.get_closest_point_to_segment(b.position, s.wake_pos, s.wake_end)
 			var radius := 5.0 if s.wake_pos == s.wake_end else 1.5
@@ -401,9 +405,16 @@ static func bot(game, a, foe, ally) -> bool:
 
 # Replicated state drives the same anchor and resource readouts on every peer.
 static func paint(game) -> void:
+	if game.dedicated: return
 	for a in game.actors.values():
 		if a.training_dummy: continue
 		var s: Dictionary = a.identity
+		if a.champion == "Null":
+			var smoke = a.get_node_or_null("SmokeBombEffect")
+			if smoke == null:
+				smoke = load("res://scripts/smoke_bomb_effect.gd").new()
+				a.add_child(smoke)
+			smoke.sync(s.get("smoke_bomb",{}),a.hp>0 and game.phase=="match",game.player_options.reduced_effects)
 		var flare_outline := a.get_node_or_null("SolarFlareOutline") as MeshInstance3D
 		if a.champion == "Ember" and a.actor_id == game.local_id and flare_outline == null:
 			flare_outline = SolarFlareIndicator.new()

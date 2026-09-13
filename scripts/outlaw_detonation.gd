@@ -99,7 +99,7 @@ func tick(game) -> void:
 		result.merge({"source":id,"burst":burst.id,"index":request.index,"total":burst.total,"seq":request.seq,"from":request.origin,"damage":0,"fired":true,"done":request.index+1==burst.total,"time":clock})
 		if game.actors.has(result.victim):
 			var victim = game.actors[result.victim]
-			if victim.team != actor.team and game.may_harm(actor,victim):
+			if victim.team != actor.team and game.may_harm(actor,victim) and not game.Null.Smoke.separates(game,actor,victim):
 				var before: float = victim.hp
 				game.Null.direct_hit(game,actor,victim)
 				game.damage(actor,victim,roundi(victim.BASE_MAX_HEALTH*game.Outlaw.DETONATION_HEALTH_FRACTION))
