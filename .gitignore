@@ -20,3 +20,32 @@ __pycache__/
 # Local/server download staging
 downloads/
 incoming-windows/
+
+# Owner's local reference libraries and reusable animation cache (2026-09-12).
+# Keep originals on this computer; only approved runtime subsets may be promoted.
+# Deliberately scoped: unrelated addons and existing shipped assets stay visible.
+/addons/netfox/
+/addons/netfox.internals/
+/addons/Color grading/
+/Compositor/Color grading/
+/Compositor/General/
+/addons/ezcha_network/
+/addons/limboai/
+/demo/
+/addons/ballistic_solutions/
+/addons/real_equation_solver/
+/addons/BallisticSolutions.Godot/
+/Unarmed/
+/local_resources/
+/Unarmed.glb
+/Unarmed.glb.import
+/Unarmed_RM.glb
+/Unarmed_RM.glb.import
+/RPG-Character-Bones.FBX
+/RPG-Character-Bones.FBX.import
+/RPG-Character.psd
+/RPG Animations GLB FREE Version Changes.txt
+/explosive_anim_importer v4.2.py
+/explosive_anim_importer v5.0.py
+/explosive.ws-products-rpg-animations-glb.url
+/explosive.ws-to-godot.url

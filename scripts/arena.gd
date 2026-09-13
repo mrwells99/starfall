@@ -2,6 +2,7 @@ extends "res://scripts/arena_world.gd"
 const CC = preload("res://scripts/crowd_control.gd")
 
 const Fighter = preload("res://scripts/combatant.gd")
+const MovementTuning = preload("res://scripts/movement_tuning.gd")
 const Kits = preload("res://scripts/kits.gd")
 const AbilityArt = preload("res://scripts/ability_art.gd")
 const Config = preload("res://scripts/config.gd")
@@ -2554,7 +2555,7 @@ func simulate_movement(actor, delta: float, grounded_override: Variant = null) -
 	var direction: Vector3 = actor.basis * Vector3(actor.move_input.x, 0, actor.move_input.y)
 	if immobilized:
 		direction = Vector3.ZERO
-	var speed := 6.5 if actor.move_input.y <= 0 else 3.8
+	var speed := MovementTuning.FORWARD_SPEED if actor.move_input.y <= 0 else MovementTuning.BACKWARD_SPEED
 	if actor.walking or Outlaw.deadeye_cast(actor): speed *= 0.5
 	if actor.sprint > 0 and not Outlaw.deadeye_cast(actor):
 		speed *= 1.65
@@ -2565,6 +2566,7 @@ func simulate_movement(actor, delta: float, grounded_override: Variant = null) -
 		speed *= 0.55
 	if Outlaw.starshot_cast(actor): speed *= Outlaw.STARSHOT_MOVE_SCALE
 	if actor.identity.get("null_haste",0.0)>0: speed *= 1.5
+	if actor.champion == "Null" and Null.stealthed(actor): speed *= .8
 	# Airborne movement carries world-space takeoff momentum, including when the
 	# player releases movement or turns. Collisions and control effects still stop it.
 	if grounded or immobilized:
@@ -3595,7 +3597,7 @@ func update_visuals(delta: float) -> void:
 	for actor in actors.values():
 		actor.visual_tick(delta, camera, actor.actor_id != local_id and not Null.stealthed(actor), cast_bar_color(actor, false, Color("c7a256")))
 		if actor.champion == "Null" and actor.champion_model != null and actor.champion_model.null_art != null:
-			actor.champion_model.null_art.visibility_for(actor,actors.get(local_id))
+			actor.champion_model.null_art.visibility_for(actor,actors.get(local_id),player_options.reduced_effects)
 		if actors.has(local_id) and not Null.targetable(self,actors[local_id],actor):
 			if selected_id==actor.actor_id: selected_id=-1
 			if focus_id==actor.actor_id: focus_id=-1
@@ -3872,7 +3874,10 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
-		if panel.visible and menu_state == "abilities":
+		if phase == "menu" and panel.visible and menu_state == "main":
+			save_layout()
+			get_tree().quit()
+		elif panel.visible and menu_state == "abilities":
 			menu_state = menu_presentation.introduction.return_state
 			refresh_menu()
 		elif panel.visible and menu_state != "main":

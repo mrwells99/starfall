@@ -1,8 +1,11 @@
 extends "res://scripts/model_forge_art.gd"
 ## Null-specific poses and observer visibility; server uses identical pose layers.
 const Null = preload("res://scripts/null_mechanics.gd")
+const Locomotion = preload("res://scripts/null_locomotion.gd")
+var locomotion = Locomotion.new()
 var active_actor
 var strike_pose=preload("res://scripts/null_strike_pose.gd").new()
+var vantage_pose=preload("res://scripts/null_vantage_pose.gd").new()
 var strike_left:=0.0
 const STEALTH_ENTER_BLEND:=.38
 const STEALTH_EXIT_BLEND:=.52
@@ -33,6 +36,7 @@ var shadow_fade_elapsed:=0.0
 var shadow_fade_duration:=STEALTH_FADE_IN_SECONDS
 var stealth_material_warmup: Node3D
 var haste_wind: Node3D
+var vantage_wind: Node3D
 var regen_effect: Node3D
 var special_blend=preload("res://scripts/model_forge_pose_blend.gd").new()
 var special_phase:=""
@@ -45,6 +49,12 @@ func _init() -> void:
 
 func build(host: Node3D, team_color: Color) -> void:
 	super.build(host,team_color)
+	# Install after the original Idle has supplied the existing blade/finger grip.
+	# The same portable library is installed for visible and compact pose-only rigs.
+	clip_names.merge(Locomotion.install(player,skeleton),true)
+	# Original forward run. LowForward now bakes the original StealthWalk with
+	# its pelvis raised to match the hybrid directions and feet kept in place.
+	clip_names["TravelForward"] = clip_names["Sprint"]
 	# Keep both shader variants alive. Normal Null needs opaque depth rendering;
 	# alpha=1 on a transparent material does not restore that rendering path.
 	# Swapping retained variants also avoids repeatedly destroying/recreating the
@@ -69,8 +79,12 @@ func build(host: Node3D, team_color: Color) -> void:
 			if index>=0: stealth_surfaces.append({"mesh":mesh,"surface":surface,"index":index})
 	if not pose_only: _build_model_shadow()
 	strike_pose.build(skeleton)
+	vantage_pose.build(skeleton)
 	pose_blend.build(skeleton);special_blend.build(skeleton)
 	if not pose_only:
+		vantage_wind=load("res://scripts/null_vantage_wind.gd").new()
+		vantage_wind.top_level=true
+		host.add_child(vantage_wind)
 		haste_wind=preload("res://scripts/null_haste_wind.gd").new()
 		host.add_child(haste_wind)
 		regen_effect=preload("res://scripts/null_regen_effect.gd").new()
@@ -88,27 +102,24 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
 			strike_pose.begin(action)
 		action_serial=int(actor.identity.get("null_action_serial",0))
 	var state: Dictionary=actor.identity.get("null_vantage",{})
+	var wind_elapsed: float=state.get("elapsed",0.0)
 	var next: String=state.get("phase","") if actor.hp>0 and actor.stunned<=0 else ""
 	if next!=special_phase:
-		special_blend.begin(.10,.10);special_phase=next;dive_clock.reset()
+		# Capture the displayed pose, including a running/jumping entry or an
+		# interrupted dive, and carry it into the next phase without a snap.
+		special_blend.begin(.20 if next=="dive" else .16,.22 if next=="dive" else .18)
+		special_phase=next;dive_clock.reset()
 		if next.is_empty():transient_left=0.0
+	locomotion.observe_motion(actor,last_position,initialized,delta)
 	super.animate(host,delta,actor)
 	strike_pose.apply(delta,actor.hp>0 and actor.stunned<=0 and next.is_empty())
 	strike_left=strike_pose.remaining
 	if actor.hp>0 and actor.stunned<=0:
 		if not next.is_empty():
-			var hips:=skeleton.find_bone("DEF-hips")
 			var progress: float=dive_clock.advance(float(state.get("elapsed",0)),delta,actor.presentation_snapshot_serial,actor.motion_revision,2.0)
+			wind_elapsed=progress
 			var direction: Vector3=state.get("direction",Vector3(0,-1,-1).normalized())
-			var dive_lean:=clampf(PI*.5+atan2(-direction.y,Vector2(direction.x,direction.z).length()),1.65,2.65)
-			var lean:=dive_lean if next=="dive" else (.45*(1-clampf(progress/.18,0,1)) if next=="recover" else -.12)
-			skeleton.set_bone_pose_rotation(hips,Quaternion(Vector3.RIGHT,lean)*skeleton.get_bone_pose_rotation(hips))
-			for side in ["L","R"]:
-				var x: float=-.2 if side=="L" else .2
-				var upper: Vector3=Vector3(x,-.15,1) if next=="dive" else (Vector3(x,-.55,.7) if next=="recover" else Vector3(x,.6,.6))
-				var lower: Vector3=Vector3(x,-.6,.8) if next=="dive" else (Vector3(x,-.3,.9) if next=="recover" else Vector3(x,1,.1))
-				lasso_pose.aim_bone("DEF-upper_arm."+side,upper)
-				lasso_pose.aim_bone("DEF-forearm."+side,lower)
+			vantage_pose.apply(next,progress,direction)
 			special_blend.apply(delta)
 		equipment.apply()
 	# Release special motion smoothly into the selected measured gait.
@@ -126,6 +137,13 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
 	stealth_alpha=lerpf(stealth_fade_from,stealth_fade_target,fade_progress*fade_progress*(3.0-2.0*fade_progress))
 	_advance_shadow_fade(delta,Null.stealthed(actor))
 	_apply_stealth_alpha()
+	if vantage_wind!=null:
+		vantage_wind.global_position=actor.global_position
+		vantage_wind.conceal_alpha=stealth_alpha
+		var motion_velocity: Vector3=actor.velocity if actor.presentation_velocity==null else actor.presentation_velocity
+		var wind_speed:=float(state.get("dive_current_speed",motion_velocity.length())) if next=="dive" else motion_velocity.length()
+		var wind_phase:=next if float(actor.identity.get("root",0.0))<=0.0 else ""
+		vantage_wind.update_effect(wind_phase,wind_elapsed,state.get("direction",Vector3.UP),wind_speed,delta)
 	if haste_wind!=null:
 		haste_wind.update(actor,delta,filtered_speed,stealth_alpha)
 	if regen_effect!=null:
@@ -208,29 +226,39 @@ func override_clip(desired: String, alive: bool, stunned: bool, _delta: float) -
 	if Null.busy(active_actor):
 		return {"lift":"JumpStart","dive":"JumpLoop","recover":"JumpLand"}[active_actor.identity.null_vantage.phase]
 	if Null.stealthed(active_actor) and not was_airborne:
-		return "StealthWalk" if filtered_speed>.12 else "StealthIdle"
-	if desired.begins_with("Cast"):
-		return "Run" if filtered_speed>1.8 else ("Walk" if filtered_speed>.12 else "Idle")
+		return locomotion.choose(filtered_speed,active_actor.walking,false,true)
+	# Existing airborne/landing and special-action clips retain their precedence.
+	if desired.begins_with("Jump"): return desired
+	if desired == "Idle" or desired.begins_with("Cast") or is_locomotion(desired) or desired in ["Ready","LowIdle"]:
+		return locomotion.choose(filtered_speed,active_actor.walking,preload("res://scripts/outlaw_mechanics.gd").severe_slowed(active_actor),false)
 	return desired
 
 func override_playback_rate(desired: String, default_rate: float) -> float:
+	if desired=="TravelForward":return clampf(filtered_speed/4.4,.55,2.5)*RUN_CADENCE_SCALE
+	if desired=="LowForward":return clampf(filtered_speed/2.8,.55,2.5)*1.6848
 	if desired=="StealthWalk":return clampf(filtered_speed/2.8,.55,2.5)
-	return default_rate
+	return Locomotion.playback_rate(desired,filtered_speed,default_rate)
 
 func is_locomotion(name: String) -> bool:
-	return name=="StealthWalk" or super.is_locomotion(name)
+	return Locomotion.is_locomotion(name) or name=="StealthWalk" or super.is_locomotion(name)
 
 func transition_duration(previous: String, next: String) -> float:
-	if not previous.begins_with("Stealth") and next.begins_with("Stealth"):
+	var previous_low := previous.begins_with("Stealth") or Locomotion.is_low(previous)
+	var next_low := next.begins_with("Stealth") or Locomotion.is_low(next)
+	if not previous_low and next_low:
 		return STEALTH_ENTER_BLEND
-	if previous.begins_with("Stealth") and not next.begins_with("Stealth"):
+	if previous_low and not next_low:
 		return STEALTH_EXIT_BLEND
+	if is_locomotion(previous) and is_locomotion(next): return .12
 	return super.transition_duration(previous,next)
 
-func visibility_for(actor, observer) -> void:
+func visibility_for(actor, observer, reduced_effects: bool = false) -> void:
 	if pose_only:return
 	var hidden: bool=Null.stealthed(actor)
 	var friendly: bool=observer==null or observer==actor or observer.team==actor.team
+	if vantage_wind!=null:
+		vantage_wind.set_observer_visible(not hidden or friendly)
+		vantage_wind.set_reduced_effects(reduced_effects)
 	if haste_wind!=null:
 		# Haste trails are observer-local and disappear immediately for opponents;
 		# they never linger through the character's gradual Stealth fade.

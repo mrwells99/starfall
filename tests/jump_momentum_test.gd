@@ -55,7 +55,7 @@ func run() -> void:
 	await reset_body(actor)
 	check(actor.snapshot().grounded, "Snapshots include authoritative floor contact")
 	launch(actor)
-	check(not actor.is_on_floor() and is_equal_approx(actor.velocity.z, -6.5) and actor.velocity.y > 0, "Running jump launches at the full horizontal movement speed")
+	check(not actor.is_on_floor() and is_equal_approx(actor.velocity.z, -6.1425) and actor.velocity.y > 0, "Running jump launches at the full horizontal movement speed")
 	var launch_y: float = actor.velocity.y
 	var start: Vector3 = actor.position
 	var preserved := true
@@ -65,7 +65,7 @@ func run() -> void:
 		var inputs := [Vector2.ZERO, Vector2(0, 1), Vector2(1, 0)]
 		arena.apply_input(actor.actor_id, inputs[step % 3], step * 0.45, step == 3, -1)
 		arena.simulate_movement(actor, STEP)
-		preserved = preserved and horizontal(actor).is_equal_approx(Vector2(0, -6.5))
+		preserved = preserved and horizontal(actor).is_equal_approx(Vector2(0, -6.1425))
 	check(preserved and actor.position.z < start.z - 1.0, "Airborne release, reversal, strafe, yaw changes, and repeated jump input preserve world-space takeoff momentum")
 	check(actor.velocity.y < launch_y, "Jump input in the air cannot reset gravity or double jump")
 	actor.rotation.y = 0
@@ -77,7 +77,7 @@ func run() -> void:
 		arena.simulate_movement(actor, STEP)
 	check(actor.is_on_floor(), "Momentum jump lands normally")
 	arena.simulate_movement(actor, STEP)
-	check(horizontal(actor).is_equal_approx(Vector2(6.5, 0)), "Ground contact restores immediate directional input")
+	check(horizontal(actor).is_equal_approx(Vector2(6.1425, 0)), "Ground contact restores immediate directional input")
 	actor.move_input = Vector2.ZERO
 	arena.simulate_movement(actor, STEP)
 	check(horizontal(actor) == Vector2.ZERO, "Releasing input after landing stops immediately")
@@ -111,7 +111,7 @@ func run() -> void:
 	actor.move_input = Vector2.ZERO
 	await physics_frame
 	arena.simulate_movement(actor, STEP)
-	check(is_equal_approx(actor.velocity.z, -6.5 * 1.65), "Speed effects changing after takeoff preserve the velocity established at launch")
+	check(is_equal_approx(actor.velocity.z, -6.1425 * 1.65), "Speed effects changing after takeoff preserve the velocity established at launch")
 	actor.hp = 0
 	actor.jump_queued = true
 	arena.simulate_movement(actor, STEP)
@@ -165,7 +165,7 @@ func run() -> void:
 	arena.prediction.history = [command(53, Vector2(0, -1), 0, true)]
 	arena.prediction.pending = grounded
 	arena.prediction.reconcile(arena, remote)
-	check(remote.velocity.y > 6 and horizontal(remote).is_equal_approx(Vector2(0, -6.5)), "Replaying a grounded server snapshot allows a queued jump despite stale local airborne contact")
+	check(remote.velocity.y > 6 and horizontal(remote).is_equal_approx(Vector2(0, -6.1425)), "Replaying a grounded server snapshot allows a queued jump despite stale local airborne contact")
 	arena.prediction.reset()
 	check(arena.prediction.grounded_override == null, "Round reset clears the prediction contact override")
 	print("Jump momentum checks: %d passed / %d total" % [checks - failures, checks])

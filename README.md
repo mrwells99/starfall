@@ -11,6 +11,7 @@ A Godot 4.5 arena-combat prototype: **WoW-style controls** (WASD, mouse turn, st
 - **Why decisions were made:** [`docs/DECISIONS.md`](docs/DECISIONS.md)
 - **How it gets deployed:** [`DEPLOYMENT.md`](DEPLOYMENT.md)
 - **Art direction:** [`docs/ART_DIRECTION.md`](docs/ART_DIRECTION.md)
+- **Animation previews/approval and reusable local resources:** [`docs/ANIMATION_WORKFLOW.md`](docs/ANIMATION_WORKFLOW.md), [`docs/ADDON_RESOURCE_NOTES.md`](docs/ADDON_RESOURCE_NOTES.md)
 
 ## For players
 

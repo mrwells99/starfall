@@ -184,7 +184,7 @@ func vantage() -> void:
 	tick(a,.02);ck(a.identity.null_vantage.get("phase","")=="dive","Dive begins at 0.5s")
 	for i in 100:
 		tick(a,1.0/60)
-		if b.hp<100:break
+		if b.hp<b.MAX_HEALTH:break
 	ck(b.hp==1280 and is_equal_approx(b.stunned,4),"Contact deals scaled damage and four-second stun")
 	ck(game.Outlaw.Lasso.knockdown_active(b),"Victim knockdown active")
 	var impact: Vector3=a.position;tick(a,.2)
@@ -198,7 +198,104 @@ func vantage() -> void:
 	await reset();b.position.z=-6
 	game.try_spell(1,7,2);tick(a,.51);game.CC.apply(a,"stun",1,"Test");tick(a,.016)
 	ck(not game.Null.busy(a) and b.hp==1500,"Stun cancels dive")
+
+func vantage_lift() -> void:
+	for frame_time in [1.0/240,1.0/60,.037,.125,.5]:
+		await reset();b.position.z=-6
+		# Start clear of the floor's collision safe margin so this measures only
+		# the integrated rise, not the physics engine's tiny recovery displacement.
+		a.position.y=.025
+		var start: Vector3=a.position
+		ck(game.try_spell(1,7,2),"Vantage starts for lift step "+str(frame_time))
+		ck(is_equal_approx(a.velocity.y,16.0),"Vantage starts with a stronger 16 m/s takeoff")
+		var elapsed:=0.0
+		var monotonic:=true
+		var previous_speed: float=a.velocity.y
+		while elapsed<.5-.000001:
+			var step:=minf(frame_time,.5-elapsed)
+			game.Null.motion(game,a,step);elapsed+=step
+			if elapsed<.5-.000001:
+				monotonic=monotonic and a.velocity.y<previous_speed
+				previous_speed=a.velocity.y
+		ck(monotonic,"Lift slows smoothly without a flat-speed section")
+		print("VANTAGE_LIFT step=",frame_time," rise=",a.position.y-start.y," start=",start," end=",a.position)
+		ck(absf(a.position.y-start.y-5.0)<.00001,"Integrated lift rises exactly five meters at step "+str(frame_time))
+		ck(Vector2(a.position.x-start.x,a.position.z-start.z).length()<.00001,"Lift remains strictly vertical")
+		ck(a.identity.null_vantage.phase=="dive" and b.hp==1500,"All frame sizes begin the dive at 0.5 seconds without an early hit")
+	ck(is_equal_approx(game.Null.lift_height(.25),3.25) and is_equal_approx(game.Null.lift_velocity(.5),4.0),"Lift covers 3.25 meters in its first half and settles to 4 m/s")
+
+func vantage_range_and_air() -> void:
+	var speeds: Array[float]=[]
+	var times: Array[float]=[]
+	for distance in [6.0,18.0]:
+		await reset();a.position.z=12;b.position.z=12-distance
+		ck(game.try_spell(1,7,2),"Vantage accepts a target at "+str(distance)+" meters")
+		game.Null.motion(game,a,.5)
+		var initial_speed: float=a.identity.null_vantage.dive_speed
+		var dive_snapshot: Dictionary=a.snapshot().identity.null_vantage
+		ck(is_equal_approx(dive_snapshot.dive_speed,initial_speed) and is_equal_approx(dive_snapshot.dive_current_speed,4.0) and is_zero_approx(dive_snapshot.dive_progress),"Snapshot carries the fixed range scale and current dive acceleration state")
+		speeds.append(initial_speed)
+		var elapsed:=0.0
+		while b.hp==b.MAX_HEALTH and elapsed<1.0 and game.Null.busy(a):
+			game.Null.motion(game,a,1.0/240);elapsed+=1.0/240
+		times.append(elapsed)
+		ck(b.hp==1280 and is_equal_approx(b.stunned,4.0),"Short and long dives both resolve their original damage and stun")
+		ck(a.identity.null_vantage.phase=="recover","Both distances enter recovery immediately at contact")
+		game.Null.motion(game,a,.179)
+		ck(game.Null.busy(a),"Contact recovery lasts at least 0.179 seconds")
+		game.Null.motion(game,a,.002)
+		ck(not game.Null.busy(a) and b.hp==1280,"Recovery ends after 0.18 seconds without applying damage again")
+	ck(is_equal_approx(speeds[0],25.0) and speeds[1]>46.0 and speeds[1]<=65.0,"Near dives retain the 25 m/s base profile and long dives use the larger range scale")
+	ck(times[0]<.6 and times[1]<.6,"Near and far dives both connect promptly despite the eased start")
+	print("VANTAGE_RANGE short_speed=",speeds[0]," far_speed=",speeds[1]," short_dive_seconds=",times[0]," far_dive_seconds=",times[1])
+	await reset();b.position.z=-6;game.try_spell(1,7,2);game.Null.motion(game,a,.5)
+	var fixed_speed: float=a.identity.null_vantage.dive_speed
+	b.position.z=-16
+	game.Null.motion(game,a,.01)
+	ck(is_equal_approx(a.identity.null_vantage.dive_speed,fixed_speed) and a.velocity.length()>4.0 and a.velocity.length()<fixed_speed and is_zero_approx(a.identity.null_vantage.dive_progress),"Target retreat keeps the original range profile while speed eases up from the 4 m/s entry")
+	await reset();b.position.z=-6;game.try_spell(1,7,2);b.position.z=-50;game.Null.motion(game,a,.5)
+	ck(is_equal_approx(a.identity.null_vantage.dive_speed,65.0),"Large target movement before dive cannot exceed the speed cap")
+	for jump_frames in [8,26]:
+		await reset();b.position.z=-6;a.jump_queued=true
+		for frame in jump_frames:game.simulate_movement(a,1.0/60)
+		ck(not a.is_on_floor() and (a.velocity.y>0 if jump_frames==8 else a.velocity.y<0),"Airborne fixture is actually rising or falling under normal jump physics")
+		var start: Vector3=a.position
+		a.jump_queued=true;a.jump_buffer=.12
+		ck(game.try_spell(1,7,2),"Vantage can be cast during either half of a jump")
+		ck(not a.jump_queued and is_zero_approx(a.jump_buffer) and is_equal_approx(a.velocity.y,16.0),"Airborne cast clears pending jump input and replaces previous vertical momentum")
+		ck(a.cooldowns[7]==25 and a.identity.essence==30,"Airborne casting keeps the original cooldown and Essence grant")
+		game.Null.motion(game,a,.5)
+		ck(absf(a.position.y-start.y-5.0)<.00001,"Airborne cast rises five meters from its actual cast height")
+		for frame in 120:
+			game.Null.motion(game,a,1.0/120)
+			if b.hp<b.MAX_HEALTH:break
+		ck(b.hp==1280,"Airborne Vantage reaches the target with unchanged damage")
+
+func vantage_cancellation() -> void:
+	await reset();b.position.z=-6;game.try_spell(1,7,2);game.Null.motion(game,a,.5)
+	var obstacle:=wall(Vector3(0,3,-3),Vector3(2,10,.2));await physics_frame
+	game.Null.motion(game,a,.3)
+	ck(not game.Null.busy(a) and b.hp==1500 and a.position.z>-3,"Dive uses swept collision and cannot pass through a wall")
+	obstacle.free();await physics_frame
+	for reason in ["root","death","target_death","target_concealed"]:
+		await reset();b.position.z=-6;game.try_spell(1,7,2);game.Null.motion(game,a,.5)
+		match reason:
+			"root":a.identity.root=1.0
+			"death":a.hp=0
+			"target_death":b.hp=0
+			"target_concealed":b.identity.stealth=true
+		var health: float=b.hp
+		game.Null.motion(game,a,.05)
+		ck(not game.Null.busy(a) and b.hp==health and a.velocity==Vector3.ZERO,"Vantage still cancels cleanly on "+reason)
+	await reset();b.position.z=-6;a.identity.root=1.0
+	ck(not game.try_spell(1,7,2) and a.cooldowns[7]==0,"Removing the airborne gate does not allow rooted casting")
+	await reset();b.position.z=-6;game.try_spell(1,7,2);game.Null.motion(game,a,.5)
+	game.actors.erase(2);b.free();b=null
+	game.Null.motion(game,a,.05)
+	ck(not game.Null.busy(a) and a.velocity==Vector3.ZERO,"Target removal cancels the dive without invalid access")
 func run() -> void:
 	game=load("res://arena.tscn").instantiate();root.add_child(game);game.set_physics_process(false)
-	await basic();await stealth();await vantage()
+	if not "--vantage-only" in OS.get_cmdline_user_args():
+		await basic();await stealth()
+	await vantage();await vantage_lift();await vantage_range_and_air();await vantage_cancellation()
 	print("Null ability checks: %d passed / %d total" % [checks-failures,checks]);quit(1 if failures else 0)

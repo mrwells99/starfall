@@ -6,6 +6,11 @@ const COMBAT_SECONDS := 10.0
 const LIFT_SECONDS := .5
 const LIFT_SPEED := 10.0
 const DIVE_SPEED := 25.0
+const DIVE_TRAVEL_SECONDS := .4
+const MAX_DIVE_SPEED := 65.0
+const DIVE_ENTRY_SPEED := 4.0
+const DIVE_SPEED_RESPONSE := 24.0
+const DIVE_STEP := 1.0/60.0
 const CONTACT := 1.0
 const REGEN_SECONDS := 6.0
 
@@ -136,7 +141,6 @@ static func validate(game, a, spell: Dictionary, b) -> String:
 	if spell.kind == "backstab" and not behind(a,b): return "Must be behind your target"
 	if spell.kind in ["blindside","vantage"] and a.identity.root>0: return "Rooted"
 	if spell.kind == "blindside" and landing(game,a,b)==null: return "No safe space behind target"
-	if spell.kind == "vantage" and not a.is_on_floor(): return "Land before using Vantage Point"
 	if spell.kind == "chronoshift" and float(a.identity.get("essence", 0.0)) < 100.0: return "Requires 100 Essence"
 	return ""
 
@@ -185,7 +189,7 @@ static func resolve(game, a, spell: Dictionary, b) -> bool:
 		"vantage":
 			action(a,"vantage")
 			a.identity.null_vantage={"phase":"lift","elapsed":0.0,"target":b.actor_id,"power":spell.power,"direction":Vector3.UP}
-			a.velocity=Vector3.UP*LIFT_SPEED; a.jump_queued=false; a.jump_buffer=0
+			a.velocity=Vector3.UP*lift_velocity(0.0); a.jump_queued=false; a.jump_buffer=0
 			a.motion_revision+=1
 			grant_essence(a,spell,a.kit.find(spell))
 		"nerve_lock":
@@ -211,6 +215,23 @@ static func stop(a, authoritative: bool = true) -> void:
 	a.identity.null_vantage={}; a.velocity=Vector3.ZERO
 	if authoritative: a.motion_revision+=1
 
+static func lift_height(elapsed: float) -> float:
+	# Integrate the easing exactly: a strong launch settles toward the dive,
+	# while every tick size still covers five meters in the original half-second.
+	var phase:=clampf(elapsed/LIFT_SECONDS,0.0,1.0)
+	return LIFT_SPEED*LIFT_SECONDS*(1.6*phase-.6*phase*phase)
+
+static func lift_velocity(elapsed: float) -> float:
+	return LIFT_SPEED*(1.6-1.2*clampf(elapsed/LIFT_SECONDS,0.0,1.0))
+
+static func dive_goal_speed(s: Dictionary, distance: float) -> float:
+	# Keep the original range scaling, but build speed as the gap closes.
+	# A retreat never rebases the profile or sends progress backwards.
+	var span:=maxf(.001,float(s.get("dive_distance",distance))-CONTACT)
+	var progress:=clampf(1.0-maxf(0.0,distance-CONTACT)/span,0.0,1.0)
+	s.dive_progress=maxf(float(s.get("dive_progress",0.0)),progress)
+	return minf(MAX_DIVE_SPEED,float(s.get("dive_speed",DIVE_SPEED))*(.75+1.35*float(s.dive_progress)*float(s.dive_progress)))
+
 static func motion(game, a, delta: float) -> bool:
 	if not busy(a): return false
 	var s: Dictionary = a.identity.null_vantage
@@ -219,30 +240,47 @@ static func motion(game, a, delta: float) -> bool:
 	var b = game.actors.get(s.target)
 	if b==null or b.hp<=0 or not game.may_harm(a,b) or not targetable(game,a,b): stop(a,game.authoritative()); return false
 	a.jump_queued=false; a.jump_buffer=0
-	var remaining:=delta
+	var remaining:=maxf(0.0,delta)
 	if s.phase=="lift":
 		var step:=minf(remaining,LIFT_SECONDS-float(s.elapsed))
-		var rise:=LIFT_SPEED*step
+		var rise:=lift_height(float(s.elapsed)+step)-lift_height(float(s.elapsed))
 		var collision=a.move_and_collide(Vector3.UP*rise)
-		a.velocity=Vector3.UP*LIFT_SPEED; s.elapsed+=step; remaining-=step
+		s.elapsed+=step; remaining-=step; a.velocity=Vector3.UP*lift_velocity(float(s.elapsed))
 		if collision!=null: stop(a,game.authoritative()); return true
 		if float(s.elapsed)<LIFT_SECONDS-.00001: return true
 		s.phase="dive";s.elapsed=0.0
+		# Snapshot the range scale once. All easing state travels with the move
+		# so client reconciliation can restore and replay the same acceleration.
+		s.dive_distance=a.position.distance_to(b.position)
+		s.dive_speed=clampf(float(s.dive_distance)/DIVE_TRAVEL_SECONDS,DIVE_SPEED,MAX_DIVE_SPEED)
+		s.dive_progress=0.0;s.dive_current_speed=DIVE_ENTRY_SPEED
+		s.direction=(b.position-a.position).normalized();a.velocity=s.direction*DIVE_ENTRY_SPEED
 	if s.phase=="recover":
 		s.elapsed+=remaining; a.velocity=Vector3.ZERO
 		if float(s.elapsed)>=.18: stop(a,game.authoritative())
 		return true
-	s.elapsed+=remaining
-	if float(s.elapsed)>2.0: stop(a,game.authoritative()); return true
-	var offset: Vector3=b.position-a.position
-	if offset.length()>.001:
-		s.direction=offset.normalized()
-		var flat:=Vector2(offset.x,offset.z)
-		if flat.length()>.05: a.rotation.y=atan2(-offset.x,-offset.z)
-		var travel:=minf(DIVE_SPEED*remaining,maxf(0,offset.length()-CONTACT))
-		var collision=a.move_and_collide(offset.normalized()*travel,false,.005)
-		a.velocity=offset.normalized()*DIVE_SPEED
-		if collision!=null: stop(a,game.authoritative()); return true
+	if float(s.elapsed)+remaining>2.0: stop(a,game.authoritative()); return true
+	# One sweep per ordinary physics tick; subdivide unusually large deltas so
+	# their proximity curve cannot skip the gentle start or tunnel through cover.
+	while remaining>.000001:
+		var step:=minf(remaining,DIVE_STEP)
+		var offset: Vector3=b.position-a.position
+		var distance:=offset.length()
+		if distance>.001:
+			s.direction=offset/distance
+			var flat:=Vector2(offset.x,offset.z)
+			if flat.length()>.05: a.rotation.y=atan2(-offset.x,-offset.z)
+			var initial_speed:=clampf(float(s.get("dive_current_speed",DIVE_ENTRY_SPEED)),0.0,MAX_DIVE_SPEED)
+			var goal:=dive_goal_speed(s,distance)
+			var response:=1.0-exp(-DIVE_SPEED_RESPONSE*step)
+			var speed:=lerpf(initial_speed,goal,response)
+			# Exact integral of the speed easing for this step, not end_speed*dt.
+			var travel:=minf(goal*step+(initial_speed-goal)*response/DIVE_SPEED_RESPONSE,maxf(0.0,distance-CONTACT))
+			var collision=a.move_and_collide(s.direction*travel,false,.005)
+			s.dive_current_speed=speed;a.velocity=s.direction*speed
+			if collision!=null: stop(a,game.authoritative()); return true
+		remaining-=step;s.elapsed+=step
+		if a.position.distance_to(b.position)<=CONTACT+.02: break
 	if a.position.distance_to(b.position)<=CONTACT+.02 and game.authoritative():
 		# Contact is resolved once, on the server, after a swept capsule movement.
 		s.phase="recover";s.elapsed=0.0;a.velocity=Vector3.ZERO

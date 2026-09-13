@@ -24,6 +24,29 @@ func key_event(code: int, down: bool) -> void:
 	event.physical_keycode = code
 	event.pressed = down
 	Input.parse_input_event(event)
+func check_all_class_speeds() -> void:
+	for title in game.Kits.NAMES:
+		var body = game.Fighter.new()
+		root.add_child(body)
+		body.setup(900, 1, 0, title, false)
+		for mode in ["normal", "walk", "sprint", "haste", "slow", "severe", "walk_haste"]:
+			for direction in [Vector2(0,-1), Vector2(1,-1), Vector2(1,0), Vector2(1,1), Vector2(0,1), Vector2(-1,1), Vector2(-1,0), Vector2(-1,-1)]:
+				body.reset_identity()
+				body.position = Vector3(0, 50, 0)
+				body.velocity = Vector3.ZERO
+				body.rotation.y = .47
+				body.move_input = direction.normalized()
+				body.walking = mode in ["walk", "walk_haste"]
+				body.sprint = 1.0 if mode == "sprint" else 0.0
+				body.identity.null_haste = 1.0 if mode in ["haste", "walk_haste"] else 0.0
+				body.identity.slow = 1.0 if mode == "slow" else 0.0
+				body.identity.severe_slow = 1.0 if mode == "severe" else 0.0
+				var factor: float = {"normal":1.0, "walk":.5, "sprint":1.65, "haste":1.5, "slow":.55, "severe":.4, "walk_haste":.75}[mode]
+				var expected := (3.591 if direction.y > 0 else 6.1425) * factor
+				game.simulate_movement(body, 1.0 / 60.0, true)
+				check(is_equal_approx(Vector2(body.velocity.x, body.velocity.z).length(), expected), title + " " + mode + " " + str(direction) + " uses the current shared travel speed")
+		body.free()
+
 func run() -> void:
 	root.disable_3d = true
 	game = load("res://tests/ui_test_arena.gd").new()
@@ -40,6 +63,7 @@ func run() -> void:
 	var actor = game.actors[game.local_id]
 	var foe = game.actors[2]
 	check_shift_jump()
+	check_all_class_speeds()
 	check_turn_in_place()
 	var motion := InputEventMouseMotion.new()
 	motion.relative = Vector2(900, 0)
@@ -196,10 +220,10 @@ func run() -> void:
 	actor.rotation.y = 0
 	actor.walking = true
 	game.simulate_movement(actor, 1.0 / 60, true)
-	check(is_equal_approx(actor.velocity.x, 3.25), "Walk speed is bounded by shared simulation")
+	check(is_equal_approx(actor.velocity.x, 3.07125), "Walk speed is bounded by shared simulation")
 	actor.walking = false
 	game.simulate_movement(actor, 1.0 / 60, true)
-	check(is_equal_approx(actor.velocity.x, 6.5), "Running retains original speed")
+	check(is_equal_approx(actor.velocity.x, 6.1425), "Running uses the reduced shared speed")
 	game.player_options.camera_follow = true
 	game.local_yaw = 0
 	game.pivot.rotation.y = 1
