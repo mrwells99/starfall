@@ -12,7 +12,7 @@ func check(ok: bool, label: String) -> void:
 func clean(actor) -> void:
 	CC.clear(actor, CC.CATEGORIES)
 	CC.reset(actor)
-	actor.hp = 100
+	actor.hp = actor.MAX_HEALTH
 	actor.locked = 0
 func run() -> void:
 	root.disable_3d = true
@@ -57,10 +57,10 @@ func run() -> void:
 	check(target.identity.root > 0 and target.stunned == 0, "Clearing stun leaves independent root")
 	clean(target)
 	CC.apply(target, "disorient", 8, "Confusion")
-	CC.on_damage(target, 9, 0.9)
+	CC.on_damage(target, 135, 0.9)
 	check(CC.remaining(target, "disorient") > 0, "Disorient can survive damage below threshold")
-	CC.on_damage(target, 11, 0.9)
-	check(CC.remaining(target, "disorient") == 0, "Cumulative 20 damage guarantees disorient break")
+	CC.on_damage(target, 165, 0.9)
+	check(CC.remaining(target, "disorient") == 0, "Cumulative 300 damage (20% maximum HP) guarantees disorient break")
 	CC.apply(target, "disorient", 8, "Confusion")
 	CC.on_damage(target, 0, 0)
 	check(CC.remaining(target, "disorient") > 0, "Zero damage cannot break control")

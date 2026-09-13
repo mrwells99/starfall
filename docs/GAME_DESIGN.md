@@ -72,7 +72,7 @@ See [`CLASS_ABILITIES.md`](CLASS_ABILITIES.md). `scripts/kits.gd` and `scripts/c
 
 ## Combat mechanics
 
-**Health** caps at 100. Damage is clamped to remaining health.
+**Health** caps at 1,500. Ability powers remain in authored base units: damage is multiplied by 10 once at the health boundary; ordinary healing by 15. Mend and Regen Pot restore 336 HP (the proportional 420 HP reduced by 20%). Damage is clamped to remaining health. Health bars and labels use the maximum to calculate their fill and percentage.
 
 **Global cooldown (GCD)** — 1.5 seconds. Abilities with `off: true` bypass it. **No ability can be used while another cast is in progress**, even off-GCD ones.
 
@@ -101,12 +101,12 @@ See [`CLASS_ABILITIES.md`](CLASS_ABILITIES.md). `scripts/kits.gd` and `scripts/c
 |---|---|---|---|
 | Stun | Blocked | Blocked | Never |
 | Incapacitated | Blocked | Blocked | Any positive damage |
-| Disoriented | Blocked | Blocked | 25% chance per hit; guaranteed at 20 cumulative damage |
+| Disoriented | Blocked | Blocked | 25% chance per hit; guaranteed at 300 cumulative damage (20% maximum HP) |
 | Silence | Allowed | Blocked for casters only | Never |
 | Disarm | Allowed | Blocked for melee only | Never |
 | Root | Blocked | Allowed, except existing movement abilities | Never |
 
-Each category has its own 100% → 50% → 25% → immune progression. It resets 18 seconds after that category's last effect ends, including an early damage break or dispel. Immune attempts do not extend the timer. Damage threshold is based on the game's fixed 100 maximum HP. The Disoriented tuning is a framework default; no current spell applies it. Vanguard is currently the only melee class.
+Each category has its own 100% → 50% → 25% → immune progression. It resets 18 seconds after that category's last effect ends, including an early damage break or dispel. Immune attempts do not extend the timer. The guaranteed damage-break threshold is 20% of maximum HP. The Disoriented tuning is a framework default; no current spell applies it. Vanguard is currently the only melee class.
 
 Existing spell effects and numbers are unchanged: Stasis/Bash/Anchor/Rebuke, Earthsplitter and empowered Collapse use Stun; Solar Flare's existing instant damage break uses Incapacitated; normal Collapse uses Root. No spells were assigned Silence, Disarm or chance-break Disoriented. Slows remain slows and do not become roots. Interrupts and their lockouts are explicitly outside DR and always retain their normal strength.
 

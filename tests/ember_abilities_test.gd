@@ -28,7 +28,7 @@ func reset() -> void:
 func test_flare() -> void:
 	await reset()
 	ck(arena.try_spell(1, 8, -1), "Solar Flare casts with no selected target")
-	ck(b.stunned == 3 and b.hp == 100 and a.cooldowns[8] == 18, "Aimed Flare retains its incapacitate duration, no damage, and eighteen-second cooldown")
+	ck(b.stunned == 3 and b.hp == b.MAX_HEALTH and a.cooldowns[8] == 18, "Aimed Flare retains its incapacitate duration, no damage, and eighteen-second cooldown")
 	ck(a.gcd == arena.GCD_DURATION, "Solar Flare retains its ordinary GCD")
 	arena.damage(a, b, 1)
 	ck(b.stunned == 0, "Damage still breaks Solar Flare")
@@ -179,7 +179,7 @@ func test_blink_while_casting() -> void:
 	ck(not arena.try_spell(1, 6, -1) and a.identity.blink_charges == 1 and a.casting == 0, "Rooted Blink preserves both charge and current cast")
 	a.identity.root = 0
 	for i in range(100): arena.tick_actor(a, 1.0 / 60.0)
-	ck(a.casting == -1 and b.hp < 100, "Firebolt finishes and hits after Blink")
+	ck(a.casting == -1 and b.hp < b.MAX_HEALTH, "Firebolt finishes and hits after Blink")
 
 func run() -> void:
 	arena = load("res://arena.tscn").instantiate()

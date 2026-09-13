@@ -32,12 +32,12 @@ func run() -> void:
 	for i in range(3):
 		arena.resolve_spell(a, 0, b)
 	check(a.identity.heat == 60 and a.identity.brands[b.actor_id].count == 3, "Kindle builds Heat and caps brands")
-	b.hp = 100
+	b.hp = b.MAX_HEALTH
 	arena.resolve_spell(a, 1, b)
-	check(b.hp == 70 and not a.identity.brands.has(b.actor_id), "Flashpoint consumes three brands for burst")
-	b.hp = 100
+	check(b.hp == 1200 and not a.identity.brands.has(b.actor_id), "Flashpoint consumes three brands for burst")
+	b.hp = b.MAX_HEALTH
 	arena.resolve_spell(a, 7, b)
-	check(b.hp == 54 and a.identity.heat == 0, "Supernova spends Heat for scaled damage")
+	check(b.hp == 1040 and a.identity.heat == 0, "Supernova spends Heat for scaled damage")
 	check(not arena.try_spell(a.actor_id, 7, b.actor_id), "Supernova cannot be used without Heat")
 	arena.ClassMechanics.control(arena, a, b, 3, "Solar Flare", false, true)
 	arena.damage(a, b, 1)
@@ -50,23 +50,23 @@ func run() -> void:
 	var ally = arena.actors[2]
 	arena.resolve_spell(a, 0, b)
 	check(a.identity.resolve == 20, "Sundering Blow grants Resolve")
-	b.hp = 100
+	b.hp = b.MAX_HEALTH
 	arena.resolve_spell(a, 1, b)
-	check(b.hp == 71 and a.identity.resolve == 0, "Oathbreaker spends Resolve and consumes exposure")
+	check(b.hp == 1210 and a.identity.resolve == 0, "Oathbreaker spends Resolve and consumes exposure")
 	arena.resolve_spell(a, 7, ally)
 	arena.damage(b, ally, 20)
-	check(ally.hp == 86 and a.hp == 94 and a.identity.resolve == 6, "Intercede shares damage and grants Resolve")
+	check(ally.hp == 1360 and a.hp == 1440 and a.identity.resolve == 6, "Intercede shares damage and grants Resolve")
 	arena.resolve_spell(a, 8, a)
 	a.position = Vector3(0, 0, 2); b.position = Vector3(0, 0, -2); a.rotation.y = 0
 	var before: float = a.hp
 	arena.damage(b, a, 20)
-	check(is_equal_approx(a.hp, before - 6), "Hold the Line reduces frontal damage")
+	check(is_equal_approx(a.hp, before - 60), "Hold the Line reduces frontal damage")
 	var pos: Vector3 = a.position
 	arena.move_ability(a, Vector3(3, 0, 0))
 	check(a.position == pos, "Hold the Line resists displacement")
 	before = a.hp
 	arena.damage(b, ally, 20)
-	check(is_equal_approx(a.hp, before - 1.8), "Hold the Line also reduces redirected frontal damage")
+	check(is_equal_approx(a.hp, before - 18), "Hold the Line also reduces redirected frontal damage")
 	await reset("Luminary")
 	a = arena.actors[1]; b = arena.actors[4]; ally = arena.actors[2]
 	for target in [a, ally, ally, b]:
@@ -76,13 +76,13 @@ func run() -> void:
 	check(a.identity.stars.size() == 3, "Guiding Stars have a shared capacity")
 	arena.resolve_spell(a, 7, ally)
 	check(arena.ClassMechanics.star_count(a, a.actor_id) == 0 and arena.ClassMechanics.star_count(a, ally.actor_id) == 3, "Fourth star moves oldest star")
-	ally.hp = 40
+	ally.hp = 600
 	arena.resolve_spell(a, 1, ally)
-	check(ally.hp == 74 and a.identity.stars.size() == 2, "Falling Star consumes one star for rescue healing")
+	check(ally.hp == 1110 and a.identity.stars.size() == 2, "Falling Star consumes one star for rescue healing")
 	ally.identity.root = 2
 	arena.resolve_spell(a, 2, ally)
 	check(ally.identity.root == 0 and ally.identity.immune == 3, "Absolution consumes star to clear and resist roots")
-	ally.hp = 20
+	ally.hp = 300
 	arena.resolve_spell(a, 9, ally)
 	arena.damage(b, ally, 80)
 	check(ally.hp == 1 and ally.identity.last == 0, "Last Light saves one lethal hit")
@@ -106,7 +106,7 @@ func run() -> void:
 	arena.ClassMechanics.tick(arena, a, 0.1)
 	check(b.identity.slow > 0, "Heavy Orbit slows nearby enemies")
 	arena.resolve_spell(a, 11, a)
-	check(b.hp == 78 and b.identity.root > 0 and a.identity.anchor_left == 0, "Collapse consumes anchor for damage and root")
+	check(b.hp == 1280 and b.identity.root > 0 and a.identity.anchor_left == 0, "Collapse consumes anchor for damage and root")
 	a.position = Vector3(0, 0, 2); ally.position = Vector3(0, 0, -2)
 	pos = a.position
 	arena.resolve_spell(a, 10, ally)

@@ -44,7 +44,7 @@ func go() -> void:
 		ck(arena.selected_id == -1, "World Tab never selects dummies even when no players are available")
 	arena.cycle_target(-1)
 	ck(arena.selected_id == -1, "Reverse world targeting also skips all dummies")
-	arena.actors[2].hp = 100
+	arena.actors[2].hp = arena.actors[2].MAX_HEALTH
 	arena.selected_id = -100
 	arena.cycle_target()
 	ck(arena.selected_id == 2, "Tab leaves a manually selected dummy for an available player")
@@ -63,7 +63,7 @@ func go() -> void:
 	ck(dummy.position == origin and dummy.casting == -1, "Dummy stays stationary and does not fight")
 	# Damage is refused until both agree.
 	arena.damage(a, b, 30.0)
-	ck(b.hp == 100, "You cannot harm someone who has not agreed to duel")
+	ck(b.hp == b.MAX_HEALTH, "You cannot harm someone who has not agreed to duel")
 	arena.offer_duel(1, 2)
 	ck(arena.duel_offers.get(2, -1) == 1, "A challenge is recorded against the target")
 	arena.confirm_duel(2)
@@ -107,7 +107,7 @@ func go() -> void:
 	ck(arena.panel.visible and arena.selected_id==2,"Escape opens the menu without clearing a locked opponent")
 	arena.panel.hide()
 	arena.damage(a, b, 30.0)
-	ck(b.hp == 70, "Damage lands once a duel is agreed")
+	ck(b.hp == 1200, "Damage lands once a duel is agreed")
 	# A third party still cannot join in.
 	arena.roster[3] = {"champion": "Luminary", "team": 0}
 	arena.admit_to_world()
@@ -116,9 +116,9 @@ func go() -> void:
 	for x in arena.actors.values():
 		if x.actor_id == 3: c = x
 	arena.damage(c, b, 40.0)
-	ck(b.hp == 70, "A bystander cannot interfere in someone else's duel")
+	ck(b.hp == 1200, "A bystander cannot interfere in someone else's duel")
 	# Losing ends the duel and schedules a return rather than a defeat.
-	arena.damage(a, b, 100.0)
+	arena.damage(a, b, 200.0)
 	ck(b.hp == 0 and not arena.duels.has(1) and not arena.duels.has(2), "Losing ends the duel")
 	ck(arena.respawn_timers.has(2), "The loser is queued to come back")
 	arena.cycle_target()
@@ -126,7 +126,7 @@ func go() -> void:
 	arena.check_winner()
 	ck(arena.phase == "match", "The world has no victory condition")
 	arena.tick_world(4.0)
-	ck(b.hp == 100 and not arena.respawn_timers.has(2), "The loser returns at full health")
+	ck(b.hp == b.MAX_HEALTH and not arena.respawn_timers.has(2), "The loser returns at full health")
 	arena.world_mode = false
 	arena.begin_round()
 	ck(not arena.actors.has(-100), "Match arenas never spawn world dummies")

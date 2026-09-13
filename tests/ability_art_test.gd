@@ -128,7 +128,7 @@ func run() -> void:
 		check(fighter.transform == before, "Visual poses never move the combat body")
 		var collider: CollisionShape3D = fighter.get_child(0)
 		check(is_equal_approx(collider.shape.radius, 0.42) and is_equal_approx(collider.shape.height, 1.8), "Art preserves collision dimensions")
-		fighter.hp = 100
+		fighter.hp = fighter.MAX_HEALTH
 		fighter.visual_tick(0.4, arena.camera)
 		check(is_zero_approx(fighter.champion_model.rotation.x), "Living pose recovers")
 	print("Ability art checks: %d passed / %d total" % [checks - failures, checks])

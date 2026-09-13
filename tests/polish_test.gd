@@ -80,7 +80,7 @@ func run() -> void:
 	check(not arena.scoreboard.visible, "Results hide the combat HUD")
 	var old_epoch: int = arena.epoch
 	arena.offline_rematch_button.pressed.emit()
-	check(arena.epoch == old_epoch + 1 and arena.phase == "countdown" and arena.actors[1].hp == 100, "Play again actually begins a fresh round")
+	check(arena.epoch == old_epoch + 1 and arena.phase == "countdown" and arena.actors[1].hp == arena.actors[1].MAX_HEALTH, "Play again actually begins a fresh round")
 	check(arena.actors.size() == 6 and arena.actors[1].champion == "Ember", "Rematch preserves class and mode")
 	arena.leave_session("")
 	arena.update_visuals(0)

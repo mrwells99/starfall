@@ -187,10 +187,14 @@ func inspect_material_fade() -> void:
 	var all_fade := true
 	var has_knife := false
 	for item in active:
+		# Mend particles live beside the costume and are intentionally unfaded.
+		if not art.model.is_ancestor_of(item.mesh): continue
 		var material: BaseMaterial3D = item.material
 		all_fade = all_fade and material.distance_fade_mode == BaseMaterial3D.DISTANCE_FADE_PIXEL_DITHER
 		all_fade = all_fade and material.distance_fade_min_distance > 0 and material.distance_fade_min_distance < material.distance_fade_max_distance
 		has_knife = has_knife or "Bowie" in material.resource_name
+	var effects: Array[Dictionary] = original.filter(func(item): return not art.model.is_ancestor_of(item.mesh))
+	check(restored(effects), "Camera fade preserves combat-effect materials outside the costume")
 	check(all_fade and has_knife, "Body and authored weapon materials use progressive near-camera dither fading")
 	check(restored(remote) and shared.distance_fade_mode == BaseMaterial3D.DISTANCE_FADE_DISABLED,
 		"Fading the followed player does not change another player or a shared equipment resource")

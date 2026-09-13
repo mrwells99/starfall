@@ -60,17 +60,17 @@ func run() -> void:
 	await reset()
 	player = arena.actors[1]
 	enemy = arena.actors[2]
-	check(arena.try_spell(1, 0, 2) and player.casting == 0 and enemy.hp == 100, "Cast starts without early damage")
+	check(arena.try_spell(1, 0, 2) and player.casting == 0 and enemy.hp == enemy.MAX_HEALTH, "Cast starts without early damage")
 	player.move_input = Vector2(1, 0)
 	arena.tick_actor(player, 0.1)
-	check(player.casting == -1 and enemy.hp == 100, "Movement cancels casting")
+	check(player.casting == -1 and enemy.hp == enemy.MAX_HEALTH, "Movement cancels casting")
 	player.move_input = Vector2.ZERO
 	player.gcd = 0
 	await settle()
 	check(arena.try_spell(1, 0, 2), "Stationary cast restarts")
 	player.cast_left = 0.001
 	arena.tick_actor(player, 0.01)
-	check(enemy.hp == 84, "Completed cast deals damage")
+	check(enemy.hp == 1340, "Completed cast deals damage")
 	check(not arena.try_spell(1, 1, 2), "Global cooldown enforced")
 	enemy.casting = 0
 	enemy.cast_left = 1
@@ -87,13 +87,13 @@ func run() -> void:
 	enemy.dr_timer = 0.001
 	arena.tick_actor(enemy, 0.01)
 	check(enemy.dr_count == 0, "Diminishing returns reset")
-	enemy.hp = 100
+	enemy.hp = enemy.MAX_HEALTH
 	enemy.shield = 5
 	arena.damage(player, enemy, 20)
-	check(is_equal_approx(enemy.hp, 92), "Ward reduces damage by 60 percent")
-	player.hp = 90
+	check(is_equal_approx(enemy.hp, 1420), "Ward reduces damage by 60 percent")
+	player.hp = 1350
 	arena.resolve_spell(player, 5, player)
-	check(player.hp == 100, "Self heal caps at maximum")
+	check(player.hp == player.MAX_HEALTH, "Self heal caps at maximum")
 	player.position = Vector3(-6, 0, 9)
 	player.rotation.y = 0
 	await physics_frame
@@ -104,12 +104,12 @@ func run() -> void:
 	enemy = arena.actors[2]
 	check(not arena.try_spell(1, 0, 2), "Melee rejects distant target")
 	check(arena.try_spell(1, 6, 2), "Charge available at range")
-	check(enemy.identity.root == 1.5 and enemy.hp == 100, "Charge roots for 1.5 seconds immediately and defers damage until arrival")
+	check(enemy.identity.root == 1.5 and enemy.hp == enemy.MAX_HEALTH, "Charge roots for 1.5 seconds immediately and defers damage until arrival")
 	for frame in range(90):
 		if player.charge.is_empty(): break
 		arena.tick_actor(player, 1.0 / 60.0)
 		await physics_frame
-	check(player.position.distance_to(enemy.position) < 3.5 and enemy.hp == 94, "Charge closes distance and deals damage")
+	check(player.position.distance_to(enemy.position) < 3.5 and enemy.hp == 1440, "Charge closes distance and deals damage")
 	await reset("Luminary", 3)
 	player = arena.actors[1]
 	var ally = arena.actors[2]
@@ -120,8 +120,8 @@ func run() -> void:
 		if actor.champion == "Luminary":
 			healers[actor.team] += 1
 	check(healers == [1, 1], "Bot fill supplies one healer on each team")
-	ally.hp = 40
-	check(arena.try_spell(1, 1, 2) and ally.hp == 58, "Friendly healing reaches selected ally")
+	ally.hp = 600
+	check(arena.try_spell(1, 1, 2) and ally.hp == 870, "Friendly healing reaches selected ally")
 	ally.stunned = 3
 	check(arena.try_spell(1, 2, 2) and ally.stunned == 0, "Healer dispel clears friendly control")
 	check(not arena.try_spell(1, 0, 2), "Offensive spells cannot damage allies")
@@ -148,7 +148,7 @@ func run() -> void:
 	arena.check_winner()
 	check(arena.phase == "results" and arena.result_text.text.begins_with("DEFEAT"), "Player death ends duel with defeat")
 	await reset()
-	check(arena.actors[1].hp == 100 and arena.actors[2].hp == 100 and arena.actors[1].dr_count == 0, "Rematch resets all combat state")
+	check(arena.actors[1].hp == arena.actors[1].MAX_HEALTH and arena.actors[2].hp == arena.actors[2].MAX_HEALTH and arena.actors[1].dr_count == 0, "Rematch resets all combat state")
 	# Navigate from one side of a pillar to the other using actual collision movement.
 	player = arena.actors[1]
 	enemy = arena.actors[2]
@@ -212,7 +212,7 @@ func run() -> void:
 	check(after_enemy < 9.0, "Tether drags an enemy toward the caster")
 	check(after_enemy > 1.0, "Tether stops short instead of overlapping the caster")
 	check(grip.position.distance_to(caster_before) < 0.5, "Tether moves the target, not the caster")
-	check(foe_target.hp == 100, "Tether deals no damage")
+	check(foe_target.hp == foe_target.MAX_HEALTH, "Tether deals no damage")
 
 	# Ally: the same ability, used as a save.
 	grip.cooldowns[6] = 0
@@ -251,7 +251,7 @@ func run() -> void:
 		and Auras.shield_name("Luminary") == "Sanctuary", "One shield field, four champion names")
 	subject.hp = 0
 	check(Auras.active(subject).is_empty(), "A defeated fighter shows no auras")
-	subject.hp = 100
+	subject.hp = subject.MAX_HEALTH
 	subject.stunned = 0
 	subject.shield = 0
 	check(Auras.active(subject).is_empty(), "Auras clear when their timers do")

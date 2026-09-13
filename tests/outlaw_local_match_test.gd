@@ -54,7 +54,7 @@ func run() -> void:
 	await process_frame; await process_frame
 	game.champion_choice.select(game.Kits.NAMES.find("Outlaw"))
 	var directions := [Vector2.UP,Vector2(1,-1).normalized(),Vector2.RIGHT,Vector2(1,1).normalized(),Vector2.DOWN,Vector2(-1,1).normalized(),Vector2.LEFT,Vector2(-1,-1).normalized()]
-	var clips := ["Walk","WalkForwardRight","StrafeRight","WalkBackwardRight","WalkBackward","WalkBackwardLeft","StrafeLeft","WalkForwardLeft"]
+	var clips := ["MeasuredForward","MeasuredForwardRight","MeasuredRight","MeasuredBackwardRight","MeasuredBackward","MeasuredBackwardLeft","MeasuredLeft","MeasuredForwardLeft"]
 	for round_index in 3:
 		game.mode_choice.select(0 if round_index==0 else 1)
 		game.local_match()
@@ -87,7 +87,7 @@ func run() -> void:
 		var expected := {}
 		for enemy in game.actors.values():
 			if enemy.team!=local.team:
-				expected[enemy.actor_id]=60.0 if local.position.distance_to(enemy.position)<=18 and game.has_los(local,enemy) else 100.0
+				expected[enemy.actor_id]=1100.0 if local.position.distance_to(enemy.position)<=18 and game.has_los(local,enemy) else 1500.0
 		for frame in 22: await step(Vector2.ZERO)
 		check(local.casting==-1, "Deadeye completes without interrupting the match")
 		for id in expected: check(game.actors[id].hp==expected[id], "Deadeye applies the correct final visibility and damage to %d" % id)

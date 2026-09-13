@@ -90,7 +90,7 @@ func held_right_gesture(bar_slot: int) -> void:
 		if reason == "reset": preview.reset()
 		step()
 		check(not preview.enabled and not controls.right and not game.has_capture_origin,"Losing "+reason+" discards a held aim gesture")
-		game.application_focused = true; game.panel.hide(); actor.hp = 100
+		game.application_focused = true; game.panel.hide(); actor.hp = actor.MAX_HEALTH
 		game._input(mouse(MOUSE_BUTTON_RIGHT,false)); settle()
 		check(not controls.right,"Returning from "+reason+" cannot restore stale mouse input")
 
@@ -268,7 +268,7 @@ func run() -> void:
 	check(not preview.owns_camera() and not preview.reticle.visible,"Opening a menu clears the test")
 	game.panel.hide(); preview.toggle(); settle(); actor.hp = 0; step()
 	check(not preview.owns_camera() and not preview.reticle.visible,"Death leaves the test before spectator camera takes over")
-	actor.hp = 100; settle(); preview.toggle(); settle(); game.clear_actors()
+	actor.hp = actor.MAX_HEALTH; settle(); preview.toggle(); settle(); game.clear_actors()
 	check(not preview.owns_camera() and not preview.enabled and not preview.reticle.visible,"Round teardown clears all test state")
 	for title in ["Ember","Luminary","Fulcrum","Vanguard"]:
 		game.champion_choice.select(game.Kits.NAMES.find(title)); game.local_match(); game.phase = "match"; step()

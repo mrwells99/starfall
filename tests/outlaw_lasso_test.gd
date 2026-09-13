@@ -31,7 +31,7 @@ func basic() -> void:
 	ck(a.position.distance_to(start) > .3 and a.position.distance_to(start) < 1, "Pull has fast visible travel rather than teleporting")
 	ck(not game.try_spell(1,6,-1), "Other mobility cannot corrupt a committed pull")
 	ck(reach_phase("rebound"), "Contact transitions directly into short rebound")
-	ck(a.identity.defense_detonation == 1 and b.hp == 100, "Dropkick completion grants exactly one stack without unsolicited damage")
+	ck(a.identity.defense_detonation == 1 and b.hp == b.MAX_HEALTH, "Dropkick completion grants exactly one stack without unsolicited damage")
 	ck(b.stunned > 1.4 and b.stunned <= 1.5 and b.dr_states.stun.count == 1, "Impact sets a 1.5-second knockdown without a second DR application")
 	var impact: Vector3 = a.position
 	var target_impact: Vector3 = b.position

@@ -348,25 +348,25 @@ func run() -> void:
 	# --- roster rows are real bars -------------------------------------------
 	arena.update_visuals(0)
 	var ally = arena.actors[arena.party_ids()[1]]
-	ally.hp = 40.0
+	ally.hp = 600.0
 	arena.update_visuals(0)
 	var ally_bar: ProgressBar = arena.roster_bar(arena.party_buttons[1])
-	check(ally_bar != null and ally_bar.value == 40.0, "Party rows show health as a bar, not a number")
+	check(ally_bar != null and ally_bar.value == 600.0, "Party rows show health as a bar, not a number")
 	check((ally_bar.get_child(0) as Label).text == "40%", "Health bars show only the health percentage")
 	var ally_fill := ally_bar.get_theme_stylebox("fill") as StyleBoxFlat
 	check(ally_fill.bg_color == arena.hud_health_color(ally.champion), "Roster bars use the class colour")
 	var foe_id: int = arena.enemy_ids()[0]
-	arena.actors[foe_id].hp = 85.0
+	arena.actors[foe_id].hp = 1275.0
 	arena.selected_id = foe_id
 	arena.update_visuals(0)
 	var foe_bar: ProgressBar = arena.roster_bar(arena.enemy_buttons[0])
-	check(foe_bar.value == 85.0, "Enemy rows track health too")
+	check(foe_bar.value == 1275.0, "Enemy rows track health too")
 	var foe_edge: StyleBoxFlat = arena.bar_edge(foe_bar).get_theme_stylebox("panel")
 	var ally_edge: StyleBoxFlat = arena.bar_edge(ally_bar).get_theme_stylebox("panel")
 	check(foe_edge.border_color == arena.ENEMY_EDGE and foe_edge.border_width_left > ally_edge.border_width_left,
 		"Selected enemy has a stronger rose edge than unselected allies")
 	# The border is drawn over the fill, so it survives at full health.
-	arena.actors[foe_id].hp = 100.0
+	arena.actors[foe_id].hp = arena.actors[foe_id].MAX_HEALTH
 	arena.update_visuals(0)
 	check(arena.bar_edge(foe_bar).visible and (arena.bar_edge(foe_bar).get_theme_stylebox("panel") as StyleBoxFlat).border_width_left == 2,
 		"The enemy border is still there at full health")

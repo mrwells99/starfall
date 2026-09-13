@@ -89,6 +89,10 @@ func install_movement() -> void:
 	var active_name:=String(player.assigned_animation)
 	var active_time:=player.current_animation_position if not active_name.is_empty() else 0.0
 	var was_playing:=player.is_playing()
+	# Stop playback before adding a library so Godot cannot reuse invalid
+	# active-animation caches when restoring the current pose.
+	player.stop()
+	player.clear_caches()
 	var path:=String(player.get_node(player.root_node).get_path_to(skeleton))
 	if not remapped_libraries.has(path):
 		var library:=AnimationLibrary.new()
@@ -102,9 +106,12 @@ func install_movement() -> void:
 				var bone:=String(source_path.get_subname(0))
 				assert(skeleton.find_bone(bone)>=0)
 				animation.track_set_path(track,NodePath(path+":"+bone))
-			assert(library.add_animation(name,animation)==OK)
+			var animation_error := library.add_animation(name,animation)
+			assert(animation_error == OK)
 		remapped_libraries[path]=library
-	assert(player.add_animation_library("outlaw_locomotion",remapped_libraries[path])==OK)
+	var library_error := player.add_animation_library("outlaw_locomotion",remapped_libraries[path])
+	assert(library_error == OK)
+	player.clear_caches()
 	if not active_name.is_empty():
 		player.play(active_name,0.0);player.seek(active_time,true);player.advance(0.0)
 		if not was_playing:player.pause()

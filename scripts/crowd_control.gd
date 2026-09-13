@@ -5,7 +5,7 @@ const NAMES := ["Stun", "Incapacitated", "Disoriented", "Silence", "Disarm", "Ro
 const RESET := 18.0
 const FACTORS := [1.0, 0.5, 0.25, 0.0]
 const BREAK_CHANCE := 0.25
-const BREAK_DAMAGE := 20.0 # 20% of the game's fixed 100 maximum HP.
+const BREAK_HEALTH_FRACTION := 0.20
 static func airborne_immune(actor) -> bool:
 	var lasso: Dictionary = actor.identity.get("lasso", {})
 	var airborne_lasso: bool = lasso.get("air",false) and lasso.get("phase","") in ["cast","rope","pull","rebound"]
@@ -72,7 +72,7 @@ static func on_damage(actor, amount: float, roll: float = -1.0) -> void:
 		var effect: Dictionary = actor.cc_effects.disorient
 		effect.damage += amount
 		var chance := randf() if roll < 0 else roll
-		if effect.damage >= BREAK_DAMAGE or chance < BREAK_CHANCE: clear(actor, ["disorient"])
+		if effect.damage >= actor.MAX_HEALTH * BREAK_HEALTH_FRACTION or chance < BREAK_CHANCE: clear(actor, ["disorient"])
 static func spell_block(actor) -> float:
 	if airborne_immune(actor): return 0.0
 	if actor.champion == "Outlaw": return maxf(remaining(actor, "disarm"), remaining(actor, "silence"))

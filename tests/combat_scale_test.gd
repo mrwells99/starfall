@@ -111,6 +111,15 @@ func run() -> void:
 	a.hp = 750
 	a.visual_tick(0, null)
 	ck(is_equal_approx(a.health_mesh.scale.x, .5), "A nameplate at half health draws half of its fill")
+	game.update_frame(game.player_frame, a.actor_id, "")
+	var personal_bar = game.player_frame.get_child(1)
+	ck(personal_bar.value == 750 and personal_bar.max_value == 1500, "Personal health fill uses the full health range")
+	ck(personal_bar.get_child(0).text == "50%", "Personal health text reports a percentage")
+	var row = game.enemy_buttons[0]
+	game.paint_roster_row(row, a, "", false)
+	var roster_health = game.roster_bar(row)
+	ck(roster_health.value == 750 and roster_health.max_value == 1500, "Roster fill uses the full health range")
+	ck(roster_health.get_child(0).text == "50%", "Roster health text reports a percentage")
 	var replica = game.Fighter.new()
 	replica.setup(91, 0, 0, "Ember", false)
 	replica.receive(a.snapshot(), true)

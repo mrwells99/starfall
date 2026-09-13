@@ -39,14 +39,14 @@ func severe_and_roll() -> void:
 	ck(game.champion_choice.item_count == game.Kits.NAMES.size(), "Outlaw is selectable as the fifth class")
 	ck(game.try_spell(1, 1, 2) and a.casting == 1, "Ordinary Severe starts its short cast")
 	tick(a, .65)
-	ck(b.hp == 80 and b.identity.severe_bleeds.has(1), "Severe hits for integer 20 percent current health and attaches its bleed")
+	ck(b.hp == 1300 and b.identity.severe_bleeds.has(1), "Severe hits for 200 HP at full health and attaches its bleed")
 	for i in 5:
 		game.Outlaw.tick(game, b, 1)
-		ck(b.hp == 80 - (i+1)*2, "Severe bleed tick %d is exactly two damage" % (i+1))
+		ck(b.hp == 1300 - (i+1)*20, "Severe bleed tick %d is exactly twenty HP damage" % (i+1))
 	ck(b.identity.severe_bleeds.is_empty(), "Severe ends after exactly five ticks")
-	a.gcd = 0; a.cooldowns[1] = 0; b.hp = 73
+	a.gcd = 0; a.cooldowns[1] = 0; b.hp = 1095
 	game.try_spell(1, 1, 2); tick(a, .65)
-	ck(b.hp == 58, "20 percent of current 73 HP rounds to 15 damage")
+	ck(b.hp == 945, "Severe rounds 73 base-health units to 15 damage units, then deals 150 HP")
 	a.gcd = 0; a.cooldowns[1] = 0; a.identity.instant_severe = 1
 	b.move_input = Vector2.ZERO; b.gcd = 0
 	game.try_spell(2, 5, -1); tick(b, 2.01)
@@ -76,7 +76,7 @@ func severe_and_roll() -> void:
 	game.try_spell(1, 6, -1); tick(a, game.Outlaw.ROLL_SECONDS)
 	b.position = a.position + Vector3.FORWARD * 2
 	ck(game.proc_ready(a, a.kit[1]), "Instant Severe highlights its hotbar slot")
-	ck(game.try_spell(1, 1, 2) and a.casting == -1 and b.hp == 80, "Roll follow-up Severe fires instantly while moving")
+	ck(game.try_spell(1, 1, 2) and a.casting == -1 and b.hp == 1300, "Roll follow-up Severe fires instantly while moving")
 	ck(a.identity.instant_severe == 0 and a.cooldowns[1] == 4 and a.gcd == game.GCD_DURATION, "Successful Severe consumes the buff while retaining its cooldown and GCD")
 	game.Outlaw.tick(game,a,.01)
 	ck(a.identity.roll_animation_left==0,"Instant Severe immediately cancels Roll's cosmetic recovery")
@@ -103,14 +103,14 @@ func moving_severe() -> void:
 		ck(game.try_spell(1,1,2) and a.casting==1 and is_equal_approx(a.cast_left,.6), "Moving Severe retains its 0.6-second cast")
 		var before: Vector3=a.position
 		tick(a,.1)
-		var expected_speed: float=3.8 if direction.y>0 else 6.5
+		var expected_speed: float=game.MovementTuning.BACKWARD_SPEED if direction.y>0 else game.MovementTuning.FORWARD_SPEED
 		ck(a.casting==1 and is_equal_approx(Vector2(a.velocity.x,a.velocity.z).length(),expected_speed) and a.position.distance_to(before)>.35, "Severe keeps normal movement and remains in progress")
 		b.position=a.position+Vector3.FORWARD*2
 		ck(game.try_spell(2,2,1) and a.casting==1 and a.locked==0, "Kick cannot cancel Severe or apply a school lockout")
 		for frame in 31:
 			b.position=a.position+Vector3.FORWARD*2
 			tick(a,1.0/60)
-		ck(a.casting==-1 and b.hp==80 and b.identity.severe_bleeds.has(1), "Moving Severe finishes with its normal damage and bleed")
+		ck(a.casting==-1 and b.hp==1300 and b.identity.severe_bleeds.has(1), "Moving Severe finishes with its normal damage and bleed")
 		ck(a.cooldowns[1]>3.9 and a.cooldowns[1]<=4 and a.gcd>0 and a.identity.outlaw_channel.is_empty(), "Severe keeps its cooldown and GCD without entering the gun-channel system")
 	await reset()
 	game.try_spell(1,1,2);a.move_input=Vector2.RIGHT;tick(a,.1)
@@ -119,12 +119,12 @@ func moving_severe() -> void:
 	ck(a.casting==-1, "Severe still responds to hard crowd control")
 	await reset()
 	game.try_spell(1,1,2);b.position.z=-10;tick(a,.65)
-	ck(b.hp==100 and b.identity.severe_bleeds.is_empty(), "Severe still checks melee range when it finishes")
+	ck(b.hp==b.MAX_HEALTH and b.identity.severe_bleeds.is_empty(), "Severe still checks melee range when it finishes")
 	await reset()
 	game.try_spell(1,1,2)
 	var obstacle:=wall(Vector3(0,1.5,-1),Vector3(2,3,.3));await physics_frame
 	tick(a,.65)
-	ck(b.hp==100 and b.identity.severe_bleeds.is_empty(), "Severe still checks terrain when it finishes")
+	ck(b.hp==b.MAX_HEALTH and b.identity.severe_bleeds.is_empty(), "Severe still checks terrain when it finishes")
 	obstacle.queue_free();await physics_frame
 	await reset()
 	a.move_input=Vector2.RIGHT
@@ -139,7 +139,7 @@ func moving_starshot() -> void:
 			a.walking=walking; a.move_input=direction
 			ck(game.try_spell(1,0,2) and a.casting==0 and is_equal_approx(a.cast_left,.7), "Starshot starts while running/walking in every direction and keeps its 0.7s cast")
 			tick(a,.1)
-			var normal_speed: float=(3.8 if direction.y>0 else 6.5)*(.5 if walking else 1.0)
+			var normal_speed: float=(game.MovementTuning.BACKWARD_SPEED if direction.y>0 else game.MovementTuning.FORWARD_SPEED)*(.5 if walking else 1.0)
 			ck(a.casting==0 and is_equal_approx(Vector2(a.velocity.x,a.velocity.z).length(),normal_speed*.7), "Starshot reduces running, walking and diagonal/backpedal speed by exactly 30 percent")
 			b.position=a.position+Vector3.FORWARD*2
 			var remaining: float=a.cast_left
@@ -147,35 +147,35 @@ func moving_starshot() -> void:
 			for frame in 37:
 				b.position=a.position+Vector3.FORWARD*2
 				tick(a,1.0/60)
-			ck(a.casting==-1 and b.hp==92 and a.identity.outlaw_channel.is_empty(), "Moving Starshot completes eight damage without a channel: %s walking=%s" % [direction,walking])
+			ck(a.casting==-1 and b.hp==1420 and a.identity.outlaw_channel.is_empty(), "Moving Starshot completes eighty HP damage without a channel: %s walking=%s" % [direction,walking])
 			tick(a,.02)
 			ck(is_equal_approx(Vector2(a.velocity.x,a.velocity.z).length(),normal_speed), "Normal movement speed returns after Starshot completes")
 	await reset()
 	game.try_spell(1,0,2); a.move_input=Vector2.RIGHT; tick(a,.1)
-	ck(a.casting==0 and is_equal_approx(a.velocity.x,4.55), "Starting movement after Starshot begins keeps the cast and applies its speed cost")
+	ck(a.casting==0 and is_equal_approx(a.velocity.x,game.MovementTuning.FORWARD_SPEED*.7), "Starting movement after Starshot begins keeps the cast and applies its speed cost")
 	game.cancel_own_cast(a,"Test"); tick(a,.02)
-	ck(a.casting==-1 and is_equal_approx(a.velocity.x,6.5), "Cancelling Starshot immediately restores running speed")
+	ck(a.casting==-1 and is_equal_approx(a.velocity.x,game.MovementTuning.FORWARD_SPEED), "Cancelling Starshot immediately restores running speed")
 	await reset()
 	game.try_spell(1,0,2); game.CC.apply(a,"stun",1,"Test"); tick(a,.8)
-	ck(a.casting==-1 and b.hp==100, "Hard crowd control still cancels Starshot")
+	ck(a.casting==-1 and b.hp==b.MAX_HEALTH, "Hard crowd control still cancels Starshot")
 	await reset()
 	game.try_spell(1,0,2); b.position.z=-25; tick(a,.71)
-	ck(a.casting==-1 and b.hp==100, "Starshot rechecks its unchanged 18m range at completion")
+	ck(a.casting==-1 and b.hp==b.MAX_HEALTH, "Starshot rechecks its unchanged 18m range at completion")
 	await reset()
 	game.try_spell(1,0,2)
 	var obstacle:=wall(Vector3(0,1.5,-1),Vector3(2,3,.3)); await physics_frame
 	tick(a,.71)
-	ck(a.casting==-1 and b.hp==100, "Starshot still checks terrain when it finishes")
+	ck(a.casting==-1 and b.hp==b.MAX_HEALTH, "Starshot still checks terrain when it finishes")
 	obstacle.queue_free(); await physics_frame
 	await reset()
 	a.move_input=Vector2.UP; game.try_spell(1,0,2); a.jump_queued=true; tick(a,.1)
-	ck(a.casting==0 and not a.is_on_floor() and is_equal_approx(a.velocity.z,-4.55), "Jumping during Starshot keeps the cast and the slowed takeoff momentum")
+	ck(a.casting==0 and not a.is_on_floor() and is_equal_approx(a.velocity.z,-game.MovementTuning.FORWARD_SPEED*.7), "Jumping during Starshot keeps the cast and the slowed takeoff momentum")
 	a.move_input=Vector2.RIGHT; tick(a,.1)
-	ck(a.casting==0 and is_equal_approx(a.velocity.z,-4.55) and absf(a.velocity.x)<.001, "Casting still preserves world-space jump direction while airborne")
+	ck(a.casting==0 and is_equal_approx(a.velocity.z,-game.MovementTuning.FORWARD_SPEED*.7) and absf(a.velocity.x)<.001, "Casting still preserves world-space jump direction while airborne")
 	await reset()
 	a.move_input=Vector2.UP; a.walking=true; a.sprint=2; a.identity.slow=2
 	game.try_spell(1,0,2); tick(a,.1)
-	ck(is_equal_approx(absf(a.velocity.z),6.5*.5*1.65*.55*.7), "Starshot's self speed cost composes with existing walk, sprint and slow modifiers")
+	ck(is_equal_approx(absf(a.velocity.z),game.MovementTuning.FORWARD_SPEED*.5*1.65*.55*.7), "Starshot's self speed cost composes with existing walk, sprint and slow modifiers")
 
 func measure_backflip(legacy: bool, rate: int, yaw := 0.0) -> Dictionary:
 	var previous_rate := Engine.physics_ticks_per_second
@@ -183,7 +183,11 @@ func measure_backflip(legacy: bool, rate: int, yaw := 0.0) -> Dictionary:
 	await physics_frame
 	await reset()
 	a.position = Vector3(0,20.025,0); a.velocity = Vector3.ZERO; a.rotation.y = yaw
-	for frame in 10: game.simulate_movement(a,1.0/60)
+	# Let the engine adopt the requested physics rate and settle contact on
+	# actual frames; a tight loop retains the preceding frame's slide delta.
+	for frame in 10:
+		await physics_frame
+		game.simulate_movement(a,1.0/rate)
 	var start: Vector3 = a.position
 	ck(game.try_spell(1,3,-1),"Backflip trajectory fixture launches from grounded terrain")
 	if legacy:
@@ -222,14 +226,14 @@ func backflip_trajectory() -> void:
 func backflip_and_coin() -> void:
 	await reset()
 	ck(not game.try_spell(1,2,2), "Trickshot requires its own combo window")
-	ck(game.try_spell(1,3,-1) and b.hp == 100, "Backflip is purely movement and deals no damage")
+	ck(game.try_spell(1,3,-1) and b.hp == b.MAX_HEALTH, "Backflip is purely movement and deals no damage")
 	var launch: Vector3 = a.velocity
 	for category in game.CC.CATEGORIES:
 		ck(game.CC.apply(a, category, 3, "Test") == 0 and not a.dr_states.has(category), "Airborne Backflip blocks " + category + " without gaining DR")
 	var before: Vector3 = a.position; game.move_ability(a,Vector3.RIGHT*8)
 	ck(a.position == before and a.velocity == launch, "Backflip also blocks forced displacement")
 	a.gcd = 1.5
-	ck(game.try_spell(1,2,2) and b.hp == 82, "Separate Trickshot fires during Backflip despite global cooldown")
+	ck(game.try_spell(1,2,2) and b.hp == 1320, "Separate Trickshot fires during Backflip despite global cooldown")
 	ck(a.identity.defense_detonation == 1 and not a.identity.backflip_combo, "One successful airborne Trickshot earns one stack and consumes its opportunity")
 	ck(not game.try_spell(1,2,2), "A Backflip opportunity cannot be spent twice")
 	tick(a, 1.5)
@@ -254,14 +258,14 @@ func backflip_and_coin() -> void:
 	ck(game.try_spell(1,7,-1), "Coin Toss is usable without a selected enemy")
 	game.Outlaw.tick(game,a,.5)
 	ck(a.identity.coin_left > 1.2 and a.identity.coin_position.y > 2, "Coin travels in a visible physical arc")
-	ck(game.try_spell(1,2,2) and b.hp == 82 and a.identity.coin_left == 0, "Coin Trickshot fires off GCD and consumes the flying coin")
+	ck(game.try_spell(1,2,2) and b.hp == 1320 and a.identity.coin_left == 0, "Coin Trickshot fires off GCD and consumes the flying coin")
 	ck(a.identity.defense_detonation == 1, "A successful coin combo awards one stack")
 	await reset()
 	var obstacle := wall(Vector3(0,1.5,-1),Vector3(1,3,.3)); await physics_frame
 	# A real two-segment path around the right edge of a pillar.
 	a.identity.coin_left = 1; a.identity.coin_position = Vector3(2,2,-1)
 	ck(not game.has_los(a,b), "Coin fixture blocks direct player-to-target sight")
-	ck(game.try_spell(1,2,2) and b.hp == 82, "Trickshot can ricochet around cover when both bullet legs are clear")
+	ck(game.try_spell(1,2,2) and b.hp == 1320, "Trickshot can ricochet around cover when both bullet legs are clear")
 	a.identity.coin_left = 1; a.identity.coin_position = Vector3(0,1,-.5)
 	ck(not game.try_spell(1,2,2) and a.identity.coin_left == 1, "A blocked coin-to-target leg neither hits nor consumes the coin")
 	a.gcd = 0; a.cooldowns[7] = 0; game.try_spell(1,7,-1)
@@ -272,7 +276,7 @@ func backflip_and_coin() -> void:
 	a.identity.coin_left = .01; game.Outlaw.tick(game,a,.02)
 	ck(not game.try_spell(1,2,2), "Expired coin grants no lingering Trickshot charge")
 	game.world_mode = true; a.identity.coin_left = 1; a.identity.coin_position = a.position + Vector3.UP*2
-	ck(not game.try_spell(1,2,2) and b.hp == 100 and a.identity.defense_detonation == 0, "Combos cannot damage or gain stacks from world bystanders")
+	ck(not game.try_spell(1,2,2) and b.hp == b.MAX_HEALTH and a.identity.defense_detonation == 0, "Combos cannot damage or gain stacks from world bystanders")
 
 class ClientOnly extends RefCounted:
 	func authoritative() -> bool: return false
@@ -285,7 +289,7 @@ func detonation_foundation() -> void:
 		ck(game.proc_ready(a,a.kit[8]) == (count>0), "Detonation signals each available stack count, including one")
 		ck(not game.try_spell(1,8,2), "Old targeted Detonation commands are rejected at every stack count")
 		tick(a,3.1)
-		ck(a.identity.defense_detonation == count and a.casting == -1 and b.hp == 100, "Rejected legacy cast never spends stacks, channels or deals automatic damage")
+		ck(a.identity.defense_detonation == count and a.casting == -1 and b.hp == b.MAX_HEALTH, "Rejected legacy cast never spends stacks, channels or deals automatic damage")
 		var plan: Dictionary = game.Outlaw.detonation_burst_plan(a)
 		ck(plan.is_empty() == (count==0), "A future burst requires at least one stack, not three")
 		ck(a.identity.defense_detonation == count, "Inspecting a burst plan leaves the resource unchanged")
@@ -295,7 +299,7 @@ func detonation_foundation() -> void:
 			continue
 		ck(reserved.shots == count and a.identity.defense_detonation == 0, "Future authoritative fire reserves every current stack atomically")
 		ck(reserved.offsets.size() == count and reserved.offsets[0] == 0 and reserved.offsets.back() <= .26, "The first shot has no windup and up to three shots form a rapid burst")
-		ck(is_equal_approx(reserved.health_fraction,.1) and a.casting == -1 and b.hp == 100, "Prepared burst keeps ten-percent shot damage without performing a channel or hit")
+		ck(is_equal_approx(reserved.health_fraction,.1) and a.casting == -1 and b.hp == b.MAX_HEALTH, "Prepared burst keeps ten-percent shot damage without performing a channel or hit")
 		if count > 1: ck(is_equal_approx(reserved.offsets[1],.13), "Prepared shots use 130ms spacing")
 		ck(game.Outlaw.reserve_detonation_burst(game,a).is_empty(), "A repeated request cannot reuse spent stacks")
 		a.identity.defense_detonation = 1
@@ -318,11 +322,11 @@ func channels() -> void:
 	var remaining: float = a.cast_left
 	ck(game.try_spell(2,2,1) and a.casting == 9 and a.locked == 0 and is_equal_approx(a.cast_left,remaining), "Enemy kick neither cancels Deadeye, changes its timer nor applies lockout")
 	tick(a,2.81)
-	ck(a.casting == -1 and b.hp == 60, "Deadeye completes its full damage after an enemy kick")
+	ck(a.casting == -1 and b.hp == 1100, "Deadeye completes its full damage after an enemy kick")
 	await reset()
 	game.try_spell(1,9,-1)
 	game.CC.apply(a,"stun",1,"Test"); tick(a,.1)
-	ck(a.casting == -1 and a.identity.outlaw_channel.is_empty() and b.hp == 100, "Deadeye remains vulnerable to non-kick crowd control")
+	ck(a.casting == -1 and a.identity.outlaw_channel.is_empty() and b.hp == b.MAX_HEALTH, "Deadeye remains vulnerable to non-kick crowd control")
 	ck(a.cooldowns[9] == 0, "Interrupted Deadeye refunds its entire remaining cooldown")
 	await reset()
 	game.spawn_actor(3,3,1,"Vanguard",Vector3(0,.025,8))
@@ -335,16 +339,16 @@ func channels() -> void:
 	ck(a.position.distance_to(before) > .3 and a.position.distance_to(before) < .35 and a.velocity.y <= 0, "Deadeye forces walking speed and prevents jumping")
 	a.move_input = Vector2.ZERO
 	tick(a,2.91)
-	ck(b.hp == 100, "Enemy still behind terrain at Deadeye completion takes no damage")
-	ck(game.actors[3].hp == 60, "Final clarification: a visible enemy behind the caster is also hit")
-	ck(game.actors[4].hp == 100 and a.casting == -1, "Deadeye respects final sight range and releases walking state")
+	ck(b.hp == b.MAX_HEALTH, "Enemy still behind terrain at Deadeye completion takes no damage")
+	ck(game.actors[3].hp == 1100, "Final clarification: a visible enemy behind the caster is also hit")
+	ck(game.actors[4].hp == game.actors[4].MAX_HEALTH and a.casting == -1, "Deadeye respects final sight range and releases walking state")
 	obstacle.queue_free(); await physics_frame
 	await reset()
 	obstacle = wall(Vector3(0,1.5,-1),Vector3(1,3,.3)); await physics_frame
 	game.try_spell(1,9,-1); tick(a,1)
 	obstacle.queue_free(); await physics_frame
 	tick(a,2.01)
-	ck(b.hp == 60, "Enemy acquired behind cover is hit if visible when Deadeye finishes")
+	ck(b.hp == 1100, "Enemy acquired behind cover is hit if visible when Deadeye finishes")
 	await reset()
 	a.identity.defense_detonation = 2; a.identity.instant_severe = .7; a.identity.coin_left = .8
 	var state: Dictionary = bytes_to_var(var_to_bytes(a.snapshot()))
@@ -363,11 +367,11 @@ func severe_reach() -> void:
 		b.position = a.position + Vector3.FORWARD*3.299
 		ck(game.try_spell(1,1,2),"Severe can start just inside its expanded reach")
 		tick(a,.61)
-		ck(b.hp==80 and b.identity.severe_bleeds.has(1),"Severe lands full damage and bleed within the new reach")
+		ck(b.hp==1300 and b.identity.severe_bleeds.has(1),"Severe lands full damage and bleed within the new reach")
 	await reset()
 	b.position = a.position + Vector3.FORWARD*3.2
 	game.try_spell(1,1,2); b.position.z -= .2; tick(a,.61)
-	ck(b.hp==100,"Moving beyond the expanded range before completion still avoids Severe")
+	ck(b.hp==b.MAX_HEALTH,"Moving beyond the expanded range before completion still avoids Severe")
 
 func coin_momentum() -> void:
 	# Actual movement establishes launch velocity; a clear raised floor keeps
@@ -389,7 +393,7 @@ func coin_momentum() -> void:
 			ck(relative.distance_to(heading*2.5)<.02,"Coin gains 2.5m over its moving caster in half a second, including diagonals/backpedal")
 			if direction==Vector2.UP:
 				var travel: Vector3=a.identity.coin_position-origin; travel.y=0
-				ck(absf(travel.length()-5.75)<.02,"Forward-running coin travels at 11.5m/s instead of falling behind a 6.5m/s runner")
+				ck(absf(travel.length()-(5.0+game.MovementTuning.FORWARD_SPEED)*.5)<.02,"Forward-running coin adds its launch speed to the current movement speed")
 			var current: Vector3=a.identity.coin_position
 			a.move_input=-direction; a.rotation.y += PI; a.velocity=Vector3.ZERO
 			tick(a,.25)
@@ -398,7 +402,7 @@ func coin_momentum() -> void:
 			ck(remaining_travel.distance_to(expected)<.02,"Stopping or turning afterward does not steer a released coin")
 	floor_body.queue_free(); await physics_frame
 	await reset()
-	a.position.y=10; a.velocity=Vector3(0,7,-6.5)
+	a.position.y=10; a.velocity=Vector3(0,7,-game.MovementTuning.FORWARD_SPEED)
 	game.try_spell(1,7,-1)
 	var origin: Vector3=a.identity.coin_origin
 	game.Outlaw.tick(game,a,.25)
@@ -406,7 +410,7 @@ func coin_momentum() -> void:
 	var saved: Dictionary=bytes_to_var(var_to_bytes(a.snapshot()))
 	var position: Vector3=a.identity.coin_position
 	a.reset_identity(); a.receive(saved,true)
-	ck(a.identity.coin_momentum==Vector3(0,7,-6.5) and a.identity.coin_position==position,"Coin launch momentum and position survive the network snapshot format")
+	ck(a.identity.coin_momentum==Vector3(0,7,-game.MovementTuning.FORWARD_SPEED) and a.identity.coin_position==position,"Coin launch momentum and position survive the network snapshot format")
 	game.Outlaw.tick(game,a,1.56)
 	ck(a.identity.coin_left==0,"Inherited momentum does not lengthen the 1.8s combo window")
 	a.reset_identity()
@@ -425,12 +429,12 @@ func deadeye_refunds() -> void:
 		game.try_spell(1,9,-1); tick(a,.25)
 		ck(a.cooldowns[9]>89 and a.casting==9,"Deadeye reserves its normal cooldown during the windup")
 		game.CC.apply(a,category,1,"Test"); tick(a,1.0/60)
-		ck(a.casting==-1 and a.cooldowns[9]==0 and b.hp==100 and a.identity.outlaw_channel.is_empty(),"Deadeye refunds on "+category+" without applying damage")
+		ck(a.casting==-1 and a.cooldowns[9]==0 and b.hp==b.MAX_HEALTH and a.identity.outlaw_channel.is_empty(),"Deadeye refunds on "+category+" without applying damage")
 	for elapsed in [.05,1.5,2.99]:
 		await reset()
 		game.try_spell(1,9,-1); tick(a,elapsed)
 		game.cancel_own_cast(a,""); tick(a,1.0/60)
-		ck(a.cooldowns[9]==0 and b.hp==100,"Manual cancellation refunds Deadeye even immediately before completion")
+		ck(a.cooldowns[9]==0 and b.hp==b.MAX_HEALTH,"Manual cancellation refunds Deadeye even immediately before completion")
 		ck(game.try_spell(1,9,-1) and a.cooldowns[9]==90,"Refunded Deadeye can be cast again after cancellation")
 	for slot in [1,8]:
 		await reset()
@@ -459,17 +463,17 @@ func deadeye_refunds() -> void:
 	game.try_spell(2,2,1); tick(a,.1)
 	ck(a.casting==9 and a.cooldowns[9]>89,"An ineffective kick does not grant a cooldown refund")
 	tick(a,2.71)
-	ck(a.casting==-1 and b.hp==60 and a.cooldowns[9]>86,"Completed Deadeye keeps its cooldown and damage")
+	ck(a.casting==-1 and b.hp==1100 and a.cooldowns[9]>86,"Completed Deadeye keeps its cooldown and damage")
 	a.gcd=0; game.try_spell(1,0,2); game.cancel_own_cast(a,""); tick(a,.1)
 	ck(a.cooldowns[9]>86,"Cancelling a later spell cannot refund an already completed Deadeye")
 	await reset()
 	game.try_spell(1,9,-1); b.position.z=-25; tick(a,3.01)
-	ck(a.casting==-1 and b.hp==100 and a.cooldowns[9]>86,"Finishing with nobody in range still spends Deadeye's cooldown")
+	ck(a.casting==-1 and b.hp==b.MAX_HEALTH and a.cooldowns[9]>86,"Finishing with nobody in range still spends Deadeye's cooldown")
 	await reset()
 	game.try_spell(1,9,-1)
 	var obstacle:=wall(Vector3(0,1.5,-1),Vector3(2,3,.3)); await physics_frame
 	tick(a,3.01)
-	ck(a.casting==-1 and b.hp==100 and a.cooldowns[9]>86,"Finishing with everyone behind cover is a completed cast, not a refund")
+	ck(a.casting==-1 and b.hp==b.MAX_HEALTH and a.cooldowns[9]>86,"Finishing with everyone behind cover is a completed cast, not a refund")
 	obstacle.queue_free(); await physics_frame
 	await reset()
 

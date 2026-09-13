@@ -3435,7 +3435,7 @@ func show_edit_previews() -> void:
 		frame.visible = true
 		frame.get_child(0).hide()
 		var bar := frame.get_child(1) as ProgressBar
-		bar.value = 100
+		bar.value = bar.max_value
 		(bar.get_child(0) as Label).text = "100%"
 		(frame.get_child(2) as ProgressBar).visible = false
 		(frame.get_child(3) as Label).text = ""
@@ -3454,7 +3454,7 @@ func show_edit_previews() -> void:
 			row.text = ""
 			row.custom_minimum_size.y = 64
 			var health := roster_bar(row)
-			health.value = 100
+			health.value = health.max_value
 			var thin = health.get_node("ThinResource")
 			thin.show()
 			thin.fraction = 0.65
@@ -3501,6 +3501,7 @@ func update_frame(frame: VBoxContainer, id: int, prefix: String) -> void:
 	if not friendly and Null.stealthed(actor): frame.hide(); return
 	frame.get_child(0).hide()
 	var health := frame.get_child(1) as ProgressBar
+	health.max_value = actor.MAX_HEALTH
 	health.value = actor.hp
 	var fill := health.get_theme_stylebox("fill") as StyleBoxFlat
 	fill.bg_color = hud_health_color(actor.champion)
@@ -3780,11 +3781,12 @@ func paint_roster_row(button: Button, actor, _title: String, friendly: bool) -> 
 	var bar := roster_bar(button)
 	if bar == null:
 		return
+	bar.max_value = actor.MAX_HEALTH
 	bar.value = actor.hp
 	var fill := bar.get_theme_stylebox("fill") as StyleBoxFlat
 	fill.bg_color = hud_health_color(actor.champion)
 	paint_bar_edge(bar, BLUE if friendly else ENEMY_EDGE, 2 if actor.actor_id == selected_id else 1)
-	(bar.get_child(0) as Label).text = "%d%%" % ceili(actor.hp)
+	(bar.get_child(0) as Label).text = "%d%%" % ceili(100.0 * actor.hp / actor.MAX_HEALTH)
 	bar.get_node("ThinResource").sync(actor)
 	button.get_node("Details").sync(actor)
 	if button.has_node("DiminishingReturns"): button.get_node("DiminishingReturns").sync(actor)
