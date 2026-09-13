@@ -182,6 +182,10 @@ jobs:
         if: matrix.suite == 'gameplay'
         run: ./tests/check_suite.sh "Null ability checks" godot --headless --path . --script tests/null_abilities_test.gd
 
+      - name: Null approved hybrid locomotion and server pose parity
+        if: matrix.suite == 'gameplay'
+        run: ./tests/check_suite.sh "Null locomotion checks" godot --headless --path . --script tests/null_locomotion_test.gd
+
       - name: Body hitbox fit and aimed cooldown foundation
         if: matrix.suite == 'gameplay'
         run: |

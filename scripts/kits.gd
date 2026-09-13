@@ -156,7 +156,7 @@ static func summary(ability: Dictionary) -> String:
 		"stab": "Strike your enemy for 120 damage.",
 		"backstab": "Deal 245 damage from behind your target. 30s cooldown.",
 		"blindside": "Instantly teleport behind your target. Off the global cooldown; requires a safe landing.",
-		"vantage": "Rise vertically for 0.5s, then dive at your target with both blades. Contact deals 220 damage and knocks them down with a 4s stun. No rebound.",
+		"vantage": "Usable while jumping. Rise for 0.5s, then ease into a dive with both blades and accelerate as you close on your target. Longer dives travel faster. Contact deals 220 damage and knocks them down with a 4s stun. No rebound.",
 		"nerve_lock": "Stun an enemy within 3.5m for 4s. Uses stun diminishing returns.",
 		"chronoshift": "Choose an ability by pressing its normal keybind to refresh its normal cooldown. That ability cannot be refreshed by Chronoshift again for twice its own cooldown. Costs 100 Essence.",
 		"null_haste": "Move 50% faster for 6s. 25s cooldown.",

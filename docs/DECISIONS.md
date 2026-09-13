@@ -1,5 +1,9 @@
 # Decisions — long-term reasoning memory
 
+## 2026-09-12 — Local reference libraries and owner-selected animations
+
+The owner wants the reviewed addon/animation libraries available for repeated future use without adding unnecessary Git/server storage. Keep their originals on this computer and exclude the unused packages and reusable cache from Git, Docker and game exports. Promote only approved required runtime outputs/dependencies. For new animation selection, offer all relevant candidates as neutral, identity-free mannequin previews and wait for approval before installation; save rebuilt clips and recipes so future work can reuse them. This replaces automatic animation selection, not the frozen model anatomy or hitbox standards. Canonical details: [resource registry](ADDON_RESOURCE_NOTES.md), [animation workflow](ANIMATION_WORKFLOW.md). Local-only files need a separate backup.
+
 ## 2026-09-09 — Reduce rendering work without lowering native resolution
 
 Keep the owner’s 60 FPS/100% 3D defaults and audio exclusion. Generate arena LODs offline while retaining packed base geometry and baked-lighting UVs. Skip floor noise only when its multiplier is exactly zero. Reject position-only shadow meshes after native visual review found changed shadows. Isolated short six-player tests measured ~3.5% less GPU time on the RX 7800 XT at 1080p; this is an incremental saving, not a utilization target or minimum-spec guarantee. See `FORWARD_PLUS_ASSESSMENT.md`.

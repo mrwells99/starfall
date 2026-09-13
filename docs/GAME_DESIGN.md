@@ -80,8 +80,8 @@ See [`CLASS_ABILITIES.md`](CLASS_ABILITIES.md). `scripts/kits.gd` and `scripts/c
 
 **Movement, turn, jump:**
 
-- Forward and strafe: 6.5 u/s.
-- Backward (positive backward component): 3.8 u/s.
+- Forward and strafe: 6.1425 u/s (10% reduction followed by a 5% increase).
+- Backward (positive backward component): 3.591 u/s.
 - Keyboard turn: 2.5 rad/s by default; adjustable from 60–360 degrees/s in Comfort.
 - Walking: half of the current run/backpedal speed, with existing sprint/slow multipliers still applied.
 - Jump impulse 7; gravity 20.

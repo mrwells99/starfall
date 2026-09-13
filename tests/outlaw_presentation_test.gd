@@ -9,7 +9,8 @@ func run() -> void:
 	var actor = load("res://scripts/combatant.gd").new(); root.add_child(actor); actor.setup(1,1,0,"Outlaw")
 	var art = actor.champion_model.outlaw_art
 	var rig: Skeleton3D = art.skeleton
-	ck(rig.get_bone_count()==85 and art.clip_names.size()==37, "Outlaw imports 85 bones, 36 original clips and the Mend hand-work clip")
+	ck(rig.get_bone_count()==85 and art.clip_names.size()==54, "Outlaw retains its 37 native/action clips and adds 17 approved movement loops")
+	ck(art.transition_style==2 and art.get_script().resource_path=="res://scripts/outlaw_movement_art.gd", "Outlaw is the original B comparison presenter")
 	for item in [["outlaw.gun","DEF-hand.R"],["outlaw.knife","DEF-hand.L"]]:
 		ck(rig.get_bone_parent(rig.find_bone(item[0]))==rig.find_bone(item[1]), "Equipment remains attached to its actual carrying hand: "+item[0])
 	actor.presentation_grounded = true
@@ -21,7 +22,7 @@ func run() -> void:
 		ck(finite,"Every sampled pose stays finite: "+label)
 		for i in art.equipment.grip:
 			ck(rig.get_bone_pose_rotation(i).angle_to(art.equipment.grip[i])<.001,"Closed equipment grip persists in "+label)
-	for item in [[Vector3.BACK,"WalkBackward"],[Vector3(1,0,1).normalized(),"WalkBackwardRight"],[Vector3(-1,0,1).normalized(),"WalkBackwardLeft"],[Vector3.RIGHT,"SprintRight"],[Vector3.FORWARD,"Sprint"]]:
+	for item in [[Vector3.BACK,"TravelBackward"],[Vector3(1,0,1).normalized(),"TravelBackwardRight"],[Vector3(-1,0,1).normalized(),"TravelBackwardLeft"],[Vector3.RIGHT,"TravelRight"],[Vector3.FORWARD,"TravelForward"]]:
 		actor.casting=-1; art.transient_left=0; art.was_casting=false; art.was_airborne=false
 		for i in 20:
 			art.last_position = actor.position - item[0]*6.5/60
@@ -36,7 +37,7 @@ func run() -> void:
 	for i in 20:
 		art.last_position=actor.position+Vector3.BACK*3.25/60
 		actor.champion_model.animate(1.0/60,actor)
-	ck(art.clip=="Walk", "Deadeye uses the library's walking gait")
+	ck(art.clip=="MeasuredForward", "Deadeye uses the shared slower forward gait")
 	await directional_actions(actor, art)
 	actor.casting=-1; actor.identity.roll_left=art.Outlaw.ROLL_SECONDS*.5; actor.identity.roll_direction=Vector3.LEFT
 	actor.champion_model.animate(.016,actor)
@@ -109,6 +110,7 @@ func early_backflip(actor,art) -> void:
 			actor.champion_model.animate(1.0/rate,actor)
 			if frame==0:
 				var first: float=rad_to_deg(before.angle_to(art.skeleton.get_bone_global_pose(hips).basis.get_rotation_quaternion()))
+				print("BACKFLIP_ENTRY_ROTATION %d FPS: %.3f degrees" % [rate,first])
 				ck(first>0 and first<20,"Backflip begins rotating immediately with a short smooth blend at %d FPS" % rate)
 		var early: float=rad_to_deg(before.angle_to(art.skeleton.get_bone_global_pose(hips).basis.get_rotation_quaternion()))
 		ck(early>25,"Body is already visibly flipping within roughly 100ms of takeoff at %d FPS" % rate)
@@ -116,8 +118,7 @@ func early_backflip(actor,art) -> void:
 
 func directional_actions(actor, art) -> void:
 	var directions := [Vector3.FORWARD, Vector3(1,0,-1).normalized(), Vector3.RIGHT, Vector3(1,0,1).normalized(), Vector3.BACK, Vector3(-1,0,1).normalized(), Vector3.LEFT, Vector3(-1,0,-1).normalized()]
-	var walks := ["Walk", "WalkForwardRight", "StrafeRight", "WalkBackwardRight", "WalkBackward", "WalkBackwardLeft", "StrafeLeft", "WalkForwardLeft"]
-	var runs := ["Run", "RunForwardRight", "RunRight", "WalkBackwardRight", "WalkBackward", "WalkBackwardLeft", "RunLeft", "RunForwardLeft"]
+	var suffixes := ["Forward", "ForwardRight", "Right", "BackwardRight", "Backward", "BackwardLeft", "Left", "ForwardLeft"]
 	for yaw in [0.0, PI/2]:
 		actor.rotation.y = yaw
 		for action in [["Deadeye",9,false,3.25], ["Detonation",-1,false,6.5], ["Severe",1,false,6.5], ["Walking Severe",1,true,1.6], ["Walking Detonation",-1,true,3.25], ["Starshot",0,false,4.55], ["Walking Starshot",0,true,2.275], ["Walking shot recovery",-1,true,1.6], ["Walking knife strike",-1,true,1.6]]:
@@ -141,12 +142,18 @@ func directional_actions(actor, art) -> void:
 				for frame in 12:
 					art.last_position=actor.position-actor.basis*directions[sector]*motion_speed/60.0
 					actor.champion_model.animate(1.0/60,actor)
-				var expected: String = runs[sector] if action[0] in ["Detonation","Severe","Starshot"] else walks[sector]
+				var normal_speed:float=preload("res://scripts/movement_tuning.gd").BACKWARD_SPEED if sector in [3,4,5] else preload("res://scripts/movement_tuning.gd").FORWARD_SPEED
+				var measured:bool=action[2] or action[0]=="Deadeye" or motion_speed<normal_speed*.75
+				var expected: String = ("Measured" if measured else "Travel")+suffixes[sector]
 				if not natural_clip.is_empty(): expected=natural_clip
 				ck(art.clip==expected and art.player.current_animation==art.clip_names[expected], "%s sector %d at yaw %.2f plays the actual imported clip" % [action[0],sector,yaw])
 				ck(art.skeleton.get_bone_global_pose(art.skeleton.find_bone("DEF-hand.R")).is_finite(), "%s sector %d keeps the carrying arm finite" % [action[0],sector])
 				if action[1]==0:
-					var rate: float=clampf(motion_speed/3.8*1.15,.55,2.5) if sector in [3,4,5] else (clampf(motion_speed/1.35,.55,2.5) if action[2] else clampf(motion_speed/2.8,.55,2.5)*.9)
+					var animation:Animation=art.player.get_animation(art.clip_names[expected])
+					var nominal:float=animation.get_meta("nominal_speed_m_s")
+					var compensation:=1.0/preload("res://scripts/movement_tuning.gd").SPEED_SCALE if sector==0 else 1.0
+					if sector in [1,7]:compensation*=.85*1.05
+					var rate:float=clampf(motion_speed/4.4,.55,2.5)*.9 if expected=="TravelForward" else motion_speed/nominal*compensation
 					ck(absf(art.player.speed_scale-rate)<.08,"Starshot running/walking cadence follows the slowed travel speed")
 	actor.rotation.y=0;actor.walking=false;actor.casting=-1
 	art.shot_left=0;art.knife_left=0;art.test_aim_weight=0

@@ -34,8 +34,10 @@ func run() -> void:
 					if state == "slow_left": direction = Vector3.LEFT * .4
 					if state=="roll_run" and t>=Outlaw.ROLL_SECONDS: direction=Vector3.FORWARD
 					actor.position += direction*(3.8 if state == "backpedal" else 6.5)/60.0
-					actor.presentation_grounded = state not in ["jump","backflip"]
+					actor.presentation_grounded = state not in ["jump","backflip","null_lift","null_dive"]
 					actor.velocity.y = 7-20*t if state == "jump" else (12-20*t if state == "backflip" else 0)
+					if state=="null_lift":actor.velocity.y=16.0-24.0*minf(t,.5)
+					if state=="null_dive":actor.velocity.y=-25.0/sqrt(2.0)
 					actor.presentation_vertical_speed = actor.velocity.y
 					actor.casting = 0 if state == "cast" else -1
 					actor.cast_left = maxf(.01,1.5-t) if state == "cast" else 0
@@ -65,7 +67,8 @@ func run() -> void:
 			maximum_error = maxf(maximum_error,error)
 			check(error < .0005,title+" "+state+" server/visible hitbox error under 0.5 mm; measured "+str(error))
 			if state.begins_with("slow_"):
-				check(v_art.clip.begins_with("Walk") or v_art.clip.begins_with("Strafe"),title+" uses a walking gait during Severe's slow")
+				var slower_gait: bool = v_art.clip.begins_with("Measured") if title in ["Null","Outlaw"] else (v_art.clip.begins_with("Walk") or v_art.clip.begins_with("Strafe"))
+				check(slower_gait,title+" uses its approved slower gait during Severe's slow")
 		if title == "Vanguard":
 			v_art.strike(); s_art.strike()
 			for frame in 30:

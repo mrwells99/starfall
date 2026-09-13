@@ -163,7 +163,7 @@ func run() -> void:
 	for direction in [Vector3.RIGHT,Vector3.BACK]:
 		for frame in 24:
 			actor.position += direction*.07; step()
-		check(art.clip == ("RunRight" if direction == Vector3.RIGHT else "WalkBackward"),"Aiming retains accepted lateral movement and reversed backpedal clips")
+		check(art.clip == ("MeasuredRight" if direction == Vector3.RIGHT else "TravelBackward"),"Aiming retains the shared speed-matched lateral and backward movement")
 	actor.position = Vector3(0,.05,5); actor.rotation.y = 0; game.local_yaw = 0; game.pivot.rotation.y = 0; preview.aim_pitch = 0; settle()
 	var wall := StaticBody3D.new(); wall.collision_layer = 1; wall.collision_mask = 0
 	var shape := CollisionShape3D.new(); var box := BoxShape3D.new(); box.size = Vector3(.1,3,3); shape.shape = box

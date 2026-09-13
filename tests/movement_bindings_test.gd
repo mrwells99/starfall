@@ -31,10 +31,10 @@ func run() -> void:
 	await physics_frame
 	var start: Vector3 = actor.position
 	arena.prediction.predict(arena, actor, {"seq": 1, "move": Vector2(1, 0), "yaw": 0.0, "jump": false, "delta": 1.0 / 60})
-	check(actor.position.x > start.x and is_equal_approx(actor.velocity.x, 6.5), "First input moves immediately at full speed without a server reply")
+	check(actor.position.x > start.x and is_equal_approx(actor.velocity.x, 6.1425), "First input moves immediately at full speed without a server reply")
 	var right: Vector3 = actor.position
 	arena.prediction.predict(arena, actor, {"seq": 2, "move": Vector2(-1, 0), "yaw": 0.0, "jump": false, "delta": 1.0 / 60})
-	check(actor.position.x < right.x and is_equal_approx(actor.velocity.x, -6.5), "Direction reversal changes velocity in the same tick")
+	check(actor.position.x < right.x and is_equal_approx(actor.velocity.x, -6.1425), "Direction reversal changes velocity in the same tick")
 	var left: Vector3 = actor.position
 	arena.prediction.predict(arena, actor, {"seq": 3, "move": Vector2.ZERO, "yaw": 0.0, "jump": false, "delta": 1.0 / 60})
 	check(is_equal_approx(actor.position.x, left.x) and actor.velocity.x == 0, "Releasing input stops immediately")
@@ -48,7 +48,7 @@ func run() -> void:
 	actor.identity.root = 0
 	actor.identity.slow = 1
 	arena.simulate_movement(actor, 1.0 / 60)
-	check(is_equal_approx(actor.velocity.x, 6.5 * 0.55), "Prediction uses authoritative slow strength")
+	check(is_equal_approx(actor.velocity.x, 6.1425 * 0.55), "Prediction uses authoritative slow strength")
 	actor.identity.slow = 0
 	actor.position = Vector3(-6, 0, 9)
 	actor.move_input = Vector2(0, -1)

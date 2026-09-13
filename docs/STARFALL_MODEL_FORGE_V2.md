@@ -1,5 +1,7 @@
 # Starfall Model Forge v2 — current default
 
+**Current animation-selection policy:** the owner's September 12 [preview-first and reusable-cache workflow](ANIMATION_WORKFLOW.md) supplements this frozen production standard. New animation candidates are shown on an identity-free mannequin and require approval before live assignment. This supersedes the old optional-preview default for animation selection, without rewriting any frozen package or accepted motion.
+
 The owner approved the accumulated Fulcrum model/preset/texture/weapon/animation workflow through r008 on 2026-09-09 and requested it for future classes. **r006 and r007 were reverted and are excluded.**
 
 Start with [the active workflow](../art_source/workflows/starfall-model-forge-v2/CURRENT.md). It combines the original [model procedure](../art_source/workflows/starfall-model-forge-v2/WORKFLOW.md) with the required [hitbox finishing step](../art_source/workflows/starfall-model-forge-v2/extensions/hitboxes-v1/WORKFLOW.md), approved 2026-09-10. Every future class includes 19 fitted animated body volumes, a compact server rig, pose/resource checks and actual front/side hitbox pictures. Class-specific movement gets matching pose checks and pictures.
