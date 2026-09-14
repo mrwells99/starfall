@@ -1,6 +1,7 @@
 extends Node3D
 ## The Cosmic Sanctum. Collision is shared with navigation; chipped stone,
-## rubble and light effects are decorative and cannot snag players or cameras.
+## rubble and light effects are decorative and cannot snag players. Large
+## perimeter rocks block only the camera, never movement or combat LOS.
 
 const BLUE = Color("62cfeb")
 const GOLD = Color("e8be78")
@@ -258,8 +259,8 @@ func _build_perimeter() -> void:
 			for direction in [0, 1]:
 				var pos := Vector3(along, 0, side * 18.8) if direction == 0 else Vector3(side * 18.8, 0, along)
 				var height: float = 5.4 + _geo.rng.randf_range(-0.6, 1.3)
-				_geo.rock(_dark_stone, pos, Vector3(1.9, height, 1.8), 0.15)
-				_geo.rock(_stone, pos + Vector3(0.25, 0, -0.15), Vector3(1.0, height + 0.4, 1.1), -0.12)
+				_geo.rock(_dark_stone, pos, Vector3(1.9, height, 1.8), 0.15, Color.WHITE, 7, _art)
+				_geo.rock(_stone, pos + Vector3(0.25, 0, -0.15), Vector3(1.0, height + 0.4, 1.1), -0.12, Color.WHITE, 7, _art)
 				var inward := Vector3(0, 0, -side) if direction == 0 else Vector3(-side, 0, 0)
 				var lamp_pos := pos + inward * 1.50
 				lamp_pos.y = Layout.surface_height(lamp_pos)

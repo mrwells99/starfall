@@ -1,6 +1,8 @@
 extends RefCounted
 ## Static arena art is batched by material. Collision is built separately from
-## the shared layout, so rubble and light effects cannot snag a player/camera.
+## the shared layout; selected large rocks may opt into camera-only collision.
+
+const CAMERA_ONLY_LAYER := 4
 
 var rng := RandomNumberGenerator.new()
 var batches: Dictionary = {}
@@ -39,7 +41,7 @@ func block(mat: Material, center: Vector3, size: Vector3, yaw := 0.0, tint := Co
 	quad(mat, points[0], points[2], points[6], points[4], tint)
 	quad(mat, points[1], points[5], points[7], points[3], tint)
 
-func rock(mat: Material, center: Vector3, size: Vector3, yaw := 0.0, tint := Color.WHITE, sides := 7) -> void:
+func rock(mat: Material, center: Vector3, size: Vector3, yaw := 0.0, tint := Color.WHITE, sides := 7, camera_parent: Node3D = null) -> void:
 	var layers: Array = []
 	var basis := Basis(Vector3.UP, yaw)
 	var angles: Array[float] = []
@@ -65,6 +67,23 @@ func rock(mat: Material, center: Vector3, size: Vector3, yaw := 0.0, tint := Col
 	var top := center + basis * (Vector3(lean.x, 0.998, lean.y) * size)
 	for i in sides:
 		triangle(mat, top, layers[3][(i + 1) % sides], layers[3][i], tint.lightened(0.05))
+	if camera_parent != null:
+		# Reuse the actual generated silhouette, without extra random draws or
+		# triangle collision. Layer 3 is camera-only: gameplay still ignores art.
+		var points := PackedVector3Array()
+		for ring in layers:
+			points.append_array(PackedVector3Array(ring))
+		points.append(top)
+		var shape := ConvexPolygonShape3D.new()
+		shape.points = points
+		var collider := CollisionShape3D.new()
+		collider.shape = shape
+		var body := StaticBody3D.new()
+		body.name = "CameraRockCollision"
+		body.collision_layer = CAMERA_ONLY_LAYER
+		body.collision_mask = 0
+		body.add_child(collider)
+		camera_parent.add_child(body)
 
 func ribbon(mat: Material, points: Array[Vector3], width: float, tint := Color.WHITE) -> void:
 	for i in range(points.size() - 1):

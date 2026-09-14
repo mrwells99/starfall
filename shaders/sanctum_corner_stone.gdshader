@@ -12,6 +12,8 @@ uniform float normal_strength : hint_range(0.0, 2.0) = 1.0;
 uniform float wear_amount : hint_range(0.0, 1.0) = 0.35;
 uniform float material_uv_scale : hint_range(0.1, 4.0) = 1.0;
 uniform float weather_base_height = 0.0;
+// High-only filtering of highlights smaller than the pixel footprint.
+uniform bool stable_detail = false;
 
 // Optional fade is for the 12 x 14 metre upgraded floor module. It reaches
 // the exact original material at every edge, without changing slab geometry.
@@ -102,6 +104,13 @@ void fragment() {
 		map_depth = mix(original_normal_strength, normal_strength, upgraded);
 	}
 	ALBEDO = aged;
+	if (stable_detail) {
+		vec3 detail_normal = mapped_normal * 2.0 - 1.0;
+		vec3 nx = dFdx(detail_normal), ny = dFdy(detail_normal);
+		float variance = max(dot(nx, nx), dot(ny, ny));
+		// Broaden unresolved glints, retaining the authored color and relief.
+		rough = sqrt(clamp(rough * rough + min(variance * 0.25, 0.20), 0.0, 1.0));
+	}
 	ROUGHNESS = rough;
 	METALLIC = 0.0;
 	NORMAL_MAP = mapped_normal;

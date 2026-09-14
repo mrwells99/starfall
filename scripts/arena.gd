@@ -258,6 +258,7 @@ func _ready() -> void:
 	Input.use_accumulated_input = false
 	movement_controls.game = self
 	controls.setup(TOTAL_SLOTS)
+	get_viewport().size_changed.connect(func(): config.apply_render_resolution(self))
 	build_arena()
 	set_world_starwalk(world_mode)
 	build_camera()
@@ -320,7 +321,7 @@ func build_camera() -> void:
 	arm = SpringArm3D.new()
 	arm.spring_length = movement_controls.ZOOM_MAX
 	arm.rotation.x = -0.38
-	arm.collision_mask = 1
+	arm.collision_mask = 1 | Geometry.CAMERA_ONLY_LAYER
 	# Sweep a small volume so steep upward views retract above floors and
 	# ledges instead of letting the near plane clip through them.
 	var camera_clearance := SphereShape3D.new()
@@ -865,6 +866,8 @@ func build_ui() -> void:
 	graphics_choice = OptionButton.new()
 	for preset in UserConfig.GRAPHICS_PRESETS:
 		graphics_choice.add_item("Graphics: " + preset)
+	graphics_choice.tooltip_text = "Preset changes apply and save to this computer immediately. High: steadier map detail, 4x edge anti-aliasing, and up to 110% internal 3D sampling at native resolution (higher GPU cost). Balanced and Performance retain their previous presentation."
+	graphics_choice.item_selected.connect(apply_graphics_preset)
 	style_picker(graphics_choice)
 	graphics_row.add_child(graphics_choice)
 	render_scale_choice = OptionButton.new()
@@ -922,14 +925,12 @@ func build_ui() -> void:
 	window_mode_choice.add_item("Fullscreen (borderless)", UserConfig.WINDOW_BORDERLESS)
 	window_mode_choice.add_item("Fullscreen (exclusive)", UserConfig.WINDOW_EXCLUSIVE)
 	style_picker(window_mode_choice)
-	# Without this the disabled state of the resolution picker was only
-	# recomputed on the next refresh_menu(), so choosing Windowed left
-	# resolution greyed out and apparently broken.
+	# Native/common resolution choices stay available in all display modes.
 	window_mode_choice.item_selected.connect(func(_i): refresh_menu())
 	stack.add_child(window_mode_choice)
 	resolution_choice = OptionButton.new()
-	for res in UserConfig.available_resolutions():
-		resolution_choice.add_item("%d x %d" % [res.x, res.y])
+	refresh_resolution_choices()
+	resolution_choice.tooltip_text = "Native uses the current display resolution. In fullscreen, lower choices reduce 3D resolution while keeping the HUD sharp and preserving monitor aspect ratio. The 3D resolution percentage is an additional multiplier."
 	style_picker(resolution_choice)
 	stack.add_child(resolution_choice)
 	# Players never see the server address; this stays as a value holder for tests
@@ -1464,7 +1465,7 @@ func refresh_menu() -> void:
 		extra.visible = settings
 	window_mode_choice.visible = settings
 	resolution_choice.visible = settings
-	resolution_choice.disabled = window_mode_choice.get_selected_id() != UserConfig.WINDOW_WINDOWED
+	resolution_choice.disabled = false
 	champion_choice.visible = choosing and menu_state in ["online", "offline", "queue", "host", "join", "abilities"]
 	mode_choice.visible = choosing and menu_state in ["queue", "host", "offline"]
 	opponent_choice.visible = choosing and menu_state == "offline"
@@ -2074,6 +2075,12 @@ func reset_layout() -> void:
 	save_layout()
 	refresh_binds()
 
+func apply_graphics_preset(index: int) -> void:
+	if index < 0 or index >= UserConfig.GRAPHICS_PRESETS.size(): return
+	config.set_value("graphics", "preset", UserConfig.GRAPHICS_PRESETS[index])
+	config.save_config()
+	config.apply_graphics(self)
+
 func apply_settings() -> void:
 	player_options.apply_sensitivity()
 	if slot_size_field != null and slot_size_field.text.strip_edges().is_valid_int():
@@ -2081,10 +2088,9 @@ func apply_settings() -> void:
 		slot_size_field.text = str(slot_size)
 	config.set_value("hud", "slot_size", slot_size)
 	config.set_value("display", "window_mode", window_mode_choice.get_selected_id())
-	var options := UserConfig.available_resolutions()
-	var index: int = clampi(resolution_choice.selected, 0, options.size() - 1)
-	if index >= 0 and index < options.size():
-		config.set_value("display", "resolution", options[index])
+	if resolution_choice.selected >= 0:
+		var resolution_key := "resolution" if config.window_mode() == UserConfig.WINDOW_WINDOWED else "fullscreen_resolution"
+		config.set_value("display", resolution_key, resolution_choice.get_item_metadata(resolution_choice.selected))
 	config.set_value("graphics", "preset", UserConfig.GRAPHICS_PRESETS[graphics_choice.selected])
 	config.set_value("graphics", "frame_limit", frame_limit_choice.get_selected_id())
 	config.set_value("graphics", "render_scale", UserConfig.RENDER_SCALES[render_scale_choice.selected])
@@ -2093,7 +2099,17 @@ func apply_settings() -> void:
 	save_layout()
 	config.apply_graphics(self)
 	config.apply_display()
+	config.apply_render_resolution(self)
 	refresh_menu()
+
+func refresh_resolution_choices() -> void:
+	var selected_size: Vector2i = config.resolution()
+	resolution_choice.clear()
+	for res in UserConfig.available_resolutions():
+		var label := "Native (current monitor)" if res == Vector2i.ZERO else "%d x %d" % [res.x, res.y]
+		resolution_choice.add_item(label)
+		resolution_choice.set_item_metadata(resolution_choice.item_count - 1, res)
+		if res == selected_size: resolution_choice.select(resolution_choice.item_count - 1)
 
 func load_settings() -> void:
 	config.load_config()
@@ -2108,12 +2124,9 @@ func load_settings() -> void:
 			if window_mode_choice.get_item_id(i) == config.window_mode():
 				window_mode_choice.select(i)
 	if resolution_choice:
-		var options := UserConfig.available_resolutions()
-		var stored := config.resolution()
-		for i in range(options.size()):
-			if options[i] == stored:
-				resolution_choice.select(i)
+		refresh_resolution_choices()
 	config.apply_display()
+	config.apply_render_resolution(self)
 
 func host_start() -> void:
 	if authoritative() and phase in ["lobby", "results"]:

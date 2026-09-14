@@ -36,8 +36,8 @@ static func apply(root: Node, high: bool) -> bool:
 	return enabled
 
 # Balanced retains the authored map, palette, bloom, contact shading and 2x AA.
-# Static baked lighting already supplies indirect light: the extra screen-space
-# bounce and volumetric pass are optional High effects, not gameplay lighting.
+# Static baked lighting already supplies indirect light. High spends its budget
+# on stable edges/detail and keeps volumetric atmosphere, not an extra SSIL pass.
 static func apply_profile(root: Node, preset: String) -> void:
 	var forward := apply(root, true)
 	var world := root.find_child("CosmicEnvironment", true, false) as WorldEnvironment
@@ -45,10 +45,13 @@ static func apply_profile(root: Node, preset: String) -> void:
 		return
 	var high := preset == "High"
 	var lean := preset == "Performance"
-	world.environment.ssil_enabled = forward and high
+	world.environment.ssil_enabled = false
 	world.environment.volumetric_fog_enabled = forward and high
 	world.environment.ssao_enabled = forward and not lean
-	root.get_viewport().msaa_3d = Viewport.MSAA_DISABLED if lean else Viewport.MSAA_2X
+	root.get_viewport().msaa_3d = Viewport.MSAA_DISABLED if lean else (Viewport.MSAA_4X if high else Viewport.MSAA_2X)
 	root.get_viewport().screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA if lean else Viewport.SCREEN_SPACE_AA_DISABLED
+	# Spatial sampling keeps fast characters crisp, without temporal trails.
+	root.get_viewport().use_taa = false
+	preload("res://scripts/map_image_quality.gd").apply(root, high)
 	for node in root.find_children("ShrineVotives", "OmniLight3D", true, false):
 		node.shadow_enabled = high
