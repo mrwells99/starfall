@@ -1,6 +1,6 @@
 extends RefCounted
 
-const SELF_KINDS := ["shield", "self_heal", "regen_pot", "blink", "sprint", "cinder", "stoke", "wake", "hold", "unbroken", "anchor", "orbit", "collapse", "flare_cc", "roll", "backflip", "coin_toss", "deadeye", "defense_detonation", "trinket", "stealth", "null_haste", "chronoshift"]
+const SELF_KINDS := ["shield", "self_heal", "regen_pot", "blink", "sprint", "cinder", "stoke", "wake", "hold", "unbroken", "anchor", "orbit", "collapse", "flare_cc", "roll", "backflip", "coin_toss", "deadeye", "defense_detonation", "trinket", "stealth", "null_haste", "chronoshift", "smoke_bomb"]
 const ALLY_KINDS := ["heal", "ally_shield", "dispel", "falling", "absolution", "stitch", "star", "pilgrim", "last", "intercede", "swap"]
 const KIT_SIZE := 15
 const TRINKET_SLOT := 14 # Shared slot; preserve all existing class indices.
@@ -53,10 +53,11 @@ static func class_kit(champion: String) -> Array:
 			spell("Nerve Lock", "nerve_lock", 4, 3.5, 0, 20),
 			spell("Stealth", "stealth", 0, 0, 0, 0, true),
 			spell("Haste", "null_haste", 6, 0, 0, 25, true),
-			spell("Blindside", "blindside", 0, 24, 0, 15, true),
+			spell("Blindside", "blindside", 0, 24, .28, 15, true),
 			spell("Vantage Point", "vantage", 22, 24, 0, 25),
 			spell("Regen Pot", "regen_pot", 28, 0, 0, 40, true),
-			spell("Chronoshift", "chronoshift", 0, 0, 0, 0, true)]
+			spell("Chronoshift", "chronoshift", 0, 0, 0, 0, true),
+			spell("Smoke Bomb", "smoke_bomb", 0, 0, 0, 30, true)]
 	if champion == "Outlaw":
 		return [
 			spell("Starshot", "starshot", 8, 24, .7, 0),
@@ -155,12 +156,13 @@ static func summary(ability: Dictionary) -> String:
 	var concepts := {
 		"stab": "Strike your enemy for 120 damage.",
 		"backstab": "Deal 245 damage from behind your target. 30s cooldown.",
-		"blindside": "Instantly teleport behind your target. Off the global cooldown; requires a safe landing.",
+		"blindside": "After an unkickable 0.28s wind-up, teleport behind your target without breaking Stealth. Usable while moving or jumping. Off the global cooldown; requires a safe landing.",
 		"vantage": "Usable while jumping. Rise for 0.5s, then ease into a dive with both blades and accelerate as you close on your target. Longer dives travel faster. Contact deals 220 damage and knocks them down with a 4s stun. No rebound.",
 		"nerve_lock": "Stun an enemy within 3.5m for 4s. Uses stun diminishing returns.",
 		"chronoshift": "Choose an ability by pressing its normal keybind to refresh its normal cooldown. That ability cannot be refreshed by Chronoshift again for twice its own cooldown. Costs 100 Essence.",
+		"smoke_bomb": "Drop a 3m-radius smoke cloud at your feet for 6s. Abilities cannot affect allies or enemies across its inside/outside boundary. Both inside or both outside can interact normally, even through the cloud. Target selection and movement are unchanged. Existing damage-over-time effects continue. A new cloud replaces your previous one.",
 		"null_haste": "Move 50% faster for 6s. 25s cooldown.",
-		"stealth": "Requires 10s out of direct combat; no cooldown. Press again to end Stealth. You appear at 50% opacity. Enemies must remain within 3.5m for 0.7s to detect and target you; no nameplate. Attacking, aimed abilities or incoming damage break Stealth. Damage-over-time ticks do not extend combat.",
+		"stealth": "Requires 8s out of direct combat; no cooldown. Press again to end Stealth. You appear at 50% opacity. Enemies must remain within 3.5m for 0.7s to detect and target you; no nameplate. Attacking, aimed abilities or incoming damage break Stealth. Damage-over-time ticks do not extend combat.",
 		"starshot": "Fire for 80 damage. Unkickable; cast while moving 30% slower.",
 		"lasso": "Unkickable moving cast: lasso into a dropkick, stun during travel, then knock back and knock down for 1.5s. Rebound; gain 1 Defense Detonation stack. Usable during Backflip with slowed drift and CC immunity; landing cancels the cast.",
 		"severe": "Slash for 20% current health. Bleed for 20 damage each second for 5s and slow by 60% for 6s. Unkickable; cast while moving. Instant for 1.5s after Roll.",

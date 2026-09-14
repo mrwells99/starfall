@@ -128,6 +128,7 @@ static func refund_interrupted_channel(game, a) -> void:
 	channel.clear()
 
 static func hit(game, a, b, damage: float, from: Vector3, tag: String) -> void:
+	if game.Null.Smoke.separates(game,a,b): return
 	game.damage(a, b, roundf(damage))
 	action(a, "gun" if tag == "ricochet_hit" else tag)
 	game.outlaw_effect(a.actor_id, b.actor_id, from, b.position + Vector3.UP, tag)
@@ -154,6 +155,7 @@ static func tick_channel(game, a, delta: float) -> void:
 
 static func resolve(game, a, spell: Dictionary, b, camera_yaw: Variant = null) -> bool:
 	if a.champion != "Outlaw": return false
+	if game.Null.Smoke.separates(game,a,b): return true
 	match spell.kind:
 		"lasso": Lasso.release(game, a, b)
 		"starshot": hit(game, a, b, spell.power, a.position + Vector3.UP, "gun")

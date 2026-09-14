@@ -2,7 +2,7 @@ extends RefCounted
 ## Server-authoritative Null state; visibility is evaluated per observer.
 const DETECT_RANGE := 3.5
 const DETECT_SECONDS := .7
-const COMBAT_SECONDS := 10.0
+const COMBAT_SECONDS := 8.0
 const LIFT_SECONDS := .5
 const LIFT_SPEED := 10.0
 const DIVE_SPEED := 25.0
@@ -13,11 +13,12 @@ const DIVE_SPEED_RESPONSE := 24.0
 const DIVE_STEP := 1.0/60.0
 const CONTACT := 1.0
 const REGEN_SECONDS := 6.0
+const Smoke = preload("res://scripts/smoke_bomb.gd")
 
 static func initialize(a) -> void:
 	a.identity.merge({"stealth":false,"stealth_serial":0,"stealth_detection":{},"combat_left":0.0,
 		"null_haste":0.0,"null_vantage":{},"null_action":"","null_action_serial":0,
-		"essence":0.0,"chronoshift_select":false,"chronoshift_locks":{},"chronoshift_uses":{},"null_regen":{}},true)
+		"essence":0.0,"chronoshift_select":false,"chronoshift_locks":{},"chronoshift_uses":{},"null_regen":{},"smoke_bomb":{}},true)
 
 static func stealthed(a) -> bool:
 	return a != null and a.hp > 0 and a.identity.get("stealth",false)
@@ -45,7 +46,9 @@ static func offensive(a, spell: Dictionary) -> bool:
 
 static func begin_ability(game, a, spell: Dictionary, b) -> void:
 	if not offensive(a,spell): return
-	break_stealth(game,a)
+	# Blindside preserves existing stealth, without changing its combat flagging.
+	if not (a.champion == "Null" and spell.kind == "blindside"):
+		break_stealth(game,a)
 	a.identity.combat_left = COMBAT_SECONDS
 	if b != null and b != a and b.team != a.team and game.may_harm(a,b):
 		b.identity.combat_left = COMBAT_SECONDS
@@ -73,6 +76,7 @@ static func enter(game, a) -> void:
 			if game.focus_id == a.actor_id: game.focus_id = -1
 
 static func tick(game, a, delta: float) -> void:
+	Smoke.tick(a,delta)
 	for field in ["combat_left","null_haste"]: a.identity[field] = maxf(0,float(a.identity.get(field,0))-delta)
 	tick_regen(game,a,delta)
 	var locks: Dictionary = a.identity.get("chronoshift_locks", {})
@@ -173,6 +177,9 @@ static func grant_essence(a, spell: Dictionary, slot: int) -> void:
 static func action(a, kind: String) -> void:
 	a.identity.null_action=kind; a.identity.null_action_serial+=1
 
+static func can_cast_moving(a, spell: Dictionary) -> bool:
+	return a.champion == "Null" and spell.kind == "blindside"
+
 static func resolve(game, a, spell: Dictionary, b) -> bool:
 	match spell.kind:
 		"stab","backstab":
@@ -181,8 +188,10 @@ static func resolve(game, a, spell: Dictionary, b) -> bool:
 		"blindside":
 			var point: Variant = landing(game,a,b)
 			if point != null:
+				var departure: Vector3 = a.position
 				a.position=point; a.rotation.y=b.rotation.y; a.velocity=Vector3.ZERO
 				a.motion_revision+=1; a.reset_physics_interpolation(); action(a,"blindside")
+				game.outlaw_effect(a.actor_id,b.actor_id,departure,point,"blindside_smoke")
 				if not game.dedicated and a.actor_id==game.local_id:
 					game.local_yaw=a.rotation.y;game.pivot.rotation.y=a.rotation.y
 				grant_essence(a,spell,a.kit.find(spell))
@@ -205,6 +214,9 @@ static func resolve(game, a, spell: Dictionary, b) -> bool:
 			a.identity.null_regen={"left":REGEN_SECONDS,"tick":0.0,"rate":spell.power*a.HEALTH_SCALE*.8/REGEN_SECONDS}
 		"stealth": break_stealth(game,a) if stealthed(a) else enter(game,a)
 		"chronoshift": a.identity.chronoshift_select = true
+		"smoke_bomb":
+			Smoke.cast(a)
+			game.combat_event(a.actor_id,a.actor_id,"SMOKE BOMB",Color("b9c0c7"))
 		_: return false
 	return true
 
@@ -284,6 +296,7 @@ static func motion(game, a, delta: float) -> bool:
 	if a.position.distance_to(b.position)<=CONTACT+.02 and game.authoritative():
 		# Contact is resolved once, on the server, after a swept capsule movement.
 		s.phase="recover";s.elapsed=0.0;a.velocity=Vector3.ZERO
+		if Smoke.separates(game,a,b): return true
 		direct_hit(game,a,b); game.damage(a,b,float(s.power))
 		if b.hp>0:
 			var duration: float=game.CC.apply(b,"stun",4.0,"Vantage Point")

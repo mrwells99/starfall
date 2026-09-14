@@ -34,9 +34,15 @@ func basic() -> void:
 	b.rotation.y=0
 	ck(game.try_spell(1,1,2),"Backstab accepted from behind")
 	ck(b.hp==1255 and a.cooldowns[1]==30,"Backstab deals its reduced, scaled damage and keeps its 30s cooldown")
-	ck(a.identity.combat_left==10 and b.identity.combat_left==10,"Direct attacks flag both combatants")
+	ck(a.identity.combat_left==8 and b.identity.combat_left==8,"Direct attacks flag both combatants")
 	a.gcd=1
+	var before_blindside:Vector3=a.position
 	ck(game.try_spell(1,6,2) and a.gcd==1,"Blindside is off GCD")
+	ck(a.casting==6 and is_equal_approx(a.cast_left,.28) and a.position==before_blindside,"Blindside starts its 0.28s wind-up without teleporting")
+	ck(game.kick_immune(a) and game.cast_bar_color(a,false,Color.WHITE)==game.UNKICKABLE_CAST_COLOR,"Blindside is unkickable and uses the gray castbar")
+	tick(a,.27)
+	ck(a.position==before_blindside and a.casting==6 and a.cooldowns[6]==0,"Blindside does not fire or spend cooldown early")
+	tick(a,.011)
 	ck(game.Null.behind(a,b) and a.position.distance_to(b.position)<1.4,"Blindside lands behind target")
 	ck(a.motion_revision>0,"Teleport invalidates rewind history")
 	a.gcd=0
@@ -76,7 +82,19 @@ func basic() -> void:
 	ck(a.identity.null_haste==0,"Haste expiration")
 	await reset();b.rotation.y=.8;a.last_input_seq=100
 	game.apply_action_intent(1,6,2,90,Vector2.ZERO,0,false)
+	tick(a,.281)
 	ck(is_equal_approx(a.rotation.y,b.rotation.y),"Late Blindside action retains server teleport facing")
+	await reset();a.move_input=Vector2.RIGHT
+	a.identity.stealth=true
+	ck(game.try_spell(1,6,2),"Blindside wind-up can start while moving")
+	ck(game.Null.stealthed(a),"Blindside wind-up preserves existing stealth")
+	tick(a,.281)
+	ck(game.Null.behind(a,b) and a.cooldowns[6]==15,"Movement does not cancel the Blindside wind-up")
+	ck(game.Null.stealthed(a),"Blindside teleport preserves existing stealth")
+	await reset();var cancelled_from:Vector3=a.position
+	ck(game.try_spell(1,6,2),"Blindside cancellation fixture starts")
+	game.cancel_own_cast(a,"Cancelled");tick(a,.4)
+	ck(a.position==cancelled_from and a.cooldowns[6]==0,"Cancelled wind-up never teleports or consumes cooldown")
 func stealth() -> void:
 	await reset()
 	var solid_at_spawn:=true
@@ -163,12 +181,12 @@ func stealth() -> void:
 	a.identity.severe_bleeds.clear();b.casting=0;b.cast_target=1;b.cast_left=12
 	ck(game.try_spell(1,4,-1) and b.casting==-1,"Restealth cancels enemy cast")
 	game.Null.begin_ability(game,a,{"kind":"damage","aim_mode":"hitscan"},null)
-	ck(not a.identity.stealth and a.identity.combat_left==10,"Aimed use reveals even on miss")
+	ck(not a.identity.stealth and a.identity.combat_left==8,"Aimed use reveals even on miss")
 	var snap: Dictionary=a.snapshot();b.receive(snap)
-	ck(b.identity.combat_left==10 and b.identity.has("stealth_detection"),"Snapshot round trip")
+	ck(b.identity.combat_left==8 and b.identity.has("stealth_detection"),"Snapshot round trip")
 	await reset();game.try_spell(1,4,-1)
 	game.ClassMechanics.control(game,b,a,1,"Area stun")
-	ck(not a.identity.stealth and a.identity.combat_left==10,"Area control breaks stealth and flags direct combat")
+	ck(not a.identity.stealth and a.identity.combat_left==8,"Area control breaks stealth and flags direct combat")
 	await reset();game.world_mode=true;game.duels={1:2,2:1};game.local_id=2;game.selected_id=1
 	game.try_spell(1,4,-1);game.Null.tick(game,a,.71);game.sync_target_lock()
 	ck(game.selected_id==-1 and game.locked_target_for(2)==-1,"World duel stealth releases mandatory targeting")

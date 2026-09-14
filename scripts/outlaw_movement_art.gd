@@ -1,10 +1,10 @@
 extends "res://scripts/outlaw_art.gd"
-## Current B comparison: shared approved body motion, native Outlaw gun/equipment layers.
+## Owner-approved Null refined B movement, with native Outlaw gun/equipment layers.
 const Locomotion = preload("res://scripts/null_locomotion.gd")
 const MovementLibrary = preload("res://assets/animations/outlaw_locomotion.res")
 var locomotion = Locomotion.new()
 static var remapped_libraries := {}
-const Blend = preload("res://scripts/null_movement_blend.gd")
+const Blend = preload("res://scripts/null_living_blend.gd")
 ## Keep A available: 1 = balanced; 2 = owner-selected softer B.
 var transition_style := 2
 var phase_data: Dictionary
@@ -20,7 +20,9 @@ func build(host: Node3D, team_color: Color) -> void:
 	install_movement()
 	pose_blend=Blend.new()
 	pose_blend.build(skeleton)
+	pose_blend.load_life(load("res://assets/animations/null_idle_life.res"))
 	phase_data=load("res://assets/animations/null_transition_features.res").get_meta("data")
+	phase_data=preload("res://scripts/shared_ready.gd").apply(self,"Outlaw",phase_data)
 
 static func movement_state(name: String) -> bool:
 	return name in ["Ready","LowIdle"] or Locomotion.is_locomotion(name)
@@ -51,12 +53,12 @@ func transition_duration(previous: String, next: String) -> float:
 			special_blend.body_duration=.09
 		return super.transition_duration(previous,next)
 	pending_target=next
-	if next in ["Ready","LowIdle"]:return .28 if transition_style==1 else .38
-	if previous in ["Ready","LowIdle"]:return .20 if transition_style==1 else .28
+	if next in ["Ready","LowIdle"]:return .28 if transition_style==1 else .38*1.06
+	if previous in ["Ready","LowIdle"]:return .20 if transition_style==1 else .28*1.06
 	var first:=Locomotion.SUFFIXES.find(previous.trim_prefix("Travel").trim_prefix("Measured").trim_prefix("Low"))
 	var second:=Locomotion.SUFFIXES.find(next.trim_prefix("Travel").trim_prefix("Measured").trim_prefix("Low"))
 	var turns:=mini(absi(first-second),8-absi(first-second))
-	return (.17+turns*.015) if transition_style==1 else (.23+turns*.02)
+	return (.17+turns*.015) if transition_style==1 else (.23+turns*.02)*1.06
 
 func override_playback_rate(desired: String, default_rate: float) -> float:
 	var rate:=movement_rate(desired,default_rate)

@@ -34,6 +34,7 @@ var jump_pose = preload("res://scripts/model_forge_jump_pose.gd").new()
 var pose_blend = preload("res://scripts/model_forge_pose_blend.gd").new()
 var lasso_pose = preload("res://scripts/lasso_pose.gd").new()
 var network_motion = preload("res://scripts/network_animation_motion.gd").new()
+var shared_movement
 
 func build(host: Node3D, team_color: Color) -> void:
 	if asset == null: asset = preload("res://scripts/character_asset_cache.gd").get_scene(asset_path)
@@ -82,8 +83,11 @@ func build(host: Node3D, team_color: Color) -> void:
 	equipment.apply()
 	if class_title in ["Ember","Luminary","Vanguard"]:
 		clip_names.Mend = preload("res://scripts/outlaw_mend_animation.gd").install(player,skeleton)
+		shared_movement=preload("res://scripts/shared_movement.gd").new()
+		shared_movement.build(self,class_title)
 
 func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
+	if shared_movement!=null:shared_movement.begin_frame(self,actor,delta)
 	lasso_pose.capture_if_needed(actor)
 	var charging: bool = not actor.charge.is_empty()
 	var displacement := Vector3.ZERO
@@ -180,6 +184,7 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
 			transient_left = 0.0
 			if was_airborne: desired = "JumpLoop"
 			elif filtered_speed <= .12: desired = "Idle"
+	if shared_movement!=null:desired=shared_movement.choose(self,desired,actor,alive,stunned)
 	if desired != clip:
 		var phase := player.current_animation_position / maxf(player.current_animation_length, .001)
 		var locomotion_change := is_locomotion(clip) and is_locomotion(desired)
@@ -191,6 +196,7 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
 		player.play(clip_names[clip], 0.0)
 		if locomotion_change: player.seek(phase * player.get_animation(clip_names[clip]).length, false)
 	rate = override_playback_rate(desired, rate)
+	if shared_movement!=null:rate=shared_movement.playback_rate(self,desired,rate)
 	player.speed_scale = lerpf(player.speed_scale, rate, 1.0 - exp(-delta * 18.0)) if is_locomotion(desired) else 1.0
 	if alive and not stunned:
 		player.advance(delta)
@@ -211,14 +217,19 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
 			materials[i].albedo_color = Color.WHITE if actor.flash > 0 else (base_colors[i] if alive else base_colors[i].lerp(Color("333744"), 0.7))
 			materials[i].emission = Color.WHITE if actor.flash > 0 else base_emissions[i]
 			materials[i].emission_energy_multiplier = 2.0 if actor.flash > 0 else base_emission_energy[i] * (1.0 if alive else .15)
+	if shared_movement!=null:shared_movement.finish_frame(self,delta)
 
 func override_playback_rate(_desired: String, default_rate: float) -> float:
 	return default_rate
 
 func is_locomotion(name: String) -> bool:
+	if shared_movement!=null and shared_movement.Locomotion.is_locomotion(name):return true
 	return name.begins_with("Walk") or name.begins_with("Run") or name.begins_with("Sprint") or name.begins_with("Strafe")
 
 func transition_duration(previous: String, next: String) -> float:
+	if shared_movement!=null:
+		var fallback:float=.22 if next=="Mend" else (.24 if previous=="Mend" else pose_blend.duration_for(previous,next))
+		return shared_movement.transition_duration(self,previous,next,fallback)
 	if next == "Mend": return .22
 	if previous == "Mend": return .24
 	return pose_blend.duration_for(previous, next)

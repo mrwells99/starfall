@@ -1,5 +1,11 @@
 # Technical Architecture
 
+## Shared approved movement — September 13
+
+All six classes use owner-approved Null r015 body movement and refined B transitions. `shared_movement.gd` composes that selection, cadence, cached foot-phase matching and `null_living_blend.gd` into Ember/Luminary/Vanguard's base presenter and Fulcrum's own presenter. Four portable 17-clip libraries retain the target carrying arms, fingers and native noncore channels. Outlaw reuses its prior adapted library with the same refined blend; Null's presenter remains unchanged. `shared_focus_blend.gd` preserves Fulcrum's independent orb offset after movement blending. Native jumps, attacks, Mend, aim, recoil and weapon-contact layers retain priority. No stealth mechanics are distributed.
+
+Visual and compact-server paths use the same helpers/libraries; no source GLB, compact rig, rest anatomy, hitbox radius, authority or networking changes. The batch test compares every shared body bone with actual Null, excluding carrying chains, and checks gameplay immutability, grip, fixed leg lengths and 0m visible/server endpoint error at 30/60/144 FPS. Reversible local evidence is in `local_resources/animation_cache/entries/starfall/shared-movement/ual53/r001/`. A local paired compact-pose measurement adds roughly 17–20 microseconds per ordinary update on the four new consumers, and 252–285 microseconds during repeated 50ms left/right reversals; Outlaw adds approximately 1/75 microseconds respectively. This excludes rendering, networking, physics and the existing aim-mode scheduling, and is not a production latency estimate.
+
 ## Full vertical camera orbit and close-character fade
 
 `movement_controls.gd` clamps ordinary mouse pitch to ±89.1°, preserving yaw near the poles. `arena.build_camera` gives SpringArm3D a 0.20m sphere, 0.04m margin and terrain-only mask 1, with Camera3D near 0.05. The spring retracts for floor/wall/terrace/platform collision even below the 3m wheel minimum; the requested 3–9m zoom remains unchanged. In open space it can orbit beneath the character. Existing interpolated target following and Outlaw shoulder-camera save/restore remain intact.

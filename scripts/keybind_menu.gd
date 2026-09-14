@@ -28,7 +28,7 @@ func setup(arena) -> void:
 	box.add_theme_constant_override("separation", 12)
 	panel.add_child(box)
 	game.add_label(box, "KEYBINDS", 28)
-	game.add_label(box, "Movement, chat, targeting and all three action bars. Changes save immediately.", 16)
+	game.add_label(box, "Movement, chat, targeting and all three action bars. Bar keys stay with slots when abilities move.", 16)
 	search = LineEdit.new()
 	search.placeholder_text = "Search actions or abilities…"
 	search.text_changed.connect(func(_text): rebuild())
@@ -91,7 +91,7 @@ func rebuild() -> void:
 			var slot := int(action.trim_prefix("bar_"))
 			group = "Action bar %d" % (slot / game.BAR_SLOTS + 1)
 			var ability: int = game.assignment[slot]
-			title = "Button %d · %s" % [slot % game.BAR_SLOTS + 1, kit[ability].name if ability >= 0 and ability < kit.size() and kit[ability].kind != "unavailable" else "Empty slot"]
+			title = "Slot %d · %s" % [slot % game.BAR_SLOTS + 1, kit[ability].name if ability >= 0 and ability < kit.size() and kit[ability].kind != "unavailable" else "Empty slot"]
 		else:
 			title = game.controls.LABELS[action]
 		if not search.text.is_empty() and not (group + " " + title).to_lower().contains(search.text.to_lower()):

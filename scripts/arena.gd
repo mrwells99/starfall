@@ -176,6 +176,7 @@ var binds: Array[int] = []
 var assignment: Array[int] = []
 var bar_roots: Array[HBoxContainer] = []
 var bar_handles: Array[PanelContainer] = []
+var hotbar_slot_frames: Array[Control] = []
 # Offline only: forces every bot onto one champion so a matchup can be tested
 # deliberately instead of whatever the role filler happens to pick.
 var opponent_choice: OptionButton
@@ -741,7 +742,16 @@ func build_ui() -> void:
 			hotbar_root = row
 		for slot in range(BAR_SLOTS):
 			var index := bar * BAR_SLOTS + slot
-			var button := add_button(row, "", send_action.bind(index))
+			# Reserve the physical slot even when its ability is empty/hidden.
+			# Hiding a direct HBox child would shift later keyed slots to the left.
+			var slot_frame := Control.new()
+			slot_frame.name = "Slot%d" % (slot + 1)
+			slot_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			slot_frame.custom_minimum_size = Vector2(DEFAULT_SLOT_SIZE, DEFAULT_SLOT_SIZE)
+			row.add_child(slot_frame)
+			hotbar_slot_frames.append(slot_frame)
+			var button := add_button(slot_frame, "", send_action.bind(index))
+			button.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 			button.custom_minimum_size = Vector2(DEFAULT_SLOT_SIZE, DEFAULT_SLOT_SIZE)
 			button.clip_contents = true
 			ability_buttons.append(button)
@@ -1819,7 +1829,7 @@ func refresh_edit_hint() -> void:
 	if rebinding >= 0:
 		edit_hint.text = "Press a key for slot %d…    Esc cancels" % (rebinding + 1)
 	else:
-		edit_hint.text = "EDIT MODE\nCLICK a slot to rebind its key  ·  DRAG a slot onto another to move the ability  ·  DRAG a frame to reposition it\nUse Settings → Keybinds for movement, targeting and secondary bindings  ·  Esc or Done to finish"
+		edit_hint.text = "EDIT MODE\nCLICK a slot to rebind its key  ·  DRAG abilities between slots — keys stay with the slots  ·  DRAG a frame to reposition it\nUse Settings → Keybinds for movement, targeting and secondary bindings  ·  Esc or Done to finish"
 
 func begin_rebind(slot: int) -> void:
 	rebinding = slot
@@ -1864,6 +1874,8 @@ static func event_binding(event: InputEvent) -> int:
 # height would only ever be set to the same value.
 func apply_slot_size(size: int) -> void:
 	slot_size = clampi(size, MIN_SLOT_SIZE, MAX_SLOT_SIZE)
+	for frame in hotbar_slot_frames:
+		frame.custom_minimum_size = Vector2(slot_size, slot_size)
 	for button in ability_buttons:
 		button.custom_minimum_size = Vector2(slot_size, slot_size)
 		button.size = Vector2(slot_size, slot_size)
@@ -1923,6 +1935,7 @@ func swap_slots(a: int, b: int) -> void:
 	if a == b or a < 0 or b < 0 or a >= assignment.size() or b >= assignment.size():
 		return
 	var carried := assignment[a]
+	# Only contents move. Primary/secondary keys belong to these fixed slots.
 	assignment[a] = assignment[b]
 	assignment[b] = carried
 	save_layout()
@@ -2519,7 +2532,7 @@ func tick_actor(actor, delta: float) -> void:
 	if actor.casting >= 0:
 		if Outlaw.Lasso.casting(actor) and Outlaw.Lasso.state(actor).get("air", false) and actor.is_on_floor():
 			cancel_own_cast(actor, "Lasso cancelled by landing")
-		elif (direction.length() > 0.01 or not actor.is_on_floor()) and not Outlaw.can_cast_moving(actor, actor.kit[actor.casting]):
+		elif (direction.length() > 0.01 or not actor.is_on_floor()) and not (Outlaw.can_cast_moving(actor, actor.kit[actor.casting]) or Null.can_cast_moving(actor, actor.kit[actor.casting])):
 			cancel_own_cast(actor, "Cast cancelled by movement")
 		else:
 			actor.cast_left -= delta
@@ -2619,6 +2632,7 @@ func validate_spell(actor, slot: int, victim_id: int) -> String:
 	elif (victim.team == actor.team) != friendly:
 		return "Select an ally" if friendly else "Select an enemy"
 	if not friendly and not Null.targetable(self,actor,victim): return "Target is concealed"
+	if Null.Smoke.separates(self,actor,victim): return "Smoke Bomb blocks this target"
 	var null_reason: String = Null.validate(self,actor,spell,victim)
 	if not null_reason.is_empty(): return null_reason
 	var identity_reason: String = ClassMechanics.validate(self, actor, spell, victim)
@@ -2857,7 +2871,7 @@ func ability_block_reason(actor, slot: int, requested: int) -> String:
 		return reason
 	var instant_graviton: bool = spell.kind == "graviton" and actor.identity.instant_graviton > 0
 	var instant_severe: bool = spell.kind == "severe" and actor.identity.instant_severe > 0
-	if float(spell.cast) > 0 and not instant_graviton and not instant_collapse and not instant_severe and not Outlaw.can_cast_moving(actor, spell):
+	if float(spell.cast) > 0 and not instant_graviton and not instant_collapse and not instant_severe and not (Outlaw.can_cast_moving(actor, spell) or Null.can_cast_moving(actor, spell)):
 		if actor.move_input.length() > 0.01 or not actor.is_on_floor():
 			return "Stand still to cast"
 	return ""
@@ -2921,6 +2935,7 @@ func try_spell(id: int, slot: int, requested: int, camera_yaw: Variant = null) -
 	return true
 
 func resolve_spell(actor, slot: int, victim, camera_yaw: Variant = null) -> void:
+	if Null.Smoke.separates(self,actor,victim): return
 	var spell: Dictionary = actor.kit[slot]
 	if spell.kind == "blink":
 		if not BlinkCharges.spend(actor, slot): return
@@ -3006,6 +3021,8 @@ func may_harm(source, victim) -> bool:
 	return false
 
 func damage(source, victim, amount: float, periodic: bool = false) -> void:
+	# Attached DoTs persist. Ground fields filter their recipients before ticking.
+	if not periodic and Null.Smoke.separates(self,source,victim): return
 	if not may_harm(source, victim):
 		feedback(source, "Challenge them to a duel first")
 		return
@@ -3368,6 +3385,15 @@ func outlaw_effect(source: int, victim: int, from: Vector3, to: Vector3, tag: St
 @rpc("authority", "call_remote", "reliable")
 func show_outlaw_effect(round_epoch: int, source: int, _victim: int, from: Vector3, to: Vector3, tag: String) -> void:
 	if round_epoch != epoch or dedicated or not actors.has(source): return
+	if tag == "blindside_smoke":
+		if not player_options.reduced_effects:
+			var smoke := preload("res://scripts/blindside_smoke_effect.gd").new()
+			add_child(smoke)
+			smoke.start(from, to)
+			var arrival := preload("res://scripts/blindside_smoke_effect.gd").new()
+			add_child(arrival)
+			arrival.start(to, to)
+		return
 	var presenter = actors[source].champion_model
 	if presenter != null and presenter.outlaw_art != null:
 		presenter.outlaw_art.fire(tag)
@@ -3485,7 +3511,8 @@ func show_edit_previews() -> void:
 		button.text = "" if art != null else spell.name
 
 func kick_immune(actor) -> bool:
-	return Outlaw.unkickable(actor) or CC.airborne_immune(actor)
+	var blindside: bool = actor.champion == "Null" and actor.casting >= 0 and actor.kit[actor.casting].kind == "blindside"
+	return blindside or Outlaw.unkickable(actor) or CC.airborne_immune(actor)
 
 func cast_bar_color(actor, interrupted: bool, normal: Color) -> Color:
 	if interrupted: return Color("854657")
@@ -3501,6 +3528,7 @@ func update_frame(frame: VBoxContainer, id: int, prefix: String) -> void:
 	if not friendly and Null.stealthed(actor): frame.hide(); return
 	frame.get_child(0).hide()
 	var health := frame.get_child(1) as ProgressBar
+	health.step = 0.0
 	health.max_value = actor.MAX_HEALTH
 	health.value = actor.hp
 	var fill := health.get_theme_stylebox("fill") as StyleBoxFlat
@@ -3509,7 +3537,7 @@ func update_frame(frame: VBoxContainer, id: int, prefix: String) -> void:
 	# which side someone is on. It has to be bold and it has to be there at full
 	# health, which means drawing it over the fill rather than behind it.
 	paint_bar_edge(health, GOLD if frame == focus_frame else (BLUE if friendly else ENEMY_EDGE), 1 if frame == focus_frame else 2)
-	(health.get_child(0) as Label).text = "%d%%" % ceili(100.0 * actor.hp / actor.MAX_HEALTH)
+	(health.get_child(0) as Label).text = "%d%%" % ceili(100.0 * health.ratio)
 	if health.has_node("DiminishingReturns"):
 		var dr = health.get_node("DiminishingReturns")
 		var duel_target: bool = world_mode and duels.get(local_id, -1) == id
@@ -3663,8 +3691,8 @@ func update_visuals(delta: float) -> void:
 		cooldown_overlays[slot].set_charges(-1)
 		cooldown_overlays[slot].set_chronoshift_target(false)
 		cooldown_overlays[slot].set_chronoshift_lock(false)
-		# Empty slots stay hidden in play and visible while editing, so there is
-		# somewhere to drop an ability.
+		# Hide empty buttons, not their slot frames: remaining slots never collapse.
+		# While editing/dragging, show the empty drop targets too.
 		button.visible = actors.has(local_id) and (ability >= 0 or edit_mode or drag_slot >= 0)
 		if not button.visible:
 			continue
@@ -3781,12 +3809,13 @@ func paint_roster_row(button: Button, actor, _title: String, friendly: bool) -> 
 	var bar := roster_bar(button)
 	if bar == null:
 		return
+	bar.step = 0.0
 	bar.max_value = actor.MAX_HEALTH
 	bar.value = actor.hp
 	var fill := bar.get_theme_stylebox("fill") as StyleBoxFlat
 	fill.bg_color = hud_health_color(actor.champion)
 	paint_bar_edge(bar, BLUE if friendly else ENEMY_EDGE, 2 if actor.actor_id == selected_id else 1)
-	(bar.get_child(0) as Label).text = "%d%%" % ceili(100.0 * actor.hp / actor.MAX_HEALTH)
+	(bar.get_child(0) as Label).text = "%d%%" % ceili(100.0 * bar.ratio)
 	bar.get_node("ThinResource").sync(actor)
 	button.get_node("Details").sync(actor)
 	if button.has_node("DiminishingReturns"): button.get_node("DiminishingReturns").sync(actor)

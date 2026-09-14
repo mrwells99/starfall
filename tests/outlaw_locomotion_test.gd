@@ -1,5 +1,5 @@
 extends SceneTree
-## Actual Outlaw visible/server paths, compared with the original Null B body.
+## Actual Outlaw visible/server paths, compared with approved Null refined B.
 var checks:=0
 var failures:=0
 var max_error:=0.0
@@ -29,13 +29,13 @@ func run() -> void:
 		elif index==1:art=actor.champion_model.outlaw_art;host=actor.champion_model
 		else:
 			host=Host.new();actor.add_child(host)
-			art=load("res://scripts/null_movement_art.gd").new()
+			art=load("res://scripts/null_living_art.gd").new()
 			art.asset=load("res://assets/hitboxes/null_rig.scn");art.pose_only=true;art.build(host,Color.WHITE)
 		actors.append(actor);arts.append(art);hosts.append(host)
 		var rows:=[]
 		for bone in art.skeleton.get_bone_count():rows.append(art.skeleton.get_bone_rest(bone))
 		rest.append(rows)
-	for art in arts:check(art.transition_style==2,"All comparison actors use original B settings")
+	for art in arts:check(art.transition_style==2,"All actors use owner-approved refined B")
 	for walking in [false,true]:
 		for sector in 8:
 			for action in [-1,sector,posmod(sector+1,8),posmod(sector+4,8),-1]:

@@ -6,6 +6,7 @@ const PATHS := {
 	"Temporal Strike": "res://assets/icons/abilities/null/stab.svg",
 	"Regen Pot": "res://assets/icons/abilities/null/regen_pot.svg",
 	"Chronoshift": "res://assets/icons/abilities/null/chronoshift.svg",
+	"Smoke Bomb": "res://assets/icons/abilities/null/smoke_bomb.svg",
 	"Backstab": "res://assets/icons/abilities/null/backstab.svg",
 	"Kick": "res://assets/icons/abilities/null/kick.svg",
 	"Nerve Lock": "res://assets/icons/abilities/null/nerve_lock.svg",

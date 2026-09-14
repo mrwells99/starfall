@@ -26,9 +26,9 @@ const LuminaryArt = preload("res://scripts/luminary_art.gd")
 var luminary_art: RefCounted
 const FulcrumArt = preload("res://scripts/fulcrum_art.gd")
 var fulcrum_art: RefCounted
-const OutlawArt = preload("res://scripts/outlaw_movement_art.gd")
+const OutlawArt = preload("res://scripts/outlaw_jump_art.gd")
 var outlaw_art: RefCounted
-const NullArt = preload("res://scripts/null_living_art.gd")
+const NullArt = preload("res://scripts/null_jump_art.gd")
 var null_art: RefCounted
 var mend_regen_effect: Node3D
 

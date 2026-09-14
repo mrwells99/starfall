@@ -10,7 +10,7 @@ func run() -> void:
 	var art = actor.champion_model.outlaw_art
 	var rig: Skeleton3D = art.skeleton
 	ck(rig.get_bone_count()==85 and art.clip_names.size()==54, "Outlaw retains its 37 native/action clips and adds 17 approved movement loops")
-	ck(art.transition_style==2 and art.get_script().resource_path=="res://scripts/outlaw_movement_art.gd", "Outlaw is the original B comparison presenter")
+	ck(art.transition_style==2 and art.get_script().resource_path=="res://scripts/outlaw_jump_art.gd", "Outlaw retains refined movement and uses original selected jump B")
 	for item in [["outlaw.gun","DEF-hand.R"],["outlaw.knife","DEF-hand.L"]]:
 		ck(rig.get_bone_parent(rig.find_bone(item[0]))==rig.find_bone(item[1]), "Equipment remains attached to its actual carrying hand: "+item[0])
 	actor.presentation_grounded = true
