@@ -102,6 +102,7 @@ func install(arena) -> void:
 	game.ui.resized.connect(layout)
 
 func refresh() -> void:
+	game.sync_control_profile()
 	error_card.visible = not error_text.text.is_empty() and game.phase == "menu" and game.menu_state == "main"
 	var results: bool = game.phase == "results" and game.menu_state != "settings"
 	metrics.visible = results

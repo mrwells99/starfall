@@ -34,7 +34,7 @@ func run() -> void:
 	a.gcd = 0; a.cast_left = .3
 	ck(game.request_spell(1, 0, 2), "Next cast queues in final cast window")
 	game.tick_actor(a, .3)
-	ck(a.casting == 0 and b.hp < 100 and a.cast_left > .3, "Cast completes and next cast starts in same tick")
+	ck(a.casting == 0 and b.hp < b.MAX_HEALTH and a.cast_left > .3, "Cast completes and next cast starts in same tick")
 	game.cancel_own_cast(a, "")
 	a.gcd = .3
 	ck(game.request_spell(1, 0, 2), "Queue first input")
@@ -55,7 +55,7 @@ func run() -> void:
 	a.gcd = .2; game.request_spell(1, 0, 2)
 	a.hp = 0; game.tick_actor(a, .2)
 	ck(a.queued_spell.is_empty(), "Death clears queue")
-	a.hp = 100; a.gcd = .2; game.request_spell(1, 0, 2)
+	a.hp = a.MAX_HEALTH; a.gcd = .2; game.request_spell(1, 0, 2)
 	game.epoch += 1; game.tick_actor(a, .2)
 	ck(a.queued_spell.is_empty() and a.casting == -1, "Old round queue never executes")
 	a.gcd = .2; game.request_spell(1, 0, 2); a.reset_identity()
@@ -87,6 +87,13 @@ func run() -> void:
 	ck(a.queued_spell.slot == 0, "Client receives pending queue state")
 	snapshot.erase("queued_spell"); a.receive(snapshot, true)
 	ck(a.queued_spell.is_empty(), "Older snapshots default to no pending input")
+	a.gcd = .2; a.casting = -1
+	game.request_spell(1, 0, 2)
+	game.panel.hide()
+	var escape := InputEventKey.new()
+	escape.keycode = KEY_ESCAPE; escape.pressed = true
+	game._input(escape)
+	ck(a.queued_spell.is_empty() and not game.panel.visible, "Escape cancels GCD-only queue without opening menu")
 	print("Spell queue checks: %d passed / %d total" % [checks-failures, checks])
 	game.queue_free(); await process_frame
 	quit(1 if failures else 0)

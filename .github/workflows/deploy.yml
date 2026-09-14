@@ -110,6 +110,12 @@ jobs:
         if: matrix.suite == 'gameplay'
         run: ./tests/check_suite.sh "Champion controls checks" godot --headless --path . --script tests/champion_controls_test.gd
 
+      - name: Match scoreboard and forced movement casting
+        if: matrix.suite == 'gameplay'
+        run: |
+          ./tests/check_suite.sh "Match scoreboard checks" godot --headless --path . --script tests/match_scoreboard_test.gd
+          ./tests/check_suite.sh "Forced movement/casting checks" godot --headless --path . --script tests/forced_movement_cast_test.gd
+
       - name: Spell queue boundaries and delayed network input
         if: matrix.suite == 'network-combat'
         run: |

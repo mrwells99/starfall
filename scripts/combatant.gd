@@ -230,12 +230,19 @@ func visual_tick(delta: float, camera: Camera3D, show_nameplate: bool = true, ca
 
 
 func snapshot() -> Dictionary:
-	return {"queued_spell": queued_spell.duplicate(), "match_stats": match_stats.duplicate(), "jump_ack": last_jump_id, "jump_buffer": jump_buffer, "walk": walking, "move_ack": last_motion_seq, "velocity": velocity, "grounded": is_on_floor(), "motion_revision": motion_revision, "id": actor_id, "peer": owner_peer, "team": team, "champion": champion, "pos": position, "yaw": rotation.y, "hp": hp, "cd": cooldowns.duplicate(), "gcd": gcd, "casting": casting, "left": cast_left, "stun": stunned, "lock": locked, "shield": shield, "sprint": sprint,
+	var state := {"stats": PackedFloat64Array([match_stats.damage, match_stats.healing, match_stats.kills, match_stats.interrupts, match_stats.cc]), "jump_ack": last_jump_id, "jump_buffer": jump_buffer, "walk": walking, "move_ack": last_motion_seq, "velocity": velocity, "grounded": is_on_floor(), "motion_revision": motion_revision, "id": actor_id, "peer": owner_peer, "team": team, "champion": champion, "pos": position, "yaw": rotation.y, "hp": hp, "cd": cooldowns.duplicate(), "gcd": gcd, "casting": casting, "left": cast_left, "stun": stunned, "lock": locked, "shield": shield, "sprint": sprint,
 		"stun_src": stun_from, "lock_src": lock_from, "shield_src": shield_from, "sprint_src": sprint_from, "dr": dr_count, "dr_timer": dr_timer, "dr_states": dr_states.duplicate(true), "cc_effects": cc_effects.duplicate(true), "cast_target": cast_target, "target": target_id, "identity": identity.duplicate(true), "charge": charge.duplicate(true)}
+
+	if not queued_spell.is_empty(): state["queued_spell"] = queued_spell.duplicate()
+	return state
 
 func receive(data: Dictionary, instant: bool = false) -> void:
 	presentation_snapshot_serial += 1
-	match_stats = data.get("match_stats", match_stats).duplicate()
+	var totals = data.get("stats", data.get("match_stats", match_stats))
+	if totals is Dictionary:
+		match_stats = totals.duplicate()
+	elif totals is PackedFloat64Array and totals.size() == 5:
+		match_stats = {"damage": totals[0], "healing": totals[1], "kills": totals[2], "interrupts": totals[3], "cc": totals[4]}
 	identity = data.get("identity", {}).duplicate(true)
 	charge = data.get("charge", {}).duplicate(true)
 	net_position = data.pos

@@ -602,3 +602,7 @@ Coverage: `tests/spell_queue_test.gd` checks boundaries, replacement, cast/GCD t
 ## Outlaw coin landing lifetime — September 11
 
 `outlaw_effects.gd` separates visible coin flight from `identity.coin_left`. While the combo is active, the existing snapshot clock follows authoritative launch data (including inherited momentum). Afterwards the mesh continues ballistically with swept terrain collision until downward ground contact; wall/ceiling hits slide the velocity and continue falling. Replaced coins and coins whose actor leaves move into `falling_coins` and are freed on landing. Combat state remains untouched. The network animation audit covers smooth flight, expiry/consumption, death/removal, repeated tosses, terrain and elevated momentum-driven landings.
+
+### Match statistics wire format — September 14
+
+Snapshot `stats` is a `PackedFloat64Array` ordered as damage, healing, kills, interrupts and crowd-control applications. Actors retain named dictionaries internally; receipt also accepts the prior `match_stats` dictionary. Empty spell queues are omitted and receipt defaults to an empty queue. This keeps the combat snapshot fixture under its existing 1,200-byte compressed budget. Release 0.11.7 requires matching server and desktop versions.

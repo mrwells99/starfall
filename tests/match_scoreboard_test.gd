@@ -24,11 +24,11 @@ func run() -> void:
 	game.damage(a, b, 80)
 	game.damage(a, b, 80)
 	check(a.match_stats.damage == 10 and a.match_stats.kills == 1, "Overkill and repeated hits on defeated actors are excluded")
-	a.hp = 95
+	a.hp = a.MAX_HEALTH - 5
 	game.ClassMechanics.heal(game, a, a, 30)
 	game.ClassMechanics.heal(game, a, a, 30)
 	check(a.match_stats.healing == 5, "Overhealing is excluded")
-	b.hp = 100
+	b.hp = b.MAX_HEALTH
 	for i in range(4): game.ClassMechanics.control(game, a, b, 2, "Test stun")
 	check(a.match_stats.cc == 3, "Successful diminished CC counts; immune fourth attempt does not")
 	var kick_slot := -1
@@ -51,5 +51,5 @@ func run() -> void:
 	check(a.match_stats.damage == 10, "Results freeze totals")
 	game.begin_round()
 	check(game.actors[1].match_stats.damage == 0 and game.actors[1].match_stats.kills == 0, "Rematch clears totals")
-	print("Match scoreboard checks: %d / %d passed" % [checks - failures, checks])
+	print("Match scoreboard checks: %d passed / %d total" % [checks - failures, checks])
 	quit(1 if failures else 0)

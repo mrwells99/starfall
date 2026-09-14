@@ -71,5 +71,5 @@ func run() -> void:
 	a.identity.meditation = 75
 	game.resolve_spell(a, slot("collapse"), a)
 	check(b.casting == -1 and b.stunned > 0, "Empowered Collapse remains a stun")
-	print("Forced movement/casting checks: %d / %d passed" % [checks - failures, checks])
+	print("Forced movement/casting checks: %d passed / %d total" % [checks - failures, checks])
 	quit(1 if failures else 0)
