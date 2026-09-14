@@ -193,7 +193,7 @@ Settings → **Edit HUD**, WoW's Edit Mode in miniature:
 
 - Drag any frame — player, target, focus, party, enemies, hotbar — to move it. Positions are clamped on screen so nothing can be lost off an edge.
 - Click a hotbar slot to rebind its key. A key already in use is **swapped**, not duplicated, so no key ever fires two abilities.
-- Drag one hotbar slot onto another to swap which abilities sit where.
+- Drag one hotbar slot onto another to swap which abilities sit where. Primary and secondary keybinds belong to the physical slots, not the abilities. Empty slots keep their space during play so other keyed slots do not slide over; empty button art is still hidden outside editing/dragging.
 - **Reset layout** restores the defaults, frame positions included.
 
 **Bindings carry modifiers.** `1`, `Shift+1`, `Alt+1` and `Ctrl+1` are four separate bindings on four separate slots. A modifier pressed alone is ignored, so holding Shift while reaching for a key does not bind Shift itself.

@@ -176,6 +176,7 @@ var binds: Array[int] = []
 var assignment: Array[int] = []
 var bar_roots: Array[HBoxContainer] = []
 var bar_handles: Array[PanelContainer] = []
+var hotbar_slot_frames: Array[Control] = []
 # Offline only: forces every bot onto one champion so a matchup can be tested
 # deliberately instead of whatever the role filler happens to pick.
 var opponent_choice: OptionButton
@@ -741,7 +742,16 @@ func build_ui() -> void:
 			hotbar_root = row
 		for slot in range(BAR_SLOTS):
 			var index := bar * BAR_SLOTS + slot
-			var button := add_button(row, "", send_action.bind(index))
+			# Reserve the physical slot even when its ability is empty/hidden.
+			# Hiding a direct HBox child would shift later keyed slots to the left.
+			var slot_frame := Control.new()
+			slot_frame.name = "Slot%d" % (slot + 1)
+			slot_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			slot_frame.custom_minimum_size = Vector2(DEFAULT_SLOT_SIZE, DEFAULT_SLOT_SIZE)
+			row.add_child(slot_frame)
+			hotbar_slot_frames.append(slot_frame)
+			var button := add_button(slot_frame, "", send_action.bind(index))
+			button.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 			button.custom_minimum_size = Vector2(DEFAULT_SLOT_SIZE, DEFAULT_SLOT_SIZE)
 			button.clip_contents = true
 			ability_buttons.append(button)
@@ -1819,7 +1829,7 @@ func refresh_edit_hint() -> void:
 	if rebinding >= 0:
 		edit_hint.text = "Press a key for slot %d…    Esc cancels" % (rebinding + 1)
 	else:
-		edit_hint.text = "EDIT MODE\nCLICK a slot to rebind its key  ·  DRAG a slot onto another to move the ability  ·  DRAG a frame to reposition it\nUse Settings → Keybinds for movement, targeting and secondary bindings  ·  Esc or Done to finish"
+		edit_hint.text = "EDIT MODE\nCLICK a slot to rebind its key  ·  DRAG abilities between slots — keys stay with the slots  ·  DRAG a frame to reposition it\nUse Settings → Keybinds for movement, targeting and secondary bindings  ·  Esc or Done to finish"
 
 func begin_rebind(slot: int) -> void:
 	rebinding = slot
@@ -1864,6 +1874,8 @@ static func event_binding(event: InputEvent) -> int:
 # height would only ever be set to the same value.
 func apply_slot_size(size: int) -> void:
 	slot_size = clampi(size, MIN_SLOT_SIZE, MAX_SLOT_SIZE)
+	for frame in hotbar_slot_frames:
+		frame.custom_minimum_size = Vector2(slot_size, slot_size)
 	for button in ability_buttons:
 		button.custom_minimum_size = Vector2(slot_size, slot_size)
 		button.size = Vector2(slot_size, slot_size)
@@ -1923,6 +1935,7 @@ func swap_slots(a: int, b: int) -> void:
 	if a == b or a < 0 or b < 0 or a >= assignment.size() or b >= assignment.size():
 		return
 	var carried := assignment[a]
+	# Only contents move. Primary/secondary keys belong to these fixed slots.
 	assignment[a] = assignment[b]
 	assignment[b] = carried
 	save_layout()
@@ -3678,8 +3691,8 @@ func update_visuals(delta: float) -> void:
 		cooldown_overlays[slot].set_charges(-1)
 		cooldown_overlays[slot].set_chronoshift_target(false)
 		cooldown_overlays[slot].set_chronoshift_lock(false)
-		# Empty slots stay hidden in play and visible while editing, so there is
-		# somewhere to drop an ability.
+		# Hide empty buttons, not their slot frames: remaining slots never collapse.
+		# While editing/dragging, show the empty drop targets too.
 		button.visible = actors.has(local_id) and (ability >= 0 or edit_mode or drag_slot >= 0)
 		if not button.visible:
 			continue
