@@ -15,6 +15,8 @@ const HEALTH_SCALE := 15.0
 const DAMAGE_SCALE := 10.0
 const MAX_HEALTH := BASE_MAX_HEALTH * HEALTH_SCALE
 var hp := MAX_HEALTH
+# Authoritative round totals; fresh combatants reset them for each rematch.
+var match_stats: Dictionary = {"damage": 0.0, "healing": 0.0, "kills": 0, "interrupts": 0, "cc": 0}
 var kit: Array = []
 const Auras = preload("res://scripts/auras.gd")
 const Kits = preload("res://scripts/kits.gd")
@@ -25,6 +27,7 @@ var death_identity_cleaned := false
 var charge: Dictionary = {}
 var gcd := 0.0
 var casting := -1
+var queued_spell: Dictionary = {}
 var cast_left := 0.0
 var cast_target := -1
 var stunned := 0.0
@@ -227,11 +230,12 @@ func visual_tick(delta: float, camera: Camera3D, show_nameplate: bool = true, ca
 
 
 func snapshot() -> Dictionary:
-	return {"jump_ack": last_jump_id, "jump_buffer": jump_buffer, "walk": walking, "move_ack": last_motion_seq, "velocity": velocity, "grounded": is_on_floor(), "motion_revision": motion_revision, "id": actor_id, "peer": owner_peer, "team": team, "champion": champion, "pos": position, "yaw": rotation.y, "hp": hp, "cd": cooldowns.duplicate(), "gcd": gcd, "casting": casting, "left": cast_left, "stun": stunned, "lock": locked, "shield": shield, "sprint": sprint,
+	return {"queued_spell": queued_spell.duplicate(), "match_stats": match_stats.duplicate(), "jump_ack": last_jump_id, "jump_buffer": jump_buffer, "walk": walking, "move_ack": last_motion_seq, "velocity": velocity, "grounded": is_on_floor(), "motion_revision": motion_revision, "id": actor_id, "peer": owner_peer, "team": team, "champion": champion, "pos": position, "yaw": rotation.y, "hp": hp, "cd": cooldowns.duplicate(), "gcd": gcd, "casting": casting, "left": cast_left, "stun": stunned, "lock": locked, "shield": shield, "sprint": sprint,
 		"stun_src": stun_from, "lock_src": lock_from, "shield_src": shield_from, "sprint_src": sprint_from, "dr": dr_count, "dr_timer": dr_timer, "dr_states": dr_states.duplicate(true), "cc_effects": cc_effects.duplicate(true), "cast_target": cast_target, "target": target_id, "identity": identity.duplicate(true), "charge": charge.duplicate(true)}
 
 func receive(data: Dictionary, instant: bool = false) -> void:
 	presentation_snapshot_serial += 1
+	match_stats = data.get("match_stats", match_stats).duplicate()
 	identity = data.get("identity", {}).duplicate(true)
 	charge = data.get("charge", {}).duplicate(true)
 	net_position = data.pos
@@ -256,6 +260,7 @@ func receive(data: Dictionary, instant: bool = false) -> void:
 		var missing: Dictionary = kit[cooldowns.size()]
 		cooldowns.append(0.0 if missing.get("local_only", false) else maxf(1.0,missing.cd))
 	gcd = data.gcd
+	queued_spell = data.get("queued_spell", {}).duplicate()
 	casting = data.casting
 	cast_left = data.left
 	cast_target = data.get("cast_target", -1)
@@ -274,6 +279,7 @@ func receive(data: Dictionary, instant: bool = false) -> void:
 
 func reset_identity() -> void:
 	death_identity_cleaned = hp <= 0
+	queued_spell.clear()
 	charge.clear()
 	jump_queued = false
 	jump_buffer = 0

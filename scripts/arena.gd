@@ -2821,8 +2821,8 @@ func report_detonation_shot(round_epoch: int, result: Dictionary) -> void:
 # Cancelling a cast before it goes off clears the global cooldown.
 #
 # The GCD is charged when the cast BEGINS, so without this you paid for a spell
-# that never happened. Used by both cancel paths — Escape, and moving or leaving
-# the ground — so they cannot drift apart.
+# that never happened. Escape, voluntary movement, and forced displacement
+# share this cancellation path. Spell-lockout interrupts remain separate.
 func cancel_own_cast(actor, message: String) -> void:
 	if actor.casting < 0:
 		return
@@ -2872,7 +2872,7 @@ func ability_block_reason(actor, slot: int, requested: int) -> String:
 	var instant_graviton: bool = spell.kind == "graviton" and actor.identity.instant_graviton > 0
 	var instant_severe: bool = spell.kind == "severe" and actor.identity.instant_severe > 0
 	if float(spell.cast) > 0 and not instant_graviton and not instant_collapse and not instant_severe and not (Outlaw.can_cast_moving(actor, spell) or Null.can_cast_moving(actor, spell)):
-		if actor.move_input.length() > 0.01 or not actor.is_on_floor():
+		if (actor.move_input.length() > 0.01 and actor.identity.root <= 0 and actor.identity.hold <= 0) or not actor.is_on_floor():
 			return "Stand still to cast"
 	return ""
 
@@ -2959,6 +2959,7 @@ func resolve_spell(actor, slot: int, victim, camera_yaw: Variant = null) -> void
 			var healing_scale: float = Fighter.HEALTH_SCALE * (.8 if spell.kind == "self_heal" else 1.0)
 			var amount := minf(victim.MAX_HEALTH - victim.hp, spell.power * healing_scale * (1.0 - dampening))
 			victim.hp = minf(victim.MAX_HEALTH, victim.hp + amount)
+			record_stat(actor, "healing", amount)
 			combat_event(actor.actor_id, victim.actor_id, "+%d" % ceili(amount), Color("97edb1"))
 		"interrupt":
 			if kick_immune(victim):
@@ -2973,6 +2974,7 @@ func resolve_spell(actor, slot: int, victim, camera_yaw: Variant = null) -> void
 			Null.grant_essence(actor, spell, slot)
 		"control":
 			var duration := CC.apply(victim, "stun", spell.power, spell.name)
+			if duration > 0: record_stat(actor, "cc")
 			combat_event(actor.actor_id, victim.actor_id, "STUN %.1fs" % duration if duration > 0 else "IMMUNE", GOLD)
 		"shield", "ally_shield":
 			victim.shield = spell.power
@@ -3046,8 +3048,10 @@ func damage(source, victim, amount: float, periodic: bool = false) -> void:
 	if reduction < 1.0 and actual > 0:
 		combat_event(source.actor_id, victim.actor_id, "REDUCED", Color("91bbef"))
 	victim.hp = maxf(1 if victim.training_dummy else 0, victim.hp - actual)
+	record_stat(source, "damage", actual)
 	combat_event(source.actor_id, victim.actor_id, "−%d" % ceili(actual), RED)
 	if victim.hp == 0:
+		record_stat(source, "kills")
 		victim.casting = -1
 		Outlaw.refund_interrupted_channel(self, victim)
 		victim.move_input = Vector2.ZERO
@@ -3205,12 +3209,7 @@ func finish_round(round_epoch: int, winning_team: int, states: Array, info: Dict
 		actor.casting = -1
 	panel.show()
 	release_mouse()
-	var survivors := [0, 0]
-	for actor in actors.values():
-		if actor.hp > 0:
-			survivors[actor.team] += 1
-	var seconds := int(info.get("duration", elapsed))
-	round_summary.text = "%dv%d  ·  %02d:%02d\nSurvivors — Blue %d/%d  ·  Red %d/%d" % [mode, mode, seconds / 60, seconds % 60, survivors[0], mode, survivors[1], mode]
+	round_summary.text = "Damage done · Healing done · Killing blows · Interrupts landed · CCs landed"
 	refresh_menu()
 	if dedicated and authoritative():
 		print("DEDICATED ROUND END winner=team%d elapsed=%.1fs" % [winner, elapsed])
@@ -3370,7 +3369,13 @@ func private_notice(round_epoch: int, text: String) -> void:
 	if round_epoch == epoch:
 		say(text)
 
+func record_stat(actor, stat: String, amount: float = 1.0) -> void:
+	if authoritative() and phase == "match" and not world_mode:
+		actor.match_stats[stat] = actor.match_stats.get(stat, 0) + maxf(0, amount)
+
 func combat_event(source: int, victim: int, text: String, color: Color) -> void:
+	if text == "INTERRUPTED" and actors.has(source):
+		record_stat(actors[source], "interrupts")
 	if dedicated and source != victim and actors.has(source) and actors[source].hitbox_pose != null:
 		if actors[source].champion == "Vanguard" and text.begins_with("−"):
 			actors[source].hitbox_pose.art.strike()

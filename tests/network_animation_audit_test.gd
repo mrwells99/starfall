@@ -170,7 +170,7 @@ func roll_and_coin() -> void:
 	state.identity.coin_left = 0.0
 	a.receive(state)
 	fx._process(DT)
-	check(not fx.coins[1].visible and not fx.coin_tracks[1].clock.playing, "Consumed/expired coin hides and stops immediately")
+	check(fx.coins[1].visible and not fx.coin_tracks[1].clock.playing, "Consumed/expired coin keeps falling after the combo clock stops")
 	# The next coin can use the same seed and still starts a fresh local clock.
 	state.identity.coin_left = fx.arena.Outlaw.COIN_SECONDS
 	state.identity.coin_position = state.identity.coin_origin
@@ -191,10 +191,34 @@ func roll_and_coin() -> void:
 	check(fx.coins[1].position.z >= -.101, "Between-packet visual coin travel cannot cross a wall")
 	a.hp = 0
 	fx._process(DT)
-	check(not fx.coins[1].visible, "Caster death clears the coin")
+	check(fx.coins[1].visible, "Caster death does not remove an airborne coin")
 	scene.actors.clear()
 	fx._process(DT)
-	check(fx.coins.is_empty() and fx.coin_tracks.is_empty(), "Actor removal clears visual nodes and clocks")
+	check(fx.coins.is_empty() and fx.coin_tracks.is_empty() and fx.falling_coins.size() == 2, "Actor removal and repeated toss preserve both airborne coins")
+	var floor_body := StaticBody3D.new()
+	floor_body.position.y = -2
+	var floor_shape := CollisionShape3D.new()
+	var floor_box := BoxShape3D.new()
+	floor_box.size = Vector3(100, .2, 100)
+	floor_shape.shape = floor_box; floor_body.add_child(floor_shape); scene.add_child(floor_body)
+	await physics_frame
+	await physics_frame
+	for frame in 360: fx._process(DT)
+	check(fx.falling_coins.is_empty(), "Detached coins disappear and free their meshes on ground impact")
+	# A jump toss can stay aloft well beyond the combat opportunity.
+	scene.actors[1] = a
+	state.hp = 100
+	state.identity.coin_origin = Vector3(5, 8, 0)
+	state.identity.coin_momentum = Vector3(3, 7, 0)
+	state.identity.coin_position = state.identity.coin_origin
+	state.identity.coin_left = fx.arena.Outlaw.COIN_SECONDS
+	a.receive(state); fx._process(DT)
+	state.identity.coin_left = 0
+	a.receive(state)
+	for frame in 120: fx._process(DT)
+	check(fx.coins[1].visible and fx.coins[1].position.y > 8, "Spent airborne coin outlives the 1.8s window and keeps inherited jump momentum")
+	for frame in 360: fx._process(DT)
+	check(not fx.coins[1].visible and absf(fx.coins[1].position.y + 1.885) < .02, "Elevated toss disappears at actual ground contact, not a fixed launch height or timeout")
 	scene.queue_free()
 	a.queue_free()
 	await process_frame

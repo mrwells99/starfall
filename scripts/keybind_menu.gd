@@ -1,5 +1,6 @@
 extends Control
 var game
+var heading: Label
 var listing: VBoxContainer
 var hint: Label
 var search: LineEdit
@@ -27,8 +28,8 @@ func setup(arena) -> void:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 12)
 	panel.add_child(box)
-	game.add_label(box, "KEYBINDS", 28)
-	game.add_label(box, "Movement, chat, targeting and all three action bars. Bar keys stay with slots when abilities move.", 16)
+	heading = game.add_label(box, "KEYBINDS", 28)
+	game.add_label(box, "Bindings save for this class only. Bar keys stay with slots when abilities move.", 16)
 	search = LineEdit.new()
 	search.placeholder_text = "Search actions or abilities…"
 	search.text_changed.connect(func(_text): rebuild())
@@ -45,10 +46,10 @@ func setup(arena) -> void:
 	scroll.add_child(listing)
 	var footer := HBoxContainer.new()
 	box.add_child(footer)
-	game.add_button(footer, "Reset all keybinds", func():
+	game.add_button(footer, "Reset this class’s keybinds", func():
 		game.reset_all_keybinds()
 		pending = ""
-		hint.text = "Default keybinds restored. Your action bar layout is preserved."
+		hint.text = "Default keybinds restored for this class. Your action bar layout is preserved."
 		rebuild())
 	var presets := HBoxContainer.new()
 	box.add_child(presets)
@@ -59,6 +60,7 @@ func setup(arena) -> void:
 	hide()
 
 func open() -> void:
+	game.sync_control_profile()
 	pending = ""
 	search.text = ""
 	game.panel.show()
@@ -80,6 +82,7 @@ func rebuild() -> void:
 	var champion: String = game.Kits.NAMES[game.champion_choice.selected]
 	if game.actors.has(game.local_id):
 		champion = game.actors[game.local_id].champion
+	heading.text = champion.to_upper() + " KEYBINDS"
 	var kit: Array = game.Kits.get_kit(champion)
 	var last_group := ""
 	for action in game.controls.rows(game):

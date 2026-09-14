@@ -488,7 +488,7 @@ Combatant identity now replicates `meditation`, `instant_graviton` and victim-ow
 
 Collapse samples Meditation on resolution: at 75+ it applies a three-second stun, otherwise its existing root; it consumes the anchor, not Meditation. Any hit grants one non-stacking instant Graviton with a flashing icon and no expiry timer, consumed on successful resolution through the normal GCD/validation path. Starfall requires 50+, casts for two seconds and spends all Meditation on resolution for 20 + 0.4 per point; cancelled or invalid casts retain the resource.
 
-`Kits.KIT_SIZE` is now the maximum thirteen. Other kits remain twelve; `kit_slot` masks unavailable indices while retaining the shared saved assignment, enabling class switching. Fulcrum's new default is Shift+6. Ability art lookup accepts optional champion context to distinguish the two Starfalls. Anchor LOS exemptions cover caster-to-anchor, caster-to-target and anchor-to-target/area checks, while placement, travel collision, range, facing and world permissions still apply. `fulcrum_meditation_test.gd` covers the combo, DoT cadence, cleanse timing, LOS and collision, replication and the extra illustrated slot.
+`Kits.KIT_SIZE` is now the maximum thirteen. Other kits remain twelve; `kit_slot` masks unavailable indices while retaining saved assignments, enabling class switching. Fulcrum's new default is Shift+6. Ability art lookup accepts optional champion context to distinguish the two Starfalls. Anchor LOS exemptions cover caster-to-anchor, caster-to-target and anchor-to-target/area checks, while placement, travel collision, range, facing and world permissions still apply. `fulcrum_meditation_test.gd` covers the combo, DoT cadence, cleanse timing, LOS and collision, replication and the extra illustrated slot.
 
 ### Compatibility gate before RPC dispatch (0.9.1)
 
@@ -582,3 +582,23 @@ DR placement uses `install_dr_column` to retain fixed health width with a separa
 `Combatant.health_pivot` now owns the health quad, two small resource quads, and fixed-world-size aura sprites. It turns toward the camera; the arena passes whether the actor is remote to `visual_tick`, hiding the entire local plate. Overhead name/resource/CC prose and cast Label3D nodes are no longer created. Nameplate buff icons have no countdown labels. `ClassMechanics.paint` retains world ability markers but no longer assembles nameplate strings or counts brands/stars across actors for text. Ground ability-marker labels and floating combat events are separate from nameplates.
 
 `thin_resource_bar.gd` normalizes Heat/Resolve/Meditation to 100 and Stars to 3. Its roster Control sits 2px below the health bar and is 3px tall, cached until value/color/size changes. The same normalized value drives overhead resource fill. Active effect rows move down 4px to avoid overlap. Authored model review tools hide the single plate root. Nameplate checks cover all four resources, self/ally/enemy visibility, no text nodes in the plate subtree, icons, and death cleanup.
+
+## Spell input queue — September 11
+
+`arena.request_spell` handles normal player hotbar and received action intent, accepting a single `combatant.queued_spell` during the last `SPELL_QUEUE_WINDOW` (0.4 seconds) of cast/GCD blocking. `try_spell` stays immediate for bots and existing callers. Admission uses the same validation with a timing allowance; execution consumes the entry once and revalidates through `try_spell` after cast/channel and timer advancement. The entry stores the resolved target, camera yaw, epoch and bounded age. A newer valid pending input replaces it. Existing aimed-shot and local-only paths are excluded.
+
+Snapshots include the pending entry for cancellation awareness (older snapshots default empty). Only the authority executes it. Escape sends cancellation even before a queue acknowledgement arrives, and cancellation bypasses the ordinary action rate budget while retaining epoch/sequence/ownership validation. Identity and round resets clear pending input.
+
+Coverage: `tests/spell_queue_test.gd` checks boundaries, replacement, cast/GCD transitions, invalidation, off-GCD behavior and received action intent. `python3 tests/run_spell_queue_network.py` exercises hotbar input and queue/cast replication over real ENet with 75 ms simulated one-way delay.
+
+## Class-specific controls — September 11
+
+`arena.control_state()` captures ability assignment, primary binds, secondary binds and general actions together. `champion_controls` in `starfall.cfg` stores a dictionary per champion. Legacy `hud.binds`, `hud.assignment` and `controls` values remain the read-only starting template for uncustomized classes. Loading defaults and existing missing-ability migration precedes profile use. `controls_baseline` detects actual edits so unrelated HUD/settings saves do not create class overrides. Saved arrays/dictionaries are copied to prevent cross-profile aliasing.
+
+`sync_control_profile()` runs on champion selection, menu refresh and local actor assignment; the actual local actor takes precedence over menu selection. It saves changed outgoing controls and loads incoming controls, clears pending bar editing/held-input state and refreshes key labels. The keybind menu names its active class. Existing drag, rebinding, conflict swapping, movement presets and reset operations save through the same profile path. Frame positions, display, slot size and camera preferences stay global.
+
+`tests/champion_controls_test.gd` covers Charge/F1 versus Blink/F6, unchanged shared defaults, independent primary/secondary/general controls, class resets, serialization, and actual-character precedence over menu selection. Existing layout migration and hotbar viewport tests cover older saved layouts and slot display.
+
+## Outlaw coin landing lifetime — September 11
+
+`outlaw_effects.gd` separates visible coin flight from `identity.coin_left`. While the combo is active, the existing snapshot clock follows authoritative launch data (including inherited momentum). Afterwards the mesh continues ballistically with swept terrain collision until downward ground contact; wall/ceiling hits slide the velocity and continue falling. Replaced coins and coins whose actor leaves move into `falling_coins` and are freed on landing. Combat state remains untouched. The network animation audit covers smooth flight, expiry/consumption, death/removal, repeated tosses, terrain and elevated momentum-driven landings.

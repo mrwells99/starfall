@@ -5,8 +5,8 @@ var scroll: ScrollContainer
 var stack: VBoxContainer
 var wordmark: Label
 var eyebrow: Label
-var metrics: HBoxContainer
-var values: Array[Label] = []
+var metrics: VBoxContainer
+const STAT_KEYS = ["damage", "healing", "kills", "interrupts", "cc"]
 var status_card: PanelContainer
 var preview: TextureRect
 var hero: HBoxContainer
@@ -81,23 +81,10 @@ func install(arena) -> void:
 	introduction.install(game)
 	preview.hide()
 	game.champion_choice.item_selected.connect(func(_index): refresh())
-	metrics = HBoxContainer.new()
-	metrics.add_theme_constant_override("separation", 10)
+	metrics = VBoxContainer.new()
+	metrics.add_theme_constant_override("separation", 8)
 	stack.add_child(metrics)
 	stack.move_child(metrics, game.round_summary.get_index())
-	for heading in ["ROUND TIME", "BLUE SURVIVORS", "RED SURVIVORS"]:
-		var card := PanelContainer.new()
-		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		card.add_theme_stylebox_override("panel", game.ui_box(Color("191e30"), Color("323b53"), 8))
-		metrics.add_child(card)
-		var column := VBoxContainer.new()
-		card.add_child(column)
-		var label = game.add_label(column, heading, 11)
-		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		label.add_theme_color_override("font_color", game.UI_TEXT_DIM)
-		var value = game.add_label(column, "—", 28)
-		value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		values.append(value)
 	status_card = PanelContainer.new()
 	status_card.add_theme_stylebox_override("panel", game.ui_box(Color("171c2c"), Color("303a52"), 8))
 	var index: int = game.lobby_text.get_index()
@@ -118,6 +105,7 @@ func refresh() -> void:
 	error_card.visible = not error_text.text.is_empty() and game.phase == "menu" and game.menu_state == "main"
 	var results: bool = game.phase == "results" and game.menu_state != "settings"
 	metrics.visible = results
+	wordmark.visible = not results
 	var selecting: bool = game.phase == "menu" and game.menu_state in ["online", "offline", "queue", "host", "join", "abilities"]
 	preview.show_champion(game.Kits.NAMES[game.champion_choice.selected], selecting)
 	status_card.visible = game.menu_state != "abilities" and not error_card.visible
@@ -125,8 +113,8 @@ func refresh() -> void:
 	introduction.show_champion(game.Kits.NAMES[game.champion_choice.selected], selecting and game.menu_state in ["online", "offline", "abilities"])
 	wordmark.add_theme_font_size_override("font_size", 28 if selecting else 42)
 	eyebrow.visible = not selecting
-	stack.add_theme_constant_override("separation", 10 if selecting else 14)
-	# Keep the summary string for accessibility/test consumers; the cards present it.
+	stack.add_theme_constant_override("separation", 10 if selecting or results else 14)
+	# The scoreboard presents the accessible summary columns.
 	game.round_summary.visible = false
 	var win: bool = game.actors.has(game.local_id) and game.actors[game.local_id].team == game.winner
 	game.result_text.add_theme_font_size_override("font_size", 36 if results else 24)
@@ -134,20 +122,56 @@ func refresh() -> void:
 	if results:
 		game.result_text.text = "VICTORY" if win else "DEFEAT"
 		eyebrow.text = "ROUND COMPLETE   /   %s TEAM WINS" % ("BLUE" if game.winner == 0 else "RED")
-		var survivors := [0, 0]
-		for actor in game.actors.values():
-			if actor.hp > 0: survivors[actor.team] += 1
-		var seconds := int(game.result_info.get("duration", game.elapsed))
-		values[0].text = "%02d:%02d" % [seconds / 60, seconds % 60]
-		values[1].text = "%d / %d" % [survivors[0], game.mode]
-		values[2].text = "%d / %d" % [survivors[1], game.mode]
-		values[1].add_theme_color_override("font_color", Color("9dcafa"))
-		values[2].add_theme_color_override("font_color", Color("f0a9b5"))
+		refresh_scoreboard()
 	else:
 		eyebrow.text = "C O S M I C   G L A D I A T O R S"
 		if game.phase == "menu" and game.menu_state != "settings":
 			game.result_text.text = {"main":"Enter the arena", "online":"Find your next fight", "offline":"Hone your champion", "queue":"Join the competition", "host":"Bring your rivals", "join":"Your party awaits", "abilities":"Explore your champion"}.get(game.menu_state, "Enter the arena")
 	layout.call_deferred()
+
+func score_row(parent: Control, cells: Array, tint: Color, heading: bool = false) -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+	parent.add_child(row)
+	for i in range(cells.size()):
+		var label = game.add_label(row, str(cells[i]), 11 if heading else 15)
+		label.custom_minimum_size = Vector2(172 if i == 0 else 78, 26)
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL if i == 0 else Control.SIZE_FILL
+		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT if i == 0 else HORIZONTAL_ALIGNMENT_RIGHT
+		label.add_theme_color_override("font_color", tint)
+
+func refresh_scoreboard() -> void:
+	for child in metrics.get_children():
+		metrics.remove_child(child)
+		child.queue_free()
+	var ids: Array = game.actors.keys()
+	ids.sort()
+	for team in [game.winner, 1 - game.winner]:
+		var tint := Color("9dcafa") if team == 0 else Color("f0a9b5")
+		var card := PanelContainer.new()
+		card.add_theme_stylebox_override("panel", game.ui_box(Color("191e30"), tint.darkened(0.55), 8))
+		metrics.add_child(card)
+		var column := VBoxContainer.new()
+		column.add_theme_constant_override("separation", 4)
+		card.add_child(column)
+		var title = game.add_label(column, "%s TEAM  /  %s" % ["BLUE" if team == 0 else "RED", "WINNER" if team == game.winner else "DEFEATED"], 13)
+		title.add_theme_color_override("font_color", tint)
+		score_row(column, ["CHAMPION", "DAMAGE\nDONE", "HEALING\nDONE", "KILLING\nBLOWS", "INTERRUPTS\nLANDED", "CCs\nLANDED"], game.UI_TEXT_DIM, true)
+		var totals := [0.0, 0.0, 0.0, 0.0, 0.0]
+		for id in ids:
+			var actor = game.actors[id]
+			if actor.team != team: continue
+			var cells: Array = ["%s · %s" % [actor.champion, "YOU" if id == game.local_id else "#%s" % id]]
+			for i in range(STAT_KEYS.size()):
+				var value: float = actor.match_stats.get(STAT_KEYS[i], 0)
+				totals[i] += value
+				cells.append(str(roundi(value)))
+			score_row(column, cells, tint if id == game.local_id else game.UI_TEXT)
+		column.add_child(HSeparator.new())
+		var total_cells: Array = ["TEAM TOTAL"]
+		for value in totals: total_cells.append(str(roundi(value)))
+		score_row(column, total_cells, tint)
 
 func layout() -> void:
 	if not is_instance_valid(game.panel): return

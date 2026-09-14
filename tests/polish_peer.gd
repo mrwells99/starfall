@@ -48,7 +48,7 @@ func _process(delta: float) -> bool:
 		if not game.result_info.get("automatic", false) or not is_equal_approx(float(game.result_info.get("delay", 0)), 1.5):
 			push_error("Client missed authoritative rematch metadata")
 			quit(1)
-		if not game.round_summary.text.contains("Survivors") or game.resume_button.visible:
+		if not game.round_summary.text.contains("Damage done") or game.resume_button.visible:
 			push_error("Incorrect results controls/summary")
 			quit(1)
 		if results_seen == 1 and not game.lobby_text.text.contains("Next round in"):
