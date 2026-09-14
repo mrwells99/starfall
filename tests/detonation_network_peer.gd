@@ -13,13 +13,27 @@ var miss:=false
 var empty_click_blocked:=false
 var timing_error:=""
 var finished:=false
+var completion_delay := 0.0
+var completion: CompletionBarrier
+
+class CompletionBarrier extends Node:
+	var peer_finished := false
+	@rpc("any_peer", "call_remote", "reliable")
+	func report_finished() -> void:
+		peer_finished = true
+
 func _initialize() -> void:
 	host="--test-host" in OS.get_cmdline_user_args()
 	world="--test-world" in OS.get_cmdline_user_args()
 	miss="--test-miss" in OS.get_cmdline_user_args()
+	# Reproduce slower CI clients without changing transport or combat timing.
+	if not host and "--test-delayed-completion" in OS.get_cmdline_user_args(): completion_delay = 2.0
 	call_deferred("setup")
 func setup() -> void:
 	arena=load("res://arena.tscn").instantiate(); arena.set_script(load("res://tests/network_fixture_arena.gd")); root.add_child(arena)
+	completion = CompletionBarrier.new()
+	completion.name = "DetonationCompletion"
+	root.add_child(completion)
 	Engine.max_fps=60; arena.current_port=53196
 	for arg in OS.get_cmdline_user_args():
 		if not host and arg.begins_with("--test-rtt-ms=") and int(arg.get_slice("=",1))>0: arena.current_port=53197
@@ -86,7 +100,7 @@ func _process(delta: float) -> bool:
 			arena.outlaw_aim_test.request_fire()
 			empty_click_blocked=not arena.outlaw_aim_test.fire_requested and arena.action_seq==previous_seq
 			step=5
-	if match_time>4.5:
+	if match_time>4.5+completion_delay:
 		var damage:=0
 		var timing:=true
 		for i in results.size():
@@ -105,6 +119,17 @@ func _process(delta: float) -> bool:
 	return false
 
 func finish(okay: bool) -> void:
-	# Both world peers must record their assertions before disconnect despawns one.
-	await create_timer(1.0).timeout
+	# World admission and loading start the two match clocks at different times.
+	# Keep the server alive until the client has recorded its own assertions.
+	if not host: completion.report_finished.rpc_id(1)
+	var deadline := Time.get_ticks_msec() + 10000
+	while not completion.peer_finished and Time.get_ticks_msec() < deadline:
+		await create_timer(.05).timeout
+	if not completion.peer_finished:
+		push_error("Detonation peer did not acknowledge test completion")
+		okay = false
+	if host and completion.peer_finished:
+		completion.report_finished.rpc()
+		# Allow the reliable acknowledgement to reach the delayed client.
+		await create_timer(1.0).timeout
 	arena.leave_session(""); quit(0 if okay else 1)

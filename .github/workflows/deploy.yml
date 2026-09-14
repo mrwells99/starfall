@@ -234,7 +234,7 @@ jobs:
           set -euo pipefail
           python3 tests/run_outlaw_network.py --test-latency
           python3 tests/run_detonation_network.py --test-latency
-          python3 tests/run_detonation_network.py --test-world --test-rtt-ms=138
+          python3 tests/run_detonation_network.py --test-world --test-rtt-ms=138 --test-delayed-completion
           python3 tests/run_detonation_network.py --test-world --test-rtt-ms=138 --test-miss
           python3 tests/run_lasso_network.py --test-latency
           python3 tests/run_lasso_network.py --test-latency --test-air
