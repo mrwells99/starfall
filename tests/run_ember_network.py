@@ -34,8 +34,15 @@ try:
     reader.join(timeout=2)
     host_output = "".join(lines)
     print(host_output + output)
-    sys.exit(1 if host.returncode or client.returncode or "ERROR:" in host_output + output
-             or "HOST PASS" not in host_output or "CLIENT PASS" not in output else 0)
+    failed = (host.returncode or client.returncode or "ERROR:" in host_output + output
+              or "HOST PASS" not in host_output or "CLIENT PASS" not in output)
+    if failed and os.environ.get("GITHUB_ACTIONS") == "true":
+        # Keep the failure readable through check annotations when raw job logs
+        # require a signed-in GitHub session. These are isolated fixture logs.
+        details = (host_output + output)[-6000:]
+        details = details.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+        print("::error title=Multiplayer regression::" + details)
+    sys.exit(1 if failed else 0)
 finally:
     for process in (host, client):
         if process is not None and process.poll() is None:
