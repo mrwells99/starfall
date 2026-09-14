@@ -11,6 +11,7 @@ var saw_detection:=false
 var saw_backstab:=false
 var saw_dive:=false
 var saw_knockdown:=false
+var saw_half_opacity:=false
 func _initialize() -> void:
 	host="--test-host" in OS.get_cmdline_user_args()
 	observer="--test-observer" in OS.get_cmdline_user_args();call_deferred("setup")
@@ -47,8 +48,10 @@ func _process(delta: float) -> bool:
 		if not host:
 			var art=a.champion_model.null_art
 			art.visibility_for(a,arena.actors[arena.local_id])
-			if art.last_alpha!=.5:push_error("Network stealth alpha");quit(1)
-	if b.hp<=65:saw_backstab=true
+			var expected_alpha := 0.0 if observer and not arena.Null.detected(a,b) else .5
+			if art.target_stealth_alpha!=expected_alpha:push_error("Network stealth observer opacity target");quit(1)
+			if absf(art.last_alpha-.5)<.01:saw_half_opacity=true
+	if b.hp <= b.MAX_HEALTH - 245:saw_backstab=true
 	if arena.Null.busy(a):saw_dive=true
 	if b.cc_effects.get("stun",{}).get("source","")=="Vantage Point":saw_knockdown=true
 	var controller: bool=(host and observer) or (not host and not observer)
@@ -65,7 +68,7 @@ func _process(delta: float) -> bool:
 				var bar: int=arena.assignment.find(slot)
 				arena.send_action(bar)
 	if match_time>(8.0 if host else 7.5):
-		var okay: bool=saw_stealth and saw_detection and saw_backstab and saw_dive and saw_knockdown and b.hp==43 and not arena.Null.stealthed(a) and arena.locked_target_for(b.actor_id)==a.actor_id
+		var okay: bool=(host or saw_half_opacity) and saw_stealth and saw_detection and saw_backstab and saw_dive and saw_knockdown and b.hp == b.MAX_HEALTH - 245 - 220 and not arena.Null.stealthed(a) and arena.locked_target_for(b.actor_id)==a.actor_id
 		if host:okay=okay and a.champion_model==null and not ResourceLoader.has_cached("res://assets/characters/null.glb")
 		if okay:print("NULL NETWORK %s PASS: replicated stealth, proximity detection, auto-target restoration, backstab and dive; observer=%s" % ["HOST" if host else "CLIENT",observer])
 		else:push_error("Null network failed host=%s observer=%s stealth=%s detection=%s stab=%s dive=%s down=%s hp=%s" % [host,observer,saw_stealth,saw_detection,saw_backstab,saw_dive,saw_knockdown,b.hp])

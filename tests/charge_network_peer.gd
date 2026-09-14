@@ -69,7 +69,7 @@ func _process(delta: float) -> bool:
 			target.motion_revision += 1
 	root_seen = root_seen or target.identity.root > 0
 	if match_time > (5.5 if host else 4.5):
-		var passed: bool = charge_seen and root_seen and samples.size() >= 5 and charger.charge.is_empty() and target.hp == 94 and charger.position.distance_to(target.position) < 2.0
+		var passed: bool = charge_seen and root_seen and samples.size() >= 5 and charger.charge.is_empty() and target.hp == 1440 and charger.position.distance_to(target.position) < 2.0
 		if not passed:
 			push_error("Charge network failed: seen=%s root=%s samples=%d active=%s hp=%s distance=%.3f" % [charge_seen, root_seen, samples.size(), not charger.charge.is_empty(), target.hp, charger.position.distance_to(target.position)])
 		else:

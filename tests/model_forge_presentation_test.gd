@@ -125,7 +125,7 @@ func run_class(title: String) -> void:
 	var before: Transform3D = actor.transform
 	actor.hp = 0; visual.animate(.4, actor)
 	check(visual.rotation.x < -1 and actor.transform == before, "Defeat affects presentation only")
-	actor.hp = 100; visual.animate(.4, actor)
+	actor.hp = actor.MAX_HEALTH; visual.animate(.4, actor)
 	check(is_zero_approx(visual.rotation.x), "Revive restores model")
 	var capsule: CapsuleShape3D = actor.get_child(0).shape
 	check(is_equal_approx(capsule.radius,.42) and is_equal_approx(capsule.height,1.8), "Gameplay capsule unchanged")
@@ -141,7 +141,7 @@ func run_class(title: String) -> void:
 	# End the remote fixture; remaining grip/jump probes supply local poses directly.
 	actor.presentation_snapshot_serial=0
 	actor.motion_revision+=1
-	actor.flash=0; actor.stunned=0; actor.hp=100; actor.casting=-1
+	actor.flash=0; actor.stunned=0; actor.hp=actor.MAX_HEALTH; actor.casting=-1
 	actor.presentation_grounded=true
 	art.was_airborne=false; art.transient_left=0
 	# The first tiny input frame must preserve the displayed pose, including

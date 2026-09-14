@@ -102,6 +102,10 @@ jobs:
         if: matrix.suite == 'gameplay'
         run: ./tests/check_suite.sh "Combat checks" godot --headless --path . --script tests/combat_test.gd
 
+      - name: Combat scaling and health display
+        if: matrix.suite == 'gameplay'
+        run: ./tests/check_suite.sh "Combat scaling" godot --headless --path . --script tests/combat_scale_test.gd
+
       - name: Menu, availability, rematch and frame-budget checks
         if: matrix.suite == 'gameplay'
         run: ./tests/check_suite.sh "Polish checks" godot --headless --path . --script tests/polish_test.gd

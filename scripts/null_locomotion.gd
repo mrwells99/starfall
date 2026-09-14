@@ -48,6 +48,8 @@ static func install(player: AnimationPlayer, skeleton: Skeleton3D) -> Dictionary
 			assert(add_result == OK)
 		remapped_libraries[path] = library
 	if not player.has_animation_library(LIBRARY_NAME):
+		player.stop()
+		player.clear_caches()
 		var install_result := player.add_animation_library(LIBRARY_NAME, remapped_libraries[path])
 		assert(install_result == OK)
 		if not active_name.is_empty():

@@ -11,5 +11,6 @@ static func install(player: AnimationPlayer, skeleton: Skeleton3D) -> String:
 		animation.track_set_path(track,NodePath(path+":"+bone))
 	var library := AnimationLibrary.new()
 	library.add_animation("Mend",animation)
-	assert(player.add_animation_library("mend_handwork",library) == OK)
+	var library_error := player.add_animation_library("mend_handwork",library)
+	assert(library_error == OK)
 	return "mend_handwork/Mend"

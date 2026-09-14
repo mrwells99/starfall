@@ -74,7 +74,7 @@ func run() -> void:
 	a.hp = 0
 	game.update_visuals(0)
 	check(not first.visible and not first.is_processing() and second.visible, "Caster death clears only its own effect")
-	a.hp = 100
+	a.hp = a.MAX_HEALTH
 	a.identity.anchor_left = 0.0
 	game.update_visuals(0)
 	check(not first.visible, "Expired or consumed anchor remains hidden")

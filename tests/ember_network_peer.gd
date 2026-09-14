@@ -77,7 +77,7 @@ func _process(delta: float) -> bool:
 	movement_blink_seen = movement_blink_seen or (ember.identity.blink_charges == 0 and absf(ember.position.x) < .4 and ember.position.z > 7.6)
 	recharge_seen = recharge_seen or (ember.identity.blink_charges == 0 and ember.cooldowns[6] > 10 and ember.cooldowns[6] < 14)
 	if match_time > (5.0 if host else 4.0):
-		var passed: bool = camera_blink_seen and flare_seen and movement_blink_seen and recharge_seen and target.hp == 100
+		var passed: bool = camera_blink_seen and flare_seen and movement_blink_seen and recharge_seen and target.hp == target.MAX_HEALTH
 		if passed:
 			print("EMBER NETWORK %s PASS: camera fallback, untargeted cone, action-local movement, two charges and recharge" % ["HOST" if host else "CLIENT"])
 		else:

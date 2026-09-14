@@ -35,57 +35,57 @@ func proc_aura(key: String) -> Dictionary:
 func test_periodics() -> void:
 	await reset()
 	arena.resolve_spell(a, 0, b)
-	ck(b.hp == 94 and b.identity.dots[1].stacks == 1 and b.identity.dots[1].left == 11, "Graviton applies six initial damage and one eleven-second stack")
+	ck(b.hp == 1440 and b.identity.dots[1].stacks == 1 and b.identity.dots[1].left == 11, "Graviton applies six initial damage and one eleven-second stack")
 	arena.ClassMechanics.tick(arena, b, .5)
 	arena.resolve_spell(a, 0, b)
 	ck(b.identity.dots[1].left == 11 and b.identity.dots[1].stacks == 2, "Second Graviton adds a stack and refreshes its full duration")
 	arena.ClassMechanics.tick(arena, b, .5)
-	ck(b.hp == 82 and a.identity.meditation == 0, "Two Graviton stacks tick for six damage without postponement or Meditation")
+	ck(b.hp == 1320 and a.identity.meditation == 0, "Two Graviton stacks tick for six damage without postponement or Meditation")
 	arena.resolve_spell(a, 0, b)
 	ck(b.identity.dots.size() == 1 and b.identity.dots[1].stacks == 2 and b.identity.dots[1].left == 11, "Third Graviton refreshes two stacks without adding a third")
 	arena.ClassMechanics.tick(arena, b, 1)
-	ck(b.hp == 70 and a.identity.meditation == 0, "Capped Graviton stacks keep dealing six damage per tick and generate no Meditation")
+	ck(b.hp == 1200 and a.identity.meditation == 0, "Capped Graviton stacks keep dealing six damage per tick and generate no Meditation")
 	await reset()
 	arena.resolve_spell(a, 0, b)
 	arena.ClassMechanics.tick(arena, b, 11)
-	ck(b.hp == 61 and a.identity.meditation == 0 and b.identity.dots.is_empty(), "One Graviton stack delivers exactly eleven three-damage ticks and expires")
+	ck(b.hp == 1110 and a.identity.meditation == 0 and b.identity.dots.is_empty(), "One Graviton stack delivers exactly eleven three-damage ticks and expires")
 	await reset()
 	arena.resolve_spell(a, 0, b)
 	arena.resolve_spell(a, 0, b)
 	arena.ClassMechanics.tick(arena, b, 30)
-	ck(b.hp == 22 and a.identity.meditation == 0 and b.identity.dots.is_empty(), "Two Graviton stacks expire after eleven ticks even with an oversized simulation step")
+	ck(b.hp == 720 and a.identity.meditation == 0 and b.identity.dots.is_empty(), "Two Graviton stacks expire after eleven ticks even with an oversized simulation step")
 	await reset()
 	a.move_input = Vector2(1, 0)
-	ck(arena.try_spell(1, 13, 2) and a.casting == -1 and b.hp == 100, "Entropy applies instantly while moving without initial damage")
+	ck(arena.try_spell(1, 13, 2) and a.casting == -1 and b.hp == b.MAX_HEALTH, "Entropy applies instantly while moving without initial damage")
 	ck(a.gcd == arena.GCD_DURATION and a.cooldowns[13] == 0, "Entropy uses the normal global cooldown and no individual cooldown")
 	ck(not arena.try_spell(1, 13, 2), "Entropy cannot bypass its global cooldown")
 	arena.ClassMechanics.tick(arena, b, .5)
 	a.gcd = 0
 	ck(arena.try_spell(1, 13, 2) and b.identity.entropy_dots[1].left == 15, "Entropy refreshes its full fifteen-second duration")
 	arena.ClassMechanics.tick(arena, b, .5)
-	ck(b.hp == 98 and a.identity.meditation == 5 and b.identity.entropy_dots.size() == 1, "Refreshing Entropy neither stacks nor postpones its two-damage, five-Meditation tick")
+	ck(b.hp == 1480 and a.identity.meditation == 5 and b.identity.entropy_dots.size() == 1, "Refreshing Entropy neither stacks nor postpones its two-damage, five-Meditation tick")
 	a.identity.meditation = 98
 	arena.ClassMechanics.tick(arena, b, 1)
 	ck(a.identity.meditation == 100, "Entropy Meditation caps at one hundred")
 	await reset()
 	arena.resolve_spell(a, 13, b)
 	arena.ClassMechanics.tick(arena, b, 30)
-	ck(b.hp == 70 and a.identity.meditation == 75 and b.identity.entropy_dots.is_empty(), "Entropy delivers exactly fifteen two-damage ticks and seventy-five Meditation before expiring")
+	ck(b.hp == 1200 and a.identity.meditation == 75 and b.identity.entropy_dots.is_empty(), "Entropy delivers exactly fifteen two-damage ticks and seventy-five Meditation before expiring")
 	arena.ClassMechanics.tick(arena, b, 10)
-	ck(b.hp == 70 and a.identity.meditation == 75, "Expired Entropy cannot tick or generate additional Meditation")
+	ck(b.hp == 1200 and a.identity.meditation == 75, "Expired Entropy cannot tick or generate additional Meditation")
 	await reset()
 	arena.resolve_spell(a, 0, b)
 	arena.resolve_spell(a, 0, b)
 	arena.resolve_spell(a, 13, b)
 	arena.ClassMechanics.tick(arena, b, 1)
-	ck(b.hp == 80 and a.identity.meditation == 5 and b.identity.dots.has(1) and b.identity.entropy_dots.has(1), "Two Graviton stacks and Entropy coexist; only Entropy generates Meditation")
+	ck(b.hp == 1300 and a.identity.meditation == 5 and b.identity.dots.has(1) and b.identity.entropy_dots.has(1), "Two Graviton stacks and Entropy coexist; only Entropy generates Meditation")
 	arena.spawn_actor(3, 3, 0, "Fulcrum", Vector3(2, 0, 3))
 	var other = arena.actors[3]
 	arena.resolve_spell(other, 0, b)
 	arena.resolve_spell(other, 13, b)
 	arena.ClassMechanics.tick(arena, b, 1)
 	ck(b.identity.dots.size() == 2 and b.identity.entropy_dots.size() == 2 and b.identity.dots[1].stacks == 2 and b.identity.dots[3].stacks == 1, "Both DoT families maintain independent caster entries and stack limits")
-	ck(b.hp == 61 and a.identity.meditation == 10 and other.identity.meditation == 5, "Independent casters receive only their own Entropy Meditation")
+	ck(b.hp == 1110 and a.identity.meditation == 10 and other.identity.meditation == 5, "Independent casters receive only their own Entropy Meditation")
 	var state: Dictionary = b.snapshot()
 	b.reset_identity()
 	b.receive(bytes_to_var(var_to_bytes(state)), true)
@@ -95,7 +95,7 @@ func test_periodics() -> void:
 	arena.resolve_spell(a, 13, b)
 	arena.world_mode = true
 	arena.ClassMechanics.tick(arena, b, 1)
-	ck(b.hp == 94 and b.identity.dots.is_empty() and b.identity.entropy_dots.is_empty() and a.identity.meditation == 0, "Both DoTs stop without damage or Meditation when their target is no longer legal")
+	ck(b.hp == 1440 and b.identity.dots.is_empty() and b.identity.entropy_dots.is_empty() and a.identity.meditation == 0, "Both DoTs stop without damage or Meditation when their target is no longer legal")
 
 func test_inward_proc() -> void:
 	await reset()
@@ -116,7 +116,7 @@ func test_inward_proc() -> void:
 	ck(arena.try_spell(1, 11, 1) and a.casting == -1 and not a.identity.instant_collapse, "Charged Collapse casts instantly while moving and consumes the charge")
 	ck(proc_aura("instant_collapse").is_empty(), "Using instant Collapse removes its buff immediately")
 	ck(a.gcd == gcd and a.cooldowns[11] == 18 and a.identity.anchor_left == 0, "Charged Collapse preserves the running GCD, starts its own eighteen-second cooldown, and consumes the anchor")
-	ck(a.identity.instant_graviton == 4.0 and b.hp == 78, "An instant Collapse hit starts a fresh four-second Graviton window")
+	ck(a.identity.instant_graviton == 4.0 and b.hp == 1280, "An instant Collapse hit starts a fresh four-second Graviton window")
 	anchor(b.position)
 	a.gcd = 0
 	a.cooldowns[11] = 0
@@ -298,9 +298,9 @@ func test_starfall_area() -> void:
 	arena.spawn_actor(6, 6, 1, "Ember", Vector3(0, .01, 5))
 	a.identity.meditation = 50
 	arena.resolve_spell(a, 12, b)
-	ck(b.hp == 60 and arena.actors[3].hp == 60, "Starfall damages its target and enemies within five meters of the target")
-	ck(arena.actors[4].hp == 100 and arena.actors[6].hp == 100, "Starfall excludes enemies beyond its radius, including enemies close only to the caster")
-	ck(a.hp == 100 and arena.actors[5].hp == 100 and a.identity.meditation == 0, "Starfall protects allies and spends Meditation once for its whole area")
+	ck(b.hp == 1100 and arena.actors[3].hp == 1100, "Starfall damages its target and enemies within five meters of the target")
+	ck(arena.actors[4].hp == arena.actors[4].MAX_HEALTH and arena.actors[6].hp == arena.actors[6].MAX_HEALTH, "Starfall excludes enemies beyond its radius, including enemies close only to the caster")
+	ck(a.hp == a.MAX_HEALTH and arena.actors[5].hp == arena.actors[5].MAX_HEALTH and a.identity.meditation == 0, "Starfall protects allies and spends Meditation once for its whole area")
 	var wall := StaticBody3D.new()
 	var collider := CollisionShape3D.new()
 	var box := BoxShape3D.new()
@@ -310,20 +310,20 @@ func test_starfall_area() -> void:
 	arena.add_child(wall)
 	wall.position = Vector3(2, 1, -2)
 	await physics_frame
-	b.hp = 100
-	arena.actors[3].hp = 100
+	b.hp = b.MAX_HEALTH
+	arena.actors[3].hp = arena.actors[3].MAX_HEALTH
 	a.identity.meditation = 50
 	ck(not arena.ClassMechanics.point_los(arena, b.position, arena.actors[3].position), "Starfall splash fixture has a solid blocker from the target center")
 	arena.resolve_spell(a, 12, b)
-	ck(b.hp == 60 and arena.actors[3].hp == 100, "Starfall splash cannot damage an enemy through solid terrain")
+	ck(b.hp == 1100 and arena.actors[3].hp == arena.actors[3].MAX_HEALTH, "Starfall splash cannot damage an enemy through solid terrain")
 	wall.queue_free()
 	await physics_frame
 	arena.world_mode = true
 	arena.duels = {1: 2, 2: 1}
-	b.hp = 100
+	b.hp = b.MAX_HEALTH
 	a.identity.meditation = 50
 	arena.resolve_spell(a, 12, b)
-	ck(b.hp == 60 and arena.actors[3].hp == 100, "Target-centered Starfall cannot damage non-dueling world bystanders")
+	ck(b.hp == 1100 and arena.actors[3].hp == arena.actors[3].MAX_HEALTH, "Target-centered Starfall cannot damage non-dueling world bystanders")
 	arena.world_mode = false
 	a.identity.meditation = 50
 	a.cooldowns[12] = 0
@@ -364,12 +364,12 @@ func run() -> void:
 	a.identity.meditation = 49
 	ck(not arena.try_spell(1, 12, 2), "Starfall blocked below 50")
 	for amount in [50, 100]:
-		a.identity.meditation = amount; a.gcd = 0; a.cooldowns[12] = 0; b.hp = 100
+		a.identity.meditation = amount; a.gcd = 0; a.cooldowns[12] = 0; b.hp = b.MAX_HEALTH
 		ck(arena.try_spell(1, 12, 2) and a.casting == 12, "Starfall begins cast at %d" % amount)
 		arena.cancel_own_cast(a, "")
 		ck(a.identity.meditation == amount, "Cancelled Starfall spends nothing")
 		arena.resolve_spell(a, 12, b)
-		ck(b.hp == 100 - (20 + amount * .4) and a.identity.meditation == 0, "Starfall damage scales and consumes Meditation")
+		ck(b.hp == b.MAX_HEALTH - (20 + amount * .4) * b.DAMAGE_SCALE and a.identity.meditation == 0, "Starfall damage scales and consumes Meditation")
 	await reset()
 	arena.resolve_spell(a, 0, b)
 	arena.resolve_spell(a, 13, b)
@@ -383,7 +383,7 @@ func run() -> void:
 	arena.try_spell(2, 5, 2)
 	b.cast_left = .001
 	arena.tick_actor(b, .02)
-	ck(b.identity.dots.is_empty() and b.identity.entropy_dots.is_empty() and b.hp > 88, "Completed DPS Mend heals and clears every caster's Graviton and Entropy")
+	ck(b.identity.dots.is_empty() and b.identity.entropy_dots.is_empty() and b.hp > b.MAX_HEALTH - 120, "Completed DPS Mend heals and clears every caster's Graviton and Entropy")
 	var med: float = a.identity.meditation
 	arena.ClassMechanics.tick(arena, b, 2)
 	ck(a.identity.meditation == med, "Cleansed DoT cannot generate more Meditation")
@@ -411,7 +411,7 @@ func run() -> void:
 	arena.ClassMechanics.tick(arena, a, .1)
 	ck(b.identity.slow > 0, "Heavy Orbit affects enemies across LOS blockers")
 	arena.resolve_spell(a, 11, a)
-	ck(b.hp == 78 and b.stunned == 3 and a.identity.instant_graviton, "Collapse damages, stuns and grants proc across a blocker")
+	ck(b.hp == 1280 and b.stunned == 3 and a.identity.instant_graviton, "Collapse damages, stuns and grants proc across a blocker")
 	anchor(Vector3(100, 0, 0))
 	ck(not arena.validate_spell(a, 11, 1).is_empty(), "Anchor range still enforced")
 	wall.queue_free()
@@ -419,7 +419,7 @@ func run() -> void:
 	arena.world_mode = true
 	arena.resolve_spell(a, 0, b)
 	arena.resolve_spell(a, 13, b)
-	ck(b.identity.dots.is_empty() and b.identity.entropy_dots.is_empty() and b.hp == 100, "Graviton and Entropy cannot damage or apply DoTs to non-dueling world players")
+	ck(b.identity.dots.is_empty() and b.identity.entropy_dots.is_empty() and b.hp == b.MAX_HEALTH, "Graviton and Entropy cannot damage or apply DoTs to non-dueling world players")
 	anchor(b.position)
 	ck(not arena.try_spell(1, 13, 2) and not arena.try_spell(1, 1, 2) and not a.identity.instant_collapse, "Illegal world casts cannot apply Entropy or grant an Inward proc")
 	a.identity.meditation = 81; a.identity.instant_graviton = 4.0
@@ -460,7 +460,7 @@ func run() -> void:
 		arena.begin_round()
 		a = arena.actors[1]
 		arena.elapsed = 600
-		a.hp = 20
+		a.hp = 300
 		a.identity.dots[99] = {"left": 8.0, "tick": 1.0}
 		a.identity.entropy_dots[99] = {"left": 15.0, "tick": 1.0}
 		var mend_slot := -1
@@ -472,22 +472,22 @@ func run() -> void:
 		ck(mend_slot >= 0, "Mend exists for " + champion)
 		if mend_slot < 0: continue
 		arena.resolve_spell(a, mend_slot, a)
-		ck(a.hp == 48, "Late-match Mend heals 28 for " + champion)
+		ck(a.hp == 636, "Late-match Mend heals 336 for " + champion)
 		ck(a.identity.dots.has(99) == (champion == "Luminary") and a.identity.entropy_dots.has(99) == (champion == "Luminary"), "Only DPS Mend cleanses both DoT families: " + champion)
-		a.hp = 90
+		a.hp = 1350
 		arena.resolve_spell(a, mend_slot, a)
-		ck(a.hp == 100, "Mend caps at missing health")
+		ck(a.hp == a.MAX_HEALTH, "Mend caps at missing health")
 		arena.world_mode = true
-		a.hp = 20
+		a.hp = 300
 		arena.resolve_spell(a, mend_slot, a)
-		ck(a.hp == 48, "Old-world Mend still heals 28")
+		ck(a.hp == 636, "Old-world Mend still heals 336")
 	arena.world_mode = true
-	a.hp = 20
+	a.hp = 300
 	arena.ClassMechanics.heal(arena, a, a, 27)
-	ck(a.hp == 47, "World healing never inherits arena dampening")
+	ck(a.hp == 705, "World healing never inherits arena dampening")
 	arena.world_mode = false
-	a.hp = 20
+	a.hp = 300
 	arena.ClassMechanics.heal(arena, a, a, 27)
-	ck(is_equal_approx(a.hp, 28.1), "Non-Mend arena healing retains dampening")
+	ck(is_equal_approx(a.hp, 421.5), "Non-Mend arena healing retains dampening")
 	print("Fulcrum Meditation checks: %d passed / %d total" % [checks - failures, checks])
 	quit(1 if failures else 0)

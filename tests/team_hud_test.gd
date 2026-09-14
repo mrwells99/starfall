@@ -22,7 +22,7 @@ func check_brands(game) -> void:
 	var victim = game.actors[4]
 	var icon = game.AbilityArt.texture_for("Flashpoint")
 	for count in range(1, 4):
-		victim.hp = 100
+		victim.hp = victim.MAX_HEALTH
 		game.resolve_spell(caster, 0, victim)
 		game.update_visuals(0)
 		var effects: Array = game.Auras.active(victim, game.actors.values(), game.local_id)
@@ -44,7 +44,7 @@ func check_brands(game) -> void:
 	other.identity.brands[victim.actor_id] = {"count": 1, "left": 4.0}
 	var separate: Array = game.Auras.active(victim, [other, caster], game.local_id)
 	check(separate.size() == 2 and separate[0].stacks == 3 and separate[0].caster_id == 1 and separate[1].stacks == 1, "Multiple Embers retain separate stacks with your Brand first")
-	victim.hp = 100
+	victim.hp = victim.MAX_HEALTH
 	game.resolve_spell(caster, 1, victim)
 	separate = game.Auras.active(victim, game.actors.values())
 	check(separate.size() == 1 and separate[0].caster_id == 7, "Flashpoint consumes only its own Brand indicator")
@@ -184,7 +184,7 @@ func run() -> void:
 	check(not compact_details.strip.get_global_rect().intersects(compact_health.get_child(0).get_global_rect()), "Effects do not cover health percentage")
 	var busy_position: Vector2 = compact_row.position
 	check(compact_row.get_global_rect().encloses(compact_row.get_node("DiminishingReturns").get_global_rect()), "Busy row contains both DR rows")
-	compact_actor.hp = 100
+	compact_actor.hp = compact_actor.MAX_HEALTH
 	compact_actor.casting = -1
 	compact_actor.dr_states.clear()
 	game.update_visuals(0)

@@ -116,7 +116,7 @@ func run() -> void:
 	other.hp = 0
 	game.tick_world(4)
 	ck(other.position == Course.ENTRY and not game.world_starwalk.entry_waits.has(2), "Death cancels the pending countdown and cannot launch a dead actor")
-	other.hp = 100
+	other.hp = other.MAX_HEALTH
 	game.tick_world(7.9)
 	ck(other.position == Course.ENTRY, "Returning alive starts a fresh eight-second wait")
 	game.tick_world(0.1)

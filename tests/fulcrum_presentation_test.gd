@@ -116,7 +116,7 @@ func run() -> void:
 	var before: Transform3D = actor.transform
 	actor.hp = 0; visual.animate(.4, actor)
 	check(visual.rotation.x < -1 and actor.transform == before, "Defeat affects presentation only")
-	actor.hp = 100; visual.animate(.4, actor)
+	actor.hp = actor.MAX_HEALTH; visual.animate(.4, actor)
 	check(is_zero_approx(visual.rotation.x), "Revive restores model")
 	var capsule: CapsuleShape3D = actor.get_child(0).shape
 	check(is_equal_approx(capsule.radius,.42) and is_equal_approx(capsule.height,1.8), "Gameplay capsule unchanged")

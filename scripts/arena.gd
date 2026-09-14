@@ -3448,7 +3448,7 @@ func show_edit_previews() -> void:
 		frame.visible = true
 		frame.get_child(0).hide()
 		var bar := frame.get_child(1) as ProgressBar
-		bar.value = 100
+		bar.value = bar.max_value
 		(bar.get_child(0) as Label).text = "100%"
 		(frame.get_child(2) as ProgressBar).visible = false
 		(frame.get_child(3) as Label).text = ""
@@ -3467,7 +3467,7 @@ func show_edit_previews() -> void:
 			row.text = ""
 			row.custom_minimum_size.y = 64
 			var health := roster_bar(row)
-			health.value = 100
+			health.value = health.max_value
 			var thin = health.get_node("ThinResource")
 			thin.show()
 			thin.fraction = 0.65
@@ -3516,14 +3516,15 @@ func update_frame(frame: VBoxContainer, id: int, prefix: String) -> void:
 	frame.get_child(0).hide()
 	var health := frame.get_child(1) as ProgressBar
 	health.step = 0.0
-	health.value = clampf(100.0 * actor.hp / actor.MAX_HEALTH, 0.0, 100.0)
+	health.max_value = actor.MAX_HEALTH
+	health.value = actor.hp
 	var fill := health.get_theme_stylebox("fill") as StyleBoxFlat
 	fill.bg_color = hud_health_color(actor.champion)
 	# Class colour fills the bar, so the border is the only thing left saying
 	# which side someone is on. It has to be bold and it has to be there at full
 	# health, which means drawing it over the fill rather than behind it.
 	paint_bar_edge(health, GOLD if frame == focus_frame else (BLUE if friendly else ENEMY_EDGE), 1 if frame == focus_frame else 2)
-	(health.get_child(0) as Label).text = "%d%%" % ceili(health.value)
+	(health.get_child(0) as Label).text = "%d%%" % ceili(100.0 * health.ratio)
 	if health.has_node("DiminishingReturns"):
 		var dr = health.get_node("DiminishingReturns")
 		var duel_target: bool = world_mode and duels.get(local_id, -1) == id
@@ -3796,11 +3797,12 @@ func paint_roster_row(button: Button, actor, _title: String, friendly: bool) -> 
 	if bar == null:
 		return
 	bar.step = 0.0
-	bar.value = clampf(100.0 * actor.hp / actor.MAX_HEALTH, 0.0, 100.0)
+	bar.max_value = actor.MAX_HEALTH
+	bar.value = actor.hp
 	var fill := bar.get_theme_stylebox("fill") as StyleBoxFlat
 	fill.bg_color = hud_health_color(actor.champion)
 	paint_bar_edge(bar, BLUE if friendly else ENEMY_EDGE, 2 if actor.actor_id == selected_id else 1)
-	(bar.get_child(0) as Label).text = "%d%%" % ceili(bar.value)
+	(bar.get_child(0) as Label).text = "%d%%" % ceili(100.0 * bar.ratio)
 	bar.get_node("ThinResource").sync(actor)
 	button.get_node("Details").sync(actor)
 	if button.has_node("DiminishingReturns"): button.get_node("DiminishingReturns").sync(actor)

@@ -69,7 +69,7 @@ func finish(limit := 240) -> void:
 		if a.charge.is_empty(): break
 		await step()
 	ck(a.charge.is_empty() and a.position.distance_to(b.position) <= 1.9, "Accepted Charge reaches melee range along its safe route")
-	ck(b.hp == 94, "Charge deals six damage exactly once on arrival")
+	ck(b.hp == 1440, "Charge deals six damage exactly once on arrival")
 
 func run() -> void:
 	arena = load("res://arena.tscn").instantiate()
@@ -80,7 +80,7 @@ func run() -> void:
 	a.gcd = 1.0
 	ck(arena.try_spell(1, 6, 2), "Charge starts off the GCD")
 	ck(b.identity.root == 1.5 and arena.CC.remaining(b, "root") == 1.5, "Successful cast immediately roots the enemy for 1.5 seconds")
-	ck(a.position == before and b.hp == 100 and not a.charge.is_empty(), "Cast starts travel without teleporting or dealing early damage")
+	ck(a.position == before and b.hp == b.MAX_HEALTH and not a.charge.is_empty(), "Cast starts travel without teleporting or dealing early damage")
 	ck(a.cooldowns[6] == 12 and a.gcd == 1, "Charge keeps its twelve-second cooldown and leaves the GCD alone")
 	var charge_root := false
 	for aura in arena.Auras.active(b):
@@ -123,7 +123,7 @@ func run() -> void:
 	box(Vector3(0, 1.5, 0), Vector3(4, 3, .1))
 	await physics_frame
 	await step(.5)
-	ck(a.position.z > 0 and b.hp == 100, "A long physics frame cannot tunnel through a thin wall or damage through it")
+	ck(a.position.z > 0 and b.hp == b.MAX_HEALTH, "A long physics frame cannot tunnel through a thin wall or damage through it")
 	await finish()
 	for side in [-1.0, 1.0]:
 		await reset(Vector3(side * 10, .025, 0), Vector3(side * 15, 1.225, 0))
@@ -153,7 +153,7 @@ func run() -> void:
 	ck(arena.try_spell(1, 6, 2), "Charge starts against a duel opponent")
 	arena.duels.clear()
 	await step()
-	ck(a.charge.is_empty() and b.hp == 100, "Ending the duel cancels pending Charge damage")
+	ck(a.charge.is_empty() and b.hp == b.MAX_HEALTH, "Ending the duel cancels pending Charge damage")
 	await reset()
 	arena.try_spell(1, 6, 2)
 	await step()
@@ -165,7 +165,7 @@ func run() -> void:
 	ck(receiver.charge.target == 2 and receiver.charge.path == a.charge.path, "Snapshot replicates Charge target and remaining route")
 	var receiver_before: Vector3 = receiver.position
 	arena.simulate_movement(receiver, 1.0 / 60.0)
-	ck(receiver.position.distance_to(receiver_before) > .4 and b.hp == 100, "Client movement replay advances Charge without applying combat damage")
+	ck(receiver.position.distance_to(receiver_before) > .4 and b.hp == b.MAX_HEALTH, "Client movement replay advances Charge without applying combat damage")
 	ck(receiver.charge.path != a.charge.path, "Client route progress cannot mutate the authoritative path")
 	receiver.reset_identity()
 	ck(receiver.charge.is_empty(), "Round and duel identity resets clear Charge")

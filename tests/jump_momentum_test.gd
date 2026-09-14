@@ -15,7 +15,7 @@ func _initialize() -> void:
 	call_deferred("run")
 
 func reset_body(actor, x: float = 0.0) -> void:
-	actor.hp = 100
+	actor.hp = actor.MAX_HEALTH
 	actor.stunned = 0
 	actor.sprint = 0
 	for status in ["root", "hold", "slow"]:

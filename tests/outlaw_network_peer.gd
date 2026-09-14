@@ -65,7 +65,7 @@ func _process(delta: float) -> bool:
 			step=6;arena.send_action(arena.assignment.find(8))
 			aim_exited=not arena.outlaw_aim_test.enabled and outlaw.identity.defense_detonation==1 and arena.action_seq==aim_seq
 	if match_time>(6.0 if host else 5.0):
-		var passed: bool=roll_seen and proc_seen and severe_seen and backflip_seen and combo_seen and consumed_seen and outlaw.identity.instant_severe==0 and target.hp<73
+		var passed: bool=roll_seen and proc_seen and severe_seen and backflip_seen and combo_seen and consumed_seen and outlaw.identity.instant_severe==0 and target.hp < target.MAX_HEALTH - 270
 		passed=passed and outlaw.identity.defense_detonation==1 and (old_detonation_rejected if host else (aim_seen and aim_exited))
 		if passed:print("OUTLAW NETWORK %s PASS: Roll, Severe, combo resource, Detonation aim toggles without spending or RPC, legacy channel rejected" % ["HOST" if host else "CLIENT"])
 		else:push_error("Outlaw network failed: roll=%s proc=%s severe=%s flip=%s combo=%s consumed=%s hp=%s pos=%s" % [roll_seen,proc_seen,severe_seen,backflip_seen,combo_seen,consumed_seen,target.hp,outlaw.position])
