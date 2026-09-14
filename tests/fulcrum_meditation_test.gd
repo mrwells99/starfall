@@ -251,8 +251,7 @@ func test_displacement_interrupts() -> void:
 		var before: Vector3 = b.position
 		ck(arena.try_spell(1, slot, 2), "Displacement cast succeeds: " + a.kit[slot].name)
 		ck(b.position.distance_to(before) > .5 and b.casting == -1, "Actually moving the target immediately cancels their cast")
-		ck(b.locked == 0 and b.gcd == 1.0, "Displacement interrupt adds no school lockout and does not refund the target's GCD")
-		b.gcd = 0.0
+		ck(b.locked == 0 and b.gcd == 0.0, "Displacement interrupt refunds the target's GCD without a school lockout")
 		b.look_at(Vector3(a.position.x, b.position.y, a.position.z))
 		ck(arena.try_spell(2, 0, 1) and b.casting == 0, "The enemy can begin a new cast after displacement without a lockout")
 		await reset()

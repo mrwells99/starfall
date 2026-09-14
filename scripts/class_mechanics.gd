@@ -76,6 +76,7 @@ static func heal(game, a, b, amount: float) -> void:
 	var dampening := 0.0 if game.world_mode else clampf((game.elapsed - 60) / 180.0, 0, 0.7)
 	amount = minf(b.MAX_HEALTH - b.hp, amount * b.HEALTH_SCALE * (1 - dampening))
 	b.hp += amount
+	game.record_stat(a, "healing", amount)
 	game.combat_event(a.actor_id, b.actor_id, "+%d" % ceili(amount), Color("97edb1"))
 
 static func control(game, a, b, duration: float, title: String, root_only: bool = false, breaks: bool = false) -> void:
@@ -88,6 +89,7 @@ static func control(game, a, b, duration: float, title: String, root_only: bool 
 	if game.CC.apply(b, category, duration, title) <= 0:
 		game.combat_event(a.actor_id, b.actor_id, "IMMUNE", game.GOLD)
 		return
+	game.record_stat(a, "cc")
 	game.combat_event(a.actor_id, b.actor_id, title.to_upper(), game.GOLD)
 
 static func resolve(game, a, spell: Dictionary, b) -> bool:
@@ -246,7 +248,7 @@ static func resolve(game, a, spell: Dictionary, b) -> bool:
 			var previous_position: Vector3 = b.position
 			game.move_ability(b, offset.normalized() * (8.0 if spell.kind == "outward" else minf(8, maxf(0, offset.length() - 1))))
 			if b.casting >= 0 and b.position.distance_squared_to(previous_position) > .000001:
-				b.casting = -1
+				game.cancel_own_cast(b, "")
 				game.combat_event(a.actor_id, b.actor_id, "INTERRUPTED", game.GOLD)
 		"orbit":
 			s.orbit = 6.0
@@ -354,8 +356,10 @@ static func before_damage(game, source, victim, amount: float) -> float:
 				guarded = maxf(0, a.hp - 1)
 				s.last = 0.0
 			if guarded>0: game.Null.break_stealth(game,a)
+			game.record_stat(source, "damage", minf(a.hp, guarded))
 			a.hp = maxf(0, a.hp - guarded)
 			if a.hp <= 0:
+				game.record_stat(source, "kills")
 				a.casting = -1
 			game.combat_event(source.actor_id, a.actor_id, "INTERCEDE −%d" % ceili(guarded), game.RED)
 			amount -= redirected

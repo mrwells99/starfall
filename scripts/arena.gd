@@ -153,6 +153,11 @@ var join_row: HBoxContainer
 var code_field: LineEdit
 var config := UserConfig.new()
 var player_options
+var controls_champion := ""
+var controls_baseline: Dictionary = {}
+var controls_starter: Dictionary = {}
+const SPELL_QUEUE_WINDOW := 0.4
+
 var controls = preload("res://scripts/key_bindings.gd").new()
 var prediction = preload("res://scripts/movement_prediction.gd").new()
 var keybind_menu
@@ -1450,6 +1455,7 @@ func refresh_lobby() -> void:
 	refresh_menu()
 
 func refresh_menu() -> void:
+	sync_control_profile()
 	var settings := menu_state == "settings"
 	var choosing := phase == "menu" and not settings
 	var playing := phase in ["match", "countdown"]
@@ -1954,12 +1960,44 @@ func tick_camera_save(delta: float) -> void:
 		config.set_value("hud", "camera_distance", movement_controls.zoom_target)
 		config.save_config()
 
+func control_state() -> Dictionary:
+	return {"assignment": assignment.duplicate(), "binds": binds.duplicate(), "secondary": controls.secondary.duplicate(), "actions": controls.actions.duplicate(true)}
+
+func save_control_profile() -> void:
+	if controls_champion.is_empty() or controls_baseline.is_empty(): return
+	var state := control_state()
+	if state != controls_baseline:
+		config.set_value("champion_controls", controls_champion, state.duplicate(true))
+		controls_baseline = state.duplicate(true)
+
+func sync_control_profile() -> void:
+	if controls_starter.is_empty(): return
+	var champion: String = actors[local_id].champion if actors.has(local_id) else Kits.NAMES[champion_choice.selected]
+	if champion == controls_champion: return
+	save_control_profile()
+	controls_champion = champion
+	var state: Dictionary = config.get_value("champion_controls", champion, controls_starter).duplicate(true)
+	# Reject incomplete profiles as a unit; never leak the outgoing class's keys.
+	for field in ["assignment", "binds", "secondary"]:
+		if not state.get(field) is Array or state[field].size() != TOTAL_SLOTS:
+			state = controls_starter.duplicate(true)
+			break
+	assignment.assign(state.assignment)
+	binds.assign(state.binds)
+	controls.secondary = state.secondary.duplicate()
+	controls.actions = state.get("actions", controls_starter.actions).duplicate(true)
+	controls_baseline = control_state()
+	rebinding = -1
+	controls.mouse_held.clear()
+	controls.suppressed.clear()
+	movement_controls.cancel()
+	refresh_binds()
+	config.save_config()
+
 func save_layout() -> void:
 	if arm != null:
 		config.set_value("hud", "camera_distance", movement_controls.zoom_target)
-	controls.save(config)
-	config.set_value("hud", "binds", binds)
-	config.set_value("hud", "assignment", assignment)
+	save_control_profile()
 	var places := {}
 	for frame in movable_frames:
 		if frame != null:
@@ -2021,6 +2059,10 @@ func load_layout() -> void:
 			if other == added: continue
 			for col in range(2):
 				if controls.value(self, other, col) == preferred: controls.actions[added][0] = 0
+	controls_starter = control_state()
+	controls_baseline = {}
+	controls_champion = ""
+	sync_control_profile()
 	var moved = config.get_value("hud", "moved", [])
 	if moved is Array:
 		for name in moved:
@@ -2213,6 +2255,7 @@ func assign_local() -> void:
 		else:
 			cycle_target()
 		sync_target_lock()
+	sync_control_profile()
 
 func locked_target_for(id: int) -> int:
 	if phase not in ["match","countdown"] or not actors.has(id): return -1
@@ -2501,6 +2544,10 @@ func pong(stamp: int) -> void:
 	round_trip_ms = Time.get_ticks_msec() - stamp
 
 func tick_actor(actor, delta: float) -> void:
+	if actor.hp <= 0 or actor.stunned > 0 or CC.spell_block(actor) > 0 or actor.locked > 0:
+		actor.queued_spell.clear()
+	elif not actor.queued_spell.is_empty():
+		actor.queued_spell.age += delta
 	Outlaw.Lasso.tick(self, actor)
 	# Death resets class identity below, so release an unfinished reservation first.
 	if actor.hp <= 0: Outlaw.refund_interrupted_channel(self, actor)
@@ -2541,6 +2588,7 @@ func tick_actor(actor, delta: float) -> void:
 	actor.last_motion_seq = actor.last_input_seq
 	if Outlaw.mobile_cast(actor):
 		Outlaw.tick_channel(self, actor, delta)
+		tick_spell_queue(actor)
 		return
 	if actor.casting >= 0:
 		if Outlaw.Lasso.casting(actor) and Outlaw.Lasso.state(actor).get("air", false) and actor.is_on_floor():
@@ -2559,6 +2607,8 @@ func tick_actor(actor, delta: float) -> void:
 				else:
 					if actor.kit[slot].kind == "lasso": Outlaw.Lasso.cancel(self,actor)
 					feedback(actor, reason)
+
+	tick_spell_queue(actor)
 
 func simulate_movement(actor, delta: float, grounded_override: Variant = null) -> Vector3:
 	actor.presentation_grounded = null
@@ -2696,7 +2746,7 @@ func send_action(slot: int) -> void:
 	actor.walking = movement_controls.walking
 	apply_input(local_id, movement, local_yaw, false, selected_id)
 	if authoritative():
-		try_spell(local_id, ability, selected_id, pivot.rotation.y)
+		request_spell(local_id, ability, selected_id, pivot.rotation.y)
 	else:
 		input_seq += 1
 		action_seq += 1
@@ -2725,7 +2775,7 @@ func apply_action_intent(id: int, slot: int, selected: int, move_seq: int, movem
 		actor.walking = walking
 	else:
 		accept_movement(id, move_seq, movement, yaw, 0, selected, 0, walking, actor.motion_revision, false)
-	try_spell(id, slot, selected, camera_yaw)
+	request_spell(id, slot, selected, camera_yaw)
 	if newer_motion:
 		if actor.motion_revision == previous_revision:
 			actor.rotation.y = previous_yaw
@@ -2834,9 +2884,10 @@ func report_detonation_shot(round_epoch: int, result: Dictionary) -> void:
 # Cancelling a cast before it goes off clears the global cooldown.
 #
 # The GCD is charged when the cast BEGINS, so without this you paid for a spell
-# that never happened. Used by both cancel paths — Escape, and moving or leaving
-# the ground — so they cannot drift apart.
+# that never happened. Escape, voluntary movement, and forced displacement
+# share this cancellation path. Spell-lockout interrupts remain separate.
 func cancel_own_cast(actor, message: String) -> void:
+	actor.queued_spell.clear()
 	if actor.casting < 0:
 		return
 	var spell: Dictionary = actor.kit[actor.casting]
@@ -2849,7 +2900,7 @@ func cancel_own_cast(actor, message: String) -> void:
 
 # Shared by authoritative casting and advisory UI. This never spends resources,
 # starts cooldowns, or mutates combat; clients still submit every action normally.
-func ability_block_reason(actor, slot: int, requested: int) -> String:
+func ability_block_reason(actor, slot: int, requested: int, timing_allowance: float = 0.0) -> String:
 	if phase != "match":
 		return "Round has not started" if phase == "countdown" else "Round is over"
 	if actor.kit[slot].kind == "defense_detonation": return outlaw_aim_test.block_reason(actor)
@@ -2864,7 +2915,7 @@ func ability_block_reason(actor, slot: int, requested: int) -> String:
 		return "Disarmed" if actor.cc_effects.has("disarm") else "Silenced"
 	var spell: Dictionary = actor.kit[slot]
 	# Blink resolves independently without replacing the active cast or its timer.
-	if actor.casting >= 0 and not (actor.champion == "Ember" and spell.kind == "blink"):
+	if actor.casting >= 0 and (timing_allowance <= 0 or actor.cast_left > timing_allowance) and not (actor.champion == "Ember" and spell.kind == "blink"):
 		return "Already casting"
 	if not actor.charge.is_empty():
 		return "Charging"
@@ -2872,8 +2923,8 @@ func ability_block_reason(actor, slot: int, requested: int) -> String:
 	if Outlaw.Lasso.busy(actor): return "Completing Lasso"
 	if Null.busy(actor): return "Completing Vantage Point"
 	var instant_collapse: bool = spell.kind == "collapse" and actor.identity.instant_collapse > 0
-	var own_unavailable: bool = actor.identity.blink_charges <= 0 if spell.kind == "blink" else actor.cooldowns[slot] > 0
-	if own_unavailable or (actor.gcd > 0 and not (spell.off or instant_collapse)):
+	var own_unavailable: bool = actor.identity.blink_charges <= 0 if spell.kind == "blink" else actor.cooldowns[slot] > timing_allowance
+	if own_unavailable or (actor.gcd > timing_allowance and not (spell.off or instant_collapse)):
 		return "Ability is not ready"
 	if actor.locked > 0 and actor.champion not in ["Vanguard", "Null"] and spell.kind not in ["shield", "blink", "sprint", "roll", "backflip"]:
 		return "Spell school locked out"
@@ -2885,9 +2936,37 @@ func ability_block_reason(actor, slot: int, requested: int) -> String:
 	var instant_graviton: bool = spell.kind == "graviton" and actor.identity.instant_graviton > 0
 	var instant_severe: bool = spell.kind == "severe" and actor.identity.instant_severe > 0
 	if float(spell.cast) > 0 and not instant_graviton and not instant_collapse and not instant_severe and not (Outlaw.can_cast_moving(actor, spell) or Null.can_cast_moving(actor, spell)):
-		if actor.move_input.length() > 0.01 or not actor.is_on_floor():
+		if (actor.move_input.length() > 0.01 and actor.identity.root <= 0 and actor.identity.hold <= 0) or not actor.is_on_floor():
 			return "Stand still to cast"
 	return ""
+
+func request_spell(id: int, slot: int, requested: int, camera_yaw: Variant = null) -> bool:
+	if not authoritative() or phase != "match" or not actors.has(id): return false
+	var actor = actors[id]
+	if slot < 0 or slot >= actor.kit.size(): return false
+	if camera_yaw != null and (not (camera_yaw is float or camera_yaw is int) or not is_finite(float(camera_yaw))): return false
+	var spell: Dictionary = actor.kit[slot]
+	if spell.get("local_only", false) or aimed_combat.enabled(spell): return false
+	if ability_block_reason(actor, slot, requested).is_empty() or Null.choosing_chronoshift(actor):
+		var accepted := try_spell(id, slot, requested, camera_yaw)
+		if accepted: actor.queued_spell.clear()
+		return accepted
+	if not ability_block_reason(actor, slot, requested, SPELL_QUEUE_WINDOW).is_empty(): return false
+	actor.queued_spell = {"slot": slot, "target": spell_target(actor, slot, requested), "yaw": camera_yaw, "epoch": epoch, "age": 0.0}
+	return true
+
+func tick_spell_queue(actor) -> void:
+	if actor.queued_spell.is_empty(): return
+	var pending: Dictionary = actor.queued_spell
+	if pending.epoch != epoch or pending.age > 1.0 or phase != "match":
+		actor.queued_spell.clear()
+		return
+	if actor.casting >= 0: return
+	var spell: Dictionary = actor.kit[pending.slot]
+	if actor.gcd > 0 and not (spell.off or (spell.kind == "collapse" and actor.identity.instant_collapse > 0)): return
+	if actor.cooldowns[pending.slot] > 0: return
+	actor.queued_spell = {}
+	try_spell(actor.actor_id, pending.slot, pending.target, pending.yaw)
 
 func try_spell(id: int, slot: int, requested: int, camera_yaw: Variant = null) -> bool:
 	if camera_yaw != null and (not (camera_yaw is float or camera_yaw is int) or not is_finite(float(camera_yaw))):
@@ -2972,6 +3051,7 @@ func resolve_spell(actor, slot: int, victim, camera_yaw: Variant = null) -> void
 			var healing_scale: float = Fighter.HEALTH_SCALE * (.8 if spell.kind == "self_heal" else 1.0)
 			var amount := minf(victim.MAX_HEALTH - victim.hp, spell.power * healing_scale * (1.0 - dampening))
 			victim.hp = minf(victim.MAX_HEALTH, victim.hp + amount)
+			record_stat(actor, "healing", amount)
 			combat_event(actor.actor_id, victim.actor_id, "+%d" % ceili(amount), Color("97edb1"))
 		"interrupt":
 			if kick_immune(victim):
@@ -2986,6 +3066,7 @@ func resolve_spell(actor, slot: int, victim, camera_yaw: Variant = null) -> void
 			Null.grant_essence(actor, spell, slot)
 		"control":
 			var duration := CC.apply(victim, "stun", spell.power, spell.name)
+			if duration > 0: record_stat(actor, "cc")
 			combat_event(actor.actor_id, victim.actor_id, "STUN %.1fs" % duration if duration > 0 else "IMMUNE", GOLD)
 		"shield", "ally_shield":
 			victim.shield = spell.power
@@ -3059,8 +3140,10 @@ func damage(source, victim, amount: float, periodic: bool = false) -> void:
 	if reduction < 1.0 and actual > 0:
 		combat_event(source.actor_id, victim.actor_id, "REDUCED", Color("91bbef"))
 	victim.hp = maxf(1 if victim.training_dummy else 0, victim.hp - actual)
+	record_stat(source, "damage", actual)
 	combat_event(source.actor_id, victim.actor_id, "−%d" % ceili(actual), RED)
 	if victim.hp == 0:
+		record_stat(source, "kills")
 		victim.casting = -1
 		Outlaw.refund_interrupted_channel(self, victim)
 		victim.move_input = Vector2.ZERO
@@ -3218,12 +3301,7 @@ func finish_round(round_epoch: int, winning_team: int, states: Array, info: Dict
 		actor.casting = -1
 	panel.show()
 	release_mouse()
-	var survivors := [0, 0]
-	for actor in actors.values():
-		if actor.hp > 0:
-			survivors[actor.team] += 1
-	var seconds := int(info.get("duration", elapsed))
-	round_summary.text = "%dv%d  ·  %02d:%02d\nSurvivors — Blue %d/%d  ·  Red %d/%d" % [mode, mode, seconds / 60, seconds % 60, survivors[0], mode, survivors[1], mode]
+	round_summary.text = "Damage done · Healing done · Killing blows · Interrupts landed · CCs landed"
 	refresh_menu()
 	if dedicated and authoritative():
 		print("DEDICATED ROUND END winner=team%d elapsed=%.1fs" % [winner, elapsed])
@@ -3383,7 +3461,13 @@ func private_notice(round_epoch: int, text: String) -> void:
 	if round_epoch == epoch:
 		say(text)
 
+func record_stat(actor, stat: String, amount: float = 1.0) -> void:
+	if authoritative() and phase == "match" and not world_mode:
+		actor.match_stats[stat] = actor.match_stats.get(stat, 0) + maxf(0, amount)
+
 func combat_event(source: int, victim: int, text: String, color: Color) -> void:
+	if text == "INTERRUPTED" and actors.has(source):
+		record_stat(actors[source], "interrupts")
 	if dedicated and source != victim and actors.has(source) and actors[source].hitbox_pose != null:
 		if actors[source].champion == "Vanguard" and text.begins_with("−"):
 			actors[source].hitbox_pose.art.strike()
@@ -3929,9 +4013,9 @@ func _input(event: InputEvent) -> void:
 			refresh_lobby()
 		elif panel.visible and phase in ["match", "countdown"]:
 			panel.hide()
-		elif actors.has(local_id) and actors[local_id].casting >= 0:
+		elif actors.has(local_id) and (actors[local_id].casting >= 0 or not actors[local_id].queued_spell.is_empty()):
 			if authoritative():
-				actors[local_id].casting = -1
+				cancel_own_cast(actors[local_id], "")
 			else:
 				action_seq += 1
 				deliver_action(epoch, action_seq, -1, selected_id)

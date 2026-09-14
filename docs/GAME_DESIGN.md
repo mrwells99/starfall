@@ -76,6 +76,8 @@ See [`CLASS_ABILITIES.md`](CLASS_ABILITIES.md). `scripts/kits.gd` and `scripts/c
 
 **Global cooldown (GCD)** — 1.5 seconds. Abilities with `off: true` bypass it. **No ability can be used while another cast is in progress**, even off-GCD ones.
 
+**Spell queueing** — normal hotbar spells accept one pending input during the final **400 ms** of the current cast and/or GCD (both must finish before execution). A newer valid input replaces it; an earlier press is rejected. The original target is retained and all casting requirements are checked again when the spell starts. Escape, cast cancellation, stun/silence, death and round/identity resets discard the queue. Ready off-GCD abilities retain their existing immediate behavior; aimed shots keep their separate input path. This is an authoritative input buffer for online and offline play, not automatic repeated casting.
+
 **Cancelling a cast before it goes off clears the GCD.** The GCD is charged when the cast begins, so without this you paid for a spell that never happened. Cancelling is a real option, not a punishment. The ability still does not start its own cooldown.
 
 **Movement, turn, jump:**
@@ -195,6 +197,8 @@ Settings → **Edit HUD**, WoW's Edit Mode in miniature:
 - Click a hotbar slot to rebind its key. A key already in use is **swapped**, not duplicated, so no key ever fires two abilities.
 - Drag one hotbar slot onto another to swap which abilities sit where. Primary and secondary keybinds belong to the physical slots, not the abilities. Empty slots keep their space during play so other keyed slots do not slide over; empty button art is still hidden outside editing/dragging.
 - **Reset layout** restores the defaults, frame positions included.
+
+**Each class keeps its own ability positions and keybinds.** The existing shared setup remains the starting template for classes without customizations. Moving an ability or changing a binding saves an independent setup for that class, including primary/secondary keys and movement/targeting bindings affected by conflicts. Vanguard’s Charge on F1 can coexist with Ember’s Blink on F6. Resets affect only the active class’s controls; frame positions, slot size and camera settings remain shared. In a match, edits belong to the actual local champion; outside a match, they belong to the selected champion. The keybind menu identifies that class.
 
 **Bindings carry modifiers.** `1`, `Shift+1`, `Alt+1` and `Ctrl+1` are four separate bindings on four separate slots. A modifier pressed alone is ignored, so holding Shift while reaching for a key does not bind Shift itself.
 

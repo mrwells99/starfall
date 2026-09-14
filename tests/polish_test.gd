@@ -76,7 +76,7 @@ func run() -> void:
 	arena.finish_round(arena.epoch, 1, arena.make_snapshot())
 	arena.update_visuals(0)
 	check(arena.offline_rematch_button.visible and not arena.resume_button.visible, "Offline results offer Play again, not disabled resume")
-	check(arena.round_summary.text.contains("01:33") and arena.round_summary.text.contains("Blue 2/3"), "Summary reports duration and survivors")
+	check(arena.round_summary.text.contains("Damage done") and arena.menu_presentation.metrics.visible, "Results show the combat scoreboard")
 	check(not arena.scoreboard.visible, "Results hide the combat HUD")
 	var old_epoch: int = arena.epoch
 	arena.offline_rematch_button.pressed.emit()

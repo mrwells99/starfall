@@ -205,7 +205,9 @@ static func motion(game, a, delta: float) -> bool:
 			if s.path.is_empty(): cancel(game,a); return true
 			s.phase = "pull"; s.elapsed = 0.0
 			var duration: float = game.CC.apply(b,"stun",TIMEOUT + DOWN_TIME,s.source)
-			if duration > 0: b.cc_effects.stun.lasso_owner = a.actor_id
+			if duration > 0:
+				b.cc_effects.stun.lasso_owner = a.actor_id
+				game.record_stat(a, "cc")
 			s.factor = duration / (TIMEOUT + DOWN_TIME)
 			a.motion_revision += 1
 			s.revision = a.motion_revision

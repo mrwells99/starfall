@@ -176,7 +176,7 @@ func run() -> void:
 	# Snapshot round-trip and terminal-state protection use the real wire format.
 	var snapshot: Array = arena.make_snapshot()
 	var packed := var_to_bytes(snapshot).compress(FileAccess.COMPRESSION_DEFLATE)
-	check(packed.size() < 1200, "Compressed snapshots fit conservative packet budget")
+	check(packed.size() < 1200, "Compressed snapshots fit conservative packet budget (%d bytes)" % packed.size())
 	arena.phase = "match"
 	arena.last_snapshot = -1
 	arena.receive_snapshot(arena.epoch, 10, packed, "match", 12.0, 0.0)
