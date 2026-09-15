@@ -242,7 +242,8 @@ static func resolve(game, a, spell: Dictionary, b) -> bool:
 			if a.hp<=0: return true
 			a.identity.severe_bleeds.clear()
 			a.identity.null_regen={"left":REGEN_SECONDS,"tick":0.0,"rate":spell.power*a.HEALTH_SCALE*.8/REGEN_SECONDS}
-		"stealth": break_stealth(game,a) if stealthed(a) else enter(game,a)
+		"stealth":
+			if not stealthed(a): enter(game,a)
 		"chronoshift": a.identity.chronoshift_select = true
 		"smoke_bomb":
 			Smoke.cast(a)
