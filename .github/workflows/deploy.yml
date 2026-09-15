@@ -42,7 +42,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Check suite result labels before starting Godot
-        run: python3 tests/check_suite_contracts.py
+        run: |
+          python3 tests/check_suite_contracts.py
+          python3 tests/check_references.py
 
       - name: Cache Godot binary
         id: godot-cache
@@ -92,7 +94,9 @@ jobs:
 
       - name: Test runner rejects hidden script failures
         if: matrix.suite == 'gameplay'
-        run: python3 tests/check_suite_runner_test.py
+        run: |
+          python3 tests/check_suite_runner_test.py
+          python3 tests/check_references_test.py
 
       - name: Arena mesh integrity
         if: matrix.suite == 'gameplay'

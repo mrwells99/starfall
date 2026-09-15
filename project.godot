@@ -16,16 +16,8 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 config/name="Starfall — Arena Prototype"
 run/main_scene="res://arena.tscn"
-config/features=PackedStringArray("4.7")
+config/features=PackedStringArray("4.5")
 run/max_fps=60
-
-[autoload]
-
-NetworkTime="*uid://dya78t77yygq6"
-NetworkTimeSynchronizer="*uid://cfsrbg15i8qqw"
-NetworkRollback="*uid://ck2clby0yg4t4"
-NetworkEvents="*uid://cnrx87ju1y2v"
-NetworkPerformance="*uid://dienrux2ci22n"
 
 [display]
 
@@ -34,10 +26,6 @@ window/size/viewport_height=800
 window/size/mode=3
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
-
-[editor_plugins]
-
-enabled=PackedStringArray("res://addons/netfox.internals/plugin.cfg", "res://addons/netfox/plugin.cfg")
 
 [physics]
 

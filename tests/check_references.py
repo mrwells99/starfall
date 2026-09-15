@@ -14,8 +14,8 @@ import re
 import subprocess
 import sys
 
-SUFFIXES = (".gd", ".tscn", ".gdshader", ".gdshaderinc", ".tres", ".scn")
-SCAN = ("*.gd", "*.tscn", "*.gdshader", "*.gdshaderinc")
+SUFFIXES = (".gd", ".tscn", ".gdshader", ".gdshaderinc", ".tres", ".scn", ".cfg")
+SCAN = ("*.gd", "*.tscn", "*.gdshader", "*.gdshaderinc", "project.godot")
 
 
 def tracked_files() -> set:
@@ -27,6 +27,7 @@ def main() -> int:
     tracked = tracked_files()
     listing = subprocess.check_output(["git", "ls-files", *SCAN], text=True)
     missing = {}
+    startup_errors = []
     for name in listing.splitlines():
         if not name:
             continue
@@ -34,6 +35,20 @@ def main() -> int:
             text = pathlib.Path(name).read_text(encoding="utf-8", errors="ignore")
         except OSError:
             continue
+        if name == "project.godot":
+            section = ""
+            for line in text.splitlines():
+                line = line.strip()
+                if line.startswith("["):
+                    section = line
+                elif section == "[autoload]" and line and not line.startswith(";"):
+                    match = re.fullmatch(r'([^=]+)="\*?(res://[^"\n]+)"', line)
+                    if not match:
+                        startup_errors.append(
+                            "project.godot autoload must use a committed res:// path: " + line
+                        )
+                    elif match[2][6:] not in tracked:
+                        missing.setdefault(match[2][6:], set()).add(name)
         for ref in re.findall(r'res://([A-Za-z0-9_/.\-]+)', text):
             # Only resources that must exist to load. Output paths a tool writes
             # to, and bare directories, are not dependencies.
@@ -41,10 +56,12 @@ def main() -> int:
                 continue
             missing.setdefault(ref, set()).add(name)
 
-    if not missing:
+    if not missing and not startup_errors:
         print("All referenced resources are committed.")
         return 0
 
+    for error in startup_errors:
+        print(error)
     print("Committed files reference resources that are NOT committed:\n")
     for ref in sorted(missing):
         on_disk = "present locally" if pathlib.Path(ref).exists() else "MISSING entirely"
