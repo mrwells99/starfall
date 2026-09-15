@@ -83,7 +83,8 @@ func basic() -> void:
 	ck(not game.try_spell(1,4,-1),"Normal Stealth remains blocked in combat")
 	ck(game.try_spell(1,9,-1) and game.try_spell(1,4,-1) and game.Null.stealthed(a),"Chronoshift immediately re-stealths in combat")
 	ck(a.identity.essence==20 and a.identity.chronoshift_locks[4]==120 and a.cooldowns[4]==0,"Stealth has only a two-minute reset lock")
-	ck(game.try_spell(1,4,-1) and not game.Null.stealthed(a),"Manual unstealth still works")
+	ck(game.try_spell(1,4,-1) and game.Null.stealthed(a),"Repeated Stealth preserves Chronoshift concealment")
+	game.Null.break_stealth(game,a)
 	a.identity.essence=120
 	ck(game.try_spell(1,9,-1) and not game.try_spell(1,4,-1) and a.identity.essence==120,"Locked Stealth reset spends nothing")
 	a.cooldowns[2]=10
