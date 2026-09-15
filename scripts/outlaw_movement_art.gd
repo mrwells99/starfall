@@ -122,6 +122,15 @@ func install_movement() -> void:
 func override_clip(desired:String,alive:bool,stunned:bool,delta:float) -> String:
 	var original:=super.override_clip(desired,alive,stunned,delta)
 	if not alive or stunned or active_actor==null:return original
+	# Severe's native knife overlay was authored against the original body stance.
+	# Keep that foundation for its wind-up and strike, not the shared Ready/travel
+	# shoulders. Ordinary movement resumes through the existing exit blend.
+	var severe_cast:bool=active_actor.casting>=0 and active_actor.kit[active_actor.casting].kind=="severe"
+	if severe_cast or knife_left>0.0:
+		# This attack owns its release. Do not queue the unrelated caster's
+		# waving-hand CastRelease/CastExit behind the native knife overlay.
+		transient_left=0.0
+		return original
 	# Existing Roll, Backflip, Mend, jumping and other special clips keep priority.
 	if original=="Idle" or original=="Ready" or is_locomotion(original):
 		var deadeye:bool=active_actor.casting>=0 and active_actor.kit[active_actor.casting].kind=="deadeye"

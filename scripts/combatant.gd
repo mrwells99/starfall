@@ -29,6 +29,25 @@ var gcd := 0.0
 var casting := -1
 var queued_spell: Dictionary = {}
 var cast_left := 0.0
+var cast_duration := 0.0
+var cast_visual_clock = preload("res://scripts/snapshot_animation_clock.gd").new()
+var cast_visual_slot := -1
+var cast_visual_left := -1.0
+
+func presentation_cast_left() -> float:
+	return cast_visual_left if cast_visual_slot == casting and cast_visual_left >= 0 else cast_left
+
+func advance_cast_visual(delta: float) -> void:
+	if casting < 0 or hp <= 0:
+		cast_visual_clock.reset()
+		cast_visual_slot = -1
+		cast_visual_left = -1.0
+		return
+	if casting != cast_visual_slot or cast_left > cast_visual_left + .3:
+		cast_visual_clock.reset()
+	cast_visual_slot = casting
+	var duration: float = cast_duration if cast_duration>0 else kit[casting].cast
+	cast_visual_left = maxf(0.0,duration-cast_visual_clock.advance(duration-cast_left,delta,presentation_snapshot_serial,motion_revision,duration))
 var cast_target := -1
 var stunned := 0.0
 var locked := 0.0
@@ -230,10 +249,34 @@ func visual_tick(delta: float, camera: Camera3D, show_nameplate: bool = true, ca
 
 
 func snapshot() -> Dictionary:
-	var state := {"stats": PackedFloat64Array([match_stats.damage, match_stats.healing, match_stats.kills, match_stats.interrupts, match_stats.cc]), "jump_ack": last_jump_id, "jump_buffer": jump_buffer, "walk": walking, "move_ack": last_motion_seq, "velocity": velocity, "grounded": is_on_floor(), "motion_revision": motion_revision, "id": actor_id, "peer": owner_peer, "team": team, "champion": champion, "pos": position, "yaw": rotation.y, "hp": hp, "cd": cooldowns.duplicate(), "gcd": gcd, "casting": casting, "left": cast_left, "stun": stunned, "lock": locked, "shield": shield, "sprint": sprint,
+	var state := {"stats": PackedFloat64Array([match_stats.damage, match_stats.healing, match_stats.kills, match_stats.interrupts, match_stats.cc]), "jump_ack": last_jump_id, "jump_buffer": jump_buffer, "walk": walking, "move_ack": last_motion_seq, "velocity": velocity, "grounded": is_on_floor(), "motion_revision": motion_revision, "id": actor_id, "peer": owner_peer, "team": team, "champion": champion, "pos": position, "yaw": rotation.y, "hp": hp, "cd": cooldowns.duplicate(), "gcd": gcd, "casting": casting, "cast_duration": cast_duration, "left": cast_left, "stun": stunned, "lock": locked, "shield": shield, "sprint": sprint,
 		"stun_src": stun_from, "lock_src": lock_from, "shield_src": shield_from, "sprint_src": sprint_from, "dr": dr_count, "dr_timer": dr_timer, "dr_states": dr_states.duplicate(true), "cc_effects": cc_effects.duplicate(true), "cast_target": cast_target, "target": target_id, "identity": identity.duplicate(true), "charge": charge.duplicate(true)}
 
 	if not queued_spell.is_empty(): state["queued_spell"] = queued_spell.duplicate()
+	# Inactive redesign state is restored by the receiver; do not spend packet
+	# space repeating empty effect lists/timers for every combatant.
+	for key in preload("res://scripts/fulcrum_mechanics.gd").SNAPSHOT_DEFAULT_KEYS:
+		var value = state.identity.get(key)
+		if value == null or ((value is int or value is float or value is bool) and not value) or (value is Vector3 and value==Vector3.ZERO) or (value is String and value.is_empty()) or ((value is Array or value is Dictionary) and value.is_empty()): state.identity.erase(key)
+	for event in state.identity.get("fulcrum_slashes",[]):
+		# Damage and hit-once bookkeeping belong to authority, never presentation.
+		for field in ["hits","power","flow"]:event.erase(field)
+	if state.identity.has("fulcrum_slashes"):
+		var events:Array=[]
+		for event in state.identity.fulcrum_slashes:
+			events.append([event.serial,["ruin_right","ruin_left","divide"].find(event.kind),event.position,Vector2(event.yaw,event.age)])
+		state.identity.fulcrum_slashes=events
+	if state.identity.has("gravity_rifts"):
+		var events:Array=[]
+		for event in state.identity.gravity_rifts:events.append([event.serial,event.position,Vector2(event.yaw,event.left)])
+		state.identity.gravity_rifts=events
+	var gravity:={}
+	var gravity_keys=preload("res://scripts/fulcrum_mechanics.gd").SNAPSHOT_DEFAULT_KEYS
+	for i in gravity_keys.size():
+		var key:String=gravity_keys[i]
+		if state.identity.has(key):gravity[i]=state.identity[key];state.identity.erase(key)
+	if not gravity.is_empty():state.gravity=gravity
+	if casting<0 or (casting<kit.size() and cast_duration==kit[casting].cast): state.erase("cast_duration")
 	return state
 
 func receive(data: Dictionary, instant: bool = false) -> void:
@@ -244,6 +287,22 @@ func receive(data: Dictionary, instant: bool = false) -> void:
 	elif totals is PackedFloat64Array and totals.size() == 5:
 		match_stats = {"damage": totals[0], "healing": totals[1], "kills": totals[2], "interrupts": totals[3], "cc": totals[4]}
 	identity = data.get("identity", {}).duplicate(true)
+	var gravity_keys=preload("res://scripts/fulcrum_mechanics.gd").SNAPSHOT_DEFAULT_KEYS
+	for index in data.get("gravity",{}):
+		if index is int and index>=0 and index<gravity_keys.size():identity[gravity_keys[index]]=data.gravity[index]
+	if identity.has("fulcrum_slashes"):
+		var events:Array=[]
+		for event in identity.fulcrum_slashes:
+			if event is Array:events.append({"serial":event[0],"kind":["ruin_right","ruin_left","divide"][event[1]],"position":event[2],"yaw":event[3].x,"age":event[3].y})
+			else:events.append(event)
+		identity.fulcrum_slashes=events
+	if identity.has("gravity_rifts"):
+		var events:Array=[]
+		for event in identity.gravity_rifts:
+			if event is Array:events.append({"serial":event[0],"position":event[1],"yaw":event[2].x,"left":event[2].y})
+			else:events.append(event)
+		identity.gravity_rifts=events
+	preload("res://scripts/fulcrum_mechanics.gd").reset(self)
 	charge = data.get("charge", {}).duplicate(true)
 	net_position = data.pos
 	net_yaw = data.yaw
@@ -270,6 +329,7 @@ func receive(data: Dictionary, instant: bool = false) -> void:
 	queued_spell = data.get("queued_spell", {}).duplicate()
 	casting = data.casting
 	cast_left = data.left
+	cast_duration = data.get("cast_duration",kit[casting].cast if casting>=0 else 0.0)
 	cast_target = data.get("cast_target", -1)
 	stunned = data.stun
 	locked = data.lock
@@ -294,6 +354,7 @@ func reset_identity() -> void:
 	cc_effects.clear()
 	# Instant procs store remaining seconds, shared by casting, auras and snapshots.
 	identity = {"meditation": 0.0, "instant_graviton": 0.0, "instant_collapse": 0.0, "entropy_dots": {}, "dots": {}, "heat": 0.0, "resolve": 0.0, "brands": {}, "stars": [], "anchor_left": 0.0, "anchor_pos": Vector3.ZERO, "orbit": 0.0, "root": 0.0, "slow": 0.0, "immune": 0.0, "last": 0.0, "hold": 0.0, "disorient": false, "guard": -1, "guard_left": 0.0, "guard_budget": 0.0, "challenge": -1, "challenge_left": 0.0, "challenge_tick": 0.0, "exposed": -1, "exposed_left": 0.0, "wake": 0.0, "wake_pos": Vector3.ZERO, "wake_end": Vector3.ZERO, "wake_tick": 0.0}
+	preload("res://scripts/fulcrum_mechanics.gd").reset(self)
 	identity.blink_charges = Kits.BLINK_MAX_CHARGES if champion == "Ember" else 0
 	preload("res://scripts/outlaw_mechanics.gd").initialize(self)
 	preload("res://scripts/null_mechanics.gd").initialize(self)

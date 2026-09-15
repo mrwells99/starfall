@@ -8,6 +8,8 @@ The approved reference is [the grey and black class sheet](../art_source/referen
 
 ## Abilities
 
+**Deadeye detection:** an enemy Outlaw actively casting Deadeye detects stealthed Null using the existing half-opacity visibility, targetability and exclamation-point warning. Detection is observer-specific, not a global Stealth break, and ends with the cast unless ordinary proximity detection still applies. Deadeye's damage retains its existing 18m, clear-LOS and smoke checks.
+
 | Default key | Ability | Current behavior | Range | Cooldown |
 | --- | --- | --- | --- | --- |
 | 1 | Temporal Strike | Instant filler; 120 damage. | 3 m | None; normal GCD |
@@ -19,7 +21,7 @@ The approved reference is [the grey and black class sheet](../art_source/referen
 | 7 | Blindside | An **unkickable 0.28 s** mobile wind-up with a gray cast bar, then teleport 1.2 m behind the target and face their direction. Preserves existing Stealth through wind-up and teleport. **Off GCD.** Requires a clear route and safe landing at completion. | 18 m | 15 s |
 | Shift+1 | Vantage Point | Usable while jumping. Rise for **0.5 seconds**, then ease into a dive with both blades and accelerate toward contact; longer dives travel faster. Contact deals 220 damage and a **4-second stun/knockdown**. Brief recovery; no rebound or backflip. | 18 m | 25 s |
 | Shift+2 | Regen Pot | Cleanse attached damage-over-time effects, then regenerate **336 health over 6 seconds**. Off GCD. | Self | 40 s |
-| Shift+3 | Chronoshift | Press an ability's normal keybind to refresh its normal cooldown for **100 Essence**. That ability cannot be refreshed again for twice its own cooldown. | Self | None |
+| Shift+3 | Chronoshift | Press an ability's normal keybind to refresh **and immediately cast** it for **100 Essence**. Normal cast requirements apply; invalid attempts spend nothing. Reset lock is twice its cooldown, except **Stealth: 120 s**, allowing combat re-stealth. **Cannot reset Kick.** Normal out-of-combat Stealth is unaffected by its reset lock. | Self | None |
 | Shift+4 | Smoke Bomb | Drop a fixed cloud. Abilities cannot cross its inside/outside boundary; both inside or both outside can interact normally. Off GCD. | 3 m radius | 30 s |
 | Ctrl+1 | Trinket | Shared stun break. | Self | 120 s |
 

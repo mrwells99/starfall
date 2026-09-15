@@ -30,6 +30,7 @@ var lasso_pose = preload("res://scripts/lasso_pose.gd").new()
 var network_motion = preload("res://scripts/network_animation_motion.gd").new()
 var mend_focus_offset := Vector3.ZERO
 var shared_movement
+var command_pose=preload("res://scripts/fulcrum_command_pose.gd").new()
 
 func build(host: Node3D, team_color: Color) -> void:
  if asset == null: asset = preload("res://scripts/character_asset_cache.gd").get_scene("res://assets/characters/fulcrum.glb")
@@ -73,8 +74,10 @@ func build(host: Node3D, team_color: Color) -> void:
  mend_focus_offset = skeleton.get_bone_global_pose(jump_pose.focus).origin - skeleton.get_bone_global_pose(jump_pose.hand).origin
  shared_movement=preload("res://scripts/shared_movement.gd").new()
  shared_movement.build(self,"Fulcrum")
+ command_pose.build(skeleton)
 
 func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
+ command_pose.prepare()
  shared_movement.begin_frame(self,actor,delta)
  lasso_pose.capture_if_needed(actor)
  var displacement := Vector3.ZERO
@@ -90,7 +93,9 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
  filtered_speed = measured
  var alive: bool = actor.hp > 0
  var stunned: bool = actor.stunned > 0
- var casting: bool = actor.casting >= 0 and alive
+ var commanding: bool = (actor.casting>=0 and actor.kit[actor.casting].kind=="divide") or actor.identity.get("fulcrum_action_left",0)>0
+ var casting: bool = actor.casting >= 0 and alive and not commanding
+ if commanding and transient_clip.begins_with("Cast"): transient_left=0
  var resolved_action := false
  if previous_cooldowns.size() == actor.cooldowns.size():
   for i in actor.cooldowns.size():
@@ -98,7 +103,7 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
    previous_cooldowns[i] = actor.cooldowns[i]
  else:
   previous_cooldowns = actor.cooldowns.duplicate()
- var instant_action: bool = not casting and not was_casting and (resolved_action or actor.gcd > previous_gcd + .15)
+ var instant_action: bool = not commanding and not casting and not was_casting and (resolved_action or actor.gcd > previous_gcd + .15)
  previous_gcd = actor.gcd
  var desired := "Idle"
  var rate := 1.0
@@ -201,6 +206,7 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
    materials[i].albedo_color = Color.WHITE if actor.flash > 0 else (base_colors[i] if alive else base_colors[i].lerp(Color("333744"), 0.7))
 
  shared_movement.finish_frame(self,delta)
+ command_pose.apply(actor,delta)
 
 func is_locomotion(name: String) -> bool:
  if shared_movement!=null and shared_movement.Locomotion.is_locomotion(name):return true

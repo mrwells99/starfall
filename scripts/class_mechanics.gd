@@ -1,5 +1,6 @@
 extends RefCounted
 
+const Fulcrum = preload("res://scripts/fulcrum_mechanics.gd")
 const INSTANT_PROC_DURATION := 4.0
 const Smoke = preload("res://scripts/smoke_bomb.gd")
 const GravityAnchorEffect = preload("res://scripts/gravity_anchor_effect.gd")
@@ -7,6 +8,43 @@ const SolarFlareIndicator = preload("res://scripts/solar_flare_indicator.gd")
 
 static func point_los(game, a: Vector3, b: Vector3) -> bool:
 	return game.get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(a + Vector3.UP, b + Vector3.UP, 1)).is_empty()
+
+static func collapse_cover_thickness(game, from: Vector3, to: Vector3) -> float:
+	# Measure actual box intervals, not distance to the first wall. Merge overlaps.
+	var spans: Array[Vector2] = []
+	var start := from + Vector3.UP
+	var finish := to + Vector3.UP
+	for body in game.find_children("*","StaticBody3D",true,false):
+		if (body.collision_layer & 1) == 0: continue
+		for shape_node in body.get_children():
+			if not shape_node is CollisionShape3D or shape_node.disabled or not shape_node.shape is BoxShape3D: continue
+			var inverse: Transform3D = shape_node.global_transform.affine_inverse()
+			var p: Vector3 = inverse * start
+			var d: Vector3 = inverse * finish - p
+			var half: Vector3 = shape_node.shape.size * .5
+			var low := 0.0
+			var high := 1.0
+			for axis in 3:
+				if absf(d[axis]) < .000001:
+					if absf(p[axis]) > half[axis]: high = -1.0
+				else:
+					var a := (-half[axis]-p[axis])/d[axis]
+					var b := (half[axis]-p[axis])/d[axis]
+					low=maxf(low,minf(a,b));high=minf(high,maxf(a,b))
+			if high > low: spans.append(Vector2(low,high))
+	spans.sort_custom(func(a,b):return a.x < b.x)
+	var length := 0.0
+	var end := 0.0
+	for span in spans:
+		length += maxf(0.0,span.y-maxf(end,span.x))
+		end=maxf(end,span.y)
+	return length*start.distance_to(finish)
+
+static func flare_overlaps(a, b) -> bool:
+	return flare_overlaps_position(a, b.position)
+
+static func flare_overlaps_position(a, position: Vector3) -> bool:
+	return preload("res://scripts/cone_geometry.gd").overlaps(a.position,a.rotation.y,position,a.Kits.SOLAR_FLARE_RANGE,a.Kits.SOLAR_FLARE_HALF_ANGLE)
 
 static func can_help(game, a, b) -> bool:
 	if Smoke.separates(game,a,b): return false
@@ -30,6 +68,8 @@ static func consume_star(a, id: int) -> bool:
 
 static func validate(game, a, spell: Dictionary, b) -> String:
 	var s: Dictionary = a.identity
+	var fulcrum_reason: String = Fulcrum.validate(game,a,spell)
+	if not fulcrum_reason.is_empty(): return fulcrum_reason
 	var outlaw_reason: String = game.Outlaw.validate(game, a, spell, b)
 	if not outlaw_reason.is_empty(): return outlaw_reason
 	if spell.kind in a.Kits.ALLY_KINDS and not can_help(game, a, b):
@@ -95,7 +135,11 @@ static func control(game, a, b, duration: float, title: String, root_only: bool 
 static func resolve(game, a, spell: Dictionary, b) -> bool:
 	if Smoke.separates(game,a,b): return true
 	var s: Dictionary = a.identity
+	if Fulcrum.resolve(game,a,spell,b): return true
 	match spell.kind:
+		"crippling_verdict":
+			if game.may_harm(a,b) and b.hp > 0 and b.identity.immune <= 0 and not game.CC.airborne_immune(b):
+				b.identity.crippling_verdict = 6.0
 		"graviton":
 			if not game.may_harm(a, b):
 				return true
@@ -134,7 +178,11 @@ static func resolve(game, a, spell: Dictionary, b) -> bool:
 				game.damage(a, other, power)
 		"stoke":
 			s.heat = minf(100, s.heat + 30)
-		"flare_cc", "earth":
+		"flare_cc":
+			for other in game.actors.values():
+				if other.hp>0 and other.team!=a.team and game.may_harm(a,other) and game.solar_flare_history.overlaps(game,a,other) and point_los(game,a.position,other.position):
+					control(game,a,other,3,spell.name,false,true)
+		"earth":
 			var radius: float = a.Kits.SOLAR_FLARE_RANGE if spell.kind == "flare_cc" else 8.0
 			for other in enemies(game, a, a.position, radius):
 				var offset: Vector3 = other.position - a.position
@@ -203,6 +251,8 @@ static func resolve(game, a, spell: Dictionary, b) -> bool:
 			b.identity.root = 0.0
 			b.identity.slow = 0.0
 			b.identity.severe_slow = 0.0
+			b.identity.crippling_verdict = 0.0
+			b.identity.gravity_slow = 0.0
 			b.identity.disorient = false
 			if consume_star(a, b.actor_id):
 				b.identity.immune = 3.0
@@ -268,7 +318,8 @@ static func resolve(game, a, spell: Dictionary, b) -> bool:
 				s.instant_graviton = INSTANT_PROC_DURATION
 			for other in targets:
 				game.damage(a, other, 22)
-				control(game, a, other, 3 if empowered else 2, "Collapse", not empowered)
+				if collapse_cover_thickness(game,s.anchor_pos,other.position) <= 2.0 + .00001:
+					control(game, a, other, 3 if empowered else 2, "Collapse", not empowered)
 			s.anchor_left = 0.0
 			s.orbit = 0.0
 		_:
@@ -278,13 +329,16 @@ static func resolve(game, a, spell: Dictionary, b) -> bool:
 
 static func tick(game, a, delta: float) -> void:
 	var s: Dictionary = a.identity
+	if s.get("crippling_verdict",0.0)>0:
+		s.crippling_verdict = maxf(0.0,float(s.crippling_verdict)-delta)
 	if a.hp <= 0:
 		if not a.death_identity_cleaned: a.reset_identity()
 		return
 	a.death_identity_cleaned = false
+	Fulcrum.tick(game,a,delta)
 	# Each family is attached to the victim; both can coexist and Mend clears both.
 	tick_dots(game, a, s.dots, delta, 3.0, 0.0)
-	tick_dots(game, a, a.identity.entropy_dots, delta, 2.0, 5.0)
+	tick_dots(game, a, a.identity.entropy_dots, delta, 2.0, 10.0)
 	game.Outlaw.tick(game, a, delta)
 	s = a.identity
 	if a.hp <= 0:
@@ -368,33 +422,7 @@ static func before_damage(game, source, victim, amount: float) -> float:
 
 static func bot(game, a, foe, ally) -> bool:
 	var s: Dictionary = a.identity
-	if a.champion == "Fulcrum":
-		if foe.casting >= 0:
-			for slot in [1, 8]:
-				if game.try_spell(a.actor_id, slot, foe.actor_id):
-					return true
-		if not foe.identity.entropy_dots.has(a.actor_id) and game.try_spell(a.actor_id, 13, foe.actor_id):
-			return true
-		if s.instant_collapse > 0 and s.anchor_left > 0 and game.try_spell(a.actor_id, 11, a.actor_id):
-			return true
-		if s.meditation >= 50 and (foe.stunned > 0 or s.meditation >= 95):
-			a.move_input = Vector2.ZERO
-			if game.try_spell(a.actor_id, 12, foe.actor_id):
-				return true
-		if s.instant_graviton > 0 and game.try_spell(a.actor_id, 0, foe.actor_id):
-			return true
-		if not foe.identity.dots.has(a.actor_id):
-			a.move_input = Vector2.ZERO
-			if game.try_spell(a.actor_id, 0, foe.actor_id):
-				return true
-		if s.anchor_left <= 0:
-			a.move_input = Vector2.ZERO
-			return game.try_spell(a.actor_id, 7, a.actor_id)
-		if foe.position.distance_to(s.anchor_pos) < 6:
-			if s.orbit <= 0 and game.try_spell(a.actor_id, 9, a.actor_id):
-				return true
-			a.move_input = Vector2.ZERO
-			return game.try_spell(a.actor_id, 11, a.actor_id)
+	if a.champion == "Fulcrum": return Fulcrum.bot(game,a,foe)
 	if a.champion == "Ember" and s.heat >= 60:
 		a.move_input = Vector2.ZERO
 		return game.try_spell(a.actor_id, 7, foe.actor_id)
@@ -420,22 +448,20 @@ static func paint(game) -> void:
 				a.add_child(smoke)
 			smoke.sync(s.get("smoke_bomb",{}),a.hp>0 and game.phase=="match",game.player_options.reduced_effects)
 		var flare_outline := a.get_node_or_null("SolarFlareOutline") as MeshInstance3D
-		if a.champion == "Ember" and a.actor_id == game.local_id and flare_outline == null:
+		if a.champion == "Ember" and flare_outline == null:
 			flare_outline = SolarFlareIndicator.new()
 			a.add_child(flare_outline)
 		if flare_outline != null:
 			# Solar Flare occupies slot 8. Its replicated cooldown starts only on
 			# a successful cast, even when the cone misses every enemy.
 			var just_cast: bool = a.champion == "Ember" and a.cooldowns[8] > float(a.kit[8].cd) - SolarFlareIndicator.VISIBLE_SECONDS
-			flare_outline.visible = just_cast and a.actor_id == game.local_id and a.hp > 0 and game.phase == "match"
+			flare_outline.visible = just_cast and a.hp > 0 and game.phase == "match"
 		if a.champion == "Fulcrum":
-			var marker = a.get_node_or_null("GravityMarker")
-			if marker == null:
-				marker = GravityAnchorEffect.new()
-				a.add_child(marker)
-			var radius: float = a.Kits.HEAVY_ORBIT_RADIUS if s.orbit > 0 else (6.0 if a.casting >= 0 and a.kit[a.casting].kind == "collapse" else 1.0)
-			var ally: bool = game.actors.has(game.local_id) and game.actors[game.local_id].team == a.team
-			marker.sync(s.anchor_left, s.anchor_pos, radius, ally, a.hp > 0, game.player_options.reduced_effects)
+			var effect=a.get_node_or_null("FulcrumEffects")
+			if effect==null:
+				effect=load("res://scripts/fulcrum_effects.gd").new()
+				a.add_child(effect)
+			effect.sync(a,game.player_options.reduced_effects)
 		var wake := field_marker(a, "BurningField", Color("ff8a4c"))
 		wake.visible = a.hp > 0 and s.wake > 0
 		if wake.visible:

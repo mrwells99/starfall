@@ -53,22 +53,24 @@ func trinkets() -> void:
 		game.roster={1:{"champion":title,"team":0},2:{"champion":"Ember","team":1}}
 		game.begin_round(); game.phase="match"; a=game.actors[1]; b=game.actors[2]
 		a.owner_peer=1; b.owner_peer=2
-		ck(a.kit.size()==15 and a.kit[14].kind=="trinket" and a.cooldowns.size()==15,title+" has a shared trinket without shifting old abilities")
+		var expected_slots := 16 if title=="Fulcrum" else 15
+		ck(a.kit.size()==expected_slots and a.kit[14].kind=="trinket" and a.cooldowns.size()==expected_slots,title+" retains the shared trinket slot and cooldown for every ability")
 		ck(not game.try_spell(1,14,-1) and a.cooldowns[14]==0,"Trinket cannot be wasted outside a stun")
 		game.CC.apply(a,"stun",4,"Bash"); game.CC.apply(a,"root",3,"Root")
 		a.locked=2; a.gcd=1; a.identity.severe_slow=4
 		ck(game.cc_block_remaining(a,a.kit[14])==0 and game.ability_block_reason(a,14,-1).is_empty(),title+" trinket remains available during stun and lockout")
 		ck(game.try_spell(1,14,-1) and a.stunned==0 and not a.cc_effects.has("stun"),title+" can break a stun instantly")
-		ck(a.cooldowns[14]==120 and a.gcd==1 and a.locked==2 and a.identity.root>0 and a.identity.severe_slow==4,"Trinket changes only stun and its own cooldown")
+		ck(a.cooldowns[14]==120 and a.gcd==1 and a.locked==0 and a.identity.root==0 and a.identity.severe_slow==0,"Trinket clears every control effect without spending GCD")
 		ck(a.dr_states.stun.count==1 and a.dr_states.stun.remaining==game.CC.RESET,"Trinket preserves stun diminishing returns")
 		game.CC.apply(a,"stun",4,"Second stun")
 		ck(not game.try_spell(1,14,-1) and a.stunned>0,"Trinket cannot break another stun before cooldown")
 		a.cooldowns[14]=.5; a.input_age=0; game.tick_actor(a,.5)
 		ck(game.try_spell(1,14,-1),"Trinket becomes usable when its cooldown expires")
 	await reset(); game.CC.apply(a,"incapacitate",3,"Solar Flare")
-	ck(not game.try_spell(1,14,-1),"Stun trinket does not silently become a break for other CC categories")
+	ck(game.try_spell(1,14,-1),"Trinket breaks incapacitate")
+	a.cooldowns[14]=0;game.CC.apply(a,"incapacitate",3,"Solar Flare")
 	game.CC.apply(a,"stun",2,"Bash"); game.try_spell(1,14,-1)
-	ck(a.stunned>0 and a.cc_effects.has("incapacitate"),"Removing a stun preserves overlapping incapacitate")
+	ck(a.stunned==0 and a.cc_effects.is_empty(),"Trinket removes overlapping controls")
 	a.hp=0; a.cooldowns[14]=0; game.CC.apply(a,"stun",2,"Bash")
 	ck(not game.try_spell(1,14,-1),"Defeated characters cannot use Trinket")
 

@@ -1,5 +1,21 @@
 # Technical Architecture
 
+## Fulcrum gravity and commanded swords
+
+`fulcrum_mechanics.gd` owns placement, pull/launch velocity, anchor follow-ups, Entropy cast eligibility/backlash, resource combo, swept Ruin hits, Divide cover penetration and slowing rifts. `cone_geometry.gd` is shared with Solar Flare; `solar_flare_history.gd` retains root positions while either Ember or Fulcrum is alive. Ruin uses the same capped historical target lookup plus live/historical LOS rules, with a swept 150-degree cone. It does not request aimed skeletal history. Divide tests actual ray-hit box intervals, merges solid thickness up to 3m, and rejects full pillar traversals.
+
+`fulcrum_aim.gd` owns local aim/camera and sends the existing ordered action intent. Escape/right-click cancel through the existing authority/RPC path. `fulcrum_effects.gd` consumes replicated action serials, uses local snapshot clocks, and creates client-only meshes. `fulcrum_command_pose.gd` applies a portable 19-bone right-hand command layer after accepted movement/jump, restoring the prior base before each next sample. Both visual and compact presenters use it; the selected `.res` has no runtime source-library dependency or IK work.
+
+`combatant.snapshot/receive` encode gravity fields with append-only indices from `SNAPSHOT_DEFAULT_KEYS`, omit defaults, and restore them on receipt. Slash damage/hit-once bookkeeping is server-only. Active cast durations replicate only when they differ from ordinary kit timing. This wire revision requires matching clients and server. Focused complete compact pose update averaged about 105 microseconds on the development machine (all pose work, not just the added layer); this is not a production-load claim.
+
+## September 14 local combat/presentation revision
+
+`body_hitboxes.trace_aim` traces a filled animated AABB with horizontal scale 2.5 and unchanged vertical scale 1.25, replacing separated aimed capsules; original 19 capsule samples remain the compact pose/history source. No extra physics bodies or history fields. Empty silhouette corners are intentionally hittable. `class_mechanics.collapse_cover_thickness` merges segment intervals through current arena BoxShape3D colliders at cast resolution, permitting root/stun through up to 2m total solid cover from anchor to target. Damage is unchanged. Arena perimeter colliders reach 68m and an authoritative per-actor escape guard bounds arena positions; World Starwalk is exempt.
+
+`omni_jump_pose` now owns a network vertical projection clock rather than sampling packet-held velocity for clip phase. `lasso_pose` uses local phase clocks; Outlaw gun source rotations interpolate. The client continues evaluating animation locally on its visual/physics tick, independently of snapshot receipt. `combatant.advance_cast_visual` and `presentation_cast_left` provide cosmetic cast progress; HUD/nameplate strips paint it each render frame without reducing authoritative cast timers. Future-animation requirements are in ANIMATION_WORKFLOW.
+
+Validation: desktop checks for September balance (21), per-class hotbars (19), Ember abilities (80), Null abilities (162), smoke (57), aimed combat (41), Outlaw balance (183), cast bars (166), Outlaw presentation (2971); visible/compact pose checks (153) pass with 0m endpoint difference on 4.7.2 and actual 4.5.1. Aimed combat also passes on 4.5.1, and the delayed two-peer ENet aimed fixture passes. Vanguard's reported stretched skin/detachment was not reproduced by the 600-frame bone stress; this is not proof that its rendering issue is fixed. No live deployment or owner visual approval is claimed.
+
 ## Native and selected display resolution
 
 Display settings offer Native plus common resolutions fitting the current window's monitor. In windowed mode these set window dimensions. In fullscreen, the window stays at the monitor resolution and the selected target sets `scaling_3d_scale`, preserving monitor aspect and sharp canvas UI. The graphics 3D percentage multiplies that scale; Native + 100% is full-resolution 3D. Viewport resizing reapplies the scale. Fullscreen uses a separate `display/fullscreen_resolution` preference, default Native, so legacy ignored windowed selections do not silently reduce resolution. Window positioning accounts for the current monitor's desktop origin.

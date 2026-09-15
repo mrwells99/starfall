@@ -135,12 +135,16 @@ func inspect_decorative_rocks() -> void:
 	for body in bodies:
 		check(body.collision_layer == game.Geometry.CAMERA_ONLY_LAYER and body.collision_mask == 0,
 			"Decorative rock cannot collide with players or gameplay terrain queries")
-	# Above the boundary wall: the old camera would sit inside/beyond this rock.
+	# The escape barrier now extends above the cosmetic rock.
 	place_camera(Vector3(0, 2.5, 14), 0)
 	await settle()
 	check(game.arm.get_hit_length() < 5 and game.camera.global_position.z < 18.6,
-		"The camera retracts before entering a cosmetic pillar above the boundary wall")
+		"The camera retracts before entering the perimeter barrier or cosmetic pillar")
 	var query := PhysicsRayQueryParameters3D.create(Vector3(0, 4, 16), Vector3(0, 4, 21), 1)
+	var probe: Dictionary = game.get_world_3d().direct_space_state.intersect_ray(query)
+	check(not probe.is_empty() and is_equal_approx(probe.position.z,17.65),
+		"The raised escape barrier blocks gameplay rays above the old wall height")
+	if not probe.is_empty(): query.exclude = [probe.rid]
 	check(game.get_world_3d().direct_space_state.intersect_ray(query).is_empty(),
 		"The decorative pillar still does not block ability LOS")
 	query.collision_mask = game.Geometry.CAMERA_ONLY_LAYER

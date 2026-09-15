@@ -9,6 +9,7 @@ var blend_from: Array[Transform3D] = []
 var phase := ""
 var blend_time := 1.0
 var return_yaw := PI
+var phase_clock = preload("res://scripts/snapshot_animation_clock.gd").new()
 
 func capture_if_needed(actor) -> void:
 	if not phase.is_empty() or not Lasso.state(actor).is_empty() or Lasso.knockdown_active(actor): remember()
@@ -48,6 +49,7 @@ func apply(art, host, actor, delta: float) -> void:
 	if Lasso.knockdown_active(actor): next = "down"
 	if next.is_empty() and phase.is_empty() and blend_time >= .10: return
 	if next != phase:
+		phase_clock.reset()
 		if next.is_empty(): return_yaw = art.model.rotation.y
 		blend_from = previous.duplicate()
 		blend_time = 0.0
@@ -60,14 +62,14 @@ func apply(art, host, actor, delta: float) -> void:
 			var k: Dictionary = actor.identity.lasso_knockdown
 			var direction: Vector3 = k.get("direction",actor.basis.z)
 			art.model.rotation.y = PI + atan2(direction.x,direction.z) - actor.rotation.y
-			var progress: float = clampf(1.0 - float(k.left)/float(k.total),0,1)
+			var progress: float = phase_clock.advance(float(k.total)-float(k.left),delta,actor.presentation_snapshot_serial,actor.motion_revision,float(k.total))/maxf(.001,float(k.total))
 			# Give fall/get-up more of the existing stun: 35% fall, 16% hold, 49% rise.
 			var frame: float = minf(1, progress / .35) if progress < .51 else (1.0-progress)/.49
 			if k.get("null",false): frame = minf(1,progress/.08) if progress<.92 else (1-progress)/.08
 			sample("Death01",frame)
 		elif next == "cast" or next == "rope":
 			sample("Spell_Simple_Enter",.85,true)
-			var angle: float = (Lasso.CAST - actor.cast_left) * TAU * 3 if next == "cast" else 0.0
+			var angle: float = phase_clock.advance(Lasso.CAST-actor.cast_left,delta,actor.presentation_snapshot_serial,actor.motion_revision,Lasso.CAST)*TAU*3 if next == "cast" else 0.0
 			aim_bone("DEF-upper_arm.R",Vector3(.7,.85,.1))
 			aim_bone("DEF-forearm.R",Vector3(.3*cos(angle),1,.3*sin(angle)))
 		elif next == "pull":
@@ -80,7 +82,7 @@ func apply(art, host, actor, delta: float) -> void:
 				aim_bone("DEF-upper_arm."+side,Vector3(-.4 if side=="L" else .4,-.6,-.3))
 				aim_bone("DEF-forearm."+side,Vector3(0,.15,1))
 		elif next == "rebound":
-			var progress: float = clampf(float(s.elapsed)/Lasso.REBOUND_TIME,0,1)
+			var progress: float = phase_clock.advance(float(s.elapsed),delta,actor.presentation_snapshot_serial,actor.motion_revision,Lasso.REBOUND_TIME)/Lasso.REBOUND_TIME
 			sample("Roll",.60*(1-progress))
 		if art.get("equipment") != null: art.equipment.apply()
 	blend_time += delta

@@ -73,8 +73,8 @@ func _build_collision() -> void:
 		# catch a capsule during ordinary movement, Roll, Lasso or Charge.
 		_box_collision(pos + Vector3.UP * Layout.COVER_BLOCK_HEIGHT * .5, Vector3(Layout.COVER_BASE_SIZE.x, Layout.COVER_BLOCK_HEIGHT, Layout.COVER_BASE_SIZE.z))
 	for edge in [-Layout.HALF_EXTENT, Layout.HALF_EXTENT]:
-		_box_collision(Vector3(edge, 1.5, 0), Vector3(0.7, 3, 36.7))
-		_box_collision(Vector3(0, 1.5, edge), Vector3(36.7, 3, 0.7))
+		_box_collision(Vector3(edge, 32, 0), Vector3(0.7, 72, 36.7))
+		_box_collision(Vector3(0, 32, edge), Vector3(36.7, 72, 0.7))
 	var width: float = Layout.TERRACE_OUTER - Layout.TERRACE_INNER
 	for side in [-1.0, 1.0]:
 		var x: float = side * (Layout.TERRACE_INNER + width * 0.5)

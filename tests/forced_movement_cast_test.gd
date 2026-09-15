@@ -38,21 +38,21 @@ func run() -> void:
 	game = preload("res://tests/ui_test_arena.gd").new()
 	root.add_child(game)
 	game.set_physics_process(false)
-	for kind in ["inward", "outward"]:
+	for kind in ["anchor_compression", "anchor_expansion"]:
 		await reset()
 		check(game.try_spell(2, 0, 1) and b.gcd > 0, kind + ": victim starts cast")
 		game.resolve_spell(a, slot(kind), b)
 		check(b.casting == -1 and b.gcd == 0 and b.locked == 0, kind + ": displacement refunds GCD without lockout")
-		check(game.try_spell(2, 0, 1), kind + ": victim can immediately recast")
+		check(not game.try_spell(2, 0, 1), kind + ": victim cannot recast during forced motion or stun")
 		await reset()
 		b.identity.hold = 2.0
 		check(game.try_spell(2, 0, 1), kind + ": stationary fixture starts cast")
 		game.resolve_spell(a, slot(kind), b)
 		check(b.casting == 0 and b.gcd > 0, kind + ": prevented displacement preserves cast and GCD")
 	await reset()
-	check(game.try_spell(2, 0, 1), "Start cast before Collapse root")
-	game.resolve_spell(a, slot("collapse"), a)
-	check(b.identity.root > 0 and b.stunned == 0 and b.casting == 0, "Unempowered Collapse roots without interrupting")
+	check(game.try_spell(2, 0, 1), "Start cast before generic root")
+	game.ClassMechanics.control(game, a, b, 2, "Generic root", true)
+	check(b.identity.root > 0 and b.stunned == 0 and b.casting == 0, "Generic root does not interrupt")
 	b.move_input = Vector2(1, 0)
 	b.input_age = 0
 	game.tick_actor(b, 0.1)
@@ -69,7 +69,7 @@ func run() -> void:
 	await reset()
 	game.try_spell(2, 0, 1)
 	a.identity.meditation = 75
-	game.resolve_spell(a, slot("collapse"), a)
-	check(b.casting == -1 and b.stunned > 0, "Empowered Collapse remains a stun")
+	game.resolve_spell(a, slot("anchor_compression"), a)
+	check(b.casting == -1 and b.stunned > 0, "Compression stuns and interrupts")
 	print("Forced movement/casting checks: %d passed / %d total" % [checks - failures, checks])
 	quit(1 if failures else 0)

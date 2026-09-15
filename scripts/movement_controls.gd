@@ -102,13 +102,13 @@ func sample(delta: float) -> Vector2:
 			game.queued_jump = false
 			game.pending_jump_id = 0
 		return Vector2.ZERO
-	if game.outlaw_aim_test.enabled:
+	if game.outlaw_aim_test.enabled or game.fulcrum_aim.enabled:
 		game.local_yaw = lerp_angle(game.local_yaw,game.pivot.rotation.y,1.0-exp(-30.0*delta))
 	elif right: align_facing()
 	if game.actors[game.local_id].stunned <= 0:
 		var turn: float = (game.controls.held("turn_left") - game.controls.held("turn_right")) * delta * game.player_options.turn_speed
 		game.local_yaw += turn
-		if not left or right or game.outlaw_aim_test.enabled: game.pivot.rotation.y += turn
+		if not left or right or game.outlaw_aim_test.enabled or game.fulcrum_aim.enabled: game.pivot.rotation.y += turn
 	var movement := Vector2(game.controls.held("strafe_right") - game.controls.held("strafe_left"), game.controls.held("backward") - game.controls.held("forward"))
 	if game.controls.held("forward") > 0 or game.controls.held("backward") > 0: autorun = false
 	if autorun or (left and right): movement.y = -1
@@ -128,7 +128,7 @@ func action(code: int) -> void:
 		follow_delay = 0.4
 
 func scroll_zoom(steps: float) -> void:
-	if not camera_active() or game.outlaw_aim_test.owns_camera() or not is_finite(steps): return
+	if not camera_active() or (game.outlaw_aim_test.owns_camera() or game.fulcrum_aim.enabled) or not is_finite(steps): return
 	zoom_target = clampf(zoom_target * exp(clampf(-steps * ZOOM_STEP, -20.0, 20.0)), ZOOM_MIN, ZOOM_MAX)
 	game.camera_dirty = true
 
@@ -153,12 +153,12 @@ func tick(delta: float) -> void:
 		zoom_velocity = 0.0
 		if left or right or autorun: cancel()
 		return
-	if not game.outlaw_aim_test.owns_camera():
+	if not (game.outlaw_aim_test.owns_camera() or game.fulcrum_aim.enabled):
 		tick_zoom(delta)
 	else:
 		zoom_velocity = 0.0
 	follow_delay = maxf(0.0, follow_delay - delta)
-	if game.player_options.camera_follow and not left and not right and not game.outlaw_aim_test.owns_camera() and follow_delay == 0 and game.actors[game.local_id].move_input.length() > 0.01:
+	if game.player_options.camera_follow and not left and not right and not (game.outlaw_aim_test.owns_camera() or game.fulcrum_aim.enabled) and follow_delay == 0 and game.actors[game.local_id].move_input.length() > 0.01:
 		game.pivot.rotation.y = lerp_angle(game.pivot.rotation.y, game.local_yaw, 1.0 - exp(-5.0 * delta))
 
 func select_at(point: Vector2) -> void:

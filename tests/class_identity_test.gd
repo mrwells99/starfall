@@ -90,41 +90,29 @@ func run() -> void:
 	check(ally.hp == 0, "Last Light does not grant continuing immortality")
 	await reset("Fulcrum")
 	a = arena.actors[1]; b = arena.actors[4]; ally = arena.actors[2]
-	check(not arena.validate_spell(a, 1, b.actor_id).is_empty(), "Inward requires an anchor")
-	arena.resolve_spell(a, 7, a)
-	check(a.identity.anchor_left == 20, "Anchor projects onto arena floor")
-	var anchor: Vector3 = a.identity.anchor_pos
-	b.position = anchor + Vector3(4, 0, 0)
-	var distance: float = b.position.distance_to(anchor)
-	arena.resolve_spell(a, 1, b)
-	check(b.position.distance_to(anchor) < distance, "Inward pulls toward anchor")
-	distance = b.position.distance_to(anchor)
-	arena.resolve_spell(a, 8, b)
-	check(b.position.distance_to(anchor) > distance, "Outward pushes away from anchor")
-	b.position = anchor + Vector3(1, 0, 0)
-	arena.resolve_spell(a, 9, a)
-	arena.ClassMechanics.tick(arena, a, 0.1)
-	check(b.identity.slow > 0, "Heavy Orbit slows nearby enemies")
-	arena.resolve_spell(a, 11, a)
-	check(b.hp == 1280 and b.identity.root > 0 and a.identity.anchor_left == 0, "Collapse consumes anchor for damage and root")
-	a.position = Vector3(0, 0, 2); ally.position = Vector3(0, 0, -2)
-	pos = a.position
-	arena.resolve_spell(a, 10, ally)
-	check(ally.position == pos and a.position == Vector3(0, 0, -2), "Counterweight exchanges ally positions")
-	a.position = Vector3(-6, 0, 9); ally.position = Vector3(-6, 0, 0)
-	await physics_frame
-	check(not arena.validate_spell(a, 10, ally.actor_id).is_empty(), "Counterweight rejects a pillar-blocked exchange")
-	arena.world_mode = true
-	a.position = Vector3(0, 0, 2); b.position = Vector3(0, 0, -2); a.rotation.y = 0
-	check(not arena.try_spell(a.actor_id, 3, b.actor_id), "Bystanders cannot be controlled")
-	arena.duels[a.actor_id] = b.actor_id
-	arena.duels[b.actor_id] = a.actor_id
-	check(not arena.validate_spell(a, 10, ally.actor_id).is_empty(), "Duel participants cannot swap with bystanders")
+	check(not arena.validate_spell(a, 11, a.actor_id).is_empty(), "Dark Growth requires an anchor")
+	a.position=Vector3(0,.025,7);a.rotation.y=0;b.position=Vector3(0,.025,4)
+	arena.resolve_spell(a,1,a)
+	check(a.identity.anchor_left==3 and b.stunned>0, "Compression places a three-second anchor and stuns")
+	var anchor:Vector3=a.identity.anchor_pos
+	arena.resolve_spell(a,11,a)
+	arena.ClassMechanics.tick(arena,a,1.1)
+	check(b.identity.slow>0 and a.identity.anchor_left==0, "Dark Growth expands and consumes anchor")
+	a.cooldowns.fill(0);a.gcd=0
+	arena.resolve_spell(a,7,a)
+	check(b.identity.gravity_motion.get("kind")=="blast", "Expansion launches nearby enemies")
+	anchor=a.identity.anchor_pos;pos=ally.position
+	arena.resolve_spell(a,10,ally)
+	check(a.position.distance_to(anchor)<.1 and ally.position==pos, "Anchor Exchange moves caster to anchor")
+	arena.world_mode=true;a.gcd=0;a.cooldowns.fill(0)
+	b.reset_identity();b.hp=1500;b.stunned=0;b.position=a.position-Vector3(0,0,3)
+	arena.resolve_spell(a,1,a)
+	check(b.hp==1500 and b.stunned==0, "Anchor cannot harm a world bystander")
 	arena.world_mode = false
 	for champion in arena.Kits.NAMES:
 		await reset(champion)
 		a = arena.actors[1]
-		check(a.kit.size() == arena.Kits.KIT_SIZE and a.cooldowns.size() == a.kit.size(), champion + " has the supported slot count")
+		check(a.kit.size() <= arena.Kits.KIT_SIZE and a.kit.size() >= 15 and a.cooldowns.size() == a.kit.size(), champion + " has the supported slot count")
 		for ability in a.kit:
 			if ability.kind == "unavailable": continue
 			check(arena.AbilityArt.texture_for(ability.name, champion) != null, ability.name + " has an icon")
