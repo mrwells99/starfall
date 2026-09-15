@@ -12,7 +12,7 @@ func tick(game, delta: float) -> void:
 		epoch = game.epoch
 	var needed := false
 	for actor in game.actors.values():
-		if actor.champion in ["Ember","Fulcrum"] and actor.hp > 0: needed = true; break
+		if actor.champion == "Ember" and actor.hp > 0: needed = true; break
 	if not needed:
 		history.clear()
 		return
@@ -58,9 +58,3 @@ func overlaps(game, caster, target) -> bool:
 	if old_position == null: return false
 	# Current and historical cover must both be clear. Smoke/CC use live state.
 	return game.ClassMechanics.flare_overlaps_position(caster, old_position) and game.ClassMechanics.point_los(game, caster.position, old_position)
-
-func ruin_overlaps(game, caster, target, event: Dictionary, previous: float, current: float) -> bool:
-	if game.Fulcrum.in_ruin(target.position,event.position,event.yaw,previous,current,event.kind=="ruin_left"): return true
-	var old_position=position_at(target,rewind_age(game,caster))
-	if old_position==null:return false
-	return game.Fulcrum.in_ruin(old_position,event.position,event.yaw,previous,current,event.kind=="ruin_left") and game.ClassMechanics.point_los(game,event.position,old_position)

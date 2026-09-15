@@ -52,7 +52,7 @@ static func active(actor, sources: Array = [], local_source: int = -1) -> Array:
 		var stacks := int(dot.get("stacks", 1))
 		out.append({"key": "graviton_%s" % source_id, "name": "Graviton ×%d" % stacks, "kind": DEBUFF, "remaining": dot.left, "color": Color("b98cff"), "source": "Graviton", "description": "%d damage each second (%d/2 stacks). Generates no Meditation. DPS Mend removes this DoT." % [30 * stacks, stacks]})
 	for source_id in actor.identity.entropy_dots:
-		out.append({"key": "entropy_%s" % source_id, "name": "Entropy", "kind": DEBUFF, "remaining": actor.identity.entropy_dots[source_id].left, "color": Color("d395ff"), "source": "Entropy", "description": "20 damage and 10 Meditation for its caster each second. Cleansing silences the cleanser for 3s and deals 10% maximum-health damage."})
+		out.append({"key": "entropy_%s" % source_id, "name": "Entropy", "kind": DEBUFF, "remaining": actor.identity.entropy_dots[source_id].left, "color": Color("d395ff"), "source": "Entropy", "description": "20 damage and 10 Meditation for its caster each second. Cleansing silences the cleanser for 3s."})
 	if actor.stunned > 0:
 		out.append({
 			"key": "stun", "name": "Stunned", "kind": DEBUFF,

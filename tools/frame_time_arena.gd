@@ -111,7 +111,7 @@ func resolve_spell(actor, slot: int, victim, camera_yaw: Variant = null) -> void
 	trace_event("resolve", bench_context, actor.actor_id, victim.actor_id if victim != null else -1, started, {"champion": actor.champion})
 	bench_context = previous
 
-func damage(source, victim, amount: float) -> void:
+func damage(source, victim, amount: float, periodic: bool = false) -> void:
 	var previous := bench_context
 	if bench_context.is_empty():
 		if source.champion == "Fulcrum" and amount == 2 and victim.identity.entropy_dots.has(source.actor_id):
@@ -122,7 +122,7 @@ func damage(source, victim, amount: float) -> void:
 			bench_context = "Burning field tick"
 		else:
 			bench_context = "Periodic/redirect damage"
-	super.damage(source, victim, minf(amount, maxf(0, victim.hp - 1)))
+	super.damage(source, victim, minf(amount, maxf(0, victim.hp - 1)), periodic)
 	bench_context = previous
 
 func combat_event(source: int, victim: int, text: String, color: Color) -> void:

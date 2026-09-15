@@ -49,6 +49,8 @@ Code-review caveats before integration: the inherited default stage is after tra
 
 See `docs/NETWORK_ADDON_REVIEW.md` for the Netfox and Ezcha code reviews, current-network comparisons, tradeoffs and local snapshot baseline. These notes do not authorize replacing the existing server-authoritative networking.
 
+Netfox is unattached, so its scripts reference autoload singletons (`NetworkTime`, `NetworkRollback`, `NetworkPerformance`, `NetworkTimeSynchronizer`) that `project.godot` does not register. Godot's resource scan parsed them anyway and emitted roughly two hundred "Identifier ... not declared in the current scope" errors on every import/editor start. `addons/netfox/.gdignore` and `addons/netfox.internals/.gdignore` now keep the scan out of both folders (the same pattern already used for `artifacts/`, `art_source/` and `local_resources/`). The source stays on disk for reference; delete the two `.gdignore` files if Netfox is ever genuinely integrated, which still requires its own approval.
+
 ## Animation resources
 
 The RPG Animations GLB FREE pack's 64 unarmed clips are available in `Unarmed.glb`; `Unarmed_RM.glb` supplies root-motion variants. Six sandbox-only transfers onto existing models are in `artifacts/rpg-animation-preview-20260912/combat-candidates.gif`. Source/target bind differences require retargeting; do not directly replace live clips or rebuild models. See that folder's README and unchanged-asset verification before considering a chosen clip.

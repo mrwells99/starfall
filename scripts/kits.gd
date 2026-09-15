@@ -1,7 +1,7 @@
 extends RefCounted
 const DIVIDE_MANUAL_AIM := false # Set true to recall the retained aim version.
 
-static var SELF_KINDS := ["shield", "self_heal", "regen_pot", "blink", "sprint", "cinder", "stoke", "wake", "hold", "unbroken", "anchor", "orbit", "collapse", "flare_cc", "roll", "backflip", "coin_toss", "deadeye", "defense_detonation", "trinket", "stealth", "null_haste", "chronoshift", "smoke_bomb", "anchor_compression", "anchor_expansion", "anchor_exchange", "anchor_field", "ruin", "gravity_flow"] + (["divide"] if DIVIDE_MANUAL_AIM else [])
+static var SELF_KINDS := ["shield", "self_heal", "regen_pot", "blink", "sprint", "cinder", "stoke", "wake", "hold", "unbroken", "anchor", "orbit", "collapse", "flare_cc", "roll", "backflip", "coin_toss", "deadeye", "defense_detonation", "trinket", "stealth", "null_haste", "chronoshift", "smoke_bomb", "anchor_compression", "anchor_expansion", "anchor_exchange", "anchor_field", "gravity_flow"] + (["divide"] if DIVIDE_MANUAL_AIM else [])
 const ALLY_KINDS := ["heal", "ally_shield", "dispel", "falling", "absolution", "stitch", "star", "pilgrim", "last", "intercede", "swap"]
 const KIT_SIZE := 16
 const TRINKET_SLOT := 14 # Shared slot; preserve all existing class indices.
@@ -48,19 +48,19 @@ static func get_kit(champion: String) -> Array:
 static func class_kit(champion: String) -> Array:
 	if champion == "Fulcrum":
 		return [
-			spell("Ruin", "ruin", 18, 0, 0, 0).merged({"range":10.0},true),
-			spell("Compression · Close", "anchor_compression", 13.2, 0, 0, 9).merged({"range":3.0},true),
-			spell("Compression · Mid", "anchor_compression", 13.2, 0, 0, 9).merged({"range":8.0},true),
-			spell("Compression · Long", "anchor_compression", 13.2, 0, 0, 9).merged({"range":15.0},true),
+			spell("Ruin", "ruin", 10.8, 0, 0, 0).merged({"range":10.0},true),
+			spell("Compression · Close", "anchor_compression", 13.2, 0, 0, 12).merged({"range":3.0},true),
+			spell("Compression · Mid", "anchor_compression", 13.2, 0, 0, 12).merged({"range":8.0},true),
+			spell("Compression · Long", "anchor_compression", 13.2, 0, 0, 12).merged({"range":15.0},true),
 			spell("Umbra", "shield", 5, 0, 0, 22, true),
 			spell("Mend", "self_heal", 28, 0, 2, 30),
 			spell("Tether", "pull", 8, 22, 0, 14, true),
-			spell("Expansion · Close", "anchor_expansion", 10, 0, 0, 9).merged({"range":3.0},true),
-			spell("Expansion · Mid", "anchor_expansion", 10, 0, 0, 9).merged({"range":8.0},true),
-			spell("Expansion · Long", "anchor_expansion", 10, 0, 0, 9).merged({"range":15.0},true),
+			spell("Expansion · Close", "anchor_expansion", 10, 0, 0, 12).merged({"range":3.0},true),
+			spell("Expansion · Mid", "anchor_expansion", 10, 0, 0, 12).merged({"range":8.0},true),
+			spell("Expansion · Long", "anchor_expansion", 10, 0, 0, 12).merged({"range":15.0},true),
 			spell("Anchor Exchange", "anchor_exchange", 0, 0, 0, 0, true),
 			spell("Dark Growth", "anchor_field", 0, 0, 0, 0, true),
-			spell("Divide", "divide", 27, 0, .3, 0).merged({"range":15.0},true),
+			spell("Divide", "divide", 16.2, 0, .3, 0).merged({"range":15.0},true),
 			spell("Entropy", "entropy", 2, 24, .8, 0),
 			spell("Gravity Flow", "gravity_flow", 0, 0, 0, 60, true)]
 	if champion == "Null":
@@ -155,11 +155,11 @@ static func class_kit(champion: String) -> Array:
 static func summary(ability: Dictionary) -> String:
 	if ability.kind in ["anchor_compression", "anchor_expansion"]:
 		var effect := "Pull visible enemies within 6m into a black hole, impale them for 132 damage and stun for 1.2s. Generate 20 Meditation when an enemy is caught." if ability.kind == "anchor_compression" else "A purple spherical blast deals 100 damage and launches visible enemies within 3.6m away with momentum."
-		return "Place an anchor %sm ahead (stops at terrain). %s The anchor remains for 3s: use Anchor Exchange or Dark Growth. Range variants share a 9s cooldown per polarity." % [ability.range,effect]
+		return "Place an anchor %sm ahead (stops at terrain). %s The anchor remains for 3s: use Anchor Exchange or Dark Growth. Range variants share a 12s cooldown per polarity." % [ability.range,effect]
 	var concepts := {
-		"ruin": "Command a smoking dark-matter greatsword through a 150-degree, 10m sweep for 180 damage. Spend 33 Meditation. Press again within 6s with more than 66 Meditation remaining to spend another 33 and slash left. Right then left unlocks Divide for 6s. Terrain blocks Ruin.",
-		"divide": "Requires Ruin right then left. Command a 15m vertical sword slash toward your selected enemy after a 0.3s charge. No manual aim. Deals 270 damage in a 3m-wide line. Its 0.65s lingering hitbox hits each enemy once. Penetrates corners and up to 3m of cover; full pillars block it. Leaves a 6s rift that slows by 50%. No additional resource cost. Gravity Flow removes the charge and deals 50% more damage below 30% health.",
-		"gravity_flow": "For 8s, Ruin and Divide bypass the global cooldown. Divide charges instantly and deals 50% more damage to targets below 30% health. Resource and combo requirements still apply. 60s cooldown.",
+		"ruin": "Command a smoking dark-matter greatsword at your selected enemy for 108 damage. Spend 33 Meditation. Press again within 6s with more than 66 Meditation remaining to spend another 33 and slash left. Right then left unlocks Divide for 6s. After the left slash, Ruin locks out for 8s — only two slashes per combo. Casting Divide copies whatever is left of that 8s onto Divide's own cooldown, so the two then tick down together. Terrain blocks Ruin.",
+		"divide": "Requires Ruin right then left. Command a 15m vertical sword slash toward your selected enemy after a 0.3s charge. No manual aim. Deals 162 damage in a 3m-wide line. Its 0.65s lingering hitbox hits each enemy once. Penetrates corners and up to 3m of cover; full pillars block it. Leaves a 6s rift that slows by 50%. No additional resource cost. Casting Divide inherits whatever remains of Ruin's 8s lockout. Gravity Flow removes the charge and detonates each enemy it hits for extra damage to nearby foes.",
+		"gravity_flow": "For 8s, Ruin and Divide bypass the global cooldown. Divide charges instantly and each enemy it hits also detonates for damage to nearby foes. Resource and combo requirements still apply. 60s cooldown.",
 		"anchor_exchange": "Within 3s of placing either anchor, exchange positions with it and consume the follow-up. Requires a clear travel path; cannot be used while rooted. Off the global cooldown.",
 		"anchor_field": "Within 3s of placing either anchor, consume it to grow black grass outward over 1s, reaching a 6m radius. Lasts 6s and slows enemies by 45%. Off the global cooldown.",
 		"stab": "Strike your enemy for 120 damage.",
@@ -208,7 +208,7 @@ static func summary(ability: Dictionary) -> String:
 		"orbit": "Your anchor creates a 6m slowing field for 6s, even through line-of-sight blockers. Enemies inside move 45% slower.",
 		"swap": "Exchange positions with another ally. Both routes must be clear; cannot cross terrain.",
 		"graviton": "Deal 60 damage and apply an 11s DoT: 30 damage each second per stack, up to 2 stacks per caster. Reapplying refreshes both stacks without delaying the next tick. Generates no Meditation. A landed Collapse grants a 4s buff for one instant Graviton, consumed on use.",
-		"entropy": "Apply a 15s DoT: 20 damage and 10 Meditation each second. Instant only when none of your Entropy effects are active; otherwise casts in 0.8s, including refreshes. No per-caster stacking or delayed ticks. Cleansing triggers a 3s silence and 10% maximum-health damage on the cleanser. Meditation caps at 100.",
+		"entropy": "Apply a 15s DoT: 20 damage and 10 Meditation each second. Instant only when none of your Entropy effects are active; otherwise casts in 0.8s, including refreshes. No per-caster stacking or delayed ticks. Cleansing triggers a 3s silence on the cleanser. Meditation caps at 100.",
 		"gravity_starfall": "Requires at least 50 Meditation. After a 2s cast, spend all Meditation to deal 200 + 4 damage per Meditation (400–600) to enemies within 5m of the target. Interrupted casts spend nothing.",
 		"collapse": "Consume your anchor: deal 220 damage within 6m and root for up to 2s. At 75+ Meditation, stun for up to 3s instead; Meditation is not spent. Root/stun passes through up to 2m of solid cover from the anchor, but thicker cover blocks control (not damage). Inward grants a 4s instant, off-GCD Collapse proc; its own cooldown still applies. Hitting an enemy grants a 4s instant Graviton proc. Root and stun use separate diminishing returns."
 	}

@@ -6,15 +6,20 @@ const EXPANSION_RADIUS := COMPRESSION_RADIUS * .6
 const COMPRESSION_POWER := 22.0 * .6
 const COMPRESSION_STUN := 2.0 * .6
 const ANCHOR_LIFETIME := 3.0
-const ANCHOR_COOLDOWN := 9.0
+const ANCHOR_COOLDOWN := 12.0
 const COMPRESSION_RESOURCE := 20.0
 const FIELD_DURATION := 6.0
 const FIELD_GROWTH := 1.0
 const FIELD_RADIUS := 6.0
 const RUIN_RANGE := 10.0
+# VFX-only now: the sword swing still sweeps this arc, but the hit itself is a
+# single locked tab target rather than anyone caught inside the sweep.
 const RUIN_HALF_ANGLE := deg_to_rad(75.0)
 const RUIN_COST := 33.0
 const RUIN_SECONDS := .26
+# After the second (left) slash, Ruin locks out on its own; Divide then
+# inherits whatever is left of it so the two tick down on one shared clock.
+const RUIN_COOLDOWN := 8.0
 const DIVIDE_RANGE := 15.0
 const DIVIDE_WIDTH := 3.0
 const DIVIDE_SECONDS := .30
@@ -24,7 +29,8 @@ const RIFT_DURATION := 6.0
 const COVER_ALLOWANCE := 3.0
 const COMBO_WINDOW := 6.0
 const FLOW_DURATION := 8.0
-const EXECUTE_MULTIPLIER := 1.5
+const FLOW_SPLASH_RADIUS := 5.0
+const FLOW_SPLASH_MULTIPLIER := .5
 const CLEANSE_SILENCE := 3.0
 const Smoke = preload("res://scripts/smoke_bomb.gd")
 # Append only: indices form the compact gravity snapshot contract.
@@ -104,7 +110,11 @@ static func resolve(game, a, spell: Dictionary, target = null) -> bool:
 			for i in a.kit.size():
 				if a.kit[i].kind==spell.kind: a.cooldowns[i]=ANCHOR_COOLDOWN
 			var compression: bool = spell.kind=="anchor_compression"
-			var targets: Array = game.ClassMechanics.enemies(game,a,s.anchor_pos,COMPRESSION_RADIUS if compression else EXPANSION_RADIUS)
+			# Sight is judged from the caster, not the anchor: enemies() defaults to
+			# checking from its center point (the anchor), which let a hidden caster
+			# land a hit through an anchor the enemy could see. Skip that check here
+			# and rely solely on the has_los(a, target) filter below.
+			var targets: Array = game.ClassMechanics.enemies(game,a,s.anchor_pos,COMPRESSION_RADIUS if compression else EXPANSION_RADIUS,false)
 			targets=targets.filter(func(target): return game.has_los(a,target))
 			if compression and not targets.is_empty(): s.meditation=minf(100,s.meditation+COMPRESSION_RESOURCE)
 			for b in targets:
@@ -133,15 +143,27 @@ static func resolve(game, a, spell: Dictionary, target = null) -> bool:
 			var left: bool = s.ruin_combo==1 and s.ruin_window>0
 			s.meditation=maxf(0,s.meditation-RUIN_COST)
 			s.ruin_combo=0 if left else 1; s.ruin_window=0.0 if left else COMBO_WINDOW
-			if left: s.divide_ready=COMBO_WINDOW
+			if left:
+				s.divide_ready=COMBO_WINDOW
+				# Only two slashes per combo: lock Ruin out until Divide is thrown
+				# (or the window lapses), instead of allowing a third slash.
+				for i in a.kit.size():
+					if a.kit[i].kind=="ruin": a.cooldowns[i]=RUIN_COOLDOWN
 			var kind := "ruin_left" if left else "ruin_right"
 			action(a,kind,RUIN_SECONDS)
-			s.fulcrum_slashes.append({"serial":s.fulcrum_serial,"kind":kind,"position":a.position,"yaw":a.rotation.y,"age":0.0,"power":spell.power,"hits":[]})
+			s.fulcrum_slashes.append({"serial":s.fulcrum_serial,"kind":kind,"position":a.position,"yaw":a.rotation.y,"age":0.0,"power":spell.power,"hits":[],"target_id":target.actor_id if target!=null else -1})
 		"divide":
 			if not a.Kits.DIVIDE_MANUAL_AIM and target!=null and target!=a:
 				var offset:Vector3=target.position-a.position
 				s.divide_yaw=atan2(-offset.x,-offset.z)
 			s.divide_ready=0.0; s.ruin_combo=0; s.ruin_window=0.0
+			# Divide clones whatever is left of Ruin's lockout onto itself, so the
+			# combo's two finishers end up ticking down on one shared clock.
+			var ruin_cooldown := 0.0
+			for i in a.kit.size():
+				if a.kit[i].kind=="ruin": ruin_cooldown=a.cooldowns[i]
+			for i in a.kit.size():
+				if a.kit[i].kind=="divide": a.cooldowns[i]=ruin_cooldown
 			action(a,"divide",DIVIDE_SECONDS)
 			s.fulcrum_slashes.append({"serial":s.fulcrum_serial,"kind":"divide","position":a.position,"yaw":s.divide_yaw,"age":0.0,"power":spell.power,"flow":s.divide_flow,"hits":[]})
 	game.combat_event(a.actor_id,a.actor_id,spell.name.to_upper(),a.Kits.color(a.champion))
@@ -153,12 +175,6 @@ static func swing_progress(t: float) -> float:
 
 static func valid_enemy(game, a, b) -> bool:
 	return b.hp>0 and b.team!=a.team and game.may_harm(a,b) and not Smoke.separates(game,a,b)
-
-static func in_ruin(position: Vector3, origin: Vector3, yaw: float, previous: float, current: float, left: bool) -> bool:
-	var start := lerpf(-RUIN_HALF_ANGLE,RUIN_HALF_ANGLE,previous)
-	var end := lerpf(-RUIN_HALF_ANGLE,RUIN_HALF_ANGLE,current)
-	var center := (start+end)*.5*(-1 if left else 1)
-	return preload("res://scripts/cone_geometry.gd").overlaps(origin,yaw-center,position,RUIN_RANGE,(end-start)*.5)
 
 static func in_divide(position: Vector3, origin: Vector3, yaw: float) -> bool:
 	var local: Vector3 = Basis(Vector3.UP,-yaw)*(position-origin)
@@ -195,15 +211,21 @@ static func tick(game, a, delta: float) -> void:
 		if (divide and slash.age>=DIVIDE_SECONDS and previous<DIVIDE_SECONDS+DIVIDE_LINGER) or (not divide and previous<RUIN_SECONDS):
 			for b in game.actors.values():
 				if b.actor_id in slash.hits or not valid_enemy(game,a,b): continue
-				var overlaps: bool = in_divide(b.position,slash.position,slash.yaw) if divide else game.solar_flare_history.ruin_overlaps(game,a,b,slash,swing_progress(previous/duration),swing_progress(float(slash.age)/duration))
+				# Divide is a positional line; Ruin is now a locked tab target, not
+				# a cone anyone standing nearby can be caught in.
+				var overlaps: bool = in_divide(b.position,slash.position,slash.yaw) if divide else b.actor_id==slash.get("target_id",-1)
 				if not overlaps: continue
 				if divide:
 					if not cover_allows(game,slash.position,b.position): continue
 				elif not game.ClassMechanics.point_los(game,slash.position,b.position): continue
 				slash.hits.append(b.actor_id)
-				var power: float = slash.power
-				if divide and slash.get("flow",false) and b.hp<b.MAX_HEALTH*.3: power*=EXECUTE_MULTIPLIER
-				game.damage(a,b,power)
+				game.damage(a,b,slash.power)
+				if divide and slash.get("flow",false):
+					# Gravity Flow trades Divide's old execute bonus for a blast
+					# around each enemy it connects with.
+					for nearby in game.ClassMechanics.enemies(game,a,b.position,FLOW_SPLASH_RADIUS):
+						if nearby.actor_id==b.actor_id or nearby.actor_id in slash.hits: continue
+						game.damage(a,nearby,slash.power*FLOW_SPLASH_MULTIPLIER)
 		if slash.age>duration+(DIVIDE_LINGER if divide else .35): s.fulcrum_slashes.erase(slash)
 
 static func cover_allows(game, origin: Vector3, position: Vector3) -> bool:
@@ -273,7 +295,6 @@ static func cleanse_entropy(game, cleanser, target) -> void:
 		var source = game.actors.get(id)
 		if source==null or source.hp<=0 or not game.may_harm(source,cleanser) or cleanser.hp<=0: continue
 		game.CC.apply(cleanser,"silence",CLEANSE_SILENCE,"Entropy backlash")
-		game.damage(source,cleanser,cleanser.MAX_HEALTH*.1/cleanser.DAMAGE_SCALE,true)
 
 static func bot(game, a, foe) -> bool:
 	var s: Dictionary = a.identity

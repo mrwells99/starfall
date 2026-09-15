@@ -2065,6 +2065,21 @@ func load_layout() -> void:
 					# must never be duplicated or stolen during automatic migration.
 					if available:
 						binds[empty] = preferred
+		# A save from before per-champion loadouts (or one with more stale
+		# duplicate slots than this loop needed to consume) can still leave an
+		# ability sitting in more than one slot here. That is never a deliberate
+		# choice — deliberate multi-binds are made live, per champion, and saved
+		# straight to champion_controls — so any leftover duplicate in this
+		# migrated base layout is automation debris. Blank all but the first.
+		var seen_abilities := {}
+		for i in range(assignment.size()):
+			var slot_ability: int = assignment[i]
+			if slot_ability == -1:
+				continue
+			if seen_abilities.has(slot_ability):
+				assignment[i] = -1
+			else:
+				seen_abilities[slot_ability] = true
 	var saved_actions = config.get_value("controls", "actions", {})
 	for added in ["autorun", "walk", "recenter_camera"]:
 		if saved_actions is Dictionary and saved_actions.has(added): continue
