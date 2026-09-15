@@ -104,8 +104,10 @@ func stealth() -> void:
 	game.local_id=2;game.selected_id=1;b.target_id=1
 	ck(game.try_spell(1,4,-1),"Stealth available outside combat")
 	ck(a.identity.stealth and a.cooldowns[4]==0,"Stealth no cooldown")
-	ck(game.try_spell(1,4,-1) and not a.identity.stealth,"Stealth key toggles Null back into view")
-	ck(game.try_spell(1,4,-1) and a.identity.stealth,"Stealth can be entered again after toggling off")
+	var stealth_serial: int=a.identity.stealth_serial
+	for press in 10:
+		ck(game.try_spell(1,4,-1) and a.identity.stealth,"Repeated Stealth presses keep Null concealed")
+	ck(a.identity.stealth_serial==stealth_serial,"Repeated Stealth presses do not restart stealth")
 	a.move_input=Vector2.UP;game.simulate_movement(a,.016)
 	ck(a.identity.stealth,"Movement steps do not break Null's Stealth")
 	a.move_input=Vector2.ZERO;a.position=Vector3(0,.025,0)
@@ -113,6 +115,7 @@ func stealth() -> void:
 	ck(not game.try_spell(2,0,1),"Forged target cannot attack concealed Null")
 	game.cycle_target();ck(game.selected_id==-1,"Tab cannot acquire undetected Null")
 	game.Null.tick(game,a,.69);ck(not game.Null.detected(a,b),"Dwell not complete at 0.69s")
+	ck(game.try_spell(1,4,-1) and is_equal_approx(float(a.identity.stealth_detection[b.actor_id]),.69),"Repeated Stealth preserves detection progress")
 	game.Null.tick(game,a,.011);ck(game.Null.detected(a,b),"Detection at 0.7s")
 	game.sync_target_lock();ck(game.selected_id==-1,"Detection does not auto-retarget")
 	game.cycle_target();ck(game.selected_id==1,"Tab acquires detected Null")
