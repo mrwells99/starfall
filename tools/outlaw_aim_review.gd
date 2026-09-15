@@ -8,7 +8,8 @@ class ReviewConfig extends "res://scripts/user_config.gd":
 	func load_config() -> void: pass
 	func save_config() -> void: pass
 	func apply_display() -> void: pass
-class ReviewArena extends "res://scripts/arena.gd":
+const ArenaScript := preload("res://scripts/arena.gd")
+class ReviewArena extends ArenaScript:
 	func capture_mouse() -> void: has_capture_origin = true
 	func release_mouse(_restore_position: bool = true) -> void:
 		movement_controls.left = false; movement_controls.right = false; has_capture_origin = false

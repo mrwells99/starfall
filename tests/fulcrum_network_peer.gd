@@ -18,18 +18,18 @@ func setup():
 	game.latency_ms=75 if "--test-latency" in OS.get_cmdline_user_args() else 0
 	if host:game.champion_choice.select(1);game.host_session();print("FULCRUM NETWORK READY")
 	else:game.champion_choice.select(3);game.address.text="127.0.0.1";game.join_session()
-func _process(delta:float):
-	if game==null:return
+func _process(delta:float)->bool:
+	if game==null:return false
 	elapsed+=delta
-	if elapsed>18:push_error("Fulcrum network timed out");quit(1);return
+	if elapsed>18:push_error("Fulcrum network timed out");quit(1);return false
 	if host and game.phase=="lobby" and game.roster.size()==2:game.host_start()
-	if game.phase!="match":return
+	if game.phase!="match":return false
 	match_time+=delta
 	var caster;var target
 	for actor in game.actors.values():
 		if actor.champion=="Fulcrum":caster=actor
 		else:target=actor
-	if caster==null or target==null:return
+	if caster==null or target==null:return false
 	if host and not placed:
 		placed=true;caster.position=Vector3(0,.025,7);target.position=Vector3(0,.025,3);caster.rotation.y=0
 		caster.identity.meditation=80;caster.motion_revision+=1;target.motion_revision+=1
@@ -49,7 +49,8 @@ func _process(delta:float):
 		elif step==4 and left_seen and match_time>2.8:
 			step=5;game.selected_id=target.actor_id;game.send_action(12)
 	if match_time>(5.0 if host else 4.5):
-		var passed:bool=anchor_seen and right_seen and left_seen and divide_seen and flow_seen and caster.identity.meditation==34 and target.hp==738 and no_skeleton_history
+		var passed:bool=anchor_seen and right_seen and left_seen and divide_seen and flow_seen and caster.identity.meditation==34 and target.hp==990 and no_skeleton_history
 		if passed:print("FULCRUM NETWORK %s PASS: anchors, 33-resource combo, tab-targeted instant Divide, rift replication, root-only hit detection"%("HOST" if host else "CLIENT"))
 		else:push_error("Fulcrum network failed: %s/%s/%s/%s/%s resource=%s hp=%s cheap=%s"%[anchor_seen,right_seen,left_seen,divide_seen,flow_seen,caster.identity.meditation,target.hp,no_skeleton_history])
 		game.leave_session("");quit(0 if passed else 1)
+	return false

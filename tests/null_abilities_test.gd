@@ -56,12 +56,12 @@ func basic() -> void:
 	a.identity.dots[2]={"left":3.0,"tick":.1,"stacks":1}
 	a.identity.entropy_dots[2]={"left":3.0,"tick":.1}
 	a.identity.severe_bleeds[2]={"left":3.0,"tick":.1}
-	ck(game.try_spell(1,8,-1) and a.hp==350 and a.cooldowns[8]==40,"Regen Pot starts instantly and pays Entropy's 10-percent-health cleanse backlash")
+	ck(game.try_spell(1,8,-1) and a.hp==500 and a.cooldowns[8]==40,"Regen Pot starts instantly and its self-cleanse no longer deals Entropy backlash damage")
 	ck(a.cc_effects.has("silence"),"Regen Pot's self-cleanse triggers Entropy silence")
 	ck(a.identity.dots.is_empty() and a.identity.entropy_dots.is_empty() and a.identity.severe_bleeds.is_empty(),"Regen Pot immediately removes attached damage-over-time effects")
 	ck(a.identity.null_regen.left==6.0,"Regen Pot lasts six seconds")
-	game.Null.tick(game,a,1.0);ck(is_equal_approx(a.hp,394.8),"Regen Pot restores 44.8 health after its first second")
-	game.Null.tick(game,a,5.0);ck(is_equal_approx(a.hp,618.8) and a.identity.null_regen.is_empty(),"Regen Pot restores 268.8 health over six seconds")
+	game.Null.tick(game,a,1.0);ck(is_equal_approx(a.hp,544.8),"Regen Pot restores 44.8 health after its first second")
+	game.Null.tick(game,a,5.0);ck(is_equal_approx(a.hp,768.8) and a.identity.null_regen.is_empty(),"Regen Pot restores 268.8 health over six seconds")
 	await reset()
 	a.identity.essence=120
 	a.cooldowns[1]=20
