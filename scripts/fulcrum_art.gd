@@ -195,7 +195,8 @@ func animate(host: Node3D, delta: float, actor: CharacterBody3D) -> void:
    skeleton.set_bone_pose_position(focus,skeleton.get_bone_global_pose(parent).affine_inverse()*target if parent >= 0 else target)
   pose_blend.apply(delta)
  host.rotation.x = move_toward(host.rotation.x, 0.0 if alive else -PI * 0.5, delta * 5.0)
- host.rotation.z = sin(Time.get_ticks_msec() * 0.015) * 0.025 if stunned and alive else 0.0
+ # Shared actor state keeps visible and compact hitbox poses in phase.
+ host.rotation.z = sin(actor.stunned * 15.0) * 0.025 if stunned and alive else 0.0
  # Upload material parameters only when impact/death appearance changes.
  lasso_pose.apply(self,host,actor,delta)
  # Rewriting every surface every physics tick scales poorly in team fights.
