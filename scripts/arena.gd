@@ -18,7 +18,9 @@ const AURA_SLOTS := 5
 # Action bars. Seven buttons per row; twelve abilities span two rows. The extra
 # bars hold alternate bindings for those same abilities.
 const BAR_COUNT := 3
+const Fulcrum = preload("res://scripts/fulcrum_mechanics.gd")
 const ClassMechanics = preload("res://scripts/class_mechanics.gd")
+var solar_flare_history = preload("res://scripts/solar_flare_history.gd").new()
 const Outlaw = preload("res://scripts/outlaw_mechanics.gd")
 var aimed_combat = preload("res://scripts/aimed_combat.gd").new()
 var outlaw_detonation = preload("res://scripts/outlaw_detonation.gd").new()
@@ -256,6 +258,7 @@ var performance_timer := 0.0
 var availability_timer := 0.0
 var ability_reasons: Dictionary = {}
 var searching := false
+var fulcrum_aim = preload("res://scripts/fulcrum_aim.gd").new()
 var outlaw_aim_test = preload("res://scripts/outlaw_aim_test.gd").new()
 
 func _ready() -> void:
@@ -263,6 +266,7 @@ func _ready() -> void:
 	Input.use_accumulated_input = false
 	movement_controls.game = self
 	controls.setup(TOTAL_SLOTS)
+	get_viewport().size_changed.connect(func(): config.apply_render_resolution(self))
 	build_arena()
 	set_world_starwalk(world_mode)
 	build_camera()
@@ -294,6 +298,7 @@ func _ready() -> void:
 		add_child(outlaw_fx)
 		outlaw_fx.install(self)
 		outlaw_aim_test.setup(self)
+		fulcrum_aim.setup(self)
 
 func initialise_player_config() -> void:
 	if dedicated:
@@ -325,7 +330,7 @@ func build_camera() -> void:
 	arm = SpringArm3D.new()
 	arm.spring_length = movement_controls.ZOOM_MAX
 	arm.rotation.x = -0.38
-	arm.collision_mask = 1
+	arm.collision_mask = 1 | Geometry.CAMERA_ONLY_LAYER
 	# Sweep a small volume so steep upward views retract above floors and
 	# ledges instead of letting the near plane clip through them.
 	var camera_clearance := SphereShape3D.new()
@@ -870,6 +875,8 @@ func build_ui() -> void:
 	graphics_choice = OptionButton.new()
 	for preset in UserConfig.GRAPHICS_PRESETS:
 		graphics_choice.add_item("Graphics: " + preset)
+	graphics_choice.tooltip_text = "Preset changes apply and save to this computer immediately. High: steadier map detail, 4x edge anti-aliasing, and up to 110% internal 3D sampling at native resolution (higher GPU cost). Balanced and Performance retain their previous presentation."
+	graphics_choice.item_selected.connect(apply_graphics_preset)
 	style_picker(graphics_choice)
 	graphics_row.add_child(graphics_choice)
 	render_scale_choice = OptionButton.new()
@@ -927,14 +934,12 @@ func build_ui() -> void:
 	window_mode_choice.add_item("Fullscreen (borderless)", UserConfig.WINDOW_BORDERLESS)
 	window_mode_choice.add_item("Fullscreen (exclusive)", UserConfig.WINDOW_EXCLUSIVE)
 	style_picker(window_mode_choice)
-	# Without this the disabled state of the resolution picker was only
-	# recomputed on the next refresh_menu(), so choosing Windowed left
-	# resolution greyed out and apparently broken.
+	# Native/common resolution choices stay available in all display modes.
 	window_mode_choice.item_selected.connect(func(_i): refresh_menu())
 	stack.add_child(window_mode_choice)
 	resolution_choice = OptionButton.new()
-	for res in UserConfig.available_resolutions():
-		resolution_choice.add_item("%d x %d" % [res.x, res.y])
+	refresh_resolution_choices()
+	resolution_choice.tooltip_text = "Native uses the current display resolution. In fullscreen, lower choices reduce 3D resolution while keeping the HUD sharp and preserving monitor aspect ratio. The 3D resolution percentage is an additional multiplier."
 	style_picker(resolution_choice)
 	stack.add_child(resolution_choice)
 	# Players never see the server address; this stays as a value holder for tests
@@ -1022,6 +1027,7 @@ func spawn_actor(id: int, peer: int, side: int, choice: String, pos: Vector3) ->
 func clear_actors() -> void:
 	camera_character_fade.reset()
 	outlaw_aim_test.reset()
+	fulcrum_aim.reset()
 	aimed_combat.reset()
 	outlaw_detonation.reset()
 	combat_text.clear()
@@ -1470,7 +1476,7 @@ func refresh_menu() -> void:
 		extra.visible = settings
 	window_mode_choice.visible = settings
 	resolution_choice.visible = settings
-	resolution_choice.disabled = window_mode_choice.get_selected_id() != UserConfig.WINDOW_WINDOWED
+	resolution_choice.disabled = false
 	champion_choice.visible = choosing and menu_state in ["online", "offline", "queue", "host", "join", "abilities"]
 	mode_choice.visible = choosing and menu_state in ["queue", "host", "offline"]
 	opponent_choice.visible = choosing and menu_state == "offline"
@@ -1985,6 +1991,16 @@ func sync_control_profile() -> void:
 	binds.assign(state.binds)
 	controls.secondary = state.secondary.duplicate()
 	controls.actions = state.get("actions", controls_starter.actions).duplicate(true)
+	if champion=="Fulcrum" and not assignment.has(15):
+		var empty := assignment.find(-1)
+		if empty>=0:
+			assignment[empty]=15
+			var preferred := default_slot_binding(15)
+			var free := true
+			for row in controls.rows(self):
+				for column in 2:
+					if controls.value(self,row,column)==preferred: free=false
+			if free and binds[empty]==0 and controls.secondary[empty]==0: binds[empty]=preferred
 	controls_baseline = control_state()
 	rebinding = -1
 	controls.mouse_held.clear()
@@ -2091,6 +2107,7 @@ func load_layout() -> void:
 # Preserve class bindings, with the shared trinket on Ctrl+1 in the third bar.
 func default_slot_binding(slot: int) -> int:
 	if slot == Kits.TRINKET_SLOT: return KEY_1 | KEY_MASK_CTRL
+	if slot == 15: return KEY_2 | KEY_MASK_CTRL
 	if slot < BAR_SLOTS: return KEY_1 + slot
 	return (KEY_1 + slot - BAR_SLOTS) | KEY_MASK_SHIFT if slot < Kits.KIT_SIZE else 0
 
@@ -2116,6 +2133,12 @@ func reset_layout() -> void:
 	save_layout()
 	refresh_binds()
 
+func apply_graphics_preset(index: int) -> void:
+	if index < 0 or index >= UserConfig.GRAPHICS_PRESETS.size(): return
+	config.set_value("graphics", "preset", UserConfig.GRAPHICS_PRESETS[index])
+	config.save_config()
+	config.apply_graphics(self)
+
 func apply_settings() -> void:
 	player_options.apply_sensitivity()
 	if slot_size_field != null and slot_size_field.text.strip_edges().is_valid_int():
@@ -2123,10 +2146,9 @@ func apply_settings() -> void:
 		slot_size_field.text = str(slot_size)
 	config.set_value("hud", "slot_size", slot_size)
 	config.set_value("display", "window_mode", window_mode_choice.get_selected_id())
-	var options := UserConfig.available_resolutions()
-	var index: int = clampi(resolution_choice.selected, 0, options.size() - 1)
-	if index >= 0 and index < options.size():
-		config.set_value("display", "resolution", options[index])
+	if resolution_choice.selected >= 0:
+		var resolution_key := "resolution" if config.window_mode() == UserConfig.WINDOW_WINDOWED else "fullscreen_resolution"
+		config.set_value("display", resolution_key, resolution_choice.get_item_metadata(resolution_choice.selected))
 	config.set_value("graphics", "preset", UserConfig.GRAPHICS_PRESETS[graphics_choice.selected])
 	config.set_value("graphics", "frame_limit", frame_limit_choice.get_selected_id())
 	config.set_value("graphics", "render_scale", UserConfig.RENDER_SCALES[render_scale_choice.selected])
@@ -2135,7 +2157,17 @@ func apply_settings() -> void:
 	save_layout()
 	config.apply_graphics(self)
 	config.apply_display()
+	config.apply_render_resolution(self)
 	refresh_menu()
+
+func refresh_resolution_choices() -> void:
+	var selected_size: Vector2i = config.resolution()
+	resolution_choice.clear()
+	for res in UserConfig.available_resolutions():
+		var label := "Native (current monitor)" if res == Vector2i.ZERO else "%d x %d" % [res.x, res.y]
+		resolution_choice.add_item(label)
+		resolution_choice.set_item_metadata(resolution_choice.item_count - 1, res)
+		if res == selected_size: resolution_choice.select(resolution_choice.item_count - 1)
 
 func load_settings() -> void:
 	config.load_config()
@@ -2150,12 +2182,9 @@ func load_settings() -> void:
 			if window_mode_choice.get_item_id(i) == config.window_mode():
 				window_mode_choice.select(i)
 	if resolution_choice:
-		var options := UserConfig.available_resolutions()
-		var stored := config.resolution()
-		for i in range(options.size()):
-			if options[i] == stored:
-				resolution_choice.select(i)
+		refresh_resolution_choices()
 	config.apply_display()
+	config.apply_render_resolution(self)
 
 func host_start() -> void:
 	if authoritative() and phase in ["lobby", "results"]:
@@ -2323,7 +2352,7 @@ func make_snapshot() -> Array:
 	var states: Array = []
 	for actor in actors.values():
 		var state: Dictionary = actor.snapshot()
-		state["aim_stamp"] = actor.aim_stamp
+		if actor.aim_stamp>=0: state["aim_stamp"] = actor.aim_stamp
 		states.append(state)
 	return states
 
@@ -2368,7 +2397,10 @@ func _physics_process(delta: float) -> void:
 				elapsed += delta
 				for actor in actors.values():
 					tick_actor(actor, delta)
+					confine_to_arena(actor)
 				check_winner()
+		if authoritative():
+			solar_flare_history.tick(self, delta)
 		if network and multiplayer.is_server():
 			snapshot_timer -= delta
 			if snapshot_timer <= 0:
@@ -2390,6 +2422,19 @@ func _physics_process(delta: float) -> void:
 		aimed_combat.tick(self,delta)
 		if not dedicated: outlaw_aim_test.fire_tick(delta)
 		outlaw_detonation.tick(self)
+
+func confine_to_arena(actor) -> void:
+	# Preserve the intentional World Starwalk. Arena matches cannot escape even
+	# through a teleport, stale position or travel above the physical perimeter.
+	if world_mode: return
+	var safe := Layout.HALF_EXTENT - .35 - .42 - .01
+	var corrected: Vector3 = actor.position
+	corrected.x=clampf(corrected.x,-safe,safe)
+	corrected.z=clampf(corrected.z,-safe,safe)
+	if corrected.y < -4: corrected.y=Layout.surface_height(corrected)+.05
+	if corrected != actor.position:
+		actor.position=corrected;actor.velocity=Vector3.ZERO
+		actor.motion_revision+=1;actor.reset_physics_interpolation()
 
 func gather_input(delta: float) -> void:
 	if not actors.has(local_id):
@@ -2607,6 +2652,7 @@ func simulate_movement(actor, delta: float, grounded_override: Variant = null) -
 	if not actor.charge.is_empty():
 		VanguardCharge.advance(actor, delta)
 		return actor.velocity.normalized()
+	if Fulcrum.motion(self,actor,delta): return Vector3.ZERO
 	if Null.motion(self, actor, delta): return Vector3.ZERO
 	if Outlaw.Lasso.motion(self, actor, delta): return Vector3.ZERO
 	if Outlaw.roll_motion(self, actor, delta):
@@ -2623,8 +2669,10 @@ func simulate_movement(actor, delta: float, grounded_override: Variant = null) -
 	if actor.sprint > 0 and not Outlaw.deadeye_cast(actor):
 		speed *= 1.65
 	if actor.identity.get("roll_haste", 0.0) > 0 and not Outlaw.deadeye_cast(actor): speed *= 1.25
-	if Outlaw.severe_slowed(actor):
+	if Outlaw.severe_slowed(actor) or (actor.identity.get("crippling_verdict",0.0)>0 and actor.identity.immune<=0 and not airborne_protected):
 		speed *= .4
+	elif actor.identity.get("gravity_slow",0.0)>0 and actor.identity.immune<=0 and not airborne_protected:
+		speed *= .5
 	elif actor.identity.slow > 0 and actor.identity.immune <= 0 and not airborne_protected:
 		speed *= 0.55
 	if Outlaw.starshot_cast(actor): speed *= Outlaw.STARSHOT_MOVE_SCALE
@@ -2696,7 +2744,9 @@ func validate_spell(actor, slot: int, victim_id: int) -> String:
 		return "Out of range"
 	# Trickshot was already checked against both physical ricochet segments.
 	if spell.kind == "trickshot": return ""
-	if spell.kind not in ["inward", "outward"] and not has_los(actor, victim):
+	if spell.kind=="divide":
+		if not Fulcrum.cover_allows(self,actor.position,victim.position): return "Target is behind solid cover"
+	elif spell.kind not in ["inward", "outward"] and not has_los(actor, victim):
 		return "Target is out of line of sight"
 	if not friendly and (-actor.basis.z).dot((victim.position - actor.position).normalized()) < 0:
 		return "Face your target"
@@ -2720,6 +2770,9 @@ func send_action(slot: int) -> void:
 		return
 	var ability := kit_slot(slot)
 	if ability < 0:
+		return
+	if Kits.DIVIDE_MANUAL_AIM and actors[local_id].kit[ability].kind == "divide" and not fulcrum_aim.committing:
+		fulcrum_aim.toggle(slot)
 		return
 	if actors[local_id].kit[ability].kind == "defense_detonation":
 		outlaw_aim_test.toggle()
@@ -2895,7 +2948,7 @@ func ability_block_reason(actor, slot: int, requested: int, timing_allowance: fl
 		return "You are defeated"
 	if actor.kit[slot].kind == "trinket":
 		if actor.cooldowns[slot] > 0: return "Ability is not ready"
-		return "" if CC.remaining(actor,"stun") > 0 else "Requires a stun"
+		return "" if CC.can_trinket(actor) else "Requires a control effect"
 	if actor.stunned > 0:
 		return "Controlled"
 	if CC.spell_block(actor) > 0:
@@ -2904,25 +2957,26 @@ func ability_block_reason(actor, slot: int, requested: int, timing_allowance: fl
 	# Blink resolves independently without replacing the active cast or its timer.
 	if actor.casting >= 0 and (timing_allowance <= 0 or actor.cast_left > timing_allowance) and not (actor.champion == "Ember" and spell.kind == "blink"):
 		return "Already casting"
+	if not actor.identity.get("gravity_motion",{}).is_empty(): return "Displaced"
 	if not actor.charge.is_empty():
 		return "Charging"
 	if actor.identity.get("roll_left", 0.0) > 0: return "Rolling"
 	if Outlaw.Lasso.busy(actor): return "Completing Lasso"
 	if Null.busy(actor): return "Completing Vantage Point"
-	var instant_collapse: bool = spell.kind == "collapse" and actor.identity.instant_collapse > 0
+	var dynamic_off: bool = Fulcrum.off_gcd(actor,spell)
 	var own_unavailable: bool = actor.identity.blink_charges <= 0 if spell.kind == "blink" else actor.cooldowns[slot] > timing_allowance
-	if own_unavailable or (actor.gcd > timing_allowance and not (spell.off or instant_collapse)):
+	if own_unavailable or (actor.gcd > timing_allowance and not dynamic_off):
 		return "Ability is not ready"
 	if actor.locked > 0 and actor.champion not in ["Vanguard", "Null"] and spell.kind not in ["shield", "blink", "sprint", "roll", "backflip"]:
 		return "Spell school locked out"
-	if actor.identity.root > 0 and spell.kind in ["blink", "charge", "cinder", "pilgrim", "intercede", "swap", "roll", "backflip"]:
+	if actor.identity.root > 0 and spell.kind in ["blink", "charge", "cinder", "pilgrim", "intercede", "swap", "roll", "backflip", "anchor_exchange"]:
 		return "Rooted"
 	var reason := validate_spell(actor, slot, spell_target(actor, slot, requested))
 	if not reason.is_empty():
 		return reason
 	var instant_graviton: bool = spell.kind == "graviton" and actor.identity.instant_graviton > 0
 	var instant_severe: bool = spell.kind == "severe" and actor.identity.instant_severe > 0
-	if float(spell.cast) > 0 and not instant_graviton and not instant_collapse and not instant_severe and not (Outlaw.can_cast_moving(actor, spell) or Null.can_cast_moving(actor, spell)):
+	if Fulcrum.cast_seconds(self,actor,spell) > 0 and not (Outlaw.can_cast_moving(actor, spell) or Null.can_cast_moving(actor, spell)):
 		if (actor.move_input.length() > 0.01 and actor.identity.root <= 0 and actor.identity.hold <= 0) or not actor.is_on_floor():
 			return "Stand still to cast"
 	return ""
@@ -2950,7 +3004,7 @@ func tick_spell_queue(actor) -> void:
 		return
 	if actor.casting >= 0: return
 	var spell: Dictionary = actor.kit[pending.slot]
-	if actor.gcd > 0 and not (spell.off or (spell.kind == "collapse" and actor.identity.instant_collapse > 0)): return
+	if actor.gcd > 0 and not Fulcrum.off_gcd(actor,spell): return
 	if actor.cooldowns[pending.slot] > 0: return
 	actor.queued_spell = {}
 	try_spell(actor.actor_id, pending.slot, pending.target, pending.yaw)
@@ -2965,26 +3019,36 @@ func try_spell(id: int, slot: int, requested: int, camera_yaw: Variant = null) -
 	if aimed_combat.enabled(actor.kit[slot]): return false # Requires validated aim, never a selected-target fallback.
 	if actor.hp <= 0 or (actor.stunned > 0 and actor.kit[slot].kind != "trinket"):
 		return false
-	# Chronoshift is a two-press interaction: its key arms the choice, then the
-	# normal keybind of a cooldown selects it. A ready ability instead cancels
-	# selection and proceeds as its normal cast, so it never eats an input.
+	# A selected reset casts immediately. Ready abilities cancel selection and
+	# cast normally; Stealth is a special combat-bypass reset despite no normal CD.
+	var chronoshift_cast := false
 	if Null.choosing_chronoshift(actor):
-		if actor.cooldowns[slot] > 0.0:
-			var chronoshift_reason := Null.select_chronoshift(self, actor, slot)
-			if chronoshift_reason.is_empty(): return true
-			feedback(actor, chronoshift_reason)
-			return false
-		actor.identity.chronoshift_select = false
+		if actor.cooldowns[slot] > 0.0 or Null.chronoshift_candidate(actor,slot):
+			var chronoshift_reason := Null.select_chronoshift(self, actor, slot, requested)
+			if not chronoshift_reason.is_empty():
+				feedback(actor, chronoshift_reason)
+				return false
+			chronoshift_cast = true
+		else:
+			actor.identity.chronoshift_select = false
 	var reason := ability_block_reason(actor, slot, requested)
+	if chronoshift_cast: actor.identity.chronoshift_select = false
 	if not reason.is_empty():
 		feedback(actor, reason)
 		return false
 	var spell: Dictionary = actor.kit[slot]
 	if spell.kind == "trinket":
-		CC.clear(actor, ["stun"])
+		CC.clear(actor, CC.CATEGORIES)
+		actor.locked = 0.0
+		actor.lock_from = ""
+		actor.identity.slow = 0.0
+		actor.identity.severe_slow = 0.0
+		actor.identity.crippling_verdict = 0.0
+		actor.identity.gravity_slow = 0.0
+		actor.identity.gravity_motion = {}
 		actor.identity.lasso_knockdown = {}
 		actor.cooldowns[slot] = spell.cd
-		combat_event(actor.actor_id, actor.actor_id, "STUN BROKEN", Color("97edb1"))
+		combat_event(actor.actor_id, actor.actor_id, "CONTROL BROKEN", Color("97edb1"))
 		return true
 	var victim_id := spell_target(actor, slot, requested)
 	if spell.kind == "charge":
@@ -2999,17 +3063,18 @@ func try_spell(id: int, slot: int, requested: int, camera_yaw: Variant = null) -
 		VanguardCharge.start(self, actor, victim, route, spell.power)
 		return true
 	Null.begin_ability(self,actor,spell,actors.get(victim_id))
-	var instant_collapse: bool = spell.kind == "collapse" and actor.identity.instant_collapse > 0
-	var instant_graviton: bool = spell.kind == "graviton" and actor.identity.instant_graviton > 0
-	var instant_severe: bool = spell.kind == "severe" and actor.identity.instant_severe > 0
-	if float(spell.cast) > 0 and not instant_graviton and not instant_collapse and not instant_severe:
+	var dynamic_off := Fulcrum.off_gcd(actor,spell)
+	var duration := Fulcrum.cast_seconds(self,actor,spell)
+	Fulcrum.begin(actor,spell,camera_yaw)
+	if duration > 0:
 		actor.casting = slot
-		actor.cast_left = spell.cast
+		actor.cast_left = duration
+		actor.cast_duration = duration
 		actor.cast_target = victim_id
 		Outlaw.begin_channel(self, actor, spell, victim_id)
 	else:
 		resolve_spell(actor, slot, actors[victim_id], camera_yaw)
-	if not (spell.off or instant_collapse):
+	if not dynamic_off:
 		actor.gcd = GCD_DURATION
 	return true
 
@@ -3030,7 +3095,8 @@ func resolve_spell(actor, slot: int, victim, camera_yaw: Variant = null) -> void
 		"heal", "self_heal":
 			if spell.kind == "self_heal" and actor.champion != "Luminary":
 				victim.identity.dots.clear()
-				victim.identity.entropy_dots.clear()
+				Fulcrum.cleanse_entropy(self,actor,victim)
+				if victim.hp<=0: return
 				victim.identity.severe_bleeds.clear()
 			# Mend always restores its listed amount. Match-only dampening still
 			# prevents healer stalemates; persistent worlds never inherit it.
@@ -3637,9 +3703,9 @@ func update_frame(frame: VBoxContainer, id: int, prefix: String) -> void:
 		cast.value = 100
 		(cast.get_child(0) as Label).text = "INTERRUPTED"
 	elif actor.casting >= 0:
-		var total: float = actor.kit[actor.casting].cast
-		cast.value = 100 * (1 - actor.cast_left / maxf(0.01, total))
-		(cast.get_child(0) as Label).text = "%s · %.1fs" % [actor.kit[actor.casting].name, actor.cast_left]
+		var total: float = (actor.cast_duration if actor.cast_duration>0 else actor.kit[actor.casting].cast)
+		cast.value = 100 * (1 - actor.presentation_cast_left() / maxf(0.01, total))
+		(cast.get_child(0) as Label).text = "%s · %.1fs" % [actor.kit[actor.casting].name, actor.presentation_cast_left()]
 	(frame.get_child(3) as Label).text = "DEFEATED" if actor.hp <= 0 else ""
 	var state := frame.get_child(3) as Label
 	var meter = state.get_node("ResourceMeter")
@@ -3664,17 +3730,31 @@ func update_frame(frame: VBoxContainer, id: int, prefix: String) -> void:
 func _process(_delta: float) -> void:
 	if dedicated:
 		return
+	for actor in actors.values():
+		actor.advance_cast_visual(_delta)
+		if actor.nameplate_cast != null: actor.nameplate_cast.sync(actor,cast_bar_color(actor,false,Color("c7a256")))
+	for pair in [[player_frame,local_id],[target_frame,selected_id],[focus_frame,focus_id]]:
+		if pair[0] == null or not actors.has(pair[1]): continue
+		var actor = actors[pair[1]]
+		if actor.casting < 0: continue
+		var bar = pair[0].get_child(2)
+		if bar is ProgressBar:
+			bar.value=100*(1-actor.presentation_cast_left()/maxf(.01,(actor.cast_duration if actor.cast_duration>0 else actor.kit[actor.casting].cast)))
 	outlaw_aim_test.tick(_delta)
+	fulcrum_aim.tick(_delta)
 	movement_controls.tick(_delta)
 	combat_text.tick()
 	var follow_id: int = spectator.follow_id()
 	if actors.has(follow_id):
 		pivot.global_position = actors[follow_id].get_global_transform_interpolated().origin + Vector3(0, 1.6, 0)
 	outlaw_aim_test.apply_camera()
+	fulcrum_aim.apply_camera()
 	camera_character_fade.update(actors.get(follow_id) if camera.current else null)
 	update_proc_flash()
 
 func proc_ready(actor, spell: Dictionary) -> bool:
+	if spell.kind == "divide": return actor.identity.divide_ready>0
+	if spell.kind == "ruin": return actor.identity.ruin_combo==1 and actor.identity.meditation>66
 	if spell.kind == "severe": return actor.identity.instant_severe > 0
 	if spell.kind == "trickshot": return (actor.identity.backflip_combo and Outlaw.backflip_airborne(actor)) or actor.identity.coin_left > 0
 	if spell.kind == "defense_detonation": return actor.identity.defense_detonation > 0
@@ -3803,14 +3883,14 @@ func update_visuals(delta: float) -> void:
 		# one worth a number. The global cooldown only shows where nothing else is
 		# running, and never on an off-GCD ability.
 		var own: float = 0.0 if blink_available else actor.cooldowns[ability]
-		var global_cd: float = 0.0 if spell.off or (spell.kind == "collapse" and actor.identity.instant_collapse > 0) else actor.gcd
+		var global_cd: float = 0.0 if Fulcrum.off_gcd(actor,spell) else actor.gcd
 		# Crowd control is a real reason the slot is unusable, so it sweeps too.
 		# Whichever wait is LONGER wins the slot, because that is the honest
 		# answer to "when can I press this" — a 16s cooldown outlives a 2s stun,
 		# and a 4s lockout outlives a spell that is already off cooldown.
 		var held: float = cc_block_remaining(actor, spell)
 		var chronoshift_lock: float = float(actor.identity.get("chronoshift_locks", {}).get(ability, 0.0))
-		var chronoshift_ready: bool = Null.choosing_chronoshift(actor) and actor.cooldowns[ability] > 0.0 and spell.kind != "chronoshift" and chronoshift_lock <= 0.0
+		var chronoshift_ready: bool = Null.choosing_chronoshift(actor) and Null.chronoshift_candidate(actor,ability) and chronoshift_lock <= 0.0
 		cooldown_overlays[slot].set_chronoshift_target(chronoshift_ready)
 		cooldown_overlays[slot].set_chronoshift_lock(chronoshift_lock > 0.0)
 		# A slot you cannot press because you are held reads as unusable, not just
@@ -3944,6 +4024,9 @@ func cycle_target(direction: int = 1) -> void:
 		selected_id = candidates[(0 if direction > 0 else candidates.size() - 1) if current < 0 else posmod(current + direction, candidates.size())]
 
 func _input(event: InputEvent) -> void:
+	if fulcrum_aim.input(event):
+		get_viewport().set_input_as_handled()
+		return
 	if outlaw_aim_test.input(event):
 		get_viewport().set_input_as_handled()
 		return

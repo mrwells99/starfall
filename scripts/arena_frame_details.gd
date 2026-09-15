@@ -4,6 +4,11 @@ var game
 var cast: ProgressBar
 var strip: HBoxContainer
 var actor_id := -1
+func _process(_delta: float) -> void:
+	if game == null or not game.actors.has(actor_id) or not cast.visible: return
+	var actor = game.actors[actor_id]
+	if actor.casting >= 0:
+		cast.value = 100*(1-actor.presentation_cast_left()/maxf(.01,(actor.cast_duration if actor.cast_duration>0 else actor.kit[actor.casting].cast)))
 func install(arena) -> void:
 	game = arena
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -59,8 +64,8 @@ func sync(actor) -> void:
 		cast.value = 100
 		if not interrupted and actor.casting >= 0:
 			var spell: Dictionary = actor.kit[actor.casting]
-			cast.value = 100 * (1 - actor.cast_left / maxf(0.01, spell.cast))
-			text = "%s · %.1fs" % [spell.name, actor.cast_left]
+			cast.value = 100 * (1 - actor.presentation_cast_left() / maxf(0.01, actor.cast_duration if actor.cast_duration>0 else spell.cast))
+			text = "%s · %.1fs" % [spell.name, actor.presentation_cast_left()]
 		(cast.get_child(0) as Label).text = text
 		var fill: StyleBoxFlat = cast.get_theme_stylebox("fill")
 		var cast_color: Color = game.cast_bar_color(actor, interrupted, Color("675183"))

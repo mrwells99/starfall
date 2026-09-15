@@ -1,8 +1,9 @@
 extends RefCounted
+const DIVIDE_MANUAL_AIM := false # Set true to recall the retained aim version.
 
-const SELF_KINDS := ["shield", "self_heal", "regen_pot", "blink", "sprint", "cinder", "stoke", "wake", "hold", "unbroken", "anchor", "orbit", "collapse", "flare_cc", "roll", "backflip", "coin_toss", "deadeye", "defense_detonation", "trinket", "stealth", "null_haste", "chronoshift", "smoke_bomb"]
+static var SELF_KINDS := ["shield", "self_heal", "regen_pot", "blink", "sprint", "cinder", "stoke", "wake", "hold", "unbroken", "anchor", "orbit", "collapse", "flare_cc", "roll", "backflip", "coin_toss", "deadeye", "defense_detonation", "trinket", "stealth", "null_haste", "chronoshift", "smoke_bomb", "anchor_compression", "anchor_expansion", "anchor_exchange", "anchor_field", "ruin", "gravity_flow"] + (["divide"] if DIVIDE_MANUAL_AIM else [])
 const ALLY_KINDS := ["heal", "ally_shield", "dispel", "falling", "absolution", "stitch", "star", "pilgrim", "last", "intercede", "swap"]
-const KIT_SIZE := 15
+const KIT_SIZE := 16
 const TRINKET_SLOT := 14 # Shared slot; preserve all existing class indices.
 const MAX_CAST_RANGE := 18.0
 const RANGE_SCALE := 0.75
@@ -41,21 +42,38 @@ static func get_kit(champion: String) -> Array:
 	var kit := class_kit(champion)
 	while kit.size() < TRINKET_SLOT:
 		kit.append(spell("", "unavailable", 0, 0, 0, 0, true).merged({"local_only": true}))
-	kit.append(spell("Trinket", "trinket", 0, 0, 0, 120, true))
+	kit.insert(TRINKET_SLOT, spell("Trinket", "trinket", 0, 0, 0, 120, true))
 	return kit
 
 static func class_kit(champion: String) -> Array:
+	if champion == "Fulcrum":
+		return [
+			spell("Ruin", "ruin", 18, 0, 0, 0).merged({"range":10.0},true),
+			spell("Compression · Close", "anchor_compression", 13.2, 0, 0, 9).merged({"range":3.0},true),
+			spell("Compression · Mid", "anchor_compression", 13.2, 0, 0, 9).merged({"range":8.0},true),
+			spell("Compression · Long", "anchor_compression", 13.2, 0, 0, 9).merged({"range":15.0},true),
+			spell("Umbra", "shield", 5, 0, 0, 22, true),
+			spell("Mend", "self_heal", 28, 0, 2, 30),
+			spell("Tether", "pull", 8, 22, 0, 14, true),
+			spell("Expansion · Close", "anchor_expansion", 10, 0, 0, 9).merged({"range":3.0},true),
+			spell("Expansion · Mid", "anchor_expansion", 10, 0, 0, 9).merged({"range":8.0},true),
+			spell("Expansion · Long", "anchor_expansion", 10, 0, 0, 9).merged({"range":15.0},true),
+			spell("Anchor Exchange", "anchor_exchange", 0, 0, 0, 0, true),
+			spell("Dark Growth", "anchor_field", 0, 0, 0, 0, true),
+			spell("Divide", "divide", 27, 0, .3, 0).merged({"range":15.0},true),
+			spell("Entropy", "entropy", 2, 24, .8, 0),
+			spell("Gravity Flow", "gravity_flow", 0, 0, 0, 60, true)]
 	if champion == "Null":
 		return [
 			spell("Temporal Strike", "stab", 12, 4, 0, 0),
-			spell("Backstab", "backstab", 24.5, 4, 0, 30),
+			spell("Backstab", "backstab", 38.8, 4, 0, 30),
 			spell("Kick", "interrupt", 4, 4, 0, 12, true),
 			spell("Nerve Lock", "nerve_lock", 4, 3.5, 0, 20),
 			spell("Stealth", "stealth", 0, 0, 0, 0, true),
 			spell("Haste", "null_haste", 6, 0, 0, 25, true),
 			spell("Blindside", "blindside", 0, 24, .28, 15, true),
-			spell("Vantage Point", "vantage", 22, 24, 0, 25),
-			spell("Regen Pot", "regen_pot", 28, 0, 0, 40, true),
+			spell("Vantage Point", "vantage", 7.7, 24, 0, 25),
+			spell("Regen Pot", "regen_pot", 22.4, 0, 0, 40, true),
 			spell("Chronoshift", "chronoshift", 0, 0, 0, 0, true),
 			spell("Smoke Bomb", "smoke_bomb", 0, 0, 0, 30, true)]
 	if champion == "Outlaw":
@@ -93,14 +111,6 @@ static func class_kit(champion: String) -> Array:
 		kit[3] = spell("Bash", "control", 3, 3.5, 0, 16)
 		kit[4] = spell("Iron Skin", "shield", 5, 0, 0, 22, true)
 		kit[6] = spell("Charge", "charge", 6, 22, 0, 12, true)
-	elif champion == "Fulcrum":
-		kit[0] = spell("Collapse", "damage", 14, 24, 1.3, 0)
-		kit[1] = spell("Tidal Force", "damage", 20, 20, 0, 7)
-		# Retired slot preserves every other saved class/ability binding.
-		kit[2] = spell("", "unavailable", 0, 0, 0, 0)
-		kit[3] = spell("", "unavailable", 0, 0, 0, 0)
-		kit[4] = spell("Umbra", "shield", 5, 0, 0, 22, true)
-		kit[6] = spell("Tether", "pull", 8, 22, 0, 14, true)
 	elif champion == "Luminary":
 		kit[0] = spell("Smite", "damage", 10, 28, 1.5, 0)
 		kit[1] = spell("Renewal", "heal", 18, 28, 0, 7)
@@ -126,7 +136,8 @@ static func class_kit(champion: String) -> Array:
 			spell("Hold the Line", "hold", 4, 0, 0, 20, true),
 			spell("Challenge", "challenge", 6, 22, 0, 16),
 			spell("Earthsplitter", "earth", 12, 8, 0.7, 18),
-			spell("Unbroken", "unbroken", 4, 0, 0, 20, true)])
+			spell("Unbroken", "unbroken", 4, 0, 0, 20, true),
+			spell("Crippling Verdict", "crippling_verdict", 0, 0, 0, 15).merged({"range":3.5}, true)])
 	elif champion == "Luminary":
 		kit[1] = spell("Falling Star", "falling", 18, 28, 0, 7)
 		kit[2] = spell("Absolution", "absolution", 0, 28, 0, 10, true)
@@ -137,41 +148,39 @@ static func class_kit(champion: String) -> Array:
 			spell("Last Light", "last", 4, 28, 0, 45, true),
 			spell("Mend", "self_heal", 28, 0, 2, 30),
 			spell("Starfall", "starfall", 16, 28, 1.5, 12)])
-	else:
-		kit[0] = spell("Graviton", "graviton", 6, 24, 1.3, 0)
-		kit[1] = spell("Inward", "inward", 8, 24, 0, 9)
-		kit.append_array([
-			spell("Gravity Anchor", "anchor", 20, 0, 0.6, 4),
-			spell("Outward", "outward", 8, 24, 0, 9),
-			spell("Heavy Orbit", "orbit", 6, 0, 0, 16),
-			spell("Counterweight", "swap", 0, 22, 0, 22, true),
-			spell("Collapse", "collapse", 22, 0, 1.5, 18),
-			spell("Starfall", "gravity_starfall", 20, 28, 2.0, 12),
-			spell("Entropy", "entropy", 2, 24, 0, 0)])
 	return kit
 
 # These are player-facing explanations of the actual prototype rules, not lore.
 # Numeric effects use the same kit dictionaries that the simulation reads.
 static func summary(ability: Dictionary) -> String:
+	if ability.kind in ["anchor_compression", "anchor_expansion"]:
+		var effect := "Pull visible enemies within 6m into a black hole, impale them for 132 damage and stun for 1.2s. Generate 20 Meditation when an enemy is caught." if ability.kind == "anchor_compression" else "A purple spherical blast deals 100 damage and launches visible enemies within 3.6m away with momentum."
+		return "Place an anchor %sm ahead (stops at terrain). %s The anchor remains for 3s: use Anchor Exchange or Dark Growth. Range variants share a 9s cooldown per polarity." % [ability.range,effect]
 	var concepts := {
+		"ruin": "Command a smoking dark-matter greatsword through a 150-degree, 10m sweep for 180 damage. Spend 33 Meditation. Press again within 6s with more than 66 Meditation remaining to spend another 33 and slash left. Right then left unlocks Divide for 6s. Terrain blocks Ruin.",
+		"divide": "Requires Ruin right then left. Command a 15m vertical sword slash toward your selected enemy after a 0.3s charge. No manual aim. Deals 270 damage in a 3m-wide line. Its 0.65s lingering hitbox hits each enemy once. Penetrates corners and up to 3m of cover; full pillars block it. Leaves a 6s rift that slows by 50%. No additional resource cost. Gravity Flow removes the charge and deals 50% more damage below 30% health.",
+		"gravity_flow": "For 8s, Ruin and Divide bypass the global cooldown. Divide charges instantly and deals 50% more damage to targets below 30% health. Resource and combo requirements still apply. 60s cooldown.",
+		"anchor_exchange": "Within 3s of placing either anchor, exchange positions with it and consume the follow-up. Requires a clear travel path; cannot be used while rooted. Off the global cooldown.",
+		"anchor_field": "Within 3s of placing either anchor, consume it to grow black grass outward over 1s, reaching a 6m radius. Lasts 6s and slows enemies by 45%. Off the global cooldown.",
 		"stab": "Strike your enemy for 120 damage.",
-		"backstab": "Deal 245 damage from behind your target. 30s cooldown.",
+		"backstab": "Deal 388 damage from behind your target. 30s cooldown.",
 		"blindside": "After an unkickable 0.28s wind-up, teleport behind your target without breaking Stealth. Usable while moving or jumping. Off the global cooldown; requires a safe landing.",
-		"vantage": "Usable while jumping. Rise for 0.5s, then ease into a dive with both blades and accelerate as you close on your target. Longer dives travel faster. Contact deals 220 damage and knocks them down with a 4s stun. No rebound.",
+		"vantage": "Usable while jumping. Rise for 0.5s, then ease into an accelerating dive. Longer dives travel faster. Contact deals 77 damage and knocks down with a 4s stun. No rebound.",
 		"nerve_lock": "Stun an enemy within 3.5m for 4s. Uses stun diminishing returns.",
-		"chronoshift": "Choose an ability by pressing its normal keybind to refresh its normal cooldown. That ability cannot be refreshed by Chronoshift again for twice its own cooldown. Costs 100 Essence.",
-		"smoke_bomb": "Drop a 3m-radius smoke cloud at your feet for 6s. Abilities cannot affect allies or enemies across its inside/outside boundary. Both inside or both outside can interact normally, even through the cloud. Target selection and movement are unchanged. Existing damage-over-time effects continue. A new cloud replaces your previous one.",
+		"chronoshift": "Choose an ability by pressing its normal keybind to refresh and immediately cast it. Costs 100 Essence. Reset lock: twice that ability's cooldown. Stealth can be used in combat, with a 120s reset lock. Cannot reset Kick. Normal cast requirements still apply.",
+		"smoke_bomb": "Drop a 3m-radius smoke cloud for 6s. Only enemies of the smoke's owner are blocked from casting across its inside/outside boundary. Your team can attack and heal through your smoke. Both outside can interact through the cloud. Existing damage-over-time effects continue.",
+		"crippling_verdict": "Slow an enemy within 3.5m by 60% for 6s. Instant, 15s cooldown, normal global cooldown. No damage.",
 		"null_haste": "Move 50% faster for 6s. 25s cooldown.",
-		"stealth": "Requires 8s out of direct combat; no cooldown. Press again to end Stealth. You appear at 50% opacity. Enemies must remain within 3.5m for 0.7s to detect and target you; no nameplate. Attacking, aimed abilities or incoming damage break Stealth. Damage-over-time ticks do not extend combat.",
+		"stealth": "Requires 8s out of direct combat; no cooldown. Chronoshift can re-stealth in combat for 100 Essence, once per 120s. Press again to end Stealth. You appear at 50% opacity. Enemies must remain within 3.5m for 0.7s to detect and target you; no nameplate. Attacking, aimed abilities or incoming damage break Stealth. Damage-over-time ticks do not extend combat.",
 		"starshot": "Fire for 80 damage. Unkickable; cast while moving 30% slower.",
-		"lasso": "Unkickable moving cast: lasso into a dropkick, stun during travel, then knock back and knock down for 1.5s. Rebound; gain 1 Defense Detonation stack. Usable during Backflip with slowed drift and CC immunity; landing cancels the cast.",
+		"lasso": "Unkickable moving cast: lasso into a dropkick, stun during travel, then knock back and knock down for 2.5s. Rebound; gain 1 Defense Detonation stack. Usable during Backflip with slowed drift and CC immunity; landing cancels the cast.",
 		"severe": "Slash for 20% current health. Bleed for 20 damage each second for 5s and slow by 60% for 6s. Unkickable; cast while moving. Instant for 1.5s after Roll.",
 		"trickshot": "Deal 180 damage during airborne Backflip or a flying Coin Toss. Coin shots ricochet around cover through clear paths. One use per combo; a hit grants 1 Defense Detonation stack (max 3).",
 		"roll": "Roll 7.8m in your movement direction; camera-forward if stationary. Gain 25% move speed for 5s and one instant Severe for 1.5s on completion, even against a wall.",
 		"backflip": "Leap backward; usable while jumping. While airborne: 50% less damage, CC immunity, and one Trickshot opportunity. Ends on landing.",
 		"coin_toss": "Throw a coin for up to 1.8s, carrying your momentum. Trickshot can ricochet from it around cover. Terrain or a successful shot ends the combo.",
 		"defense_detonation": "Aim over your shoulder. Left-click charges for 0.6s, then spends all stacks (1–3), firing every 0.13s for 100 base damage per hit. Misses spend stacks. Firing uses GCD; last shot exits aim. Press again to cancel.",
-		"deadeye": "Mark all enemies. Walk during an unkickable 3s cast; hit those within 18m and clear sight at completion for 40% maximum health. Cannot jump. Interrupted casts refund cooldown.",
+		"deadeye": "Mark all enemies. During the unkickable 3s cast, detect and target stealthed Null with his normal detection warning. Walk while casting; hit enemies within 18m and clear sight at completion for 40% maximum health. Cannot jump. Interrupted casts refund cooldown.",
 		"kindle": "Deal 160 damage. Gain 20 Heat and add a brand (up to 3) for 10s.",
 		"flashpoint": "Consume your brands: 120 + 60 damage per brand. Three brands also deal 100 splash damage within 5m. Gain 10 Heat.",
 		"nova": "Requires 40 Heat. Consume all Heat: 180 + 4 damage per Heat to enemies within 5m of the target.",
@@ -199,15 +208,15 @@ static func summary(ability: Dictionary) -> String:
 		"orbit": "Your anchor creates a 6m slowing field for 6s, even through line-of-sight blockers. Enemies inside move 45% slower.",
 		"swap": "Exchange positions with another ally. Both routes must be clear; cannot cross terrain.",
 		"graviton": "Deal 60 damage and apply an 11s DoT: 30 damage each second per stack, up to 2 stacks per caster. Reapplying refreshes both stacks without delaying the next tick. Generates no Meditation. A landed Collapse grants a 4s buff for one instant Graviton, consumed on use.",
-		"entropy": "Instantly apply a 15s DoT: 20 damage and 5 Meditation each second. One stack per caster; reapplying refreshes without delaying the next tick. Meditation caps at 100.",
+		"entropy": "Apply a 15s DoT: 20 damage and 10 Meditation each second. Instant only when none of your Entropy effects are active; otherwise casts in 0.8s, including refreshes. No per-caster stacking or delayed ticks. Cleansing triggers a 3s silence and 10% maximum-health damage on the cleanser. Meditation caps at 100.",
 		"gravity_starfall": "Requires at least 50 Meditation. After a 2s cast, spend all Meditation to deal 200 + 4 damage per Meditation (400–600) to enemies within 5m of the target. Interrupted casts spend nothing.",
-		"collapse": "Consume your anchor: deal 220 damage within 6m and root for up to 2s. At 75+ Meditation, stun for up to 3s instead; Meditation is not spent. Inward grants a 4s buff for one instant Collapse off the global cooldown, consumed on use. Its own cooldown still applies. Hitting an enemy grants a 4s buff for one instant Graviton, consumed on use. Works through line-of-sight blockers. Root and stun use separate diminishing returns."
+		"collapse": "Consume your anchor: deal 220 damage within 6m and root for up to 2s. At 75+ Meditation, stun for up to 3s instead; Meditation is not spent. Root/stun passes through up to 2m of solid cover from the anchor, but thicker cover blocks control (not damage). Inward grants a 4s instant, off-GCD Collapse proc; its own cooldown still applies. Hitting an enemy grants a 4s instant Graviton proc. Root and stun use separate diminishing returns."
 	}
 	if concepts.has(ability.kind):
 		return concepts[ability.kind]
 	match ability.kind:
 		"trinket":
-			return "Break your current stun instantly. Usable while stunned; 2-minute cooldown."
+			return "Remove all crowd control, roots, slows and interrupt lockouts instantly. Usable while controlled; 2-minute cooldown. Ground hazards may reapply their effects."
 		"damage":
 			return "Deal %s damage to an enemy." % display_number(float(ability.power)*DISPLAY_DAMAGE_SCALE)
 		"heal":

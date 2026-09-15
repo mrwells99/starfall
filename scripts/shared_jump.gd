@@ -81,7 +81,7 @@ func apply_base_extended_fall(actor:CharacterBody3D,delta:float)->void:
 	if not airborne and omni_jump.landing_age>=omni_jump.landing_move_seconds:
 		fall_age=-1.0
 		return
-	var velocity:Vector3=actor.velocity if actor.presentation_velocity==null else actor.presentation_velocity
+	var velocity:Vector3=actor.velocity if actor.presentation_grounded==null or actor.presentation_velocity==null else actor.presentation_velocity
 	if airborne and fall_age<0 and velocity.y < -omni_jump.launch:fall_age=0.0
 	if fall_age<0:return
 	# Normal-height jumps are untouched. A lower landing gets a continuing falling

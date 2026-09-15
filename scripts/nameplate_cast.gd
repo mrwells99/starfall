@@ -53,11 +53,11 @@ func sync(actor, tint: Color = NORMAL_COLOR) -> void:
 	visible = actor.hp > 0 and not actor.training_dummy and actor.casting >= 0 and actor.casting < actor.kit.size() and actor.cast_left > 0
 	if not visible: return
 	var spell: Dictionary = actor.kit[actor.casting]
-	var duration: float = spell.get("cast", 0.0)
+	var duration: float = actor.cast_duration if actor.cast_duration>0 else spell.get("cast", 0.0)
 	if duration <= 0:
 		hide()
 		return
-	fraction = clampf(1.0 - actor.cast_left / duration, 0.0, 1.0)
+	fraction = clampf(1.0 - actor.presentation_cast_left() / duration, 0.0, 1.0)
 	fill.visible = fraction > 0
 	fill.scale.x = maxf(0.001, fraction)
 	fill.position.x = -FILL_WIDTH * 0.5 * (1.0 - fraction)

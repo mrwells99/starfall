@@ -1,6 +1,7 @@
 extends Node3D
 ## The Cosmic Sanctum. Collision is shared with navigation; chipped stone,
-## rubble and light effects are decorative and cannot snag players or cameras.
+## rubble and light effects are decorative and cannot snag players. Large
+## perimeter rocks block only the camera, never movement or combat LOS.
 
 const BLUE = Color("62cfeb")
 const GOLD = Color("e8be78")
@@ -72,8 +73,8 @@ func _build_collision() -> void:
 		# catch a capsule during ordinary movement, Roll, Lasso or Charge.
 		_box_collision(pos + Vector3.UP * Layout.COVER_BLOCK_HEIGHT * .5, Vector3(Layout.COVER_BASE_SIZE.x, Layout.COVER_BLOCK_HEIGHT, Layout.COVER_BASE_SIZE.z))
 	for edge in [-Layout.HALF_EXTENT, Layout.HALF_EXTENT]:
-		_box_collision(Vector3(edge, 1.5, 0), Vector3(0.7, 3, 36.7))
-		_box_collision(Vector3(0, 1.5, edge), Vector3(36.7, 3, 0.7))
+		_box_collision(Vector3(edge, 32, 0), Vector3(0.7, 72, 36.7))
+		_box_collision(Vector3(0, 32, edge), Vector3(36.7, 72, 0.7))
 	var width: float = Layout.TERRACE_OUTER - Layout.TERRACE_INNER
 	for side in [-1.0, 1.0]:
 		var x: float = side * (Layout.TERRACE_INNER + width * 0.5)
@@ -258,8 +259,8 @@ func _build_perimeter() -> void:
 			for direction in [0, 1]:
 				var pos := Vector3(along, 0, side * 18.8) if direction == 0 else Vector3(side * 18.8, 0, along)
 				var height: float = 5.4 + _geo.rng.randf_range(-0.6, 1.3)
-				_geo.rock(_dark_stone, pos, Vector3(1.9, height, 1.8), 0.15)
-				_geo.rock(_stone, pos + Vector3(0.25, 0, -0.15), Vector3(1.0, height + 0.4, 1.1), -0.12)
+				_geo.rock(_dark_stone, pos, Vector3(1.9, height, 1.8), 0.15, Color.WHITE, 7, _art)
+				_geo.rock(_stone, pos + Vector3(0.25, 0, -0.15), Vector3(1.0, height + 0.4, 1.1), -0.12, Color.WHITE, 7, _art)
 				var inward := Vector3(0, 0, -side) if direction == 0 else Vector3(-side, 0, 0)
 				var lamp_pos := pos + inward * 1.50
 				lamp_pos.y = Layout.surface_height(lamp_pos)

@@ -5,7 +5,7 @@ var owner
 func reset_smoke() -> void:
 	await reset()
 	owner=load("res://scripts/combatant.gd").new();game.add_child(owner)
-	owner.setup(3,3,0,"Null",false);owner.position=Vector3(0,20,0);game.actors[3]=owner
+	owner.setup(3,3,1,"Null",false);owner.position=Vector3(0,20,0);game.actors[3]=owner
 	Smoke.cast(owner)
 	owner.position.x=20 # Cloud remains fixed; keep its owner's body out of test rays.
 	a.kit[0]=game.Kits.spell("Smoke test","damage",10,24,0,7,true)
@@ -16,7 +16,7 @@ func membership_and_casts() -> void:
 	check(Smoke.RADIUS<6 and Smoke.DURATION==6,"Smoke is smaller than Collapse")
 	for test in [[0,-2,false],[0,-6,true],[6,0,true],[6,-6,false],[Smoke.RADIUS,-Smoke.RADIUS,false],[Smoke.RADIUS+.001,0,true]]:
 		a.position=Vector3(test[0],20,0);b.position=Vector3(test[1],20,0)
-		check(Smoke.separates(game,a,b)==test[2] and Smoke.separates(game,b,a)==test[2],"Symmetric membership truth table "+str(test))
+		check(Smoke.separates(game,a,b)==test[2] and not Smoke.separates(game,b,a),"Hostile membership blocks only enemy casters "+str(test))
 	a.position=Vector3(0,20,0);b.position=Vector3(0,20,-6)
 	a.target_id=2;game.selected_id=2
 	check(not game.try_spell(1,0,2) and a.cooldowns[0]==0 and a.gcd==0 and b.hp==b.MAX_HEALTH,"Cross-boundary cast rejected without cost")

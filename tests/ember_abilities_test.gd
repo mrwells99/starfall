@@ -34,12 +34,13 @@ func test_flare() -> void:
 	ck(b.stunned == 0, "Damage still breaks Solar Flare")
 	for sample in [
 		[Vector3(0, 0, -4), true, "four-meter boundary"],
-		[Vector3(0, 0, -4.01), false, "beyond four meters"],
+		[Vector3(0, 0, -4.01), true, "body overlaps four-meter edge"],
+		[Vector3(0, 0, -4.43), false, "entire body beyond four-meter edge"],
 		[Vector3(3, 0, 0), false, "beside caster"],
 		[Vector3(0, 0, 3), false, "behind caster"],
 		[Vector3(sin(deg_to_rad(54)), 0, -cos(deg_to_rad(54))) * 3.9, true, "narrowed cone edge"],
-		[Vector3(sin(deg_to_rad(54)+.02), 0, -cos(deg_to_rad(54)+.02)) * 3.9, false, "outside narrowed cone angle"],
-		[Vector3(sin(PI/3), 0, -cos(PI/3)) * 3.9, false, "old wider cone edge"],
+		[Vector3(sin(deg_to_rad(54)+.02), 0, -cos(deg_to_rad(54)+.02)) * 3.9, true, "body overlaps cone angle"],
+		[Vector3(sin(PI/3), 0, -cos(PI/3)) * 3.9, true, "body just overlaps cone side"],
 	]:
 		await reset()
 		b.position = a.position + sample[0]
@@ -73,7 +74,7 @@ func test_flare() -> void:
 	arena.update_visuals(0)
 	var outline = a.get_node("SolarFlareOutline")
 	var mesh = outline.mesh
-	ck(not outline.visible and not b.has_node("SolarFlareOutline"), "Solar Flare outline starts hidden and exists only for the local Ember")
+	ck(not outline.visible and b.has_node("SolarFlareOutline"), "Solar Flare outline exists for remote Ember too, hidden until casting")
 	ck(arena.try_spell(1, 8, -1), "Solar Flare starts its outline window on use")
 	arena.update_visuals(0)
 	ck(outline.visible, "The outline appears after a successful Solar Flare")

@@ -1,5 +1,18 @@
 # Game Design — established source of truth
 
+## September 14 combat adjustments — supersede older values below
+
+- Aimed shots use a filled animated body envelope (no arm/leg gaps), horizontally scaled 2.5 instead of 2.0, retaining the prior 1.25 vertical scale. Movement capsules are unchanged; empty corners around extended limbs are hittable. Normal damage everywhere.
+- Null: Vantage Point deals 77 damage; Backstab deals 388 (143 damage transferred). Regen Pot restores 268.8 health over six seconds, still cleanses attached DoTs, cooldown 40s. Blindside faces its target after teleporting, including on the owning client.
+- Smoke Bomb only restricts casters hostile to the cloud owner. The owner's team may heal/attack through their own cloud. Enemy casters must share inside/outside membership with their recipient; both outside remains legal. Existing DoTs persist.
+- Vanguard gains **Crippling Verdict** in previously empty kit slot 12: 3.5m, instant, 60% slow for 6s, 15s cooldown, normal GCD, no damage. Slow immunity applies; slows do not stack multiplicatively.
+- Trinket removes all six control categories, interrupt lockouts and slows, retaining its 120s cooldown and no GCD. It does not undo prior displacement or grant ongoing immunity; ground hazards can reapply slows.
+- Outlaw Lasso's final knockdown is 2.5s (previously 1.5s), with existing DR scaling.
+- Solar Flare's 4m/108-degree cone accepts overlap of the target's 0.42m movement-body radius, not just center-point inclusion. LOS still blocks it. Every Ember, including enemies, displays its outline on use.
+- Collapse root/stun penetrates at most 2m of solid arena box cover measured from anchor to target. Overlapping solids count once. Its damage still passes through cover.
+- Arena perimeter colliders extend above reachable movement, with an authoritative escape-position safety clamp. Intentional World Starwalk travel is preserved.
+- Hotbar arrangements remain separate per character; the existing implementation was verified rather than replaced.
+
 Null is the sixth playable class. See [Null class specification](NULL_CLASS.md) for the eight-ability kit, per-enemy Stealth detection, ten-second combat rule, and initial tuning.
 
 ## World-only Starwalk
@@ -44,9 +57,7 @@ A three-second countdown starts each round. A round ends when every member of on
 
 ## Champions
 
-Five fixed-kit champions preserve shared movement and combat rules while adding class resources and signature mechanics. **Ember** builds Heat and brands; **Vanguard** earns Resolve and protects allies; **Luminary** allocates three Guiding Stars; **Fulcrum** controls positions around a placed Gravity Anchor. **Outlaw** combines Bowie bleeds and mobility-gated Trickshots, building three Defense Detonation stacks for a moving three-shot finisher. Outlaw has ten abilities; the other classes have twelve available abilities.
-
-The complete current kits, exact effects, cooldowns, and shared rules live in [`CLASS_ABILITIES.md`](CLASS_ABILITIES.md), generated from the kit definitions by `tools/class_reference.gd`. Keys **1–7** use the first bar; the second bar uses Shift combinations. Outlaw's first pass uses distinct celestial cowboy placeholder icons.
+Six fixed-kit champions preserve shared movement and combat rules while adding class resources and signature abilities. Fulcrum now controls gravity with two anchor polarities and commands dark-matter swords through the Ruin-to-Divide combo. Its full current kit and balance are in [`CLASS_ABILITIES.md`](CLASS_ABILITIES.md), generated from `scripts/kits.gd`. The first bar uses 1–7; the second uses Shift combinations. Trinket remains Ctrl+1 and Fulcrum's Gravity Flow uses Ctrl+2. Abilities can be rebound or moved in Edit HUD.
 
 ### Ability tooltips
 

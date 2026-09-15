@@ -33,7 +33,7 @@ func basic() -> void:
 	ck(not game.try_spell(1,1,2) and a.cooldowns[1]==0,"Frontal Backstab rejected without cost")
 	b.rotation.y=0
 	ck(game.try_spell(1,1,2),"Backstab accepted from behind")
-	ck(b.hp==1255 and a.cooldowns[1]==30,"Backstab deals its reduced, scaled damage and keeps its 30s cooldown")
+	ck(is_equal_approx(b.hp,1112) and a.cooldowns[1]==30,"Backstab deals transferred damage and keeps its 30s cooldown")
 	ck(a.identity.combat_left==8 and b.identity.combat_left==8,"Direct attacks flag both combatants")
 	a.gcd=1
 	var before_blindside:Vector3=a.position
@@ -46,7 +46,7 @@ func basic() -> void:
 	ck(game.Null.behind(a,b) and a.position.distance_to(b.position)<1.4,"Blindside lands behind target")
 	ck(a.motion_revision>0,"Teleport invalidates rewind history")
 	a.gcd=0
-	ck(game.try_spell(1,0,2) and b.hp==1135,"Temporal Strike filler")
+	ck(game.try_spell(1,0,2) and is_equal_approx(b.hp,992),"Temporal Strike filler")
 	a.gcd=0;b.casting=0;b.cast_left=1.0
 	ck(game.try_spell(1,2,2) and b.casting==-1 and b.locked==4,"Kick interrupts and locks")
 	a.gcd=0
@@ -56,22 +56,44 @@ func basic() -> void:
 	a.identity.dots[2]={"left":3.0,"tick":.1,"stacks":1}
 	a.identity.entropy_dots[2]={"left":3.0,"tick":.1}
 	a.identity.severe_bleeds[2]={"left":3.0,"tick":.1}
-	ck(game.try_spell(1,8,-1) and a.hp==500 and a.cooldowns[8]==40,"Regen Pot is instant, has a 40-second cooldown, and starts a heal-over-time effect")
+	ck(game.try_spell(1,8,-1) and a.hp==350 and a.cooldowns[8]==40,"Regen Pot starts instantly and pays Entropy's 10-percent-health cleanse backlash")
+	ck(a.cc_effects.has("silence"),"Regen Pot's self-cleanse triggers Entropy silence")
 	ck(a.identity.dots.is_empty() and a.identity.entropy_dots.is_empty() and a.identity.severe_bleeds.is_empty(),"Regen Pot immediately removes attached damage-over-time effects")
 	ck(a.identity.null_regen.left==6.0,"Regen Pot lasts six seconds")
-	game.Null.tick(game,a,1.0);ck(a.hp==556,"Regen Pot restores 56 health after its first second")
-	game.Null.tick(game,a,5.0);ck(a.hp==836 and a.identity.null_regen.is_empty(),"Regen Pot restores its full 336 health over six seconds")
+	game.Null.tick(game,a,1.0);ck(is_equal_approx(a.hp,394.8),"Regen Pot restores 44.8 health after its first second")
+	game.Null.tick(game,a,5.0);ck(is_equal_approx(a.hp,618.8) and a.identity.null_regen.is_empty(),"Regen Pot restores 268.8 health over six seconds")
+	await reset()
 	a.identity.essence=120
 	a.cooldowns[1]=20
 	ck(game.try_spell(1,9,-1) and a.identity.chronoshift_select,"Chronoshift arms a normal-keybind cooldown choice without a cooldown")
 	ck(game.try_spell(1,5,-1) and not a.identity.chronoshift_select and a.identity.null_haste==6,"A ready ability cancels Chronoshift selection and casts normally")
 	ck(game.try_spell(1,9,-1) and a.identity.chronoshift_select,"Chronoshift can be armed again after a normal cast")
-	ck(game.try_spell(1,1,2) and a.cooldowns[1]==0 and a.identity.essence==20,"Chosen cooldown refreshes and Chronoshift spends 100 Essence")
+	a.gcd=1
+	ck(not game.try_spell(1,1,2) and a.cooldowns[1]==20 and a.identity.essence==120,"Invalid automatic cast preserves cooldown and Essence")
+	a.gcd=0
+	b.rotation.y=0
+	ck(game.try_spell(1,1,2) and a.cooldowns[1]==30 and a.identity.essence==20,"Chosen cooldown refreshes and casts immediately for 100 Essence")
 	ck(a.identity.chronoshift_locks[1]==60,"Chronoshift places a separate double-cooldown reset lock")
 	b.rotation.y=0
-	ck(game.try_spell(1,1,2) and a.identity.essence==20,"Using a Chronoshift-refreshed ability grants no Essence")
+	ck(not game.try_spell(1,1,2) and a.identity.essence==20,"Automatic recast grants no Essence and starts normal cooldown")
 	a.gcd=0
 	ck(game.try_spell(1,0,2) and a.identity.essence==50,"Temporal Strike grants 30 Essence when normally cast")
+	await reset()
+	a.identity.essence=120;a.identity.combat_left=8
+	ck(not game.try_spell(1,4,-1),"Normal Stealth remains blocked in combat")
+	ck(game.try_spell(1,9,-1) and game.try_spell(1,4,-1) and game.Null.stealthed(a),"Chronoshift immediately re-stealths in combat")
+	ck(a.identity.essence==20 and a.identity.chronoshift_locks[4]==120 and a.cooldowns[4]==0,"Stealth has only a two-minute reset lock")
+	ck(game.try_spell(1,4,-1) and not game.Null.stealthed(a),"Manual unstealth still works")
+	a.identity.essence=120
+	ck(game.try_spell(1,9,-1) and not game.try_spell(1,4,-1) and a.identity.essence==120,"Locked Stealth reset spends nothing")
+	a.cooldowns[2]=10
+	ck(not game.try_spell(1,2,2) and a.cooldowns[2]==10 and a.identity.essence==120,"Chronoshift cannot reset Kick")
+	ck(not game.Null.chronoshift_candidate(a,2),"Kick never receives a gold selection frame")
+	a.identity.chronoshift_select=false;a.identity.combat_left=0
+	ck(game.try_spell(1,4,-1),"Normal out-of-combat Stealth ignores reset lock")
+	game.Null.break_stealth(game,a);a.identity.combat_left=8
+	game.Null.tick(game,a,120);a.identity.combat_left=8
+	ck(game.try_spell(1,9,-1) and game.try_spell(1,4,-1),"Stealth reset becomes available after two minutes")
 	await reset()
 	a.move_input=Vector2.UP;game.simulate_movement(a,.016);var base: float=a.velocity.length()
 	ck(game.try_spell(1,5,-1),"Haste needs no target")
@@ -206,11 +228,11 @@ func vantage() -> void:
 	for i in 100:
 		tick(a,1.0/60)
 		if b.hp<b.MAX_HEALTH:break
-	ck(b.hp==1280 and is_equal_approx(b.stunned,4),"Contact deals scaled damage and four-second stun")
+	ck(is_equal_approx(b.hp,1423) and is_equal_approx(b.stunned,4),"Contact deals reduced damage and four-second stun")
 	ck(game.Outlaw.Lasso.knockdown_active(b),"Victim knockdown active")
 	var impact: Vector3=a.position;tick(a,.2)
 	ck(a.position.distance_to(impact)<.15 and not game.Null.busy(a),"Brief recovery without rebound")
-	ck(b.hp==1280,"Only one damage application")
+	ck(is_equal_approx(b.hp,1423),"Only one damage application")
 	await reset();b.position.z=-6
 	var ceiling:=wall(Vector3(0,2.7,0),Vector3(4,.2,4));await physics_frame
 	game.try_spell(1,7,2);tick(a,.7)
@@ -260,12 +282,12 @@ func vantage_range_and_air() -> void:
 		while b.hp==b.MAX_HEALTH and elapsed<1.0 and game.Null.busy(a):
 			game.Null.motion(game,a,1.0/240);elapsed+=1.0/240
 		times.append(elapsed)
-		ck(b.hp==1280 and is_equal_approx(b.stunned,4.0),"Short and long dives both resolve their original damage and stun")
+		ck(is_equal_approx(b.hp,1423) and is_equal_approx(b.stunned,4.0),"Short and long dives resolve reduced damage and unchanged stun")
 		ck(a.identity.null_vantage.phase=="recover","Both distances enter recovery immediately at contact")
 		game.Null.motion(game,a,.179)
 		ck(game.Null.busy(a),"Contact recovery lasts at least 0.179 seconds")
 		game.Null.motion(game,a,.002)
-		ck(not game.Null.busy(a) and b.hp==1280,"Recovery ends after 0.18 seconds without applying damage again")
+		ck(not game.Null.busy(a) and is_equal_approx(b.hp,1423),"Recovery ends after 0.18 seconds without applying damage again")
 	ck(is_equal_approx(speeds[0],25.0) and speeds[1]>46.0 and speeds[1]<=65.0,"Near dives retain the 25 m/s base profile and long dives use the larger range scale")
 	ck(times[0]<.6 and times[1]<.6,"Near and far dives both connect promptly despite the eased start")
 	print("VANTAGE_RANGE short_speed=",speeds[0]," far_speed=",speeds[1]," short_dive_seconds=",times[0]," far_dive_seconds=",times[1])
@@ -290,7 +312,7 @@ func vantage_range_and_air() -> void:
 		for frame in 120:
 			game.Null.motion(game,a,1.0/120)
 			if b.hp<b.MAX_HEALTH:break
-		ck(b.hp==1280,"Airborne Vantage reaches the target with unchanged damage")
+		ck(is_equal_approx(b.hp,1423),"Airborne Vantage reaches the target with reduced damage")
 
 func vantage_cancellation() -> void:
 	await reset();b.position.z=-6;game.try_spell(1,7,2);game.Null.motion(game,a,.5)

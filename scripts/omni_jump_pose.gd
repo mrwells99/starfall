@@ -27,6 +27,8 @@ var entry_spin:=PackedVector3Array()
 var revision_seen:=-999
 var jump_frames:=0
 var sampled_time:=0.0
+var network_flight = preload("res://scripts/network_animation_motion.gd").new()
+var smooth_vertical := 0.0
 # Per-character boundary timing; defaults preserve original B on Outlaw.
 var entry_seconds:=.18
 var landing_move_seconds:=.29
@@ -87,6 +89,7 @@ func target_pose(t:float)->Array[Transform3D]:
 	return first
 
 func begin_frame(art,actor:CharacterBody3D,delta:float,can_jump:bool,low:bool)->void:
+	smooth_vertical = network_flight.vertical(actor,delta)
 	before=capture()
 	allowed=enabled and can_jump and delta>0 and delta<=.10
 	if actor.motion_revision!=revision_seen:
@@ -97,7 +100,7 @@ func begin_frame(art,actor:CharacterBody3D,delta:float,can_jump:bool,low:bool)->
 		landing_age=2.0;airborne_previous=false
 		return
 	var airborne:bool=not bool(actor.presentation_grounded) if actor.presentation_grounded!=null else not actor.is_on_floor()
-	var velocity:Vector3=actor.velocity if actor.presentation_velocity==null else actor.presentation_velocity
+	var velocity:Vector3=actor.velocity if actor.presentation_grounded==null or actor.presentation_velocity==null else actor.presentation_velocity
 	var horizontal:Vector3=actor.global_basis.inverse()*Vector3(velocity.x,0,velocity.z)
 	var requested:=horizontal.normalized()*clampf(horizontal.length()/.8,0,1)
 	if airborne and not airborne_previous:
@@ -120,10 +123,10 @@ func finish_frame(art,actor:CharacterBody3D,delta:float)->void:
 		older_pose=before
 		return
 	var airborne:bool=not bool(actor.presentation_grounded) if actor.presentation_grounded!=null else not actor.is_on_floor()
-	var velocity:Vector3=actor.velocity if actor.presentation_velocity==null else actor.presentation_velocity
+	var velocity:Vector3=actor.velocity if actor.presentation_grounded==null or actor.presentation_velocity==null else actor.presentation_velocity
 	var horizontal:=Vector2(velocity.x,velocity.z).length()
 	if airborne or landing_age<maxf(landing_move_seconds,landing_idle_seconds):
-		var t:=.7*clampf((1.0-velocity.y/launch)*.5,0,.999) if airborne else .7+landing_age
+		var t:=.7*clampf((1.0-smooth_vertical/launch)*.5,0,.999) if airborne else .7+landing_age
 		sampled_time=t
 		var pose:=target_pose(t)
 		var release:=1.0 if airborne else 1.0-smooth_unit(landing_age/(landing_move_seconds if horizontal>.3 else landing_idle_seconds))

@@ -436,7 +436,7 @@ func deadeye_refunds() -> void:
 		game.cancel_own_cast(a,""); tick(a,1.0/60)
 		ck(a.cooldowns[9]==0 and b.hp==b.MAX_HEALTH,"Manual cancellation refunds Deadeye even immediately before completion")
 		ck(game.try_spell(1,9,-1) and a.cooldowns[9]==90,"Refunded Deadeye can be cast again after cancellation")
-	for slot in [1,8]:
+	for slot in [1,7]:
 		await reset()
 		game.spawn_actor(3,3,1,"Fulcrum",Vector3(0,.025,4))
 		var fulcrum=game.actors[3]; fulcrum.owner_peer=3
@@ -445,7 +445,7 @@ func deadeye_refunds() -> void:
 		game.try_spell(1,9,-1)
 		ck(game.try_spell(3,slot,1) and a.casting==-1,"Fulcrum displacement interrupts Deadeye")
 		tick(a,1.0/60)
-		ck(a.cooldowns[9]==0,"Inward/Outward interruption refunds Deadeye")
+		ck(a.cooldowns[9]==0,"Anchor displacement interruption refunds Deadeye")
 	await reset()
 	game.try_spell(1,9,-1); a.hp=0; a.casting=-1; tick(a,1.0/60)
 	ck(a.cooldowns[9]==0 and a.identity.outlaw_channel.is_empty(),"Death before completion also releases Deadeye's reserved cooldown")

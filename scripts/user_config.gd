@@ -19,7 +19,7 @@ const WINDOW_EXCLUSIVE := 2
 # filtered out at build time rather than listed and then rejected.
 const RESOLUTIONS := [
 	Vector2i(1280, 720), Vector2i(1366, 768), Vector2i(1600, 900),
-	Vector2i(1920, 1080), Vector2i(2560, 1440), Vector2i(3440, 1440),
+	Vector2i(1920, 1080), Vector2i(1920, 1200), Vector2i(2560, 1440), Vector2i(2560, 1600), Vector2i(3440, 1440),
 	Vector2i(3840, 2160),
 ]
 
@@ -44,7 +44,9 @@ func window_mode() -> int:
 	return int(get_value("display", "window_mode", WINDOW_BORDERLESS))
 
 func resolution() -> Vector2i:
-	var stored = get_value("display", "resolution", Vector2i.ZERO)
+	# Legacy fullscreen ignored the windowed resolution: preserve native output.
+	var key := "resolution" if window_mode() == WINDOW_WINDOWED else "fullscreen_resolution"
+	var stored = get_value("display", key, Vector2i.ZERO)
 	return stored if stored is Vector2i else Vector2i.ZERO
 
 func apply_display() -> void:
@@ -58,24 +60,24 @@ func apply_display() -> void:
 		_:
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 			var size := resolution()
+			if size == Vector2i.ZERO: size = DisplayServer.screen_get_size(DisplayServer.window_get_current_screen())
 			if size.x > 0 and size.y > 0:
 				DisplayServer.window_set_size(size)
 				# Re-centre, or a window larger than the previous one can end up
 				# with its title bar off the top of the screen.
-				var screen := DisplayServer.screen_get_size()
-				DisplayServer.window_set_position((screen - size) / 2)
+				var screen_id := DisplayServer.window_get_current_screen()
+				var screen := DisplayServer.screen_get_size(screen_id)
+				DisplayServer.window_set_position(DisplayServer.screen_get_position(screen_id) + (screen - size) / 2)
 
 # Resolutions that actually fit the player's monitor.
 static func available_resolutions() -> Array:
 	if DisplayServer.get_name() == "headless":
-		return RESOLUTIONS.duplicate()
-	var screen := DisplayServer.screen_get_size()
-	var out: Array = []
+		return [Vector2i.ZERO] + RESOLUTIONS.duplicate()
+	var screen := DisplayServer.screen_get_size(DisplayServer.window_get_current_screen())
+	var out: Array = [Vector2i.ZERO]
 	for res in RESOLUTIONS:
 		if res.x <= screen.x and res.y <= screen.y:
 			out.append(res)
-	if out.is_empty():
-		out.append(Vector2i(1280, 720))
 	return out
 
 # Explicit client budgets; server physics/snapshot rates are independent.
@@ -104,4 +106,16 @@ func apply_graphics(root: Node) -> void:
 	var flags := OS.get_cmdline_user_args()
 	if not flags.has("--sanctum-base") and not flags.has("--sanctum-original"):
 		preload("res://scripts/sanctum_graphics.gd").apply_profile(root, "High" if flags.has("--sanctum-high") else graphics_preset())
-	root.get_viewport().scaling_3d_scale = render_scale()
+	apply_render_resolution(root)
+
+func resolution_scale(output_size: Vector2i) -> float:
+	var target := resolution()
+	if window_mode() == WINDOW_WINDOWED or target.x <= 0 or target.y <= 0 or output_size.x <= 0 or output_size.y <= 0:
+		return render_scale()
+	# Fullscreen keeps native UI and monitor aspect. Only 3D is downsampled.
+	return clampf(minf(float(target.x) / output_size.x, float(target.y) / output_size.y), 0.1, 1.0) * render_scale()
+
+func apply_render_resolution(root: Node) -> void:
+	var output_size := DisplayServer.window_get_size() if DisplayServer.get_name() != "headless" else Vector2i(root.get_viewport().get_visible_rect().size)
+	var high := graphics_preset() == "High" or OS.get_cmdline_user_args().has("--sanctum-high")
+	root.get_viewport().scaling_3d_scale = preload("res://scripts/map_image_quality.gd").supersample_scale(resolution_scale(output_size), output_size, high)

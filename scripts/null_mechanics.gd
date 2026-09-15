@@ -24,7 +24,12 @@ static func stealthed(a) -> bool:
 	return a != null and a.hp > 0 and a.identity.get("stealth",false)
 
 static func detected(a, observer) -> bool:
-	return observer != null and observer.hp > 0 and float(a.identity.get("stealth_detection",{}).get(observer.actor_id,0.0)) >= DETECT_SECONDS and a.position.distance_to(observer.position) <= DETECT_RANGE
+	if observer == null or observer.hp <= 0: return false
+	if deadeye_detection(a,observer): return true
+	return float(a.identity.get("stealth_detection",{}).get(observer.actor_id,0.0)) >= DETECT_SECONDS and a.position.distance_to(observer.position) <= DETECT_RANGE
+
+static func deadeye_detection(a, observer) -> bool:
+	return observer != null and observer.hp > 0 and observer.team != a.team and observer.champion == "Outlaw" and observer.casting >= 0 and observer.kit[observer.casting].kind == "deadeye"
 
 static func targetable(game, observer, a) -> bool:
 	if observer == null or a == null: return false
@@ -67,6 +72,9 @@ static func enter(game, a) -> void:
 	a.identity.stealth_detection = {}
 	for enemy in game.actors.values():
 		if enemy.team == a.team or enemy == a: continue
+		if deadeye_detection(a,enemy):
+			a.identity.stealth_detection[enemy.actor_id] = DETECT_SECONDS
+			continue
 		if enemy.cast_target == a.actor_id and enemy.casting >= 0:
 			game.cancel_own_cast(enemy,"Target vanished")
 		if enemy.target_id == a.actor_id: enemy.target_id = -1
@@ -91,7 +99,10 @@ static func tick(game, a, delta: float) -> void:
 		if enemy == a or enemy.hp <= 0 or enemy.team == a.team:
 			progress.erase(enemy.actor_id)
 			continue
-		if a.position.distance_to(enemy.position) <= DETECT_RANGE and game.has_los(a,enemy):
+		if deadeye_detection(a,enemy):
+			# Use the existing warning/visibility state, not a global stealth break.
+			progress[enemy.actor_id] = DETECT_SECONDS
+		elif a.position.distance_to(enemy.position) <= DETECT_RANGE and game.has_los(a,enemy):
 			progress[enemy.actor_id] = minf(DETECT_SECONDS,float(progress.get(enemy.actor_id,0))+delta)
 		else: progress.erase(enemy.actor_id)
 		if not targetable(game,enemy,a) and enemy.target_id == a.actor_id: enemy.target_id = -1
@@ -141,7 +152,7 @@ static func landing(game, a, b) -> Variant:
 static func validate(game, a, spell: Dictionary, b) -> String:
 	if a.champion != "Null": return ""
 	if spell.kind == "stealth":
-		if not stealthed(a) and float(a.identity.combat_left)>0: return "In combat"
+		if not stealthed(a) and float(a.identity.combat_left)>0 and not choosing_chronoshift(a): return "In combat"
 	if spell.kind == "backstab" and not behind(a,b): return "Must be behind your target"
 	if spell.kind in ["blindside","vantage"] and a.identity.root>0: return "Rooted"
 	if spell.kind == "blindside" and landing(game,a,b)==null: return "No safe space behind target"
@@ -151,18 +162,32 @@ static func validate(game, a, spell: Dictionary, b) -> String:
 static func choosing_chronoshift(a) -> bool:
 	return bool(a.identity.get("chronoshift_select", false))
 
-static func select_chronoshift(game, a, slot: int) -> String:
+static func chronoshift_candidate(a, slot: int) -> bool:
+	var kind: String = a.kit[slot].kind
+	return kind != "interrupt" and kind != "chronoshift" and (a.cooldowns[slot] > 0.0 or (kind == "stealth" and not stealthed(a)))
+
+static func select_chronoshift(game, a, slot: int, requested: int = -1) -> String:
 	if a.champion != "Null" or not choosing_chronoshift(a): return ""
 	if slot < 0 or slot >= a.kit.size(): return "Choose an ability"
 	var spell: Dictionary = a.kit[slot]
-	if spell.kind == "chronoshift" or float(spell.cd) <= 0.0: return "Choose an ability with a cooldown"
+	if spell.kind == "interrupt": return "Chronoshift cannot reset Kick"
+	if spell.kind != "stealth" and (spell.kind == "chronoshift" or float(spell.cd) <= 0.0): return "Choose an ability with a cooldown"
 	if float(a.identity.get("chronoshift_locks", {}).get(slot, 0.0)) > 0.0: return "Chronoshift reset is not ready"
-	if a.cooldowns[slot] <= 0.0: return "That ability is already ready"
+	if not chronoshift_candidate(a,slot): return "That ability is already ready"
+	if float(a.identity.get("essence",0.0)) < 100.0: return "Requires 100 Essence"
+	# Validate the recast before spending. Only its normal cooldown is waived;
+	# target, range, GCD, control and casting restrictions still apply.
+	var previous_cooldown: float = a.cooldowns[slot]
+	a.cooldowns[slot] = 0.0
+	var reason: String = game.ability_block_reason(a,slot,requested)
+	a.cooldowns[slot] = previous_cooldown
+	if not reason.is_empty(): return reason
 	a.identity.essence = maxf(0.0, float(a.identity.essence) - 100.0)
 	a.cooldowns[slot] = 0.0
-	a.identity.chronoshift_locks[slot] = float(spell.cd) * 2.0
+	a.identity.chronoshift_locks[slot] = 120.0 if spell.kind == "stealth" else float(spell.cd) * 2.0
 	a.identity.chronoshift_uses[slot] = true
-	a.identity.chronoshift_select = false
+	# Selection remains active through this request's final validation, allowing
+	# only this immediate Stealth cast to bypass combat. Caller clears it.
 	game.combat_event(a.actor_id, a.actor_id, "CHRONOSHIFT · %s" % spell.name, Color("b9c9d6"))
 	return ""
 
@@ -189,7 +214,11 @@ static func resolve(game, a, spell: Dictionary, b) -> bool:
 			var point: Variant = landing(game,a,b)
 			if point != null:
 				var departure: Vector3 = a.position
-				a.position=point; a.rotation.y=b.rotation.y; a.velocity=Vector3.ZERO
+				a.position=point
+				var facing: Vector3 = b.position - a.position
+				if Vector2(facing.x,facing.z).length_squared() > .000001:
+					a.rotation.y=atan2(-facing.x,-facing.z)
+				a.velocity=Vector3.ZERO
 				a.motion_revision+=1; a.reset_physics_interpolation(); action(a,"blindside")
 				game.outlaw_effect(a.actor_id,b.actor_id,departure,point,"blindside_smoke")
 				if not game.dedicated and a.actor_id==game.local_id:
@@ -206,10 +235,11 @@ static func resolve(game, a, spell: Dictionary, b) -> bool:
 		"null_haste":
 			a.identity.null_haste=6.0
 		"regen_pot":
-			# The pot keeps Mend's total (336 after the global health adjustment),
+			# The pot restores 268.8 health after the owner's additional 20% reduction,
 			# clears attached DoTs immediately, then delivers six one-second pulses.
 			a.identity.dots.clear()
-			a.identity.entropy_dots.clear()
+			game.Fulcrum.cleanse_entropy(game,a,a)
+			if a.hp<=0: return true
 			a.identity.severe_bleeds.clear()
 			a.identity.null_regen={"left":REGEN_SECONDS,"tick":0.0,"rate":spell.power*a.HEALTH_SCALE*.8/REGEN_SECONDS}
 		"stealth":

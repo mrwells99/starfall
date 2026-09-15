@@ -106,7 +106,7 @@ func combat() -> void:
 	var source: Vector3 = game.aimed_combat.firing_origin(a.body_hitboxes.points)
 	var head: Vector3 = (b.body_hitboxes.points[8]+b.body_hitboxes.points[9])*.5
 	head = b.position + (head-b.position)*Bodies.AIM_SCALE
-	check(shoot((head-source).normalized()) and b.hp == b.MAX_HEALTH - 120 and results.back().part == "head","Head geometry is accurate without a bonus damage multiplier")
+	check(shoot((head-source).normalized()) and b.hp == b.MAX_HEALTH - 120 and results.back().part == "body","Filled upper-body envelope has no bonus damage multiplier")
 
 func security_and_history() -> void:
 	await reset()

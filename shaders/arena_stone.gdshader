@@ -9,6 +9,7 @@ uniform float grain_scale = 1.0;
 uniform float weathering = 0.5;
 uniform int surface_kind : hint_range(0, 4) = 0; // basalt, flagstone, cut tile, bronze, obsidian
 uniform float relief : hint_range(0.0, 2.0) = 1.0;
+uniform bool stable_detail = false;
 varying vec3 world_pos;
 varying vec3 world_normal;
 varying vec3 view_pos;
@@ -53,6 +54,12 @@ void fragment() {
 	vec2 mineral_uv = world_pos.xz + world_pos.yy * vec2(0.31, 0.73);
 	float mineral = noise2(mineral_uv * 0.72);
 	float grit = noise2(mineral_uv * 13.0);
+	if (stable_detail) {
+		vec2 grit_uv = mineral_uv * 13.0;
+		float footprint = max(length(dFdx(grit_uv)), length(dFdy(grit_uv)));
+		// Procedural noise has no texture mipmaps. Average only subpixel grit.
+		grit = mix(grit, 0.5, smoothstep(0.30, 0.85, footprint));
+	}
 	vec3 albedo;
 	float height;
 	float roughness;
@@ -109,6 +116,10 @@ void fragment() {
 	}
 	ALBEDO = albedo * COLOR.rgb;
 	NORMAL = height_normal(normalize(NORMAL), view_pos, height);
+	if (stable_detail) {
+		vec3 nx = dFdx(NORMAL), ny = dFdy(NORMAL);
+		roughness = sqrt(clamp(roughness * roughness + min(max(dot(nx, nx), dot(ny, ny)) * 0.25, 0.20), 0.0, 1.0));
+	}
 	ROUGHNESS = clamp(roughness + (weathering - 0.5) * 0.2, 0.05, 1.0);
 	METALLIC = metal;
 	SPECULAR = spec;

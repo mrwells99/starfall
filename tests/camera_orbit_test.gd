@@ -74,8 +74,8 @@ func inspect_orbit_input() -> void:
 func inspect_collision() -> void:
 	check(game.arm.shape is SphereShape3D and game.arm.shape.radius >= 0.19,
 		"The gameplay camera sweeps a real volume to keep its near plane clear")
-	check(game.arm.collision_mask == 1 and game.camera.near <= 0.05001,
-		"Camera collision uses terrain, excludes player bodies, and supports close views")
+	check(game.arm.collision_mask == (1 | game.Geometry.CAMERA_ONLY_LAYER) and game.camera.near <= 0.05001,
+		"Camera collision uses terrain and decorative rocks, excludes player bodies, and supports close views")
 	for degrees in [30.0, 60.0, 89.1]:
 		place_camera(Vector3(0, 0.05, 0), deg_to_rad(degrees))
 		await settle()
@@ -115,6 +115,45 @@ func inspect_collision() -> void:
 		"The view points virtually straight up at the vertical jump puzzle")
 	check(game.movement_controls.zoom_target == 9 and game.arm.spring_length == 9,
 		"Leaving an obstruction restores the full preferred zoom automatically")
+
+func inspect_decorative_rocks() -> void:
+	# Headless arenas skip art. Generate the actual perimeter here to exercise
+	# its opt-in rock hulls without loading the rest of the visual environment.
+	game.world_mode = false
+	game._art = Node3D.new()
+	game.add_child(game._art)
+	game._geo = game.Geometry.new()
+	game._quality_surround = true
+	game._stone = ShaderMaterial.new()
+	game._dark_stone = ShaderMaterial.new()
+	game._trim = ShaderMaterial.new()
+	game._amber = ShaderMaterial.new()
+	game._build_perimeter()
+	game._geo = null
+	var bodies: Array[Node] = game._art.find_children("*", "StaticBody3D", true, false)
+	check(bodies.size() == 40, "Every perimeter rock has a small camera-only convex hull")
+	for body in bodies:
+		check(body.collision_layer == game.Geometry.CAMERA_ONLY_LAYER and body.collision_mask == 0,
+			"Decorative rock cannot collide with players or gameplay terrain queries")
+	# The escape barrier now extends above the cosmetic rock.
+	place_camera(Vector3(0, 2.5, 14), 0)
+	await settle()
+	check(game.arm.get_hit_length() < 5 and game.camera.global_position.z < 18.6,
+		"The camera retracts before entering the perimeter barrier or cosmetic pillar")
+	var query := PhysicsRayQueryParameters3D.create(Vector3(0, 4, 16), Vector3(0, 4, 21), 1)
+	var probe: Dictionary = game.get_world_3d().direct_space_state.intersect_ray(query)
+	check(not probe.is_empty() and is_equal_approx(probe.position.z,17.65),
+		"The raised escape barrier blocks gameplay rays above the old wall height")
+	if not probe.is_empty(): query.exclude = [probe.rid]
+	check(game.get_world_3d().direct_space_state.intersect_ray(query).is_empty(),
+		"The decorative pillar still does not block ability LOS")
+	query.collision_mask = game.Geometry.CAMERA_ONLY_LAYER
+	check(not game.get_world_3d().direct_space_state.intersect_ray(query).is_empty(),
+		"The identical ray sees the pillar on the camera-only layer")
+	place_camera(Vector3(0, 2.5, 14), 0, PI)
+	await settle()
+	check(game.arm.get_hit_length() > 8.99 and game.arm.spring_length == 9,
+		"Turning away restores full zoom without changing the selected distance")
 
 func inspect_aim_handoff() -> void:
 	place_camera(Vector3(0, 0.05, 0), deg_to_rad(89.1), 0, 7)
@@ -278,6 +317,7 @@ func run() -> void:
 	actor = game.actors[game.local_id]
 	inspect_orbit_input()
 	await inspect_collision()
+	await inspect_decorative_rocks()
 	await inspect_aim_handoff()
 	inspect_material_fade()
 	inspect_roster_fade()
