@@ -15,7 +15,7 @@ const PATHS := {
 	"Anchor Exchange": "res://assets/icons/abilities/fulcrum/anchor_exchange.svg",
 	"Dark Growth": "res://assets/icons/abilities/fulcrum/dark_growth.svg",
 
-	"Crippling Verdict": "res://assets/icons/abilities/cleave.png",
+	"Crippling Verdict": "res://assets/icons/abilities/crippling_verdict.svg",
 	"Temporal Strike": "res://assets/icons/abilities/null/stab.svg",
 	"Regen Pot": "res://assets/icons/abilities/null/regen_pot.svg",
 	"Chronoshift": "res://assets/icons/abilities/null/chronoshift.svg",

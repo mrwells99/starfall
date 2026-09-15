@@ -77,6 +77,7 @@ func run() -> void:
 	for champion in arena.Kits.NAMES:
 		actor.champion = champion
 		actor.kit = arena.Kits.get_kit(champion)
+		actor.reset_identity()
 		actor.cooldowns.resize(actor.kit.size())
 		actor.cooldowns.fill(0.0)
 		arena.update_visuals(0)
