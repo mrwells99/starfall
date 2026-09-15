@@ -1,7 +1,7 @@
 extends RefCounted
 ## Damage volumes are independent of terrain/movement collision. Dimensions in meters.
 const PARTS := ["pelvis", "abdomen", "chest", "neck", "head", "shoulder.L", "upper_arm.L", "forearm.L", "hand.L", "thigh.L", "shin.L", "foot.L", "shoulder.R", "upper_arm.R", "forearm.R", "hand.R", "thigh.R", "shin.R", "foot.R"]
-const AIM_SCALE := Vector3(2.0, 1.25, 2.0)
+const AIM_SCALE := Vector3(2.5, 1.25, 2.5)
 var rig: Skeleton3D
 var indices := {}
 var core_bones := PackedInt32Array()
@@ -124,7 +124,22 @@ static func trace_aim(origin: Vector3, direction: Vector3, limit: float, samples
 	var scaled_direction := direction / AIM_SCALE
 	var factor := scaled_direction.length()
 	if factor < .000001: return {}
-	var hit := trace(root + (origin-root)/AIM_SCALE, scaled_direction/factor, limit*factor, samples, sizes)
+	# Filled animated envelope; limb gaps cannot pass shots. No movement changes.
+	var ray_origin := root + (origin-root)/AIM_SCALE
+	var ray_direction := scaled_direction/factor
+	var box := bounds_for(samples,sizes)
+	var entry := 0.0
+	var leave := limit*factor
+	for axis in 3:
+		if absf(ray_direction[axis]) < .000001:
+			if ray_origin[axis] < box.position[axis] or ray_origin[axis] > box.end[axis]: return {}
+		else:
+			var first := (box.position[axis]-ray_origin[axis])/ray_direction[axis]
+			var last := (box.end[axis]-ray_origin[axis])/ray_direction[axis]
+			entry = maxf(entry,minf(first,last))
+			leave = minf(leave,maxf(first,last))
+			if entry > leave: return {}
+	var hit := {"distance":entry,"part":"body","position":Vector3.ZERO}
 	if hit.is_empty(): return hit
 	hit.distance /= factor
 	hit.position = origin + direction * hit.distance

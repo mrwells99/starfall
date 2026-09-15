@@ -27,14 +27,16 @@ func run() -> void:
 			if spell.kind in arena.Kits.SELF_KINDS or spell.kind in arena.Kits.ALLY_KINDS:
 				continue
 			ck(not arena.try_spell(1, slot, 2) and a.casting == -1, "%s cannot start on an enemy at opposing spawn" % spell.name)
-		var reach: float = a.kit[0].range
+		var primary: int = 13 if champion=="Fulcrum" else 0
+		var reach: float = a.kit[primary].range
 		a.position = Vector3(0, .01, 3); b.position = a.position + Vector3(0, 0, -reach-.01)
-		ck(arena.validate_spell(a, 0, 2) == "Out of range", "Primary rejects just beyond its listed range: " + champion)
+		ck(arena.validate_spell(a, primary, 2) == "Out of range", "Primary rejects just beyond its listed range: " + champion)
 		b.position = a.position + Vector3(0, 0, -minf(6.0, reach-.01))
-		ck(arena.validate_spell(a, 0, 2).is_empty(), "Primary remains usable after approaching: " + champion)
+		ck(arena.validate_spell(a, primary, 2).is_empty(), "Primary remains usable after approaching: " + champion)
 		if champion == "Fulcrum":
 			a.identity.anchor_pos = a.position + Vector3(18.01, 0, 0)
-			ck(arena.validate_spell(a, 11, 1) == "Anchor out of range", "Remote anchor control is capped too")
+			a.identity.anchor_left=0
+			ck(not arena.validate_spell(a, 11, 1).is_empty(), "Dark Growth requires a live anchor")
 	ck(arena.Kits.get_kit("Vanguard")[0].range == 2.5, "Melee reach is reduced from 3.5 to 2.5m")
 	ck(arena.Kits.get_kit("Ember")[2].range == 16.5, "Interrupt reach is reduced from22 to16.5m")
 	ck(arena.Kits.get_kit("Luminary")[5].range == 18, "Healing reach is capped at18m")

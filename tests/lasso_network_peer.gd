@@ -70,7 +70,8 @@ func _process(delta: float) -> bool:
 	seen_pull=seen_pull or arena.Outlaw.Lasso.state(a).get("phase","")=="pull"
 	seen_down=seen_down or arena.Outlaw.Lasso.knockdown_active(b)
 	seen_free=seen_free or (a.identity.defense_detonation==1 and not arena.Outlaw.Lasso.busy(a) and b.stunned>.5)
-	if match_time>(5.5 if host else 4.5):
+	# Allow the approved 2.5s knockdown and its delayed final snapshot to finish.
+	if match_time>(7.5 if host else 6.5):
 		var okay: bool=seen_pull and seen_down and seen_free and a.identity.defense_detonation==1 and b.hp==b.MAX_HEALTH and b.stunned==0 and not arena.Outlaw.Lasso.busy(a)
 		if host: okay=okay and a.champion_model==null and not ResourceLoader.has_cached("res://assets/characters/outlaw.glb")
 		if airborne and host:

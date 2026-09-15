@@ -6,6 +6,8 @@ const RESET := 18.0
 const FACTORS := [1.0, 0.5, 0.25, 0.0]
 const BREAK_CHANCE := 0.25
 const BREAK_HEALTH_FRACTION := 0.20
+static func can_trinket(actor) -> bool:
+	return not actor.cc_effects.is_empty() or actor.stunned > 0 or actor.locked > 0 or actor.identity.get("root",0.0)>0 or actor.identity.get("slow",0.0)>0 or actor.identity.get("severe_slow",0.0)>0 or actor.identity.get("crippling_verdict",0.0)>0 or actor.identity.get("gravity_slow",0.0)>0
 static func airborne_immune(actor) -> bool:
 	var lasso: Dictionary = actor.identity.get("lasso", {})
 	var airborne_lasso: bool = lasso.get("air",false) and lasso.get("phase","") in ["cast","rope","pull","rebound"]

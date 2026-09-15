@@ -32,14 +32,14 @@ func basic() -> void:
 	ck(not game.try_spell(1,6,-1), "Other mobility cannot corrupt a committed pull")
 	ck(reach_phase("rebound"), "Contact transitions directly into short rebound")
 	ck(a.identity.defense_detonation == 1 and b.hp == b.MAX_HEALTH, "Dropkick completion grants exactly one stack without unsolicited damage")
-	ck(b.stunned > 1.4 and b.stunned <= 1.5 and b.dr_states.stun.count == 1, "Impact sets a 1.5-second knockdown without a second DR application")
+	ck(b.stunned > 2.4 and b.stunned <= 2.5 and b.dr_states.stun.count == 1, "Impact sets a 2.5-second knockdown without a second DR application")
 	var impact: Vector3 = a.position
 	var target_impact: Vector3 = b.position
 	step(game.Outlaw.Lasso.REBOUND_TIME + 1.0/60)
 	ck(not game.Outlaw.Lasso.busy(a) and b.stunned > 1.0, "Outlaw recovers much earlier than the target")
 	ck(a.position.distance_to(impact) > 1.9 and b.position.distance_to(target_impact) > 2.5, "Short rebound and knockback create separation")
 	ck(game.try_spell(1,6,-1), "Outlaw can immediately roll after the brief recovery")
-	step(1.3)
+	step(2.3)
 	ck(b.stunned == 0 and not game.Outlaw.Lasso.knockdown_active(b), "Enemy recovers from knockdown")
 	ck(a.identity.defense_detonation == 1, "Later ticks never grant extra stacks")
 
@@ -98,7 +98,7 @@ func controls_and_terrain() -> void:
 	b.position.z = -10
 	game.CC.apply(b,"stun",1,"DR setup"); game.CC.clear(b,["stun"])
 	game.try_spell(1,11,2); reach_phase("rebound")
-	ck(b.stunned > .7 and b.stunned <= .75 and b.dr_states.stun.count == 2, "Second stun DR halves the entire combo's knockdown")
+	ck(b.stunned > 1.2 and b.stunned <= 1.25 and b.dr_states.stun.count == 2, "Second stun DR halves the entire combo's knockdown")
 	await reset()
 	b.position.z = -10
 	game.try_spell(1,11,2); reach_phase("pull")

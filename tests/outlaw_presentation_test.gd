@@ -70,10 +70,39 @@ func run() -> void:
 	art.fire("knife")
 	actor.champion_model.animate(.2,actor)
 	ck(art.equipment.knife_weight>.9 and art.equipment.knife_frames.size()>10,"Severe plays the mirrored native knife-hand attack")
+	severe_foundation(actor,art)
 	ck(art.RUN_CADENCE_SCALE==.90 and art.BACKPEDAL_CADENCE_SCALE==1.15 and art.JUMP_BODY_BLEND_SECONDS==.16,"Approved shared cadence and jump smoothing constants remain unchanged")
 	actor.queue_free();await process_frame
 	print("Outlaw presentation checks: %d passed / %d total" % [checks-failures,checks])
 	quit(1 if failures else 0)
+
+func severe_foundation(actor,art) -> void:
+	actor.casting=-1;actor.presentation_grounded=true;actor.velocity=Vector3.ZERO
+	art.shot_left=0;art.knife_left=0
+	for frame in 60:actor.champion_model.animate(1.0/60,actor)
+	ck(art.clip=="Ready","Ordinary idle still uses the approved shared idle")
+	actor.casting=1
+	for frame in 36:actor.champion_model.animate(1.0/60,actor)
+	ck(art.clip=="Idle" and not art.pose_blend.inertial_enabled,"Severe wind-up restores its native stance without shared movement offsets")
+	actor.casting=-1;art.fire("knife")
+	for frame in 38:
+		actor.champion_model.animate(1.0/60,actor)
+		ck(art.clip=="Idle","Severe retains its original body foundation throughout the knife strike")
+	for frame in 60:
+		actor.champion_model.animate(1.0/60,actor)
+		ck(not art.clip.begins_with("Cast"),"Severe exits into the normal stance, never an unrelated spell-casting gesture")
+	ck(art.clip=="Ready" and art.equipment.knife_weight==0,"Severe recovery returns to the approved shared idle")
+	var equipment=art.equipment
+	var previous_time:float=equipment.knife_time
+	equipment.knife_weight=1.0
+	for frame in range(equipment.knife_frames.size()-1):
+		for fraction in [0.0,.25,.5,.75]:
+			equipment.knife_time=(frame+fraction)/30.0
+			equipment.apply()
+			for bone in equipment.knife_frames[frame]:
+				var expected:Quaternion=equipment.knife_frames[frame][bone].normalized().slerp(equipment.knife_frames[frame+1][bone].normalized(),fraction).normalized()
+				ck(absf(expected.dot(art.skeleton.get_bone_pose_rotation(bone)))>.999999,"Severe follows the native rotation curve between source keys")
+	equipment.knife_time=previous_time;equipment.knife_weight=0.0
 
 func roll_to_running(actor,art) -> void:
 	var hips: int=art.skeleton.find_bone("DEF-hips")
@@ -145,6 +174,11 @@ func directional_actions(actor, art) -> void:
 				var normal_speed:float=preload("res://scripts/movement_tuning.gd").BACKWARD_SPEED if sector in [3,4,5] else preload("res://scripts/movement_tuning.gd").FORWARD_SPEED
 				var measured:bool=action[2] or action[0]=="Deadeye" or motion_speed<normal_speed*.75
 				var expected: String = ("Measured" if measured else "Travel")+suffixes[sector]
+				if "Severe" in action[0] or action[0]=="Walking knife strike":
+					var prefix:="Walk" if action[2] or sector in [3,4,5] else "Run"
+					var native_suffix:=["","ForwardRight","Right","BackwardRight","Backward","BackwardLeft","Left","ForwardLeft"]
+					expected=prefix+native_suffix[sector]
+					if prefix=="Walk" and sector in [2,6]:expected="Strafe"+native_suffix[sector]
 				if not natural_clip.is_empty(): expected=natural_clip
 				ck(art.clip==expected and art.player.current_animation==art.clip_names[expected], "%s sector %d at yaw %.2f plays the actual imported clip" % [action[0],sector,yaw])
 				ck(art.skeleton.get_bone_global_pose(art.skeleton.find_bone("DEF-hand.R")).is_finite(), "%s sector %d keeps the carrying arm finite" % [action[0],sector])

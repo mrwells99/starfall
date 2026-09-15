@@ -1,89 +1,45 @@
 extends SceneTree
-var checks := 0
-var failures := 0
-var game
-
-func check(ok: bool, description: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		push_error(description)
-
-func _initialize() -> void:
-	call_deferred("run")
-
-func run() -> void:
-	game = load("res://arena.tscn").instantiate()
-	root.add_child(game)
-	game.set_physics_process(false)
-	game.mode = 3
-	game.roster = {1: {"champion": "Fulcrum", "team": 0}, 4: {"champion": "Fulcrum", "team": 1}}
-	game.begin_round()
-	game.phase = "match"
-	game.local_id = 1
-	game.update_visuals(0)
-	var a = game.actors[1]
-	var b = game.actors[2]
-	var first = a.get_node("GravityMarker")
-	var second = b.get_node("GravityMarker")
-	check(not first.visible and not first.is_processing(), "Unplaced anchor is hidden and does not animate")
-	check(first.find_children("*", "CollisionObject3D", true, false).is_empty(), "Relic has no collision or targeting surface")
-	a.identity.anchor_left = 20.0
-	a.identity.anchor_pos = Vector3(1, 0, 2)
-	b.identity.anchor_left = 13.0
-	b.identity.anchor_pos = Vector3(4, 0, -2)
-	var before: Dictionary = a.identity.duplicate(true)
-	game.update_visuals(0)
-	check(a.identity == before, "Presentation does not mutate replicated mechanics")
-	check(first.visible and second.visible, "Concurrent anchors both appear")
-	check(first.timer.text.begins_with("ALLY") and second.timer.text.begins_with("ENEMY"), "Allegiance is labeled independently")
-	check(first.global_position.is_equal_approx(Vector3(1, 0.08, 2)), "Relic uses authoritative ground position")
-	first._process(1.0)
-	check(first.body.scale.is_equal_approx(Vector3.ONE), "Arrival reaches full size")
-	var prior_basis: Basis = first.outer.basis
-	first._process(0.2)
-	check(not first.outer.basis.is_equal_approx(prior_basis), "Ring rotates during idle")
-	check(second.age == 0.0, "One anchor animation cannot advance another")
-	a.position += Vector3(3, 0, 0)
-	game.update_visuals(0)
-	check(first.global_position.is_equal_approx(Vector3(1, 0.08, 2)), "Moving caster does not move placed relic")
-	a.identity.orbit = 6.0
-	game.update_visuals(0)
-	check(first.boundary.scale.x == a.Kits.HEAVY_ORBIT_RADIUS and first.body.scale.x == 1.0, "Heavy Orbit expands truthful boundary without enlarging model")
-	a.identity.orbit = 0.0
-	a.casting = 11
-	game.update_visuals(0)
-	check(first.boundary.scale.x == 6.0, "Collapse retains six-meter warning")
-	a.casting = -1
-	game.update_visuals(0)
-	check(first.boundary.scale.x == 1.0, "Interrupted Collapse returns to ordinary boundary")
-	a.identity.anchor_left = 15.0
-	game.update_visuals(0)
-	a.identity.anchor_left = 20.0
-	game.update_visuals(0)
-	check(first.age == 0.0, "Replacement at same location restarts appearance")
-	first._process(1.0)
-	a.identity.anchor_pos += Vector3.RIGHT
-	game.update_visuals(0)
-	check(first.age == 0.0, "Replacement at new location resets without trailing old position")
-	game.player_options.reduced_effects = true
-	game.update_visuals(0)
-	prior_basis = first.outer.basis
-	first._process(0.2)
-	check(first.outer.basis.is_equal_approx(prior_basis) and first.body.scale == Vector3.ONE, "Reduced effects retains static full-size relic")
-	a.hp = 0
-	game.update_visuals(0)
-	check(not first.visible and not first.is_processing() and second.visible, "Caster death clears only its own effect")
-	a.hp = a.MAX_HEALTH
-	a.identity.anchor_left = 0.0
-	game.update_visuals(0)
-	check(not first.visible, "Expired or consumed anchor remains hidden")
-	b.identity.anchor_left = 0.0
-	game.update_visuals(0)
-	check(not second.visible, "All effects clear independently")
-	var old = weakref(first)
-	game.begin_round()
-	await process_frame
-	check(old.get_ref() == null, "Round reset frees old anchor presentation")
-	print("Gravity Anchor checks: %d passed / %d total" % [checks - failures, checks])
-	quit(1 if failures else 0)
+const FX=preload("res://scripts/fulcrum_effects.gd")
+var checks:=0
+var failures:=0
+func ck(ok:bool,message:String):
+ checks+=1
+ if not ok:failures+=1;push_error(message)
+func _initialize():call_deferred("run")
+func run():
+ var stage:=Node3D.new();root.add_child(stage)
+ var a:=FX.new();var b:=FX.new();stage.add_child(a);stage.add_child(b)
+ a.set_process(false);b.set_process(false)
+ var state:={"anchor_left":3.0,"anchor_pos":Vector3(1,0,2),"anchor_age":.2,"anchor_serial":1,"anchor_kind":"anchor_compression","gravity_field":{},"fulcrum_slashes":[],"gravity_rifts":[]}
+ var before:=state.duplicate(true);a.paint_state(state,0)
+ ck(state==before,"Effects never mutate replicated combat state")
+ ck(a.core.visible and a.spike.visible and not a.blast.visible,"Compression displays a black hole and spike")
+ ck(a.core.position.is_equal_approx(state.anchor_pos+Vector3.UP*.7),"Anchor effects retain their ground location")
+ var other:=state.duplicate(true);other.anchor_kind="anchor_expansion";other.anchor_pos=Vector3(4,0,-2)
+ b.paint_state(other,0)
+ ck(b.blast.visible and b.blast.mesh is SphereMesh,"Expansion is a three-dimensional spherical blast")
+ ck(is_equal_approx(b.blast.scale.x,3.6),"Blast size matches damage radius")
+ ck(a.core.position!=b.core.position,"Concurrent effects retain independent positions")
+ state.anchor_left=0;state.gravity_field={"position":Vector3.ZERO,"age":1.1,"left":5.0}
+ a.reduced=true;a.paint_state(state,0)
+ ck(not a.spike.visible and a.grass.visible,"Dark Growth consumes the anchor presentation")
+ ck(a.grass.multimesh.visible_instance_count==480 and a.field_boundary.scale.x==6,"Reduced effects still show the full six-meter grass radius")
+ for kind in ["ruin_right","ruin_left","divide"]:
+  for progress in [.05,.3,.7,.95]:
+   var orientation:=Basis.from_euler(FX.sword_rotation(kind,progress))
+   var next:=Basis.from_euler(FX.sword_rotation(kind,progress+.001))
+   var travel:=(-next.z+orientation.z).normalized()
+   ck(absf(travel.dot(orientation.x))>.999,"Blade edge leads "+kind+" at "+str(progress))
+ ck(FX.sword_opacity(0,false)==0 and FX.sword_opacity(.018,false)==1,"Ruin appears within eighteen milliseconds")
+ ck(FX.sword_opacity(.2851,false)==0,"Ruin vanishes within twenty-five milliseconds after the slash")
+ ck(FX.sword_opacity(.5,true)>0 and FX.sword_opacity(.96,true)==0,"Divide retains gradual disappearance")
+ state.gravity_field={};state.fulcrum_slashes=[{"serial":8,"kind":"ruin_right","position":Vector3.ZERO,"yaw":0.0,"age":.08}]
+ a.paint_state(state,0,1,0)
+ var prior:Vector3=a.slashes[8].pivot.rotation
+ a.paint_state(state,1.0/60,1,0)
+ ck(a.slashes[8].pivot.rotation!=prior,"Sword animation advances between held 20Hz snapshots")
+ ck(a.find_children("*","CollisionObject3D",true,false).is_empty(),"Presentation adds no gameplay collision objects")
+ state.fulcrum_slashes=[];a.paint_state(state,0)
+ ck(a.slashes.is_empty(),"Consumed slash state cleans up visuals")
+ stage.queue_free();await process_frame
+ print("Gravity Anchor checks: %d passed / %d total"%[checks-failures,checks]);quit(1 if failures else 0)

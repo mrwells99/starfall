@@ -52,7 +52,7 @@ static func active(actor, sources: Array = [], local_source: int = -1) -> Array:
 		var stacks := int(dot.get("stacks", 1))
 		out.append({"key": "graviton_%s" % source_id, "name": "Graviton ×%d" % stacks, "kind": DEBUFF, "remaining": dot.left, "color": Color("b98cff"), "source": "Graviton", "description": "%d damage each second (%d/2 stacks). Generates no Meditation. DPS Mend removes this DoT." % [30 * stacks, stacks]})
 	for source_id in actor.identity.entropy_dots:
-		out.append({"key": "entropy_%s" % source_id, "name": "Entropy", "kind": DEBUFF, "remaining": actor.identity.entropy_dots[source_id].left, "color": Color("d395ff"), "source": "Entropy", "description": "20 damage and 5 Meditation for its caster each second. Cannot stack per caster. DPS Mend removes this DoT."})
+		out.append({"key": "entropy_%s" % source_id, "name": "Entropy", "kind": DEBUFF, "remaining": actor.identity.entropy_dots[source_id].left, "color": Color("d395ff"), "source": "Entropy", "description": "20 damage and 10 Meditation for its caster each second. Cleansing silences the cleanser for 3s and deals 10% maximum-health damage."})
 	if actor.stunned > 0:
 		out.append({
 			"key": "stun", "name": "Stunned", "kind": DEBUFF,
@@ -85,6 +85,12 @@ static func active(actor, sources: Array = [], local_source: int = -1) -> Array:
 			"description": "Moves 65% faster. Does not increase jump height or clear stuns.",
 		})
 	var identity: Dictionary = actor.identity
+	if identity.get("gravity_flow",0.0)>0:
+		out.append({"key":"gravity_flow","name":"Gravity Flow","kind":BUFF,"remaining":identity.gravity_flow,"color":Color("c080ff"),"source":"Gravity Flow","description":"Ruin/Divide off GCD. Instant Divide; +50% damage below 30% health."})
+	if identity.get("divide_ready",0.0)>0:
+		out.append({"key":"divide_ready","name":"Divide ready","kind":BUFF,"remaining":identity.divide_ready,"color":Color("e2bcff"),"source":"Divide","description":"Ruin combo complete. Aim and unleash Divide."})
+	if identity.get("gravity_slow",0.0)>0:
+		out.append({"key":"gravity_rift","name":"Gravity Rift","kind":DEBUFF,"remaining":identity.gravity_slow,"color":Color("aa77dd"),"source":"Divide","description":"Movement speed reduced by 50%."})
 	if identity.get("stealth",false):
 		out.append({"key":"stealth", "name":"Stealth", "kind":BUFF, "remaining":0.0, "source":"Stealth", "color":Color("b9c0c7"), "description":"Hidden until detected within 3.5m for 0.7s. Attacks and damage break concealment."})
 	if identity.get("null_haste",0.0)>0:
@@ -94,6 +100,8 @@ static func active(actor, sources: Array = [], local_source: int = -1) -> Array:
 		out.append({"key":"null_regen", "name":"Regen Pot", "kind":BUFF, "remaining":regen.left, "source":"Regen Pot", "color":Color("97edb1"), "description":"Cleansed attached damage-over-time effects, then regenerates 336 health over 6 seconds."})
 	if identity.get("roll_haste", 0.0) > 0:
 		out.append({"key":"roll_haste", "name":"Quickstep", "kind":BUFF, "remaining":identity.roll_haste, "color":Color("f2c676"), "source":"Roll", "description":"25% faster movement for 5s after Roll."})
+	if identity.get("crippling_verdict",0.0)>0 and identity.immune<=0:
+		out.append({"key":"crippling_verdict", "name":"Crippling Verdict", "kind":DEBUFF, "remaining":identity.crippling_verdict, "color":Color("dd6c74"), "source":"Crippling Verdict", "description":"Movement slowed by 60% for 6s."})
 	if preload("res://scripts/outlaw_mechanics.gd").severe_slowed(actor):
 		out.append({"key":"severe_slow", "name":"Hobbled", "kind":DEBUFF, "remaining":identity.severe_slow, "color":Color("dd6c74"), "source":"Severe", "description":"60% slower movement; walking gait. Lasts 6s."})
 	if preload("res://scripts/outlaw_mechanics.gd").backflip_airborne(actor):

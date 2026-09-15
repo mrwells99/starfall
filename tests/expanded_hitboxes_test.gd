@@ -16,11 +16,11 @@ func run() -> void:
 			actor.rotation.y = yaw; actor.update_hitboxes(1.0/60)
 			var native_head: Vector3 = (body.points[8]+body.points[9])*.5
 			var enlarged_head: Vector3 = actor.position+(native_head-actor.position)*Bodies.AIM_SCALE
-			# The enlarged head has 2x horizontal and 1.25x vertical radius.
+			# The approved filled envelope has 2.5x horizontal and 1.25x vertical scale.
 			var origin: Vector3 = enlarged_head + Vector3(body.radii[4]*1.8,0,-4)
 			check(Bodies.trace(origin,Vector3.BACK,8,body.points,body.radii).is_empty(),title+" original body misses the outer aiming margin")
 			var hit := Bodies.trace_aim(origin,Vector3.BACK,8,body.points,body.radii,actor.position)
-			check(not hit.is_empty() and hit.part=="head",title+" expanded aiming volume hits its wider head at each heading")
+			check(not hit.is_empty() and hit.part=="body",title+" filled aiming volume includes the head margin at each heading")
 			check(not hit.is_empty() and is_equal_approx(hit.distance,origin.distance_to(hit.position)),"Expanded hit distance remains in world metres")
 			origin = enlarged_head+Vector3(0,body.radii[4]*1.15,-4)
 			check(not Bodies.trace_aim(origin,Vector3.BACK,8,body.points,body.radii,actor.position).is_empty(),title+" includes the 25-percent-taller aiming margin")

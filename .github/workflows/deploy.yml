@@ -170,11 +170,20 @@ jobs:
         if: matrix.suite == 'gameplay'
         run: |
           ./tests/check_suite.sh "Fulcrum Meditation checks" godot --headless --path . --script tests/fulcrum_meditation_test.gd
+          ./tests/check_suite.sh "Gravity Anchor checks" godot --headless --path . --script tests/gravity_anchor_effect_test.gd
+          ./tests/check_suite.sh "Fulcrum command pose checks" godot --headless --path . --script tests/fulcrum_command_pose_test.gd
           ./tests/check_suite.sh "Vanguard Charge checks" godot --headless --path . --script tests/vanguard_charge_test.gd
 
       - name: Aimed Solar Flare and directional Blink charges
         if: matrix.suite == 'gameplay'
         run: ./tests/check_suite.sh "Ember abilities checks" godot --headless --path . --script tests/ember_abilities_test.gd
+
+      - name: September balance and targeted playback regressions
+        if: matrix.suite == 'gameplay'
+        run: |
+          ./tests/check_suite.sh "September balance checks" godot --headless --path . --script tests/september_balance_test.gd
+          ./tests/check_suite.sh "Targeted combat playback checks" godot --headless --path . --script tests/targeted_combat_playback_test.gd
+          ./tests/check_suite.sh "Deadeye stealth checks" godot --headless --path . --script tests/deadeye_stealth_test.gd
 
       - name: Outlaw combos and character presentation
         if: matrix.suite == 'outlaw'
@@ -239,6 +248,7 @@ jobs:
           python3 tests/run_network.py --test-movement --test-latency --test-drop-jump
           python3 tests/run_charge_network.py --test-latency
           python3 tests/run_ember_network.py --test-latency
+          python3 tests/run_fulcrum_network.py --test-latency
           python3 tests/run_trinket_network.py
           python3 tests/run_aimed_network.py --test-latency
           python3 tests/run_null_network.py --test-latency

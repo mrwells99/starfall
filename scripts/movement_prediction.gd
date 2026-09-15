@@ -5,6 +5,7 @@ extends RefCounted
 var history: Array = []
 var pending: Dictionary = {}
 var revision := -1
+var last_null_action_serial := -1
 var grounded_override: Variant = null
 const HISTORY_LIMIT := 180
 
@@ -12,6 +13,7 @@ func reset() -> void:
 	history.clear()
 	pending.clear()
 	revision = -1
+	last_null_action_serial = -1
 	grounded_override = null
 
 func reconcile(game, actor) -> void:
@@ -33,7 +35,7 @@ func reconcile(game, actor) -> void:
 	actor.rotation.y = state.yaw
 	# Roll's remaining travel is movement state; rewind it before replaying inputs.
 	# Combat buffs and combo resources remain server-owned.
-	for key in ["roll_left", "roll_direction", "roll_distance", "backflip_active", "lasso", "lasso_knockdown", "null_vantage"]:
+	for key in ["roll_left", "roll_direction", "roll_distance", "backflip_active", "lasso", "lasso_knockdown", "null_vantage", "gravity_motion"]:
 		if state.get("identity", {}).has(key):
 			var value = state.identity[key]
 			actor.identity[key] = value.duplicate(true) if value is Dictionary else value
@@ -41,7 +43,13 @@ func reconcile(game, actor) -> void:
 	# Use the server contact for the first replay/prediction step; subsequent
 	# move_and_slide calls provide fresh contact at the replayed position.
 	grounded_override = state.get("grounded", null)
+	var action_serial: int = state.get("identity", {}).get("null_action_serial", -1)
+	var fresh_blindside: bool = actor.champion == "Null" and action_serial > last_null_action_serial and state.get("identity", {}).get("null_action", "") == "blindside"
+	last_null_action_serial = action_serial
 	if forced:
+		if fresh_blindside:
+			game.local_yaw = state.yaw
+			game.pivot.rotation.y = state.yaw
 		history.clear()
 		actor.reset_physics_interpolation()
 	else:

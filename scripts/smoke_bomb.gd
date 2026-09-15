@@ -10,6 +10,8 @@ static func inside(cloud: Dictionary, position: Vector3) -> bool:
 static func separates(game, a, b) -> bool:
 	if a == null or b == null or a == b: return false
 	for owner in game.actors.values():
+		# The owner's team can cast freely through its own smoke.
+		if a.team == owner.team: continue
 		var cloud: Dictionary = owner.identity.get("smoke_bomb", {})
 		if owner.hp <= 0 or float(cloud.get("left", 0.0)) <= 0.0: continue
 		if inside(cloud, a.position) != inside(cloud, b.position): return true

@@ -3,6 +3,19 @@ extends RefCounted
 # Art is presentation data; it never enters combat kits or network snapshots.
 # Shared ability names intentionally share art (Mend on Ember and Vanguard).
 const PATHS := {
+	"Compression · Close": "res://assets/icons/abilities/fulcrum/compression_close.svg",
+	"Compression · Mid": "res://assets/icons/abilities/fulcrum/compression_mid.svg",
+	"Compression · Long": "res://assets/icons/abilities/fulcrum/compression_long.svg",
+	"Expansion · Close": "res://assets/icons/abilities/fulcrum/expansion_close.svg",
+	"Expansion · Mid": "res://assets/icons/abilities/fulcrum/expansion_mid.svg",
+	"Expansion · Long": "res://assets/icons/abilities/fulcrum/expansion_long.svg",
+	"Ruin": "res://assets/icons/abilities/fulcrum/ruin.svg",
+	"Divide": "res://assets/icons/abilities/fulcrum/divide.svg",
+	"Gravity Flow": "res://assets/icons/abilities/fulcrum/gravity_flow.svg",
+	"Anchor Exchange": "res://assets/icons/abilities/fulcrum/anchor_exchange.svg",
+	"Dark Growth": "res://assets/icons/abilities/fulcrum/dark_growth.svg",
+
+	"Crippling Verdict": "res://assets/icons/abilities/crippling_verdict.svg",
 	"Temporal Strike": "res://assets/icons/abilities/null/stab.svg",
 	"Regen Pot": "res://assets/icons/abilities/null/regen_pot.svg",
 	"Chronoshift": "res://assets/icons/abilities/null/chronoshift.svg",
