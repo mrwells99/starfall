@@ -33,6 +33,7 @@ static func deadeye_detection(a, observer) -> bool:
 
 static func targetable(game, observer, a) -> bool:
 	if observer == null or a == null: return false
+	if preload("res://scripts/ember_mechanics.gd").hidden_from(a,observer): return false
 	return not stealthed(a) or a == observer or a.team == observer.team or detected(a,observer)
 
 static func break_stealth(game, a) -> void:

@@ -16,7 +16,7 @@ static func remaining(actor, category: String) -> float:
 	return float(actor.cc_effects.get(category, {}).get("remaining", 0.0))
 static func apply(actor, category: String, duration: float, source: String) -> float:
 	if category not in CATEGORIES or duration <= 0 or actor.hp <= 0: return 0.0
-	if airborne_immune(actor): return 0.0
+	if airborne_immune(actor) or preload("res://scripts/ember_mechanics.gd").spirit(actor): return 0.0
 	if category == "silence" and actor.champion == "Vanguard": return 0.0
 	if category == "disarm" and actor.champion not in ["Vanguard", "Outlaw"]: return 0.0
 	if category == "root" and actor.identity.get("immune", 0) > 0: return 0.0

@@ -49,3 +49,18 @@ incoming-windows/
 /explosive_anim_importer v5.0.py
 /explosive.ws-products-rpg-animations-glb.url
 /explosive.ws-to-godot.url
+
+# Imported local animation research, tools, and backups (2026-09-15).
+# These are reference/work files; keep them out of commits and pushes.
+/animation_cache/
+/animation_references/
+/animation_sources/
+/animation_tools/
+/diagnostics/
+/fulcrum-redesign/
+/merge_backups/
+/workflow_backups/
+/workflow_tools/
+/workflows/
+/art_source/workflows/starforge-motionlab/
+/.gdignore

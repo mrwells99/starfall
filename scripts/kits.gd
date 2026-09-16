@@ -1,7 +1,7 @@
 extends RefCounted
 const DIVIDE_MANUAL_AIM := false # Set true to recall the retained aim version.
 
-static var SELF_KINDS := ["shield", "self_heal", "regen_pot", "blink", "sprint", "cinder", "stoke", "wake", "hold", "unbroken", "anchor", "orbit", "collapse", "flare_cc", "roll", "backflip", "coin_toss", "deadeye", "defense_detonation", "trinket", "stealth", "null_haste", "chronoshift", "smoke_bomb", "anchor_compression", "anchor_expansion", "anchor_exchange", "anchor_field", "gravity_flow"] + (["divide"] if DIVIDE_MANUAL_AIM else [])
+static var SELF_KINDS := ["ash", "shield", "self_heal", "regen_pot", "blink", "sprint", "cinder", "stoke", "wake", "hold", "unbroken", "anchor", "orbit", "collapse", "flare_cc", "roll", "backflip", "coin_toss", "deadeye", "defense_detonation", "trinket", "stealth", "null_haste", "chronoshift", "smoke_bomb", "anchor_compression", "anchor_expansion", "anchor_exchange", "anchor_field", "gravity_flow"] + (["divide"] if DIVIDE_MANUAL_AIM else [])
 const ALLY_KINDS := ["heal", "ally_shield", "dispel", "falling", "absolution", "stitch", "star", "pilgrim", "last", "intercede", "swap"]
 const KIT_SIZE := 16
 const TRINKET_SLOT := 14 # Shared slot; preserve all existing class indices.
@@ -120,6 +120,7 @@ static func class_kit(champion: String) -> Array:
 		kit[5] = spell("Greater Heal", "heal", 27, 28, 1.8, 0)
 		kit[6] = spell("Grace", "sprint", 4, 0, 0, 16, true)
 	if champion == "Ember":
+		kit[4] = spell("Fire Barrier", "shield", 5, 0, 0, 22, true)
 		kit[0] = spell("Kindle", "kindle", 16, 28, 1.5, 0)
 		kit[1] = spell("Flashpoint", "flashpoint", 12, 22, 0, 7)
 		kit.append_array([
@@ -127,7 +128,8 @@ static func class_kit(champion: String) -> Array:
 			spell("Solar Flare", "flare_cc", 3, 0, 0, 18),
 			spell("Cinderstep", "cinder", 6, 0, 0, 18, true),
 			spell("Stoke", "stoke", 30, 0, 1.5, 12),
-			spell("Burning Wake", "wake", 5, 0, 0, 18)])
+			spell("Burning Wake", "wake", 5, 0, 0, 18),
+			spell("Ash", "ash", 6, 0, 0, 90, true)])
 	elif champion == "Vanguard":
 		kit[0] = spell("Sundering Blow", "sunder", 13, 3.5, 0, 0)
 		kit[1] = spell("Oathbreaker", "oath", 15, 3.5, 0.8, 7)
@@ -185,9 +187,10 @@ static func summary(ability: Dictionary) -> String:
 		"flashpoint": "Consume your brands: 120 + 60 damage per brand. Three brands also deal 100 splash damage within 5m. Gain 10 Heat.",
 		"nova": "Requires 40 Heat. Consume all Heat: 180 + 4 damage per Heat to enemies within 5m of the target.",
 		"flare_cc": "Aim a 4m, 108-degree cone in front of you. No selected target is needed. Incapacitate enemies you hit for up to 3s. Terrain blocks the effect. Any damage breaks it; uses incapacitate diminishing returns.",
-		"cinder": "Requires and spends 20 Heat. Dash 6m and leave a 5s burning trail that slows enemies by 45%.",
+		"ash": "Become an invulnerable flame spirit for up to 6s, invisible to enemies, moving 50% faster. Press again to end early. Freeze for 0.65s while your ash follows your route and reforms you; invulnerability ends when spirit form ends. Cannot cast other abilities in Ash. 90s cooldown.",
+		"cinder": "Spend 20 Heat to skate for 3s at 80% increased movement speed. Steer with movement controls. Leave flames 3m wide for 5s; they deal 40 damage each second and slow enemies by 45%. No teleport.",
 		"stoke": "Generate 30 Heat. Maximum 100 Heat.",
-		"wake": "Create a 5m burning field at your feet for 5s. It slows enemies by 45% and deals 40 damage each second.",
+		"wake": "Create a burning ring for 5s: 5m outer radius, 3m safe inner radius. Enemies in the ring move 45% slower and take 60 damage each second.",
 		"sunder": "Deal 130 damage and gain 20 Resolve (maximum 100). Expose this enemy to your next Oathbreaker for 6s.",
 		"oath": "Spend all Resolve: deal 150 + 3 damage per Resolve, plus 80 against your exposed target.",
 		"intercede": "Rush to another ally. For 5s redirect 30% of their damage to yourself, up to 300 damage total, while within 18m and line of sight. Redirected damage grants Resolve.",

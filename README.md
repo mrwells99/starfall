@@ -13,6 +13,8 @@ A Godot 4.5 arena-combat prototype: **WoW-style controls** (WASD, mouse turn, st
 - **Art direction:** [`docs/ART_DIRECTION.md`](docs/ART_DIRECTION.md)
 - **Animation previews/approval and reusable local resources:** [`docs/ANIMATION_WORKFLOW.md`](docs/ANIMATION_WORKFLOW.md), [`docs/ADDON_RESOURCE_NOTES.md`](docs/ADDON_RESOURCE_NOTES.md)
 
+- **Ember ability-particle experiment and Linux resource setup:** [`art_source/workflows/ability-particles/README.md`](art_source/workflows/ability-particles/README.md)
+
 ## For players
 
 Packaged desktop launchers install and update the game without the editor: [Windows](docs/WINDOWS_DISTRIBUTION.md) and [Linux (Ubuntu / Arch)](docs/LINUX_DISTRIBUTION.md). Linux support is prepared locally and awaits its first deployment.

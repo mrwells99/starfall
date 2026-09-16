@@ -1,0 +1,119 @@
+{
+  "schema": 1,
+  "recorded": "2026-09-16",
+  "status": "Ember local test r001",
+  "archives": [
+    {
+      "url": "https://kenney.nl/media/pages/assets/particle-pack/f8fe0f8cb8-1677578741/kenney_particle-pack.zip",
+      "sha256": "b631d4b07f7002549fdcf155f01141ad482f79f3440e4e301eed49ce5f1d8958"
+    }
+  ],
+  "assets": [
+    {
+      "path": "assets/effects/ember/fire_01.png",
+      "sha256": "9727a9743ac6ab8dd4dd79f5fc5b0266290efae45f4d4452279eb5e4bcf3a978",
+      "bytes": 99891,
+      "license": "CC0-1.0",
+      "modifications": "Original bytes; tint, alpha and motion applied at runtime.",
+      "author": "Kenney Vleugels",
+      "source_page": "https://kenney.nl/assets/particle-pack",
+      "download_url": "https://kenney.nl/media/pages/assets/particle-pack/f8fe0f8cb8-1677578741/kenney_particle-pack.zip",
+      "archive_member": "PNG (Transparent)/fire_01.png",
+      "usage": "Flashpoint, supernova and white flare"
+    },
+    {
+      "path": "assets/effects/ember/fireball-front.jpg",
+      "sha256": "50af7a782571832d102a960c0082f2d02d9bf86dda25b8318f82aa045cfdbc2a",
+      "bytes": 2688,
+      "license": "CC0-1.0",
+      "modifications": "Original bytes; tint, alpha and motion applied at runtime.",
+      "author": "Crack.com (Golgotha); OpenGameArt submission by bart",
+      "source_page": "https://opengameart.org/content/golgotha-effects-textures-fireball-frontjpg",
+      "download_url": "https://raw.githubusercontent.com/Tiddybub/2d-assets/e0cbe0d995554a490d4c182fe9beb8769ffbb606/sci-fi/oga-golgotha-effects-textures-fireball-frontjpg/fireball-front.jpg",
+      "license_evidence": "Official side texture page lists CC0; frozen mirror SOURCE.md records CC0 for front. Front page unavailable during this run.",
+      "usage": "Kindle projectile"
+    },
+    {
+      "path": "assets/effects/ember/fireball-side.jpg",
+      "sha256": "0af8b25cdb1e1feac8b79c22c285996ae926cf2f2c9b29aa598b4a7d0e11fcbf",
+      "bytes": 2991,
+      "license": "CC0-1.0",
+      "modifications": "Original bytes; tint, alpha and motion applied at runtime.",
+      "author": "Crack.com (Golgotha); OpenGameArt submission by bart",
+      "source_page": "https://opengameart.org/content/golgotha-effects-textures-fireball-sidejpg",
+      "download_url": "https://raw.githubusercontent.com/Tiddybub/2d-assets/e0cbe0d995554a490d4c182fe9beb8769ffbb606/sci-fi/oga-golgotha-effects-textures-fireball-sidejpg/fireball-side.jpg",
+      "license_evidence": "Official side texture page lists CC0; frozen mirror SOURCE.md records CC0 for front. Front page unavailable during this run.",
+      "usage": "Alternative retained for future mixing; not active"
+    },
+    {
+      "path": "assets/effects/ember/flame_01.png",
+      "sha256": "92a70bcb90b1e21c57b2dae42843135703b2e988abee97433f84c3119723d144",
+      "bytes": 54099,
+      "license": "CC0-1.0",
+      "modifications": "Original bytes; tint, alpha and motion applied at runtime.",
+      "author": "Kenney Vleugels",
+      "source_page": "https://kenney.nl/assets/particle-pack",
+      "download_url": "https://kenney.nl/media/pages/assets/particle-pack/f8fe0f8cb8-1677578741/kenney_particle-pack.zip",
+      "archive_member": "PNG (Transparent)/flame_01.png",
+      "usage": "Ring, spirit aura and fireball tail"
+    },
+    {
+      "path": "assets/effects/ember/flame_02.png",
+      "sha256": "7afff66979a5a30319d4fa491b13a9027223ebbdadfa38fae4ae76e31d05d9c5",
+      "bytes": 68498,
+      "license": "CC0-1.0",
+      "modifications": "Original bytes; tint, alpha and motion applied at runtime.",
+      "author": "Kenney Vleugels",
+      "source_page": "https://kenney.nl/assets/particle-pack",
+      "download_url": "https://kenney.nl/media/pages/assets/particle-pack/f8fe0f8cb8-1677578741/kenney_particle-pack.zip",
+      "archive_member": "PNG (Transparent)/flame_02.png",
+      "usage": "Skate trail and fire barrier"
+    },
+    {
+      "path": "assets/effects/ember/scorch_01.png",
+      "sha256": "ea72697696638786ccd4795a346d177b1b6a904331b5536a7e85a7ed927b93a5",
+      "bytes": 60598,
+      "license": "CC0-1.0",
+      "modifications": "Original bytes; tint, alpha and motion applied at runtime.",
+      "author": "Kenney Vleugels",
+      "source_page": "https://kenney.nl/assets/particle-pack",
+      "download_url": "https://kenney.nl/media/pages/assets/particle-pack/f8fe0f8cb8-1677578741/kenney_particle-pack.zip",
+      "archive_member": "PNG (Transparent)/scorch_01.png",
+      "usage": "Supernova ground warning"
+    },
+    {
+      "path": "assets/effects/ember/smoke_01.png",
+      "sha256": "e8724c219e8d35859167fc0a7e207e13c72ccf0c29704909b9bb3d3dc71c6cf7",
+      "bytes": 97452,
+      "license": "CC0-1.0",
+      "modifications": "Original bytes; tint, alpha and motion applied at runtime.",
+      "author": "Kenney Vleugels",
+      "source_page": "https://kenney.nl/assets/particle-pack",
+      "download_url": "https://kenney.nl/media/pages/assets/particle-pack/f8fe0f8cb8-1677578741/kenney_particle-pack.zip",
+      "archive_member": "PNG (Transparent)/smoke_01.png",
+      "usage": "Ash motes"
+    },
+    {
+      "path": "assets/effects/ember/spark_01.png",
+      "sha256": "5902da3a324cad0a4b5a88ce1e3c9cc18fee50922c358ce93d8c9f1ad7708f0a",
+      "bytes": 95070,
+      "license": "CC0-1.0",
+      "modifications": "Original bytes; tint, alpha and motion applied at runtime.",
+      "author": "Kenney Vleugels",
+      "source_page": "https://kenney.nl/assets/particle-pack",
+      "download_url": "https://kenney.nl/media/pages/assets/particle-pack/f8fe0f8cb8-1677578741/kenney_particle-pack.zip",
+      "archive_member": "PNG (Transparent)/spark_01.png",
+      "usage": "Alternative retained for future mixing; not active"
+    }
+  ],
+  "not_downloaded": [
+    {
+      "url": "https://opengameart.org/content/animated-flame-fire-sprite-sheet",
+      "reason": "Direct ZIP timed out; not installed."
+    },
+    {
+      "url": "https://opengameart.org/content/fireball-effect",
+      "reason": "Direct ZIP timed out; not installed."
+    }
+  ]
+}

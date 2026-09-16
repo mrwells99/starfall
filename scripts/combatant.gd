@@ -25,6 +25,8 @@ var identity: Dictionary = {}
 # Local lifecycle bookkeeping, never part of the replicated ability state.
 var death_identity_cleaned := false
 var charge: Dictionary = {}
+# Authority-only Ash breadcrumbs. Only the completed route is sent on recall.
+var ember_route := PackedVector3Array()
 var gcd := 0.0
 var casting := -1
 var queued_spell: Dictionary = {}
@@ -253,6 +255,20 @@ func snapshot() -> Dictionary:
 		"stun_src": stun_from, "lock_src": lock_from, "shield_src": shield_from, "sprint_src": sprint_from, "dr": dr_count, "dr_timer": dr_timer, "dr_states": dr_states.duplicate(true), "cc_effects": cc_effects.duplicate(true), "cast_target": cast_target, "target": target_id, "identity": identity.duplicate(true), "charge": charge.duplicate(true)}
 
 	if not queued_spell.is_empty(): state["queued_spell"] = queued_spell.duplicate()
+	if state.identity.has("cinder_trail"):
+		var trail := PackedInt32Array()
+		for point in state.identity.cinder_trail:
+			trail.append_array(PackedInt32Array([roundi(point.position.x*100),roundi(point.position.y*100),roundi(point.position.z*100),roundi(point.left*100)]))
+		state.identity.cinder_trail = trail
+	if champion == "Ember":
+		var ember: Dictionary = {}
+		var keys = preload("res://scripts/ember_mechanics.gd").SNAPSHOT_KEYS
+		for i in keys.size():
+			var value = state.identity.get(keys[i])
+			if value != null and not ((value is int or value is float) and value == 0): ember[i] = value
+			state.identity.erase(keys[i])
+		for key in ["cinder_tick","wake_tick","wake_end","ash_destination"]: state.identity.erase(key)
+		if not ember.is_empty(): state.ember = ember
 	# Inactive redesign state is restored by the receiver; do not spend packet
 	# space repeating empty effect lists/timers for every combatant.
 	for key in preload("res://scripts/fulcrum_mechanics.gd").SNAPSHOT_DEFAULT_KEYS:
@@ -287,6 +303,17 @@ func receive(data: Dictionary, instant: bool = false) -> void:
 	elif totals is PackedFloat64Array and totals.size() == 5:
 		match_stats = {"damage": totals[0], "healing": totals[1], "kills": totals[2], "interrupts": totals[3], "cc": totals[4]}
 	identity = data.get("identity", {}).duplicate(true)
+	if champion == "Ember":
+		identity.wake=0.0; identity.wake_pos=Vector3.ZERO; identity.wake_end=Vector3.ZERO; identity.wake_tick=0.0
+		var keys = preload("res://scripts/ember_mechanics.gd").SNAPSHOT_KEYS
+		for i in data.get("ember",{}):
+			if i is int and i>=0 and i<keys.size(): identity[keys[i]] = data.ember[i]
+	if identity.get("cinder_trail") is PackedInt32Array:
+		var trail: Array = []
+		var packed: PackedInt32Array = identity.cinder_trail
+		for i in range(0,packed.size()-3,4):
+			trail.append({"position":Vector3(packed[i],packed[i+1],packed[i+2])*.01,"left":packed[i+3]*.01})
+		identity.cinder_trail = trail
 	var gravity_keys=preload("res://scripts/fulcrum_mechanics.gd").SNAPSHOT_DEFAULT_KEYS
 	for index in data.get("gravity",{}):
 		if index is int and index>=0 and index<gravity_keys.size():identity[gravity_keys[index]]=data.gravity[index]
@@ -348,6 +375,7 @@ func reset_identity() -> void:
 	death_identity_cleaned = hp <= 0
 	queued_spell.clear()
 	charge.clear()
+	ember_route.clear()
 	jump_queued = false
 	jump_buffer = 0
 	dr_states.clear()

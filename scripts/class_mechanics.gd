@@ -4,6 +4,7 @@ const Fulcrum = preload("res://scripts/fulcrum_mechanics.gd")
 const INSTANT_PROC_DURATION := 4.0
 const Smoke = preload("res://scripts/smoke_bomb.gd")
 const GravityAnchorEffect = preload("res://scripts/gravity_anchor_effect.gd")
+const Ember = preload("res://scripts/ember_mechanics.gd")
 const SolarFlareIndicator = preload("res://scripts/solar_flare_indicator.gd")
 
 static func point_los(game, a: Vector3, b: Vector3) -> bool:
@@ -106,7 +107,7 @@ static func validate(game, a, spell: Dictionary, b) -> String:
 static func enemies(game, a, center: Vector3, radius: float, requires_sight: bool = true) -> Array:
 	var out: Array = []
 	for b in game.actors.values():
-		if b.hp > 0 and b.team != a.team and game.may_harm(a, b) and center.distance_to(b.position) <= radius and not Smoke.separates(game,a,b) and (not requires_sight or point_los(game, center, b.position)):
+		if b.hp > 0 and b.team != a.team and not Ember.spirit(b) and game.may_harm(a, b) and center.distance_to(b.position) <= radius and not Smoke.separates(game,a,b) and (not requires_sight or point_los(game, center, b.position)):
 			out.append(b)
 	return out
 
@@ -135,6 +136,7 @@ static func control(game, a, b, duration: float, title: String, root_only: bool 
 static func resolve(game, a, spell: Dictionary, b) -> bool:
 	if Smoke.separates(game,a,b): return true
 	var s: Dictionary = a.identity
+	if Ember.resolve(game,a,spell,b): return true
 	if Fulcrum.resolve(game,a,spell,b): return true
 	match spell.kind:
 		"crippling_verdict":
@@ -158,11 +160,13 @@ static func resolve(game, a, spell: Dictionary, b) -> bool:
 			for other in enemies(game, a, b.position, a.Kits.STARFALL_RADIUS):
 				game.damage(a, other, power)
 		"kindle":
+			game.ember_effect(a,"kindle",a.position,b.position)
 			game.damage(a, b, spell.power)
 			s.heat = minf(100, s.heat + 20)
 			var brand: Dictionary = s.brands.get(b.actor_id, {"count": 0, "left": 0.0})
 			s.brands[b.actor_id] = {"count": mini(3, int(brand.count) + 1), "left": 10.0}
 		"flashpoint":
+			game.ember_effect(a,"flashpoint",a.position,b.position)
 			var n: int = s.brands.get(b.actor_id, {}).get("count", 0)
 			s.brands.erase(b.actor_id)
 			game.damage(a, b, 12 + n * 6)
@@ -172,6 +176,7 @@ static func resolve(game, a, spell: Dictionary, b) -> bool:
 					if other != b:
 						game.damage(a, other, 10)
 		"nova":
+			game.ember_effect(a,"nova",a.position,b.position)
 			var power: float = 18 + s.heat * 0.4
 			s.heat = 0.0
 			for other in enemies(game, a, b.position, 5):
@@ -179,6 +184,7 @@ static func resolve(game, a, spell: Dictionary, b) -> bool:
 		"stoke":
 			s.heat = minf(100, s.heat + 30)
 		"flare_cc":
+			game.ember_effect(a,"flare_cc",a.position,a.position-a.basis.z*a.Kits.SOLAR_FLARE_RANGE)
 			for other in game.actors.values():
 				if other.hp>0 and other.team!=a.team and game.may_harm(a,other) and game.solar_flare_history.overlaps(game,a,other) and point_los(game,a.position,other.position):
 					control(game,a,other,3,spell.name,false,true)
@@ -198,14 +204,6 @@ static func resolve(game, a, spell: Dictionary, b) -> bool:
 				if spell.kind == "earth" and other.stun_from == spell.name and other.stunned > 0 and other.identity.hold <= 0:
 					other.velocity.y = 4.0
 					other.motion_revision += 1
-		"cinder", "wake":
-			s.wake_pos = a.position
-			if spell.kind == "cinder":
-				s.heat -= 20
-				game.move_ability(a, -a.basis.z * 6)
-			s.wake_end = a.position
-			s.wake = 5.0
-			s.wake_tick = 0.0
 		"sunder":
 			game.damage(a, b, 13)
 			s.resolve = minf(100, s.resolve + 20)
@@ -357,20 +355,7 @@ static func tick(game, a, delta: float) -> void:
 		for b in enemies(game, a, s.anchor_pos, a.Kits.HEAVY_ORBIT_RADIUS, false):
 			if b.identity.immune <= 0 and not game.CC.airborne_immune(b):
 				b.identity.slow = 0.2
-	if s.wake > 0:
-		var pulse: bool = s.wake_tick <= 0
-		if pulse:
-			s.wake_tick = 1.0
-		for b in game.actors.values():
-			if b.hp <= 0 or b.team == a.team or not game.may_harm(a, b) or Smoke.separates(game,a,b):
-				continue
-			var nearest: Vector3 = Geometry3D.get_closest_point_to_segment(b.position, s.wake_pos, s.wake_end)
-			var radius := 5.0 if s.wake_pos == s.wake_end else 1.5
-			if b.position.distance_to(nearest) <= radius and point_los(game, nearest, b.position):
-				if b.identity.immune <= 0 and not game.CC.airborne_immune(b):
-					b.identity.slow = 0.2
-				if pulse:
-					game.damage(a, b, 4, true)
+	Ember.tick(game,a,delta)
 
 static func tick_dots(game, a, dots: Dictionary, delta: float, tick_damage: float, meditation: float) -> void:
 	for source_id in dots.keys():
@@ -462,19 +447,6 @@ static func paint(game) -> void:
 				effect=load("res://scripts/fulcrum_effects.gd").new()
 				a.add_child(effect)
 			effect.sync(a,game.player_options.reduced_effects)
-		var wake := field_marker(a, "BurningField", Color("ff8a4c"))
-		wake.visible = a.hp > 0 and s.wake > 0
-		if wake.visible:
-			wake.global_position = (s.wake_pos + s.wake_end) * 0.5 + Vector3.UP * 0.09
-			var length: float = s.wake_pos.distance_to(s.wake_end)
-			wake.scale = Vector3(5, 0.15, 5) if length < 0.01 else Vector3(1.5, 0.15, length * 0.5 + 1.5)
-			if length > 0.01:
-				wake.look_at(s.wake_end + Vector3.UP * 0.09, Vector3.UP)
-		var nova := field_marker(a, "NovaWarning", Color("ffbb55"))
-		nova.visible = a.hp > 0 and a.casting >= 0 and a.kit[a.casting].kind == "nova" and game.actors.has(a.cast_target)
-		if nova.visible:
-			nova.global_position = game.actors[a.cast_target].position + Vector3.UP * 0.1
-			nova.scale = Vector3(5, 0.15, 5)
 		var starfall := field_marker(a, "StarfallWarning", Color("bb88ff"))
 		starfall.visible = a.hp > 0 and a.casting >= 0 and a.kit[a.casting].kind == "gravity_starfall" and game.actors.has(a.cast_target)
 		if starfall.visible:

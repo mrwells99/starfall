@@ -12,14 +12,15 @@ Range is the actual maximum distance to the selected target. Self-targeted abili
 | 2 | Flashpoint | Consume your brands: 120 + 60 damage per brand. Three brands also deal 100 splash damage within 5m. Gain 10 Heat. | 16.5 m | Instant | 7.0s |
 | 3 | Disrupt | Interrupt an enemy's cast and lock out their spells for 4.0 seconds. | 16.5 m | Instant | 12.0s (off GCD) |
 | 4 | Stasis | Stun an enemy for up to 4.0 seconds, stopping movement and casting. | 15.0 m | 0.8s | 16.0s |
-| 5 | Ward | Take 60% less damage for 5.0 seconds. | Self (0.0 m) | Instant | 22.0s (off GCD) |
+| 5 | Fire Barrier | Take 60% less damage for 5.0 seconds. | Self (0.0 m) | Instant | 22.0s (off GCD) |
 | 6 | Mend | Restore up to 336 of your own health. For DPS classes, completing the cast also removes attached damage-over-time effects. Ground hazards can still hurt you. | Self (0.0 m) | 2.0s | 30.0s |
 | 7 | Blink | Blink up to 8.0m in your movement-input direction, including diagonals. With no movement input, blink forward along your camera's heading. Two charges; restores one charge every 14.0s. Stops at solid terrain. Off the global cooldown; usable while casting without interrupting the cast. | Self (0.0 m) | Instant | 14.0s (off GCD) |
 | Shift+1 | Supernova | Requires 40 Heat. Consume all Heat: 180 + 4 damage per Heat to enemies within 5m of the target. | 18.0 m | 2.2s | 20.0s |
 | Shift+2 | Solar Flare | Aim a 4m, 108-degree cone in front of you. No selected target is needed. Incapacitate enemies you hit for up to 3s. Terrain blocks the effect. Any damage breaks it; uses incapacitate diminishing returns. | 4 m cone | Instant | 18.0s |
-| Shift+3 | Cinderstep | Requires and spends 20 Heat. Dash 6m and leave a 5s burning trail that slows enemies by 45%. | Self (0.0 m) | Instant | 18.0s (off GCD) |
+| Shift+3 | Cinderstep | Requires and spends 20 Heat. Skate for 3s with +80% movement speed; steer normally. Leave a 3m-wide flame trail: each segment lasts 5s, deals 40 damage/sec and slows by 45%. | Self (0.0 m) | Instant | 18.0s (off GCD) |
 | Shift+4 | Stoke | Generate 30 Heat. Maximum 100 Heat. | Self (0.0 m) | 1.5s | 12.0s |
-| Shift+5 | Burning Wake | Create a 5m burning field at your feet for 5s. It slows enemies by 45% and deals 40 damage each second. | Self (0.0 m) | Instant | 18.0s |
+| Shift+5 | Burning Wake | Create a burning ring for 5s: 5m outer radius, safe center inside 3m. The ring slows enemies by 45% and deals 60 damage/sec (+50%). | Self (0.0 m) | Instant | 18.0s |
+| Shift+6 | Ash | Become an invulnerable spirit for up to 6s, invisible to enemies, with +50% movement speed. Press again to recall early. Freeze for 0.65s as ash follows your route and rebuilds you; invulnerability ends with spirit form. Cannot cast other abilities during either phase. | Self (0.0 m) | Instant | 90.0s (off GCD, provisional) |
 | Ctrl+1 | Trinket | Remove all crowd control, roots, slows and interrupt lockouts instantly. Usable while controlled; 2-minute cooldown. Ground hazards may reapply their effects. | Self (0.0 m) | Instant | 120.0s (off GCD) |
 
 ## Vanguard
@@ -129,7 +130,7 @@ Each Luminary owns at most three stars. Brands, stars, anchors, defensive states
 
 Compression and Expansion place anchors 3m / 8m / 15m ahead, swept against collision and projected onto safe ground. Each polarity shares a twelve-second cooldown across its range variants. Compression pulls visible enemies in a 6m radius, deals 132 damage and stuns for 1.2s, subject to normal control rules. It grants 20 Meditation when at least one valid enemy is caught. Expansion's 3.6m purple sphere deals 100 damage and launches enemies with momentum. Sight is judged from the caster, not the anchor: an enemy the anchor could see but you cannot is not affected. Each anchor stays for three seconds: exchange positions with it along a clear path, or consume it to grow a six-second black-grass field to a 6m radius over one second, slowing by 45%. These follow-ups are off GCD and mutually exclusive for that anchor.
 
-Solar Flare is an untargeted 4m cone with a 108-degree total angle, aimed using Ember's character heading. Its local ground outline appears only for one second after a successful cast, including a cast that hits no enemies. Enemies inside the cone must also pass terrain line-of-sight and duel-permission checks. It retains its 18s cooldown, ordinary global cooldown and up-to-3s incapacitate, which breaks on damage.
+Solar Flare is an untargeted 4m cone with a 108-degree total angle, aimed using Ember's character heading. Its white flame burst and local ground outline appear briefly after a successful cast, including a cast that hits no enemies. Enemies inside the cone must also pass terrain line-of-sight and duel-permission checks. It retains its 18s cooldown, ordinary global cooldown and up-to-3s incapacitate, which breaks on damage.
 
 Blink has two stored casts, restoring one charge at a time every 14s. Spending the second charge does not restart the first recharge. It moves up to 8m along the movement input sampled when casting, including diagonals; with no movement input it uses camera heading, even during free look or airborne momentum. It is off the global cooldown and stops at solid terrain. The hotbar shows remaining charges and a recharge countdown; one available charge stays usable while the other recharges.
 

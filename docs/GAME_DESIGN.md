@@ -1,5 +1,9 @@
 # Game Design — established source of truth
 
+## Ember particle experiment — September 16
+
+Ember now has a safe-center Burning Wake ring (5m outer / 3m inner radius, 60 damage/sec), steerable Cinderstep skating (+80% speed for 3s), Fire Barrier (existing Ward mitigation), and Ash (up to 6s invulnerable enemy-hidden spirit at +50% speed, early recall, then 0.65s vulnerable reconstruction). Ash cooldown is provisionally 90s. [Exact class rules](CLASS_ABILITIES.md) and the [reusable particle workflow](../art_source/workflows/ability-particles/README.md) describe the local experiment. Fire/ash animation advances locally; gameplay stays authoritative.
+
 ## September 14 combat adjustments — supersede older values below
 
 - Aimed shots use a filled animated body envelope (no arm/leg gaps), horizontally scaled 2.5 instead of 2.0, retaining the prior 1.25 vertical scale. Movement capsules are unchanged; empty corners around extended limbs are hittable. Normal damage everywhere.
@@ -126,7 +130,7 @@ Existing spell effects and numbers are unchanged: Stasis/Bash/Anchor/Rebuke, Ear
 Simple category icons appear to the left of enemy arena health bars and to the right of party health bars while diminished, with seconds until full duration returns. Hover explains the category and next duration tier. Unit-frame aura strips no longer show a Diminished text badge. Thick icon borders mark immunity.
 
 **Spell lockout** —
-- Ember can use Ward / Blink while locked.
+- Ember can use Fire Barrier / Blink while locked.
 - Luminary can use Grace while locked. Sanctuary is `ally_shield` and is currently blocked while locked.
 - **Vanguard ignores spell lockout completely.** Coarse and provisional — see [`DECISIONS.md`](DECISIONS.md).
 
@@ -180,7 +184,7 @@ Overhead nameplates show the same icons and timers as the unit frames, rather th
 
 Each chip shows **the icon of the ability that caused the effect** — an Ember stun and a Vanguard stun are told apart at a glance — with the countdown beside it. Effects with no illustrated source, such as diminishing returns, fall back to their name so a chip is never blank.
 
-**Auras are derived, never stored.** `scripts/auras.gd` reads the timers the simulation already keeps (`stunned`, `locked`, `shield`, `sprint`, `dr_timer`) rather than maintaining a second list. A displayed aura therefore cannot disagree with the simulation, and nothing extra has to be replicated. The shield field is one mechanic with four names — Ward, Iron Skin, Umbra, Sanctuary — chosen by the champion carrying it.
+**Auras are derived, never stored.** `scripts/auras.gd` reads the timers the simulation already keeps (`stunned`, `locked`, `shield`, `sprint`, `dr_timer`) rather than maintaining a second list. A displayed aura therefore cannot disagree with the simulation, and nothing extra has to be replicated. The shield field is one mechanic with five names — Ward, Fire Barrier, Iron Skin, Umbra, Sanctuary — chosen by the champion carrying it.
 
 Diminishing returns is surfaced as an aura even though it is not an effect on the fighter, because it decides whether your next stun is worth casting.
 

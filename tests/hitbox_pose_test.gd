@@ -20,7 +20,8 @@ func run() -> void:
 		check(FileAccess.get_sha256("res://assets/hitboxes/"+title.to_lower()+"_rig.scn") == manifests.classes[title].rig_sha256,title+" rig integrity is verified")
 		var v_art = visible.champion_model.get(title.to_lower()+"_art")
 		var s_art = server.hitbox_pose.art
-		for state in ["idle","forward","left","backpedal","diagonal","jump","landing","cast","recover","slow_forward","slow_left","roll","roll_recovery","roll_run","backflip","outlaw_mend","outlaw_mend_cancel","outlaw_severe","outlaw_severe_move","outlaw_severe_air","outlaw_severe_instant","stealth","null_lift","null_dive","null_recover","null_stab","null_backstab","null_strike_interrupt","null_blindside","null_blindside_move","null_blindside_air","null_blindside_cancel"]:
+		for state in ["ember_skate","ember_skate_release","idle","forward","left","backpedal","diagonal","jump","landing","cast","recover","slow_forward","slow_left","roll","roll_recovery","roll_run","backflip","outlaw_mend","outlaw_mend_cancel","outlaw_severe","outlaw_severe_move","outlaw_severe_air","outlaw_severe_instant","stealth","null_lift","null_dive","null_recover","null_stab","null_backstab","null_strike_interrupt","null_blindside","null_blindside_move","null_blindside_air","null_blindside_cancel"]:
+			if title != "Ember" and state.begins_with("ember_"): continue
 			if title != "Outlaw" and state.begins_with("outlaw_mend"): continue
 			if title != "Outlaw" and state.begins_with("outlaw_severe"): continue
 			if title != "Outlaw" and state in ["roll","roll_recovery","roll_run","backflip"]: continue
@@ -43,6 +44,9 @@ func run() -> void:
 					actor.casting = 0 if state == "cast" else -1
 					actor.cast_left = maxf(.01,1.5-t) if state == "cast" else 0
 					actor.stunned = 0.0
+					if title == "Ember":
+						actor.identity.cinder_left = 3.0-t if state.begins_with("ember_") and (state!="ember_skate_release" or frame<20) else 0.0
+						actor.identity.cinder_serial = 1 if state=="ember_skate" else 2
 					if state.begins_with("outlaw_mend"):
 						for slot in actor.kit.size():
 							if actor.kit[slot].kind == "self_heal": actor.casting = slot

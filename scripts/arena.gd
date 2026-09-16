@@ -20,6 +20,7 @@ const AURA_SLOTS := 5
 const BAR_COUNT := 3
 const Fulcrum = preload("res://scripts/fulcrum_mechanics.gd")
 const ClassMechanics = preload("res://scripts/class_mechanics.gd")
+const Ember = preload("res://scripts/ember_mechanics.gd")
 var solar_flare_history = preload("res://scripts/solar_flare_history.gd").new()
 const Outlaw = preload("res://scripts/outlaw_mechanics.gd")
 var aimed_combat = preload("res://scripts/aimed_combat.gd").new()
@@ -1016,6 +1017,10 @@ func spawn_actor(id: int, peer: int, side: int, choice: String, pos: Vector3) ->
 	actor.net_position = pos
 	actor.net_yaw = actor.rotation.y
 	actors[id] = actor
+	if choice == "Ember" and not dedicated:
+		var effects = load("res://scripts/ember_effects.gd").new()
+		actor.add_child(effects)
+		effects.setup(self,actor)
 	actor.owner_peer_changed.connect(_on_actor_owner_changed.bind(actor))
 	_refresh_peer_actor(peer)
 	if hitboxes_enabled: actor.setup_hitboxes()
@@ -2263,7 +2268,9 @@ func begin_round() -> void:
 
 func broadcast_round() -> void:
 	if network:
-		round_started.rpc(epoch, mode, make_snapshot())
+		var states := make_snapshot()
+		for peer in multiplayer.get_peers():
+			round_started.rpc_id(peer,epoch,mode,Ember.snapshot_for(states,peer_actor(peer)))
 
 func spawn_position(side: int, index: int) -> Vector3:
 	if world_mode:
@@ -2292,10 +2299,10 @@ func locked_target_for(id: int) -> int:
 	if phase not in ["match","countdown"] or not actors.has(id): return -1
 	if world_mode:
 		var opponent: int=duels.get(id,-1)
-		return opponent if actors.has(opponent) and not Null.stealthed(actors[opponent]) else -1
+		return opponent if actors.has(opponent) and not Null.stealthed(actors[opponent]) and not Ember.spirit(actors[opponent]) else -1
 	if mode==1:
 		for actor in actors.values():
-			if actor.actor_id!=id and actor.team!=actors[id].team and not actor.training_dummy and not Null.stealthed(actor): return actor.actor_id
+			if actor.actor_id!=id and actor.team!=actors[id].team and not actor.training_dummy and not Null.stealthed(actor) and not Ember.spirit(actor): return actor.actor_id
 	return -1
 
 func sync_target_lock() -> void:
@@ -2548,8 +2555,12 @@ func deliver_snapshot(round_epoch: int, seq: int, states: Array, round_phase: St
 	if latency_ms > 0:
 		await get_tree().create_timer(latency_ms / 1000.0).timeout
 	if network and multiplayer.is_server() and epoch == round_epoch:
-		var payload := var_to_bytes(states).compress(FileAccess.COMPRESSION_DEFLATE)
-		receive_snapshot.rpc(round_epoch, seq, payload, round_phase, time, start_time)
+		var payloads: Dictionary = {}
+		for peer in multiplayer.get_peers():
+			var observer_id := peer_actor(peer)
+			var team := int(actors[observer_id].team) if actors.has(observer_id) else -1
+			if not payloads.has(team): payloads[team] = var_to_bytes(Ember.snapshot_for(states,observer_id)).compress(FileAccess.COMPRESSION_DEFLATE)
+			receive_snapshot.rpc_id(peer,round_epoch,seq,payloads[team],round_phase,time,start_time)
 
 @rpc("authority", "call_remote", "unreliable_ordered", 2)
 func receive_snapshot(round_epoch: int, seq: int, payload: PackedByteArray, round_phase: String, time: float, start_time: float) -> void:
@@ -2667,6 +2678,11 @@ func simulate_movement(actor, delta: float, grounded_override: Variant = null) -
 	if not actor.charge.is_empty():
 		VanguardCharge.advance(actor, delta)
 		return actor.velocity.normalized()
+	if int(actor.identity.get("ash_phase",0)) == 2:
+		actor.velocity = Vector3.ZERO
+		actor.jump_queued = false
+		actor.jump_buffer = 0.0
+		return Vector3.ZERO
 	if Fulcrum.motion(self,actor,delta): return Vector3.ZERO
 	if Null.motion(self, actor, delta): return Vector3.ZERO
 	if Outlaw.Lasso.motion(self, actor, delta): return Vector3.ZERO
@@ -2692,6 +2708,8 @@ func simulate_movement(actor, delta: float, grounded_override: Variant = null) -
 		speed *= 0.55
 	if Outlaw.starshot_cast(actor): speed *= Outlaw.STARSHOT_MOVE_SCALE
 	if actor.identity.get("null_haste",0.0)>0: speed *= 1.5
+	if Ember.spirit(actor): speed *= 1.5
+	elif float(actor.identity.get("cinder_left",0.0)) > 0: speed *= 1.8
 	if actor.champion == "Null" and Null.stealthed(actor): speed *= .8
 	# Airborne movement carries world-space takeoff momentum, including when the
 	# player releases movement or turns. Collisions and control effects still stop it.
@@ -2961,6 +2979,8 @@ func ability_block_reason(actor, slot: int, requested: int, timing_allowance: fl
 	if actor.kit[slot].kind == "defense_detonation": return outlaw_aim_test.block_reason(actor)
 	if actor.hp <= 0:
 		return "You are defeated"
+	if Ember.busy(actor):
+		return "" if Ember.spirit(actor) and actor.kit[slot].kind == "ash" else "Reforming from Ash"
 	if actor.kit[slot].kind == "trinket":
 		if actor.cooldowns[slot] > 0: return "Ability is not ready"
 		return "" if CC.can_trinket(actor) else "Requires a control effect"
@@ -3034,6 +3054,9 @@ func try_spell(id: int, slot: int, requested: int, camera_yaw: Variant = null) -
 	if aimed_combat.enabled(actor.kit[slot]): return false # Requires validated aim, never a selected-target fallback.
 	if actor.hp <= 0 or (actor.stunned > 0 and actor.kit[slot].kind != "trinket"):
 		return false
+	if actor.kit[slot].kind == "ash" and Ember.spirit(actor):
+		Ember.recall_ash(self,actor)
+		return true
 	# A selected reset casts immediately. Ready abilities cancel selection and
 	# cast normally; Stealth is a special combat-bypass reset despite no normal CD.
 	var chronoshift_cast := false
@@ -3139,7 +3162,7 @@ func resolve_spell(actor, slot: int, victim, camera_yaw: Variant = null) -> void
 		"shield", "ally_shield":
 			victim.shield = spell.power
 			victim.shield_from = spell.name
-			combat_event(actor.actor_id, victim.actor_id, "WARD", BLUE)
+			combat_event(actor.actor_id, victim.actor_id, "FIRE BARRIER" if actor.champion == "Ember" else "WARD", Color("ff8a4c") if actor.champion == "Ember" else BLUE)
 		"dispel":
 			CC.clear(victim, ["stun", "incapacitate", "disorient"])
 			victim.stunned = 0
@@ -3188,7 +3211,7 @@ func damage(source, victim, amount: float, periodic: bool = false) -> void:
 	if not may_harm(source, victim):
 		feedback(source, "Challenge them to a duel first")
 		return
-	if victim.hp <= 0:
+	if victim.hp <= 0 or Ember.spirit(victim):
 		return
 	if not periodic: Null.direct_hit(self,source,victim)
 	Null.break_stealth(self,victim)
@@ -3351,7 +3374,8 @@ func check_winner() -> void:
 		var states := make_snapshot()
 		finish_round(epoch, winner, states, info)
 		if network:
-			finish_round.rpc(epoch, winner, states, info)
+			for peer in multiplayer.get_peers():
+				finish_round.rpc_id(peer,epoch,winner,Ember.snapshot_for(states,peer_actor(peer)),info)
 
 @rpc("authority", "call_remote", "reliable")
 func finish_round(round_epoch: int, winning_team: int, states: Array, info: Dictionary = {}) -> void:
@@ -3543,6 +3567,20 @@ func combat_event(source: int, victim: int, text: String, color: Color) -> void:
 	if network:
 		show_event.rpc(epoch, source, victim, text, color)
 
+func ember_effect(actor, kind: String, from: Vector3, to: Vector3, route: PackedVector3Array = PackedVector3Array()) -> void:
+	show_ember_effect(epoch,actor.actor_id,kind,from,to,route)
+	if network: show_ember_effect.rpc(epoch,actor.actor_id,kind,from,to,route)
+
+@rpc("authority", "call_remote", "reliable")
+func show_ember_effect(round_epoch: int, source: int, kind: String, from: Vector3, to: Vector3, route: PackedVector3Array) -> void:
+	if dedicated or round_epoch != epoch or not actors.has(source): return
+	var effect = actors[source].get_node_or_null("EmberEffects")
+	if effect == null:
+		effect = load("res://scripts/ember_effects.gd").new()
+		actors[source].add_child(effect)
+		effect.setup(self,actors[source])
+	effect.event(kind,from,to,route)
+
 func outlaw_effect(source: int, victim: int, from: Vector3, to: Vector3, tag: String) -> void:
 	show_outlaw_effect(epoch, source, victim, from, to, tag)
 	if network: show_outlaw_effect.rpc(epoch, source, victim, from, to, tag)
@@ -3593,7 +3631,7 @@ func show_event(round_epoch: int, source: int, victim: int, text: String, color:
 			preload("res://scripts/vanguard_strike.gd").spawn(self, actors[source].position, actor.position, actors[source].base_color)
 		elif text == "STARFALL" and actors[source].champion == "Fulcrum":
 			beam(actor.position + Vector3(0, 12, 0), actor.position, Color("dbbaff"))
-		elif actors[source].champion not in ["Outlaw", "Null"]:
+		elif actors[source].champion not in ["Outlaw", "Null", "Ember"]:
 			beam(actors[source].position, actor.position, color)
 
 func beam(from: Vector3, to: Vector3, color: Color) -> void:
@@ -3690,7 +3728,7 @@ func update_frame(frame: VBoxContainer, id: int, prefix: String) -> void:
 		return
 	var actor = actors[id]
 	var friendly: bool = actors.has(local_id) and actor.team == actors[local_id].team
-	if not friendly and Null.stealthed(actor): frame.hide(); return
+	if not friendly and (Null.stealthed(actor) or Ember.spirit(actor)): frame.hide(); return
 	frame.get_child(0).hide()
 	var health := frame.get_child(1) as ProgressBar
 	health.step = 0.0
@@ -3803,13 +3841,13 @@ func update_visuals(delta: float) -> void:
 	if phase == "countdown":
 		notice.text = "Arena opens in %d" % ceili(countdown)
 	for actor in actors.values():
-		actor.visual_tick(delta, camera, actor.actor_id != local_id and not Null.stealthed(actor), cast_bar_color(actor, false, Color("c7a256")))
+		actor.visual_tick(delta, camera, actor.actor_id != local_id and not Null.stealthed(actor) and not Ember.spirit(actor), cast_bar_color(actor, false, Color("c7a256")))
 		if actor.champion == "Null" and actor.champion_model != null and actor.champion_model.null_art != null:
 			actor.champion_model.null_art.visibility_for(actor,actors.get(local_id),player_options.reduced_effects)
 		if actors.has(local_id) and not Null.targetable(self,actors[local_id],actor):
 			if selected_id==actor.actor_id: selected_id=-1
 			if focus_id==actor.actor_id: focus_id=-1
-		if actor.nameplate != null: actor.nameplate.visible=not Null.stealthed(actor) and actor.hp>0
+		if actor.nameplate != null: actor.nameplate.visible=not Null.stealthed(actor) and not Ember.spirit(actor) and actor.hp>0
 	ring.visible = selected_id != local_id and actors.has(selected_id) and actors[selected_id].hp > 0
 	if ring.visible:
 		ring.position = actors[selected_id].position + Vector3(0, 0.08, 0)
@@ -3842,7 +3880,7 @@ func update_visuals(delta: float) -> void:
 		enemy_buttons[i].visible = i < enemies.size()
 		if i < enemies.size():
 			var foe = actors[enemies[i]]
-			enemy_buttons[i].visible = not Null.stealthed(foe)
+			enemy_buttons[i].visible = not Null.stealthed(foe) and not Ember.spirit(foe)
 			paint_roster_row(enemy_buttons[i], foe, "%d · %s" % [i + 1, "Dummy" if foe.training_dummy else foe.champion], false)
 	for actor in actors.values():
 		var hostile: bool = actors.has(local_id) and actor.team != actors[local_id].team
@@ -3939,7 +3977,7 @@ func sync_hud_visibility() -> void:
 	notice.visible = show_hud
 	for entry in [[player_frame, local_id], [target_frame, selected_id], [focus_frame, focus_id]]:
 		var unit = actors.get(entry[1])
-		var concealed: bool = unit != null and actors.has(local_id) and unit.team != actors[local_id].team and Null.stealthed(unit)
+		var concealed: bool = unit != null and actors.has(local_id) and unit.team != actors[local_id].team and (Null.stealthed(unit) or Ember.spirit(unit))
 		entry[0].visible = ((show_hud and unit != null) or edit_mode) and not concealed
 	party_box.visible = (show_hud and party_ids().size() > 1) or edit_mode
 	enemy_box.visible = not world_mode and ((show_hud and not enemy_ids().is_empty() and mode != 1) or edit_mode)
@@ -4454,7 +4492,7 @@ func request_rejoin(ticket: String) -> void:
 	if not recovery.reclaim(peer, ticket):
 		rejected.rpc_id(peer, "That character is no longer available to reconnect. Join a new match.")
 		return
-	session_restored.rpc_id(peer, epoch, mode, make_snapshot(), phase, elapsed, countdown, lobby_code)
+	session_restored.rpc_id(peer, epoch, mode, Ember.snapshot_for(make_snapshot(),peer_actor(peer)), phase, elapsed, countdown, lobby_code)
 	broadcast_lobby()
 
 @rpc("authority", "call_remote", "reliable")
