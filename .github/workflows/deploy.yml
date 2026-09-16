@@ -97,6 +97,7 @@ jobs:
         run: |
           python3 tests/check_suite_runner_test.py
           python3 tests/check_references_test.py
+          python3 tests/test_motion_resources.py
 
       - name: Arena mesh integrity
         if: matrix.suite == 'gameplay'
@@ -125,6 +126,7 @@ jobs:
         run: |
           ./tests/check_suite.sh "Spell queue checks" godot --headless --path . --script tests/spell_queue_test.gd
           python3 tests/run_spell_queue_network.py
+          python3 tests/run_ember_particle_network.py --test-latency
 
       - name: Menu, availability, rematch and frame-budget checks
         if: matrix.suite == 'gameplay'
@@ -181,6 +183,10 @@ jobs:
       - name: Aimed Solar Flare and directional Blink charges
         if: matrix.suite == 'gameplay'
         run: ./tests/check_suite.sh "Ember abilities checks" godot --headless --path . --script tests/ember_abilities_test.gd
+
+      - name: Ember particles, skating, and Ash
+        if: matrix.suite == 'gameplay'
+        run: ./tests/check_suite.sh "Ember particle abilities" godot --headless --path . --script tests/ember_particle_abilities_test.gd
 
       - name: September balance and targeted playback regressions
         if: matrix.suite == 'gameplay'

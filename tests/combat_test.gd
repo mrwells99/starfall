@@ -246,7 +246,7 @@ func run() -> void:
 			check(a.kind == Auras.DEBUFF and is_equal_approx(a.remaining, 2.4), "Stun aura carries its own timer")
 			check(not a.description.is_empty(), "Stun aura explains itself")
 		if a.key == "shield":
-			check(a.name == "Ward", "Shield aura is named for Ember's ability")
+			check(a.name == "Fire Barrier", "Shield aura is named for Ember's ability")
 	check(Auras.shield_name("Vanguard") == "Iron Skin" and Auras.shield_name("Fulcrum") == "Umbra"
 		and Auras.shield_name("Luminary") == "Sanctuary", "One shield field, four champion names")
 	subject.hp = 0
