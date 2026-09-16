@@ -44,7 +44,7 @@ func run() -> void:
 	check(b.stunned == 0, "Damage breaks Solar Flare")
 	a.identity.heat = 40
 	arena.resolve_spell(a, 9, a)
-	check(a.identity.heat == 20 and a.identity.wake > 0, "Cinderstep spends Heat and creates a trail")
+	check(a.identity.heat == 20 and a.identity.cinder_left > 0 and not a.identity.cinder_trail.is_empty(), "Cinderstep spends Heat and creates a trail")
 	await reset("Vanguard")
 	a = arena.actors[1]; b = arena.actors[4]
 	var ally = arena.actors[2]

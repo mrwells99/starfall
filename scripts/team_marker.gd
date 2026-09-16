@@ -40,7 +40,7 @@ func install(owner_actor) -> void:
 	ground.hide()
 	brackets.hide()
 func sync(hostile: bool, personal: bool, selected: bool) -> void:
-	var concealed: bool=actor.identity.get("stealth",false)
+	var concealed: bool=actor.identity.get("stealth",false) or preload("res://scripts/ember_mechanics.gd").spirit(actor)
 	ground.visible = not personal and actor.hp > 0 and not concealed
 	brackets.visible = selected and not personal and actor.hp > 0 and not concealed
 	if last_hostile != int(hostile):

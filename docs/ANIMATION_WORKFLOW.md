@@ -67,3 +67,10 @@ The owner handles Git publication and deployment. No automatic commits, pushes o
 Null's latest stealth-only tuning and the all-character jump rollout are recorded in `local_resources/animation_cache/entries/starfall/shared-jump/ual53/living-b-v1/`. This supersedes the prior Null-only Living balance installation; its exact A/B options remain cached.
 
 Historical elbow-only and boundary revisions remain saved under r005-elbow-fall/ and boundary-smoothing-v1/; Living balance supersedes their presenter settings.
+
+
+## Ember particle experiment and Linux portability (September 16)
+
+The owner requested a separate Git-visible particle workflow, linked body motion, and a locally installed Ember test using best judgment. See [ability-particles](../art_source/workflows/ability-particles/README.md) for phase/fade contracts, downloaded sources, provisional tuning, the exact user request and validation. This experiment is installed; user visual acceptance is not implied. Skating is an editable procedural layer shared with the compact server rig, not a claimed mocap bake.
+
+The imported `local_resources` ZIP is flattened in this checkout. `python tools/motion_resources.py doctor` discovers native tools; its `shelf` and `inventory` commands adapt both folder layouts and inherited Windows paths without changing the original catalogues. [Linux instructions](../art_source/workflows/ability-particles/LINUX.md) cover Blender, FFmpeg and the portable reference shelf.

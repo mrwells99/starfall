@@ -174,7 +174,7 @@ static func swing_progress(t: float) -> float:
 	return pow(clampf(t,0,1),2.3)
 
 static func valid_enemy(game, a, b) -> bool:
-	return b.hp>0 and b.team!=a.team and game.may_harm(a,b) and not Smoke.separates(game,a,b)
+	return b.hp>0 and b.team!=a.team and not preload("res://scripts/ember_mechanics.gd").spirit(b) and game.may_harm(a,b) and not Smoke.separates(game,a,b)
 
 static func in_divide(position: Vector3, origin: Vector3, yaw: float) -> bool:
 	var local: Vector3 = Basis(Vector3.UP,-yaw)*(position-origin)

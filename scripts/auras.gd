@@ -9,7 +9,7 @@ extends RefCounted
 # already authoritative and already in every snapshot, so an aura cannot be
 # shown that the simulation does not believe in.
 #
-# Display names depend on champion: the same shield field is Ward on Ember,
+# Display names depend on champion: the same shield field is Fire Barrier on Ember,
 # Iron Skin on Vanguard, Umbra on Fulcrum, and Sanctuary when a Luminary put it
 # there. Only the name changes — the mechanic is one field.
 
@@ -18,6 +18,8 @@ const BUFF := "buff"
 
 static func shield_name(champion: String) -> String:
 	match champion:
+		"Ember":
+			return "Fire Barrier"
 		"Vanguard":
 			return "Iron Skin"
 		"Fulcrum":
@@ -85,6 +87,10 @@ static func active(actor, sources: Array = [], local_source: int = -1) -> Array:
 			"description": "Moves 65% faster. Does not increase jump height or clear stuns.",
 		})
 	var identity: Dictionary = actor.identity
+	if int(identity.get("ash_phase",0)) > 0:
+		out.append({"key":"ash", "name":"Ash" if int(identity.ash_phase)==1 else "Reforming", "kind":BUFF, "remaining":identity.ash_left, "source":"Ash", "color":Color("ffb274"), "description":"Invulnerable and hidden from enemies; move 50% faster. Press Ash again to recall." if int(identity.ash_phase)==1 else "Ash returns along your route. Movement is frozen; invulnerability has ended."})
+	if float(identity.get("cinder_left",0)) > 0:
+		out.append({"key":"cinder", "name":"Cinderstep", "kind":BUFF, "remaining":identity.cinder_left, "source":"Cinderstep", "color":Color("ff9b51"), "description":"Skating at 80% increased movement speed, leaving damaging flames."})
 	if identity.get("gravity_flow",0.0)>0:
 		out.append({"key":"gravity_flow","name":"Gravity Flow","kind":BUFF,"remaining":identity.gravity_flow,"color":Color("c080ff"),"source":"Gravity Flow","description":"Ruin/Divide off GCD. Instant Divide; +50% damage below 30% health."})
 	if identity.get("divide_ready",0.0)>0:

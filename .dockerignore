@@ -73,3 +73,16 @@ explosive_anim_importer v4.2.py
 explosive_anim_importer v5.0.py
 explosive.ws-products-rpg-animations-glb.url
 explosive.ws-to-godot.url
+
+# Shared resource ZIPs extracted at project root on Linux.
+animation_cache/
+animation_references/
+animation_sources/
+animation_tools/
+diagnostics/
+fulcrum-redesign/
+merge_backups/
+workflow_backups/
+workflow_tools/
+workflows/
+downloads/

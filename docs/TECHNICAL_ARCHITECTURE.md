@@ -636,3 +636,10 @@ Coverage: `tests/spell_queue_test.gd` checks boundaries, replacement, cast/GCD t
 ### Match statistics wire format — September 14
 
 Snapshot `stats` is a `PackedFloat64Array` ordered as damage, healing, kills, interrupts and crowd-control applications. Actors retain named dictionaries internally; receipt also accepts the prior `match_stats` dictionary. Empty spell queues are omitted and receipt defaults to an empty queue. This keeps the combat snapshot fixture under its existing 1,200-byte compressed budget. Release 0.11.7 requires matching server and desktop versions.
+
+
+## Ember local particle workflow (September 16)
+
+`ember_mechanics.gd` owns Ash phases, the safe-center annulus and persistent Cinderstep ground trail. `ember_effects.gd` owns client-only retained particle batches and statue/ghost materials. Cast events start local timers; no particle frames/poses are streamed. Dedicated servers skip render-node/model creation. `ember_skate_pose.gd` is shared by visible and compact hitbox presenters.
+
+Ember state uses indexed `ember` snapshot fields; Cinder trail positions/lifetimes quantize to 1cm/10ms for presentation. Authoritative hit tests retain full precision. Snapshot payloads are prepared per observing team. Enemy Ash snapshots mask current position/yaw/velocity and withhold the live route; return route is exposed only after recall. Round-start/recovery/result snapshots use the same masking. Current clients and servers must be upgraded together. Test commands, source hashes and tuning decisions live in [the tracked workflow](../art_source/workflows/ability-particles/README.md).

@@ -1,0 +1,90 @@
+{
+  "settings": {
+    "actor_count": 6,
+    "adapter": "AMD Radeon RX 7800 XT (RADV NAVI32)",
+    "backend": "forward_plus",
+    "capture": false,
+    "engine": {
+      "build": "official",
+      "hash": "f62fdbde15035c5576dad93e586201f4d41ef0cb",
+      "hex": 263425,
+      "major": 4,
+      "minor": 5,
+      "patch": 1,
+      "status": "stable",
+      "string": "4.5.1-stable (official)",
+      "timestamp": 0
+    },
+    "frame_cap": 60,
+    "resolution": [
+      1280,
+      800
+    ],
+    "vsync": 1
+  },
+  "runs": [
+    {
+      "effects": "on",
+      "round": 1,
+      "frames": 2147,
+      "median_ms": 16.656,
+      "p95_ms": 19.154,
+      "p99_ms": 20.454,
+      "worst_ms": 191.573,
+      "over_33ms": 1,
+      "over_50ms": 1,
+      "over_100ms": 1,
+      "after_first_400ms_worst": 24.031,
+      "unfocused_frames": 2137
+    },
+    {
+      "effects": "on",
+      "round": 2,
+      "frames": 2154,
+      "median_ms": 16.677,
+      "p95_ms": 19.428,
+      "p99_ms": 20.948,
+      "worst_ms": 166.615,
+      "over_33ms": 1,
+      "over_50ms": 1,
+      "over_100ms": 1,
+      "after_first_400ms_worst": 27.425,
+      "unfocused_frames": 2154
+    },
+    {
+      "effects": "off",
+      "round": 1,
+      "frames": 2149,
+      "median_ms": 16.666,
+      "p95_ms": 19.271,
+      "p99_ms": 20.767,
+      "worst_ms": 159.813,
+      "over_33ms": 1,
+      "over_50ms": 1,
+      "over_100ms": 1,
+      "after_first_400ms_worst": 27.145,
+      "unfocused_frames": 2137
+    },
+    {
+      "effects": "off",
+      "round": 2,
+      "frames": 2153,
+      "median_ms": 16.636,
+      "p95_ms": 19.248,
+      "p99_ms": 20.628,
+      "worst_ms": 168.891,
+      "over_33ms": 1,
+      "over_50ms": 1,
+      "over_100ms": 1,
+      "after_first_400ms_worst": 24.904,
+      "unfocused_frames": 2153
+    }
+  ],
+  "limitations": [
+    "Frame cap remained 60; most samples were unfocused. These are not foreground qualification results.",
+    "Effects-off disables rendering/process of the new compositor, but retains gameplay and preparation costs. It is not a pre-change checkout.",
+    "Shader caches were retained; no cache-cleared first-run claim.",
+    "Wall frame intervals include pacing. No isolated GPU timings were recorded.",
+    "One new Ember compositor is exercised per six-actor scene. Six concurrent full effect stacks were not benchmarked."
+  ]
+}

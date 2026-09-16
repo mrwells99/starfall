@@ -41,6 +41,8 @@ const PATHS := {
 	"Lasso": "res://assets/icons/abilities/outlaw/lasso.svg",
 	"Outlaw/Ward": "res://assets/icons/abilities/outlaw/ward.svg",
 	"Outlaw/Mend": "res://assets/icons/abilities/outlaw/mend.svg",
+	"Ash": "res://assets/icons/abilities/ember/ash.svg",
+	"Fire Barrier": "res://assets/icons/abilities/ember/fire_barrier.svg",
 	"Kindle": "res://assets/icons/abilities/firebolt.png",
 	"Flashpoint": "res://assets/icons/abilities/flare.png",
 	"Supernova": "res://assets/icons/abilities/supernova.png",
